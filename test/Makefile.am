@@ -230,7 +230,8 @@ aria2c_SOURCES += MetalinkerTest.cc\
 endif # ENABLE_METALINK
 
 if ENABLE_ASYNC_DNS
-aria2c_SOURCES += AsyncNameResolverTest.cc
+aria2c_SOURCES += AsyncNameResolverTest.cc\
+	AsyncNameResolverManTest.cc
 endif # ENABLE_ASYNC_DNS
 
 if !HAVE_TIMEGM

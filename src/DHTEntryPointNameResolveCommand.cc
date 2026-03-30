@@ -92,6 +92,7 @@ bool DHTEntryPointNameResolveCommand::execute()
     return true;
   }
   try {
+    bool useSystemResolver = false;
 #ifdef ENABLE_ASYNC_DNS
     if (e_->getOption()->getAsBool(PREF_ASYNC_DNS)) {
       while (!entryPoints_.empty()) {
@@ -101,6 +102,12 @@ bool DHTEntryPointNameResolveCommand::execute()
         if (rv == 0) {
           e_->addCommand(std::unique_ptr<Command>(this));
           return false;
+        }
+        else if (rv == -1 && !asyncNameResolverMan_->started()) {
+          // c-ares is not usable on this system; fall back to the
+          // synchronous system resolver for all remaining entry points.
+          useSystemResolver = true;
+          break;
         }
         else {
           if (rv == 1) {
@@ -114,7 +121,7 @@ bool DHTEntryPointNameResolveCommand::execute()
         entryPoints_.pop_front();
       }
     }
-    else
+    if (!e_->getOption()->getAsBool(PREF_ASYNC_DNS) || useSystemResolver)
 #endif // ENABLE_ASYNC_DNS
     {
       NameResolver res;
@@ -165,7 +172,11 @@ int DHTEntryPointNameResolveCommand::resolveHostname(
     std::vector<std::string>& res, const std::string& hostname)
 {
   if (!asyncNameResolverMan_->started()) {
-    asyncNameResolverMan_->startAsync(hostname, e_, this);
+    if (!asyncNameResolverMan_->startAsync(hostname, e_, this)) {
+      A2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_FAILED, getCuid(), hostname.c_str(),
+                      "Async DNS resolver is not usable on this system"));
+      return -1;
+    }
   }
 
   switch (asyncNameResolverMan_->getStatus()) {

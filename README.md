@@ -8,10 +8,12 @@ Cross-platform statically linked [aria2](https://github.com/aria2/aria2) builds 
 |----------|------|---------|:-------:|
 | Linux | x86_64 | OpenSSL | ✅ Fully static |
 | Linux | ARM64 | OpenSSL | ✅ Fully static |
+| Linux | LoongArch64 | OpenSSL | ✅ Fully static |
+| Linux | RISC-V 64 | OpenSSL | ✅ Fully static |
 | macOS | ARM64 | AppleTLS | ✅ System frameworks only |
 | macOS | x86_64 | AppleTLS | ✅ System frameworks only |
-| Windows | x86_64 | Schannel | ✅ System DLLs only |
-| Windows | ARM64 | Schannel | ✅ System DLLs only |
+| Windows | x86_64 | OpenSSL | ✅ Fully static |
+| Windows | ARM64 | OpenSSL | ✅ Fully static |
 
 > **Note:** Official aria2 releases only ship Windows (x86/x64) and Android (ARM64) binaries.
 
@@ -41,8 +43,8 @@ chmod +x aria2c   # Linux/macOS only
 | c-ares | 1.19.1 | All |
 | SQLite | 3.43.1 | All |
 | libssh2 | 1.11.0 | All |
-| OpenSSL | System | Linux |
-| GMP | 6.3.0 | macOS, Windows |
+| OpenSSL | 3.4.4 | Linux, Windows |
+| GMP | 6.3.0 | macOS |
 | libgpg-error | 1.51 | macOS |
 | libgcrypt | 1.10.3 | macOS |
 

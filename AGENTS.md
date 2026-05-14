@@ -50,14 +50,14 @@ Windows and MinGW probes need extra care. Validate Win32 constants and APIs thro
 ```cmake
 project(
   aria2
-  VERSION 1.37.0
+  VERSION 2.0.0
   ...
 )
 ```
 
 `PROJECT_VERSION` feeds generated package metadata through CMake, including `PACKAGE_VERSION`, `VERSION`, and `cmake/libaria2.pc.cmake.in`. Helper scripts that need the project version must read it from `CMakeLists.txt`; they must not carry their own version constants.
 
-Release artifact names derive from the git tag in `.github/workflows/release.yml` with `GITHUB_REF_NAME#v`. For a release tag `v1.37.0`, packaged artifacts must use `1.37.0` as the version component.
+Release artifact names derive from the git tag in `.github/workflows/release.yml` with `GITHUB_REF_NAME#v`. For a release tag `v2.0.0`, packaged artifacts must use `2.0.0` as the version component.
 
 When bumping the project version, update the CMake project version first, then verify every generated or scripted consumer still derives from that source. Do not scatter manual version edits across scripts, Dockerfiles, workflow files, documentation, or package templates.
 
@@ -114,8 +114,8 @@ bash -n packaging/scripts/android-release
 Then create and push the tag:
 
 ```bash
-git tag -a v1.37.0 -m "aria2 1.37.0"
-git push origin v1.37.0
+git tag -a v2.0.0 -m "aria2 2.0.0"
+git push origin v2.0.0
 ```
 
 After the workflow completes, inspect all six artifacts and the checksum file before publishing the draft GitHub Release.
@@ -125,10 +125,10 @@ After the workflow completes, inspect all six artifacts and the checksum file be
 If a release build fails before the draft Release is published, fix the issue in a new commit, delete the failed local and remote tag, delete the draft Release if one was created, then recreate the same tag from the fixed commit.
 
 ```bash
-git push origin --delete v1.37.0
-git tag -d v1.37.0
-git tag -a v1.37.0 -m "aria2 1.37.0"
-git push origin v1.37.0
+git push origin --delete v2.0.0
+git tag -d v2.0.0
+git tag -a v2.0.0 -m "aria2 2.0.0"
+git push origin v2.0.0
 ```
 
 If a GitHub Release has already been published publicly, do not replace assets silently. Create a new patch release unless the maintainer explicitly chooses a tag replacement recovery.

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
   aria2
-  VERSION 1.37.0
+  VERSION 2.0.0
   DESCRIPTION "High speed download utility"
   HOMEPAGE_URL "https://aria2.github.io/"
   LANGUAGES C CXX)

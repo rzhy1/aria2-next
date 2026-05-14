@@ -57,7 +57,7 @@ project(
 
 `PROJECT_VERSION` feeds generated package metadata through CMake, including `PACKAGE_VERSION`, `VERSION`, and `cmake/libaria2.pc.cmake.in`. Helper scripts that need the project version must read it from `CMakeLists.txt`; they must not carry their own version constants.
 
-Release artifact names derive from the git tag in `.github/workflows/release.yml` with `GITHUB_REF_NAME#v`. For a release tag `v2.0.0`, packaged artifacts must use `2.0.0` as the version component.
+Release artifact names derive from the GitHub Release tag passed to `.github/workflows/release.yml` as `RELEASE_TAG`. For a release tag `v2.0.0`, packaged artifacts must use `2.0.0` as the version component.
 
 When bumping the project version, update the CMake project version first, then verify every generated or scripted consumer still derives from that source. Do not scatter manual version edits across scripts, Dockerfiles, workflow files, documentation, or package templates.
 
@@ -73,7 +73,7 @@ Do not add automated dependency PR systems, scheduled dependency update workflow
 
 ## Release Process
 
-The release workflow is `.github/workflows/release.yml`. It runs on `workflow_dispatch` and on tag pushes matching `v*`. The final GitHub Release creation job runs only for tag refs.
+The release workflow is `.github/workflows/release.yml`. It runs on `release: published` and on manual `workflow_dispatch` validation. Tag pushes must not trigger release builds directly.
 
 Maintained release targets are:
 
@@ -86,15 +86,15 @@ Maintained release targets are:
 | Windows x86_64 | `build-windows-x64` | `aria2-<version>-windows-x86_64.zip` |
 | Windows ARM64 | `build-windows-arm64` | `aria2-<version>-windows-arm64.zip` |
 
-The release job downloads all platform artifacts, generates `aria2-<version>-checksums.sha256`, and creates a draft GitHub Release through `softprops/action-gh-release@v2` with generated release notes.
+The upload job downloads all platform artifacts, generates `aria2-<version>-checksums.sha256`, and uploads assets to the already-published GitHub Release with `gh release upload`. Manual workflow runs upload artifacts only to the Actions run for validation.
 
 ### Publishing a Release
 
-Finish all code, packaging, documentation, and verification work before creating the tag.
+Finish all code, packaging, documentation, and verification work before publishing the GitHub Release.
 
 Use `v{PROJECT_VERSION}` as the release tag. The tag version and the `project(... VERSION ...)` value in `CMakeLists.txt` must match exactly after removing the leading `v`.
 
-Before pushing the tag, verify the local build:
+Before creating the GitHub Release, verify the local build:
 
 ```bash
 cmake --preset default
@@ -111,27 +111,24 @@ bash -n packaging/scripts/mingw-release
 bash -n packaging/scripts/android-release
 ```
 
-Then create and push the tag:
+Push the verified release commit to `main` and wait for CI to pass. Then create and publish the GitHub Release. GitHub Release creation may create the tag; do not push the release tag separately as a release trigger.
 
 ```bash
-git tag -a v2.0.0 -m "aria2 2.0.0"
-git push origin v2.0.0
+git push origin main
+gh release create v2.0.0 --title "v2.0.0 - CMake-Only Cross-Platform Release Foundation" --notes-file /path/to/release-notes.md
 ```
 
-After the workflow completes, inspect all six artifacts and the checksum file before publishing the draft GitHub Release.
+After the release workflow completes, inspect all six uploaded artifacts and the checksum file on the published GitHub Release.
 
 ### Failed Release Recovery
 
-If a release build fails before the draft Release is published, fix the issue in a new commit, delete the failed local and remote tag, delete the draft Release if one was created, then recreate the same tag from the fixed commit.
+If the release workflow fails after the GitHub Release is published, fix the issue in a new commit. If the release has not been announced or consumed, delete the failed GitHub Release and tag, then recreate the same release from the fixed commit. If the release has already been consumed publicly, create a new patch release unless the maintainer explicitly chooses a tag replacement recovery.
 
 ```bash
-git push origin --delete v2.0.0
-git tag -d v2.0.0
-git tag -a v2.0.0 -m "aria2 2.0.0"
-git push origin v2.0.0
+gh release delete v2.0.0 --cleanup-tag --yes
+git fetch --prune --tags
+gh release create v2.0.0 --target main --title "v2.0.0 - CMake-Only Cross-Platform Release Foundation" --notes-file /path/to/release-notes.md
 ```
-
-If a GitHub Release has already been published publicly, do not replace assets silently. Create a new patch release unless the maintainer explicitly chooses a tag replacement recovery.
 
 ## CI and Verification
 
@@ -151,7 +148,7 @@ For broad CMake option changes, run the matrix helper:
 tools/build_test.sh
 ```
 
-For release workflow changes, validate the affected shell snippets, inspect the release matrix, and use `workflow_dispatch` when local verification cannot cover the platform path.
+For release workflow changes, validate the affected shell snippets, inspect the release matrix, and use `workflow_dispatch` with an explicit tag input when local verification cannot cover the platform path.
 
 Do not ignore release test failures by adding `|| true` to new test commands. Existing tolerated checks should stay limited to diagnostics such as binary dependency inspection unless a maintainer explicitly accepts the risk.
 

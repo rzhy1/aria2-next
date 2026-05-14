@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: CMake Build and Test
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build pkg-config \
+            libcppunit-dev libssl-dev libc-ares-dev libsqlite3-dev \
+            libxml2-dev zlib1g-dev libssh2-1-dev
+
+      - name: Configure
+        run: cmake --preset default
+
+      - name: Build
+        run: cmake --build --preset default
+
+      - name: Test
+        run: ctest --preset default
+
+      - name: Verify binary version
+        run: build/default/aria2c --version
+
+  script-syntax:
+    name: Script Syntax
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate maintained shell scripts
+        run: |
+          bash -n tools/build_test.sh
+          bash -n packaging/scripts/mingw-release
+          bash -n packaging/scripts/android-release

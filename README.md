@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/AnInsomniacy/aria2-next.svg)](https://github.com/AnInsomniacy/aria2-next/releases)
 [![License: GPLv2](https://img.shields.io/badge/license-GPLv2-blue.svg)](COPYING)
 
-aria2-next is a maintained fork of [aria2](https://github.com/aria2/aria2) that imported the upstream repository's 1,900+ issue history, cleaned and reviewed the actionable bug reports, fixed the retained issues where the source defect was confirmed, and modernized legacy project infrastructure such as the Autotools build path into CMake. It is also the `aria2c` sidecar engine used by [Motrix Next](https://github.com/AnInsomniacy/motrix-next).
+aria2-next is a maintained fork of [aria2](https://github.com/aria2/aria2) that worked through the upstream repository's 1,900+ issue history, cleaned and reviewed the actionable bug reports, fixed the retained issues where the source defect was confirmed, and modernized legacy project infrastructure such as the Autotools build path into CMake. It is also the `aria2c` sidecar engine used by [Motrix Next](https://github.com/AnInsomniacy/motrix-next).
 
 The protocols and integration surfaces have not been reinvented. The binary is still `aria2c`; existing CLI options, configuration files, session files, JSON-RPC methods, package metadata, and public libaria2 headers remain aria2-compatible, so other applications can use these builds directly.
 

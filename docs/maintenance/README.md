@@ -1,7 +1,7 @@
 # Maintenance
 
 This directory contains project maintenance records that are useful for ongoing
-stewardship but are not part of the build, test, or release execution path.
+stewardship but are not part of the build, tests, or release execution path.
 
 ## Layout
 

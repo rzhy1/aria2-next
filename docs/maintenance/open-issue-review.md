@@ -1,13 +1,13 @@
 # Upstream Open Issue Review
 
 This document records the final review result for the open bug issues imported from
-the upstream `aria2/aria2` GitHub issue tracker during the aria2-next maintenance
+the upstream `aria2/aria2` GitHub issue tracker during the aria2-next docs/maintenance
 work.
 
 The repository keeps only the durable review artifacts:
 
-- `maintenance/open-issue-review.md` is the human-readable summary.
-- `maintenance/issue-review-matrix.csv` is the complete issue-by-issue review
+- `docs/maintenance/open-issue-review.md` is the human-readable summary.
+- `docs/maintenance/issue-review-matrix.csv` is the complete issue-by-issue review
   matrix.
 
 The temporary GitHub API cache, raw issue payloads, and raw comment payloads were
@@ -21,7 +21,7 @@ import and survived the bug-focused cleanup pass. Feature requests, broad suppor
 questions, duplicates without actionable evidence, and stale reports without a
 maintainable code path were excluded before this final matrix was produced.
 
-Each retained issue has one row in `maintenance/issue-review-matrix.csv`. The
+Each retained issue has one row in `docs/maintenance/issue-review-matrix.csv`. The
 matrix records the issue number, priority, affected area, title, final state,
 root-cause group, required action, and review evidence.
 
@@ -44,7 +44,7 @@ By module:
 - HTTP range and retry behavior: 11
 - RPC and WebSocket: 5
 - Other core behavior: 5
-- Build and test infrastructure: 3
+- Build and tests infrastructure: 3
 
 By required action:
 
@@ -63,7 +63,7 @@ By required action:
 
 ## Interpretation
 
-`fixed-verified` rows correspond to issues addressed by code or test changes in
+`fixed-verified` rows correspond to issues addressed by code or tests changes in
 this maintenance pass and verified with the local test suite or targeted builds.
 
 `no-code`, environment, site, usage, configuration, documented-behavior, and
@@ -83,7 +83,7 @@ The final review matrix was checked before preservation:
 - Every retained issue has a final state.
 - Every retained issue has a required action.
 - Every retained issue has review evidence.
-- The local full test run completed successfully after the maintenance fixes:
-  `cd test && ./aria2c` reported `OK (1009)`.
+- The local full tests run completed successfully after the docs/maintenance fixes:
+  `cd tests && ./aria2c` reported `OK (1009)`.
 
 The matrix is the authoritative audit artifact for this issue review pass.

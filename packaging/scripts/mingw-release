@@ -37,7 +37,7 @@ test -z "$LABEL" && LABEL=$HOST
 
 TOP_SRCDIR=${TOP_SRCDIR:-$(cd "$(dirname "$0")/../.." && pwd)}
 cd "$TOP_SRCDIR"
-. ./tools/script-helper
+. ./packaging/scripts/common.sh
 
 get_version
 
@@ -49,7 +49,7 @@ fi
 DIST_DIR=aria2-${VERSION}-${LABEL}-build${BUILD_VER}
 
 mkdir "$DIST_DIR"
-cp AUTHORS COPYING LICENSE.OpenSSL README.md packaging/docs/WINDOWS.md \
+cp AUTHORS COPYING LICENSE.OpenSSL README.md packaging/notes/WINDOWS.md \
     mingw-out/aria2c.exe "$DIST_DIR"
 zip -9 -r "$DIST_DIR.zip" "$DIST_DIR"
 rm -rf "$DIST_DIR"

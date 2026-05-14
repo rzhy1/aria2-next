@@ -2,21 +2,18 @@
 
 This directory owns release packaging, cross-compilation helpers, Docker build contexts, platform package resources, and release dependency metadata.
 
-`dependencies.env` is the authoritative dependency version source for maintained release automation. Update it before changing dependency versions in scripts, Dockerfiles, workflow files, or release documentation.
+`dependencies.env` is the authoritative dependency version source for maintained release automation.
 
 ## Layout
 
 | Path | Purpose |
-|------|---------|
-| `docs/` | Platform-specific notes copied into binary packages |
-| `docker/` | Maintained Dockerfiles for reproducible cross-platform build images |
+| --- | --- |
+| `notes/` | Platform notes copied into binary packages |
+| `docker/` | Dockerfiles for reproducible cross-platform build images |
 | `macos/` | macOS package resources |
-| `scripts/` | Maintained release packaging helpers |
+| `scripts/` | Release packaging helpers |
+| `dependencies.env` | Maintained dependency baseline |
 
-Supported packaging paths must build this repository checkout through CMake. They should not clone upstream aria2 during a release build.
+Supported packaging paths build this repository checkout through CMake. Third-party dependencies may use their own upstream build systems while they are being built as release dependencies.
 
-Third-party dependencies may use their own upstream build systems while they are being built as release dependencies. That does not make those build systems supported for aria2-next itself.
-
-Unsupported platform experiments should be deleted instead of retained in the maintained tree.
-
-Binary packages should include `README.md`, license files, and the relevant platform note from `docs/`. They should not include generated changelog snapshots; release history lives in git and GitHub Releases.
+Binary packages should include `README.md`, license files, and the relevant platform note from `notes/`. Release history belongs in git tags and GitHub Releases.

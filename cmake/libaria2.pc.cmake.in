@@ -5,7 +5,7 @@ includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 
 Name: aria2
 Description: High speed download utility library
-URL: https://aria2.github.io/
+URL: https://github.com/AnInsomniacy/aria2-next
 Version: @PROJECT_VERSION@
 Libs: -L${libdir} -laria2
 Cflags: -I${includedir}

@@ -1,90 +1,25 @@
-aria2 for Android devices
-=========================
+# Android ARM64 Package Note
 
-This file is copied into Android release packages. Development and release
-automation for Android lives under ``packaging/`` in the source tree.
+This package contains the aria2-next `aria2c` binary for Android ARM64. It is a native command-line executable, not an Android application package.
 
-aria2 is a lightweight multi-protocol & multi-source download utility
-operated in command-line. It supports HTTP/HTTPS, FTP, BitTorrent and
-Metalink.
+The binary is built with Android NDK r29. Maintained dependency versions are defined in `packaging/dependencies.env` in the source tree.
 
-Install
--------
+Statically linked release dependencies:
 
-aria2 is not an ordinary Android Java application. It is a C++ native
-application and operates in command-line.  You don't have to 'root'
-your device to use aria2.  Because aria2 is a command-line program,
-you need a terminal emulator. First install Android Terminal Emulator
-from Android Market (or build it from source and install. See
-https://github.com/jackpal/Android-Terminal-Emulator/).
+| Dependency | Version |
+| --- | --- |
+| OpenSSL | 3.5.6 LTS |
+| Expat | 2.8.1 |
+| zlib | 1.3.2 |
+| c-ares | 1.34.6 |
+| libssh2 | 1.11.1 |
 
-1. Copy aria2c executable to ``/mnt/sdcard`` on your device.
-2. Run Android Terminal Emulator.
-3. ``mkdir /data/data/jackpal.androidterm/aria2``
-4. ``cat /mnt/sdcard/aria2c > /data/data/jackpal.androidterm/aria2/aria2c``
-5. ``chmod 744 /data/data/jackpal.androidterm/aria2/aria2c``
-6. Add the following commands to the initial command of Android
-   Terminal Emulator::
+Example use from an Android shell environment:
 
-       export HOME=/data/data/jackpal.androidterm/aria2; cd $HOME
+```sh
+chmod 755 ./aria2c
+./aria2c --version
+./aria2c https://example.com/file.iso
+```
 
-7. Exit Android Terminal Emulator.
-8. Run Android Terminal Emulator again.
-9. See whether aria2c actually works by invoking ``./aria2c -v``
-
-How to use
-----------
-
-See `the online manual
-<https://aria2.github.io/manual/en/html/>`_.
-
-Notes
------
-
-aria2c executable was generated using Android NDK r29. Maintained dependency
-versions are defined in ``packaging/dependencies.env`` in the source tree.
-
-The following libraries were statically linked.
-
-* openssl 3.5.6
-* expat 2.8.1
-* zlib 1.3.2
-* c-ares 1.34.6
-* libssh2 1.11.1
-
-Since Android does not have ``/etc/resolv.conf``, c-ares (asynchronous
-DNS resolver) is disabled by default. But name resolution is sometimes
-a little bit slow, so I recommend to enable c-ares. You can enable it
-using ``--async-dns`` and specify DNS servers using
-``--async-dns-server`` option, like this::
-
-  --async-dns --async-dns-server=`getprop net.dns1`,`getprop net.dns2`
-
-Additionally, the CA certificates shipped with Android don't locate in
-the same place as those of normal Unix-like systems do, so this
-workaround might be useful to securely download files via HTTPS::
-
-   cat /etc/security/cacerts/* | aria2c --ca-certificate=/proc/self/fd/0 $@
-
-Because it is tedious to type these long parameters every time you use
-aria2c, the following wrapper shell script would be handy::
-
-    #!/system/bin/sh
-    cat /etc/security/cacerts/* | \
-    /data/data/jackpal.androidterm/aria2c \
-      --ca-certificate=/proc/self/fd/0 \
-      --async-dns \
-      --async-dns-server=`getprop net.dns1`,`getprop net.dns2` \
-      "$@"
-
-Please note that you need to add executable file mode bit to this
-wrapper script too. (e.g., ``chmod 744 /PATH/TO/SCRIPT``)
-
-Known Issues
-------------
-
-* Since Android does not have ``/dev/stdout``, ``-l-`` does not work.
-  ``/proc/self/fd/0`` is a workaround for Android.
-
-* Android Terminal Emulator sometimes stops updating console. It looks
-  like aria2c hangs, but aria2c continues to run.
+Android certificate and DNS paths differ across shells and devices. Pass `--ca-certificate`, `--async-dns`, or `--async-dns-server` explicitly when your runtime environment requires them.

@@ -1,12 +1,9 @@
 # Tools
 
-This directory contains repository helper scripts that are not platform-specific
-release packaging.
+This directory contains local developer helpers.
 
 | Script | Purpose |
-|--------|---------|
-| `build_test.sh` | Local build and test helper used by maintainers |
-| `script-helper` | Shared shell helper functions sourced by packaging scripts |
+| --- | --- |
+| `build_test.sh` | Runs the local CMake option matrix |
 
-Platform release scripts belong under `packaging/scripts/`. General developer
-helpers belong here.
+Release packaging helpers live under `packaging/scripts/`.

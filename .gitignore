@@ -59,21 +59,21 @@ _CPack_Packages/
 # Documentation outputs
 /aria2c.1
 /aria2c.1.html
-/doc/manual-src/*/conf.py
-/doc/manual-src/*/_build/
-/third_party/wslay/doc/man/
-/third_party/wslay/doc/sphinx/_build/
+/docs/manual/*/conf.py
+/docs/manual/*/_build/
+/third_party/wslay/docs/man/
+/third_party/wslay/docs/sphinx/_build/
 
 # Tests and runtime side effects
-/test/aria2c
-/test/aria2c.exe
-/test/*.log
-/test/*.trs
-/test/test-suite.log
-/test/test_outdir/
+/tests/aria2c
+/tests/aria2c.exe
+/tests/*.log
+/tests/*.trs
+/tests/test-suite.log
+/tests/test_outdir/
 /test_outdir/
 *.aria2
-!/test/load*.aria2
+!/tests/load*.aria2
 *.sqlite-shm
 *.sqlite-wal
 

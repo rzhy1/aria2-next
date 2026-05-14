@@ -163,7 +163,7 @@ jobs:
           mkdir -p "${DIRNAME}"
           cp build/release/aria2c "${DIRNAME}/"
           cp COPYING README.md "${DIRNAME}/"
-          cp doc/bash_completion/aria2c "${DIRNAME}/aria2c.bash_completion" || true
+          cp docs/completion/aria2c "${DIRNAME}/aria2c.bash_completion" || true
           tar cJf "${DIRNAME}.tar.xz" "${DIRNAME}"
 
       - uses: actions/upload-artifact@v6
@@ -286,7 +286,7 @@ jobs:
           mkdir -p "${DIRNAME}"
           cp build/release/aria2c "${DIRNAME}/"
           cp COPYING README.md "${DIRNAME}/"
-          cp doc/bash_completion/aria2c "${DIRNAME}/aria2c.bash_completion" || true
+          cp docs/completion/aria2c "${DIRNAME}/aria2c.bash_completion" || true
           tar cJf "${DIRNAME}.tar.xz" "${DIRNAME}"
 
       - uses: actions/upload-artifact@v6

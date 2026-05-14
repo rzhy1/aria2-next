@@ -22,12 +22,12 @@ Baseline verification:
 
 Changed:
 
-- Added conditional CMake source inventory files generated from the former `src/Makefile.am` and `test/Makefile.am` source groups.
+- Added conditional CMake source inventory files generated from the former `src/Makefile.am` and `tests/Makefile.am` source groups.
 - Added a CMake `config.h` template derived from the former Autoconf `config.h.in`.
 
 Verified:
 
-- Inspected the former Autotools option, dependency, platform, source, test, and bundled `wslay` build surfaces.
+- Inspected the former Autotools option, dependency, platform, source, tests, and bundled `wslay` build surfaces.
 - Confirmed the CMake source inventories preserve conditional groups instead of compiling mutually exclusive implementations together.
 
 Remaining:
@@ -41,7 +41,7 @@ Changed:
 
 - Added the root CMake project and Ninja-based CMake presets.
 - Added CMake feature probes for headers, functions, struct members, endian state, TLS backends, XML backends, zlib, SQLite, c-ares, libssh2, fallback allocation support, event polling support, and platform TLS.
-- Added target-based CMake targets for bundled `wslay`, the aria2 core library, the `aria2c` executable, and the CppUnit test executable.
+- Added target-based CMake targets for bundled `wslay`, the aria2 core library, the `aria2c` executable, and the CppUnit tests executable.
 - Added CMake generation for `config.h`, the bundled `wslayver.h`, and `src/libaria2.pc`.
 - Ported the default macOS feature selection to CMake with AppleTLS, Apple message digest, c-ares async DNS, libxml2, zlib, SQLite, libssh2, BitTorrent, Metalink, XML-RPC, and WebSocket enabled.
 
@@ -49,7 +49,7 @@ Verified:
 
 - `cmake --preset default` completed successfully.
 - `cmake --build --preset default -j$(sysctl -n hw.ncpu || nproc || echo 2)` completed successfully.
-- `ctest --preset default` passed with one CTest test target and zero failures.
+- `ctest --preset default` passed with one CTest tests target and zero failures.
 - `build/default/aria2c --version` reported aria2 1.37.0 with the same default feature and library surface as the Autotools baseline.
 
 Remaining:
@@ -87,7 +87,7 @@ Changed:
 - Removed the unsupported gettext catalog workflow, including `po/`, `tools/import-po`, and the unused `lib/gettext.h` compatibility header.
 - Removed inactive NLS code paths from maintained source files because the catalog workflow is no longer present.
 - Removed retired Travis CI and Raspberry Pi Trusty packaging instead of retaining unsupported legacy paths.
-- Updated `.gitignore` for CMake, Ninja, CTest, CPack, compiler products, documentation outputs, test side effects, release archives, local IDE files, and local issue-analysis exports.
+- Updated `.gitignore` for CMake, Ninja, CTest, CPack, compiler products, documentation outputs, tests side effects, release archives, local IDE files, and local issue-analysis exports.
 
 Verified:
 
@@ -111,7 +111,7 @@ Verified:
 
 - `cmake --preset default` completed successfully from a clean `build/default` tree.
 - `cmake --build --preset default -j$(sysctl -n hw.ncpu || nproc || echo 2)` completed successfully.
-- `ctest --preset default --output-on-failure` passed with one CTest test target and zero failures.
+- `ctest --preset default --output-on-failure` passed with one CTest tests target and zero failures.
 - `build/default/aria2c --version` reported aria2 1.37.0 with Async DNS, BitTorrent, Firefox3 Cookie, GZip, HTTPS, Message Digest, Metalink, XML-RPC, SFTP, zlib, libxml2, sqlite3, AppleTLS, c-ares, and libssh2.
 - `cmake --install build/default --prefix /tmp/aria2-next-cmake-install-default` installed only `bin/aria2c`.
 - A fresh `ARIA2_ENABLE_LIBARIA2=ON` build passed configure, build, and CTest, then installed `bin/aria2c`, `include/aria2/aria2.h`, `lib/libaria2.a`, and `lib/pkgconfig/libaria2.pc`.

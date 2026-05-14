@@ -1,47 +1,45 @@
 # AGENTS.md - aria2-next
 
-This file provides operating instructions for AI coding agents working in this repository. Human contributors should start with [README.md](README.md), [packaging/README.md](packaging/README.md), [tools/README.md](tools/README.md), [third_party/README.md](third_party/README.md), and [maintenance/README.md](maintenance/README.md).
+This file defines repository rules for AI coding agents. Human contributors should start with [README.md](README.md), [packaging/README.md](packaging/README.md), [tools/README.md](tools/README.md), [third_party/README.md](third_party/README.md), and [docs/maintenance/README.md](docs/maintenance/README.md).
 
 > [!IMPORTANT]
-> All changes must meet industrial-grade quality. Find the root cause before changing code, preserve existing behavior unless the task explicitly requires a behavior change, keep edits narrowly scoped, and verify the exact build or release path affected by the change.
+> All changes must meet industrial-grade quality. Find the root cause before changing code, keep behavior compatible unless the task explicitly changes it, avoid unrelated churn, and verify the exact build or release path affected by the change.
 
-## Project Architecture
+## Architecture
 
-| Area | Stack / Ownership |
+| Area | Ownership |
 | --- | --- |
 | Core | C99 and C++11 aria2 command-line client and core implementation |
 | Build | CMake 3.25+ with Ninja as the default generator |
-| Tests | CTest plus the existing CppUnit-based test suite |
+| Tests | CTest plus the CppUnit test suite |
 | Packaging | Cross-platform release automation under `packaging/` and `.github/workflows/release.yml` |
-| Third-party source | Vendored `third_party/wslay` with upstream layout and style preserved |
+| Third-party source | Vendored `third_party/wslay` with local ownership rules |
 
-### Key Paths
+## Key Paths
 
-```text
-CMakeLists.txt                  Root CMake build definition and project version source
-CMakePresets.json               Standard local configure, build, and test presets
-cmake/                          CMake templates, generated config headers, source inventories
-src/                            aria2 core, CLI, protocol, disk, RPC, and platform code
-src/includes/aria2/             Public libaria2 headers
-test/                           CppUnit tests registered through CTest
-doc/                            Manual, manpage, completion, and documentation tooling
-packaging/                      Release dependencies, Dockerfiles, cross-build scripts, package assets
-packaging/dependencies.env      Authoritative release dependency baseline
-third_party/                    Bundled third-party source with explicit ownership rules
-tools/                          General repository helper scripts
-maintenance/                    Durable maintenance records, not build inputs
-.github/workflows/release.yml   Six-platform release build and draft GitHub Release workflow
-```
+| Path | Purpose |
+| --- | --- |
+| `CMakeLists.txt` | Project declaration and CMake module entry point |
+| `CMakePresets.json` | Standard configure, build, and test presets |
+| `cmake/modules/` | Build options, probes, dependencies, targets, tests, and summary output |
+| `cmake/Sources.cmake` | Core source inventory |
+| `cmake/TestSources.cmake` | Test source inventory |
+| `src/` | aria2 core, CLI, protocol, disk, RPC, and platform code |
+| `src/includes/aria2/` | Public libaria2 headers |
+| `tests/` | CppUnit tests and fixtures |
+| `docs/` | Manual sources, completion tooling, and maintenance records |
+| `packaging/` | Release dependencies, Dockerfiles, cross-build scripts, and package assets |
+| `packaging/dependencies.env` | Release dependency version source |
+| `third_party/` | Bundled third-party source |
+| `tools/` | Local developer helpers |
 
-## Build System Rules
+## Build Rules
 
-CMake is the only supported build system for aria2-next. Do not restore Autotools files, introduce a second build system, or route maintained packaging through upstream aria2 build scripts.
+CMake is the only supported build system for aria2-next. Do not restore Autotools files, add another maintained build system, or route release packaging through removed upstream build scripts.
 
-Use target-oriented CMake and existing helper patterns from `CMakeLists.txt`. Keep generated values in `cmake/*.in` templates and generated build directories. Do not commit generated CMake, Ninja, CTest, CPack, binary, archive, or local build output.
+Keep the top-level `CMakeLists.txt` small. New build logic belongs in the focused modules under `cmake/modules/`. Keep generated config headers, package metadata, CMake files, Ninja files, test output, binaries, and archives out of the source tree.
 
-Feature probes must match the code they guard. If a probe controls a compile-time branch, prefer `check_symbol_exists`, `check_cxx_symbol_exists`, or a small `check_*_source_compiles` snippet with the exact headers required by the source. Avoid naked `check_function_exists` when the code depends on headers, macros, platform-specific types, or cross-compilation behavior.
-
-Windows and MinGW probes need extra care. Validate Win32 constants and APIs through compilable snippets with the right include order, such as `winsock2.h` before `windows.h`, and include dedicated headers such as `winioctl.h` when the source needs them. POSIX-only calls such as `fork`, `setsid`, and daemonization paths must not be enabled for Windows builds.
+Feature probes must match the source they guard. Prefer `check_symbol_exists`, `check_cxx_symbol_exists`, or small `check_*_source_compiles` snippets with the exact headers needed by the compiled branch. Windows and MinGW probes must include the correct Win32 headers and include order.
 
 ## Version Management
 
@@ -55,46 +53,27 @@ project(
 )
 ```
 
-`PROJECT_VERSION` feeds generated package metadata through CMake, including `PACKAGE_VERSION`, `VERSION`, and `cmake/libaria2.pc.cmake.in`. Helper scripts that need the project version must read it from `CMakeLists.txt`; they must not carry their own version constants.
+`PROJECT_VERSION` feeds generated package metadata and release artifact naming. Scripts that need the version must read it from `CMakeLists.txt`; they must not carry independent version constants.
 
-Release artifact names derive from the GitHub Release tag passed to `.github/workflows/release.yml` as `RELEASE_TAG`. For a release tag `v2.0.0`, packaged artifacts must use `2.0.0` as the version component.
+Release tags use `v{PROJECT_VERSION}`. The tag version and CMake project version must match exactly after removing the leading `v`.
 
-When bumping the project version, update the CMake project version first, then verify every generated or scripted consumer still derives from that source. Do not scatter manual version edits across scripts, Dockerfiles, workflow files, documentation, or package templates.
-
-If a release version has already been tagged, treat that tag as immutable. Fixes after a failed release require a new commit and a deliberate tag recovery flow, not rebuilding different source under an unchanged published tag.
+Treat published release tags as immutable. If a failed release has not been consumed, delete the failed GitHub Release and tag, fix the commit, then recreate the same release deliberately. If a release has been consumed publicly, publish a new patch release unless the maintainer explicitly chooses tag replacement.
 
 ## Dependency Management
 
-`packaging/dependencies.env` is the authoritative dependency version source for maintained release packaging. Update it before changing dependency versions in scripts, Dockerfiles, workflow files, platform notes, or release documentation.
+`packaging/dependencies.env` is the authoritative dependency baseline for maintained release packaging. Update it before changing dependency versions in scripts, Dockerfiles, workflow files, package notes, or README tables.
 
-Current maintained release dependencies include zlib, Expat, SQLite, c-ares, libssh2, OpenSSL, GMP, libgpg-error, libgcrypt, and the Android NDK. Keep the dependency table in `README.md`, packaging scripts, Docker build arguments, and workflow download/build steps consistent with `packaging/dependencies.env`.
-
-Do not add automated dependency PR systems, scheduled dependency update workflows, or Dependabot configuration unless explicitly requested. Dependency updates should be intentional, reviewed, and verified through the affected release path.
+Do not add automated dependency PR systems, scheduled dependency update workflows, or Dependabot configuration unless explicitly requested. Dependency updates should be intentional and verified through the affected release path.
 
 ## Release Process
 
-The release workflow is `.github/workflows/release.yml`. It runs on `release: published` and on manual `workflow_dispatch` validation. Tag pushes must not trigger release builds directly.
+The release workflow is `.github/workflows/release.yml`. It runs on `release: published` and on manual `workflow_dispatch` validation. Tag pushes do not publish release builds directly.
 
-Maintained release targets are:
+Maintained release artifacts are Linux x86_64, Linux ARM64, macOS ARM64, macOS x86_64, Windows x86_64, Windows ARM64, and `aria2-<version>-checksums.sha256`.
 
-| Platform | Job | Artifact |
-| --- | --- | --- |
-| Linux x86_64 | `build-linux-x64` | `aria2-<version>-linux-x86_64.tar.xz` |
-| Linux ARM64 | `build-linux-arm64` | `aria2-<version>-linux-aarch64.tar.xz` |
-| macOS ARM64 | `build-macos-arm64` | `aria2-<version>-macos-arm64.tar.bz2` |
-| macOS x86_64 | `build-macos-intel` | `aria2-<version>-macos-x86_64.tar.bz2` |
-| Windows x86_64 | `build-windows-x64` | `aria2-<version>-windows-x86_64.zip` |
-| Windows ARM64 | `build-windows-arm64` | `aria2-<version>-windows-arm64.zip` |
+Manual workflow runs are for release-path validation. Official release assets are uploaded only when a GitHub Release is published.
 
-The upload job downloads all platform artifacts, generates `aria2-<version>-checksums.sha256`, and uploads assets to the already-published GitHub Release with `gh release upload`. Manual workflow runs upload artifacts only to the Actions run for validation.
-
-### Publishing a Release
-
-Finish all code, packaging, documentation, and verification work before publishing the GitHub Release.
-
-Use `v{PROJECT_VERSION}` as the release tag. The tag version and the `project(... VERSION ...)` value in `CMakeLists.txt` must match exactly after removing the leading `v`.
-
-Before creating the GitHub Release, verify the local build:
+Before publishing a GitHub Release, verify locally:
 
 ```bash
 cmake --preset default
@@ -103,38 +82,20 @@ ctest --preset default
 build/default/aria2c --version
 ```
 
-For release or packaging changes, also validate the touched shell scripts and workflow-adjacent files:
+For packaging changes, also run:
 
 ```bash
 bash -n tools/build_test.sh
+bash -n packaging/scripts/common.sh
 bash -n packaging/scripts/mingw-release
 bash -n packaging/scripts/android-release
 ```
 
-Push the verified release commit to `main` and wait for CI to pass. Then create and publish the GitHub Release. GitHub Release creation may create the tag; do not push the release tag separately as a release trigger.
-
-```bash
-git push origin main
-gh release create v2.0.0 --title "v2.0.0 - CMake-Only Cross-Platform Release Foundation" --notes-file /path/to/release-notes.md
-```
-
-After the release workflow completes, inspect all six uploaded artifacts and the checksum file on the published GitHub Release.
-
-### Failed Release Recovery
-
-If the release workflow fails after the GitHub Release is published, fix the issue in a new commit. If the release has not been announced or consumed, delete the failed GitHub Release and tag, then recreate the same release from the fixed commit. If the release has already been consumed publicly, create a new patch release unless the maintainer explicitly chooses a tag replacement recovery.
-
-```bash
-gh release delete v2.0.0 --cleanup-tag --yes
-git fetch --prune --tags
-gh release create v2.0.0 --target main --title "v2.0.0 - CMake-Only Cross-Platform Release Foundation" --notes-file /path/to/release-notes.md
-```
-
 ## CI and Verification
 
-Use the smallest verification set that covers the changed surface, then expand when the change touches shared build logic, platform probes, or packaging.
+Use the smallest verification set that covers the changed surface, then expand when changes touch shared build logic, platform probes, or packaging.
 
-For normal source or CMake changes:
+Normal source or CMake changes require:
 
 ```bash
 cmake --preset default
@@ -142,42 +103,28 @@ cmake --build --preset default
 ctest --preset default
 ```
 
-For broad CMake option changes, run the matrix helper:
+Broad CMake option changes require the local matrix helper:
 
 ```bash
 tools/build_test.sh
 ```
 
-For release workflow changes, validate the affected shell snippets, inspect the release matrix, and use `workflow_dispatch` with an explicit tag input when local verification cannot cover the platform path.
-
-Do not ignore release test failures by adding `|| true` to new test commands. Existing tolerated checks should stay limited to diagnostics such as binary dependency inspection unless a maintainer explicitly accepts the risk.
+Do not hide new test failures with `|| true`. Existing tolerated diagnostics must stay limited to non-gating inspection commands unless the maintainer explicitly accepts the risk.
 
 ## Source Conventions
 
-Follow the existing C and C++ style. Keep C++ at the repository's C++11 baseline unless the project intentionally raises the baseline. Avoid unrelated refactors, broad formatting churn, and drive-by rewrites.
+Follow the existing C and C++ style. Keep C++ at the repository's C++11 baseline unless the project intentionally raises the baseline. Avoid drive-by rewrites and broad formatting churn.
 
-Prefer structured fixes over compatibility macros scattered through source files. Platform differences should usually be represented through accurate CMake detection and existing config-header patterns.
+Prefer accurate CMake detection and existing config-header patterns over scattered compatibility macros. Add helpers only when they remove real duplication or contain platform-specific behavior cleanly.
 
-Use existing abstractions and naming. Add a helper only when it removes real duplication or keeps platform-specific behavior contained.
+Changes under `third_party/` must preserve third-party ownership. Limit edits there to build integration, security fixes, or compatibility fixes that cannot reasonably wait for upstream.
 
-Changes under `third_party/` must preserve upstream layout and style. Limit third-party edits to build integration, security fixes, or compatibility fixes that cannot reasonably wait for upstream.
+## Documentation
 
-## Tests
+Keep documentation synchronized with behavior. If a CMake option, dependency baseline, supported platform, artifact name, release command, or directory path changes, update the relevant documentation in the same change.
 
-Add focused tests for behavior changes when the existing test framework can express the case. CMake-only and packaging-only changes still need concrete build or workflow validation.
-
-When fixing a platform build failure, record the failed symbol, header, macro, or branch condition in the reasoning for the change. The final fix should make the local configuration result match the code path that will compile on that platform.
-
-## Documentation and Maintenance
-
-Keep documentation synchronized with behavior. If a CMake option, dependency baseline, supported platform, artifact name, or release command changes, update the relevant README or packaging note in the same change.
-
-`maintenance/` is for durable project records only. Do not commit temporary API payloads, scratch logs, generated reports, or local caches there.
-
-Release history belongs in git tags and GitHub Releases. Do not add standalone changelog snapshots to packages or maintenance docs unless they are generated release artifacts.
+`docs/maintenance/` is for durable audit records only. Do not commit temporary API payloads, scratch logs, generated reports, or local caches there.
 
 ## Git Safety
 
-Work on the current branch unless the user explicitly asks for a new branch. Never revert user changes or unrelated work. If the tree is dirty, inspect the relevant files and make the smallest compatible change.
-
-Do not use destructive git commands such as `git reset --hard` or `git checkout -- <path>` unless the user explicitly requests that exact operation.
+Work on the current branch unless the user explicitly asks for a new branch. Never revert user changes or unrelated work. Do not use destructive git commands unless the user explicitly requests that exact operation.

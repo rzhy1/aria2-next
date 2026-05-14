@@ -2385,7 +2385,7 @@ to provide the token as the first parameter as described above.
 Methods
 ~~~~~~~
 
-All code examples are compatible with the Python 2.7 interpreter.
+Python examples use Python 3.
 For information on the *secret* parameter, see :ref:`rpc_auth`.
 
 .. function:: aria2.addUri([secret], uris[, options[, position]])
@@ -2408,20 +2408,21 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   The following example adds ``http://example.org/file``::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.addUri',
     ...                       'params':[['http://example.org/file']]})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> c.read()
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> c.read().decode()
     '{"id":"qwer","jsonrpc":"2.0","result":"2089b05ecca3d829"}'
 
   **XML-RPC Example**
 
   The following example adds ``http://example.org/file``::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> s.aria2.addUri(['http://example.org/file'])
     '2089b05ecca3d829'
 
@@ -2470,21 +2471,22 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   ::
 
-    >>> import urllib2, json, base64
-    >>> torrent = base64.b64encode(open('file.torrent').read())
+    >>> import base64, json
+    >>> import urllib.request
+    >>> torrent = base64.b64encode(open('file.torrent', 'rb').read()).decode()
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'asdf',
     ...                       'method':'aria2.addTorrent', 'params':[torrent]})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> c.read()
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> c.read().decode()
     '{"id":"asdf","jsonrpc":"2.0","result":"2089b05ecca3d829"}'
 
   **XML-RPC Example**
 
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
-    >>> s.aria2.addTorrent(xmlrpclib.Binary(open('file.torrent', mode='rb').read()))
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
+    >>> s.aria2.addTorrent(xmlrpc.client.Binary(open('file.torrent', mode='rb').read()))
     '2089b05ecca3d829'
 
 .. function:: aria2.addMetalink([secret], metalink[, options[, position]])
@@ -2515,22 +2517,23 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   ::
 
-    >>> import urllib2, json, base64
-    >>> metalink = base64.b64encode(open('file.meta4').read())
+    >>> import base64, json
+    >>> import urllib.request
+    >>> metalink = base64.b64encode(open('file.meta4', 'rb').read()).decode()
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.addMetalink',
     ...                       'params':[metalink]})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> c.read()
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> c.read().decode()
     '{"id":"qwer","jsonrpc":"2.0","result":["2089b05ecca3d829"]}'
 
   **XML-RPC Example**
 
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
-    >>> s.aria2.addMetalink(xmlrpclib.Binary(open('file.meta4', mode='rb').read()))
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
+    >>> s.aria2.addMetalink(xmlrpc.client.Binary(open('file.meta4', mode='rb').read()))
     ['2089b05ecca3d829']
 
 .. function:: aria2.remove([secret], gid)
@@ -2546,20 +2549,21 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.remove',
     ...                       'params':['2089b05ecca3d829']})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> c.read()
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> c.read().decode()
     '{"id":"qwer","jsonrpc":"2.0","result":"2089b05ecca3d829"}'
 
   **XML-RPC Example**
 
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> s.aria2.remove('2089b05ecca3d829')
     '2089b05ecca3d829'
 
@@ -2744,34 +2748,35 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   The following example gets information about a download with GID#2089b05ecca3d829::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.tellStatus',
     ...                       'params':['2089b05ecca3d829']})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': {u'bitfield': u'0000000000',
-                 u'completedLength': u'901120',
-                 u'connections': u'1',
-                 u'dir': u'/downloads',
-                 u'downloadSpeed': u'15158',
-                 u'files': [{u'index': u'1',
-                             u'length': u'34896138',
-                             u'completedLength': u'34896138',
-                             u'path': u'/downloads/file',
-                             u'selected': u'true',
-                             u'uris': [{u'status': u'used',
-                                        u'uri': u'http://example.org/file'}]}],
-                 u'gid': u'2089b05ecca3d829',
-                 u'numPieces': u'34',
-                 u'pieceLength': u'1048576',
-                 u'status': u'active',
-                 u'totalLength': u'34896138',
-                 u'uploadLength': u'0',
-                 u'uploadSpeed': u'0'}}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': {'bitfield': '0000000000',
+                 'completedLength': '901120',
+                 'connections': '1',
+                 'dir': '/downloads',
+                 'downloadSpeed': '15158',
+                 'files': [{'index': '1',
+                             'length': '34896138',
+                             'completedLength': '34896138',
+                             'path': '/downloads/file',
+                             'selected': 'true',
+                             'uris': [{'status': 'used',
+                                        'uri': 'http://example.org/file'}]}],
+                 'gid': '2089b05ecca3d829',
+                 'numPieces': '34',
+                 'pieceLength': '1048576',
+                 'status': 'active',
+                 'totalLength': '34896138',
+                 'uploadLength': '0',
+                 'uploadSpeed': '0'}}
 
   The following example gets only specific keys::
 
@@ -2781,21 +2786,21 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
     ...                                 ['gid',
     ...                                  'totalLength',
     ...                                  'completedLength']]})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': {u'completedLength': u'5701632',
-                 u'gid': u'2089b05ecca3d829',
-                 u'totalLength': u'34896138'}}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': {'completedLength': '5701632',
+                 'gid': '2089b05ecca3d829',
+                 'totalLength': '34896138'}}
 
   **XML-RPC Example**
 
   The following example gets information about a download with GID#2089b05ecca3d829::
 
-    >>> import xmlrpclib
+    >>> import xmlrpc.client
     >>> from pprint import pprint
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> r = s.aria2.tellStatus('2089b05ecca3d829')
     >>> pprint(r)
     {'bitfield': 'ffff80',
@@ -2841,24 +2846,25 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   **JSON-RPC Example**
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.getUris',
     ...                       'params':['2089b05ecca3d829']})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': [{u'status': u'used',
-                  u'uri': u'http://example.org/file'}]}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': [{'status': 'used',
+                  'uri': 'http://example.org/file'}]}
 
   **XML-RPC Example**
   ::
 
-    >>> import xmlrpclib
+    >>> import xmlrpc.client
     >>> from pprint import pprint
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> r = s.aria2.getUris('2089b05ecca3d829')
     >>> pprint(r)
     [{'status': 'used', 'uri': 'http://example.org/file'}]
@@ -2901,29 +2907,30 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   **JSON-RPC Example**
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.getFiles',
     ...                       'params':['2089b05ecca3d829']})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': [{u'index': u'1',
-                  u'length': u'34896138',
-                  u'completedLength': u'34896138',
-                  u'path': u'/downloads/file',
-                  u'selected': u'true',
-                  u'uris': [{u'status': u'used',
-                             u'uri': u'http://example.org/file'}]}]}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': [{'index': '1',
+                  'length': '34896138',
+                  'completedLength': '34896138',
+                  'path': '/downloads/file',
+                  'selected': 'true',
+                  'uris': [{'status': 'used',
+                             'uri': 'http://example.org/file'}]}]}
 
   **XML-RPC Example**
   ::
 
-    >>> import xmlrpclib
+    >>> import xmlrpc.client
     >>> from pprint import pprint
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> r = s.aria2.getFiles('2089b05ecca3d829')
     >>> pprint(r)
     [{'index': '1',
@@ -2973,40 +2980,41 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   **JSON-RPC Example**
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.getPeers',
     ...                       'params':['2089b05ecca3d829']})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': [{u'amChoking': u'true',
-                  u'bitfield': u'ffffffffffffffffffffffffffffffffffffffff',
-                  u'downloadSpeed': u'10602',
-                  u'ip': u'10.0.0.9',
-                  u'peerChoking': u'false',
-                  u'peerId': u'aria2%2F1%2E10%2E5%2D%87%2A%EDz%2F%F7%E6',
-                  u'port': u'6881',
-                  u'seeder': u'true',
-                  u'uploadSpeed': u'0'},
-                 {u'amChoking': u'false',
-                  u'bitfield': u'ffffeff0fffffffbfffffff9fffffcfff7f4ffff',
-                  u'downloadSpeed': u'8654',
-                  u'ip': u'10.0.0.30',
-                  u'peerChoking': u'false',
-                  u'peerId': u'bittorrent client758',
-                  u'port': u'37842',
-                  u'seeder': u'false',
-                  u'uploadSpeed': u'6890'}]}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': [{'amChoking': 'true',
+                  'bitfield': 'ffffffffffffffffffffffffffffffffffffffff',
+                  'downloadSpeed': '10602',
+                  'ip': '10.0.0.9',
+                  'peerChoking': 'false',
+                  'peerId': 'aria2%2F1%2E10%2E5%2D%87%2A%EDz%2F%F7%E6',
+                  'port': '6881',
+                  'seeder': 'true',
+                  'uploadSpeed': '0'},
+                 {'amChoking': 'false',
+                  'bitfield': 'ffffeff0fffffffbfffffff9fffffcfff7f4ffff',
+                  'downloadSpeed': '8654',
+                  'ip': '10.0.0.30',
+                  'peerChoking': 'false',
+                  'peerId': 'bittorrent client758',
+                  'port': '37842',
+                  'seeder': 'false',
+                  'uploadSpeed': '6890'}]}
 
   **XML-RPC Example**
   ::
 
-    >>> import xmlrpclib
+    >>> import xmlrpc.client
     >>> from pprint import pprint
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> r = s.aria2.getPeers('2089b05ecca3d829')
     >>> pprint(r)
     [{'amChoking': 'true',
@@ -3054,26 +3062,27 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   **JSON-RPC Example**
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.getServers',
     ...                       'params':['2089b05ecca3d829']})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': [{u'index': u'1',
-                  u'servers': [{u'currentUri': u'http://example.org/file',
-                                u'downloadSpeed': u'10467',
-                                u'uri': u'http://example.org/file'}]}]}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': [{'index': '1',
+                  'servers': [{'currentUri': 'http://example.org/file',
+                                'downloadSpeed': '10467',
+                                'uri': 'http://example.org/file'}]}]}
 
   **XML-RPC Example**
   ::
 
-    >>> import xmlrpclib
+    >>> import xmlrpc.client
     >>> from pprint import pprint
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> r = s.aria2.getServers('2089b05ecca3d829')
     >>> pprint(r)
     [{'index': '1',
@@ -3153,21 +3162,22 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.changePosition',
     ...                       'params':['2089b05ecca3d829', 0, 'POS_SET']})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer', u'jsonrpc': u'2.0', u'result': 0}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer', 'jsonrpc': '2.0', 'result': 0}
 
   **XML-RPC Example**
 
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> s.aria2.changePosition('2089b05ecca3d829', 0, 'POS_SET')
     0
 
@@ -3199,22 +3209,23 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.changeUri',
     ...                       'params':['2089b05ecca3d829', 1, [],
                                         ['http://example.org/file']]})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer', u'jsonrpc': u'2.0', u'result': [0, 1]}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer', 'jsonrpc': '2.0', 'result': [0, 1]}
 
   **XML-RPC Example**
 
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> s.aria2.changeUri('2089b05ecca3d829', 1, [],
                           ['http://example.org/file'])
     [0, 1]
@@ -3235,28 +3246,29 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.getOption',
     ...                       'params':['2089b05ecca3d829']})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': {u'allow-overwrite': u'false',
-                 u'allow-piece-length-change': u'false',
-                 u'always-resume': u'true',
-                 u'async-dns': u'true',
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': {'allow-overwrite': 'false',
+                 'allow-piece-length-change': 'false',
+                 'always-resume': 'true',
+                 'async-dns': 'true',
      ...
 
   **XML-RPC Example**
 
   ::
 
-    >>> import xmlrpclib
+    >>> import xmlrpc.client
     >>> from pprint import pprint
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> r = s.aria2.getOption('2089b05ecca3d829')
     >>> pprint(r)
     {'allow-overwrite': 'false',
@@ -3300,22 +3312,23 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.changeOption',
     ...                       'params':['2089b05ecca3d829',
     ...                                 {'max-download-limit':'10K'}]})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer', u'jsonrpc': u'2.0', u'result': u'OK'}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer', 'jsonrpc': '2.0', 'result': 'OK'}
 
   **XML-RPC Example**
 
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> s.aria2.changeOption('2089b05ecca3d829', {'max-download-limit':'20K'})
     'OK'
 
@@ -3390,26 +3403,27 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   **JSON-RPC Example**
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.getGlobalStat'})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': {u'downloadSpeed': u'21846',
-                 u'numActive': u'2',
-                 u'numStopped': u'0',
-                 u'numWaiting': u'0',
-                 u'uploadSpeed': u'0'}}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': {'downloadSpeed': '21846',
+                 'numActive': '2',
+                 'numStopped': '0',
+                 'numWaiting': '0',
+                 'uploadSpeed': '0'}}
 
   **XML-RPC Example**
   ::
 
-    >>> import xmlrpclib
+    >>> import xmlrpc.client
     >>> from pprint import pprint
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> r = s.aria2.getGlobalStat()
     >>> pprint(r)
     {'downloadSpeed': '23136',
@@ -3435,21 +3449,22 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.removeDownloadResult',
     ...                       'params':['2089b05ecca3d829']})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer', u'jsonrpc': u'2.0', u'result': u'OK'}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer', 'jsonrpc': '2.0', 'result': 'OK'}
 
   **XML-RPC Example**
 
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> s.aria2.removeDownloadResult('2089b05ecca3d829')
     'OK'
 
@@ -3467,30 +3482,31 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   **JSON-RPC Example**
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.getVersion'})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': {u'enabledFeatures': [u'Async DNS',
-                                      u'BitTorrent',
-                                      u'Firefox3 Cookie',
-                                      u'GZip',
-                                      u'HTTPS',
-                                      u'Message Digest',
-                                      u'Metalink',
-                                      u'XML-RPC'],
-                 u'version': u'1.11.0'}}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': {'enabledFeatures': ['Async DNS',
+                                      'BitTorrent',
+                                      'Firefox3 Cookie',
+                                      'GZip',
+                                      'HTTPS',
+                                      'Message Digest',
+                                      'Metalink',
+                                      'XML-RPC'],
+                 'version': '1.11.0'}}
 
   **XML-RPC Example**
   ::
 
-    >>> import xmlrpclib
+    >>> import xmlrpc.client
     >>> from pprint import pprint
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> r = s.aria2.getVersion()
     >>> pprint(r)
     {'enabledFeatures': ['Async DNS',
@@ -3514,21 +3530,22 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   **JSON-RPC Example**
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'aria2.getSessionInfo'})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': {u'sessionId': u'cd6a3bc6a1de28eb5bfa181e5f6b916d44af31a9'}}
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': {'sessionId': 'cd6a3bc6a1de28eb5bfa181e5f6b916d44af31a9'}}
 
   **XML-RPC Example**
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> s.aria2.getSessionInfo()
     {'sessionId': 'cd6a3bc6a1de28eb5bfa181e5f6b916d44af31a9'}
 
@@ -3567,17 +3584,18 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   **JSON-RPC Example**
   ::
 
-    >>> import urllib2, json, base64
+    >>> import base64, json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'system.multicall',
     ...                       'params':[[{'methodName':'aria2.addUri',
     ...                                   'params':[['http://example.org']]},
     ...                                  {'methodName':'aria2.addTorrent',
-    ...                                   'params':[base64.b64encode(open('file.torrent').read())]}]]})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer', u'jsonrpc': u'2.0', u'result': [[u'2089b05ecca3d829'], [u'd2703803b52216d1']]}
+    ...                                   'params':[base64.b64encode(open('file.torrent', 'rb').read()).decode()]}]]})
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer', 'jsonrpc': '2.0', 'result': [['2089b05ecca3d829'], ['d2703803b52216d1']]}
 
   JSON-RPC additionally supports Batch requests as described in the
   JSON-RPC 2.0 Specification::
@@ -3587,20 +3605,20 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
     ...                        'params':[['http://example.org']]},
     ...                       {'jsonrpc':'2.0', 'id':'asdf',
     ...                        'method':'aria2.addTorrent',
-    ...                        'params':[base64.b64encode(open('file.torrent').read())]}])
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    [{u'id': u'qwer', u'jsonrpc': u'2.0', u'result': u'2089b05ecca3d829'},
-     {u'id': u'asdf', u'jsonrpc': u'2.0', u'result': u'd2703803b52216d1'}]
+    ...                        'params':[base64.b64encode(open('file.torrent', 'rb').read()).decode()]}])
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    [{'id': 'qwer', 'jsonrpc': '2.0', 'result': '2089b05ecca3d829'},
+     {'id': 'asdf', 'jsonrpc': '2.0', 'result': 'd2703803b52216d1'}]
 
   **XML-RPC Example**
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
-    >>> mc = xmlrpclib.MultiCall(s)
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
+    >>> mc = xmlrpc.client.MultiCall(s)
     >>> mc.aria2.addUri(['http://example.org/file'])
-    >>> mc.aria2.addTorrent(xmlrpclib.Binary(open('file.torrent', mode='rb').read()))
+    >>> mc.aria2.addTorrent(xmlrpc.client.Binary(open('file.torrent', mode='rb').read()))
     >>> r = mc()
     >>> tuple(r)
     ('2089b05ecca3d829', 'd2703803b52216d1')
@@ -3615,23 +3633,24 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   **JSON-RPC Example**
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'system.listMethods'})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': [u'aria2.addUri',
-                 u'aria2.addTorrent',
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': ['aria2.addUri',
+                 'aria2.addTorrent',
     ...
 
   **XML-RPC Example**
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> s.system.listMethods()
     ['aria2.addUri', 'aria2.addTorrent', ...
 
@@ -3645,23 +3664,24 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   **JSON-RPC Example**
   ::
 
-    >>> import urllib2, json
+    >>> import json
+    >>> import urllib.request
     >>> from pprint import pprint
     >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer',
     ...                       'method':'system.listNotifications'})
-    >>> c = urllib2.urlopen('http://localhost:6800/jsonrpc', jsonreq)
-    >>> pprint(json.loads(c.read()))
-    {u'id': u'qwer',
-     u'jsonrpc': u'2.0',
-     u'result': [u'aria2.onDownloadStart',
-                 u'aria2.onDownloadPause',
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> pprint(json.loads(c.read().decode()))
+    {'id': 'qwer',
+     'jsonrpc': '2.0',
+     'result': ['aria2.onDownloadStart',
+                 'aria2.onDownloadPause',
     ...
 
   **XML-RPC Example**
   ::
 
-    >>> import xmlrpclib
-    >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+    >>> import xmlrpc.client
+    >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
     >>> s.system.listNotifications()
     ['aria2.onDownloadStart', 'aria2.onDownloadPause', ...
 
@@ -3743,8 +3763,8 @@ XML-RPC Example
 The following example adds a download with two options: ``dir`` and ``header``.
 The ``header`` option requires two values, so it uses a list::
 
-  >>> import xmlrpclib
-  >>> s = xmlrpclib.ServerProxy('http://localhost:6800/rpc')
+  >>> import xmlrpc.client
+  >>> s = xmlrpc.client.ServerProxy('http://localhost:6800/rpc')
   >>> opts = dict(dir='/tmp',
   ...             header=['Accept-Language: ja',
   ...                     'Accept-Charset: utf-8'])
@@ -3890,13 +3910,12 @@ prints the RPC response:
   pp result
 
 
-If you are a Python lover, you can use xmlrpclib (Python3 uses
-xmlrpc.client instead) to interact with aria2::
+Python clients can use xmlrpc.client to interact with aria2::
 
-  import xmlrpclib
+  import xmlrpc.client
   from pprint import pprint
 
-  s = xmlrpclib.ServerProxy("http://localhost:6800/rpc")
+  s = xmlrpc.client.ServerProxy("http://localhost:6800/rpc")
   r = s.aria2.addUri(["http://localhost/aria2.tar.bz2"], {"dir":"/downloads"})
   pprint(r)
 
@@ -4417,7 +4436,7 @@ Encrypt the whole payload using ARC4 (obfuscation):
 
 SEE ALSO
 --------
-Project Web Site: https://aria2.github.io/
+Project Web Site: https://github.com/AnInsomniacy/aria2-next
 
 Metalink Homepage: http://www.metalinker.org/
 

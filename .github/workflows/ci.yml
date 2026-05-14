@@ -51,5 +51,6 @@ jobs:
       - name: Validate maintained shell scripts
         run: |
           bash -n tools/build_test.sh
+          bash -n packaging/scripts/common.sh
           bash -n packaging/scripts/mingw-release
           bash -n packaging/scripts/android-release

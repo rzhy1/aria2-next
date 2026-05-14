@@ -26,9 +26,9 @@ downloaded from HTTP(S)/FTP/SFTP is uploaded to the BitTorrent
 swarm. Using Metalink's chunk checksums, aria2 automatically validates
 chunks of data while downloading a file like BitTorrent.
 
-The project page is located at https://aria2.github.io/.
+The maintained fork is located at https://github.com/AnInsomniacy/aria2-next.
 
-See the `aria2 Online Manual
+See the upstream `aria2 Online Manual
 <https://aria2.github.io/manual/en/html/>`_ to learn how to use aria2.
 
 Features
@@ -82,20 +82,13 @@ Here is a list of features:
 * Disk cache to reduce disk activity
 
 
-Versioning and release schedule
--------------------------------
+Versioning
+----------
 
-We use 3 numbers for the aria2 version: MAJOR.MINOR.PATCH.  We will ship
-MINOR updates on the 15th of every month.  We may skip a release if we have
-had no changes since the last release.  The feature and documentation
-freeze happens 10 days before the release day (the 5th day of the month)
-for translation teams.  We will raise an issue about the upcoming
-release around that day.
-
-We may release PATCH releases between regular releases if we have
-security issues.
-
-The MAJOR version will stay at 1 for the time being.
+aria2-next uses semantic versions. ``CMakeLists.txt`` is the version source of
+truth, and release tags use ``v{PROJECT_VERSION}``. Official release artifacts
+are built by the GitHub release workflow after a matching GitHub Release is
+published.
 
 How to get source code
 ----------------------
@@ -225,7 +218,7 @@ Source builds require CMake, Ninja, pkg-config, a C++11 compiler, and the
 development packages for the features you want to enable. Install the pinned
 documentation toolchain if you want to build the manual and man page::
 
-    $ python3 -m pip install -r doc/requirements.txt
+    $ python3 -m pip install -r docs/requirements.txt
 
 The quickest local build uses the default preset::
 
@@ -264,7 +257,7 @@ By default, the bash completion file named ``aria2c`` is installed to the
 default documentation directory. To change that directory, set
 ``-DARIA2_BASH_COMPLETION_DIR=/path/to/directory``.
 
-aria2 uses CppUnit for automated unit testing. CTest runs the test executable.
+aria2 uses CppUnit for automated unit testing. CTest runs the tests executable.
 
 See `Cross-compiling Windows binary`_ to create a Windows binary.
 See `Cross-compiling Android binary`_ to create an Android binary.
@@ -345,11 +338,11 @@ Building documentation
 `Sphinx <http://sphinx-doc.org/>`_ is used to build the documentation.
 Install the pinned documentation dependencies first::
 
-    $ python3 -m pip install -r doc/requirements.txt
+    $ python3 -m pip install -r docs/requirements.txt
 
 aria2 man pages will be built when you run ``make`` if they are not
 up-to-date.  You can also build an HTML version of the aria2 man page by
-``make html`` from the relevant ``doc/manual-src/<language>`` directory.
+``make html`` from the relevant ``docs/manual/<language>`` directory.
 The HTML version manual is also available
 `online <https://aria2.github.io/manual/en/html/>`_.
 
@@ -364,7 +357,7 @@ single-file mode
     If "name" key is present in .torrent file, the file name is the value
     of "name" key. Otherwise, the file name is the base name of .torrent
     file appended by ".file". For example, .torrent file is
-    "test.torrent", then file name is "test.torrent.file".  The
+    "tests.torrent", then file name is "tests.torrent.file".  The
     directory to store the downloaded file can be specified by -d
     option.
 
@@ -488,7 +481,7 @@ References
 ----------
 
 * `aria2 Online Manual <https://aria2.github.io/manual/en/html/>`_
-* https://aria2.github.io/
+* https://github.com/AnInsomniacy/aria2-next
 * `RFC 959 FILE TRANSFER PROTOCOL (FTP) <http://tools.ietf.org/html/rfc959>`_
 * `RFC 1738 Uniform Resource Locators (URL) <http://tools.ietf.org/html/rfc1738>`_
 * `RFC 2428 FTP Extensions for IPv6 and NATs <http://tools.ietf.org/html/rfc2428>`_

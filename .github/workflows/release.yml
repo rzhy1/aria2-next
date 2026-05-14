@@ -35,12 +35,12 @@ jobs:
       - name: Download dependency sources
         run: |
           . packaging/dependencies.env
-          curl -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
 
       - name: Build zlib
         run: |
@@ -149,12 +149,12 @@ jobs:
       - name: Download dependency sources
         run: |
           . packaging/dependencies.env
-          curl -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
 
       - name: Build zlib
         run: |
@@ -260,14 +260,14 @@ jobs:
       - name: Download dependency sources
         run: |
           . packaging/dependencies.env
-          curl -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$LIBGPG_ERROR_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$LIBGCRYPT_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBGPG_ERROR_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBGCRYPT_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
 
       - name: Build zlib
         run: |
@@ -399,14 +399,14 @@ jobs:
       - name: Download dependency sources
         run: |
           . packaging/dependencies.env
-          curl -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$LIBGPG_ERROR_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$LIBGCRYPT_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBGPG_ERROR_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBGCRYPT_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
 
       - name: Build zlib
         run: |
@@ -543,13 +543,13 @@ jobs:
       - name: Download dependencies
         run: |
           . packaging/dependencies.env
-          curl -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
 
       - name: Build gmp
         run: |
@@ -690,20 +690,20 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             make binutils autoconf automake autotools-dev autopoint libtool \
             patch ca-certificates pkg-config curl dpkg-dev lzip gettext
-          curl -L --retry 5 --connect-timeout 15 -O https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VER/llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-20.04-x86_64.tar.xz
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VER/llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-20.04-x86_64.tar.xz
           tar xf llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-20.04-x86_64.tar.xz
           echo "$PWD/llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-20.04-x86_64/bin" >> $GITHUB_PATH
 
       - name: Download dependencies
         run: |
           . packaging/dependencies.env
-          curl -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
-          curl -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
+          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
 
       - name: Build gmp
         run: |

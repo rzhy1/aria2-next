@@ -79,8 +79,17 @@ function(aria2_check_include header variable)
   check_include_file("${header}" "${variable}")
 endfunction()
 
-function(aria2_check_function function variable)
-  check_function_exists("${function}" "${variable}")
+function(aria2_check_c_symbol symbol variable)
+  set(_headers ${ARGN})
+  check_symbol_exists("${symbol}" "${_headers}" "${variable}")
+endfunction()
+
+function(aria2_check_c_compiles variable source)
+  check_c_source_compiles("${source}" "${variable}")
+endfunction()
+
+function(aria2_check_cxx_compiles variable source)
+  check_cxx_source_compiles("${source}" "${variable}")
 endfunction()
 
 function(aria2_pkg_check module pkg)
@@ -110,8 +119,6 @@ set(CXX11_OVERRIDE "override")
 set(STDC_HEADERS 1)
 set(HAVE_CXX11 1)
 set(HAVE_ALLOCA 1)
-set(HAVE_WORKING_FORK 1)
-set(HAVE_WORKING_VFORK 1)
 set(SELECT_TYPE_ARG1 int)
 set(SELECT_TYPE_ARG234 "(fd_set *)")
 set(SELECT_TYPE_ARG5 "(struct timeval *)")
@@ -214,21 +221,109 @@ else()
   set(WORDS_BIGENDIAN "")
 endif()
 
-set(_function_checks
-  __argz_count __argz_next __argz_stringify alarm asctime_r atexit basename
-  daemon epoll_create fallocate fork ftruncate gai_strerror getaddrinfo getcwd
-  getentropy gethostbyaddr gethostbyname getifaddrs getnameinfo getpagesize
-  gettimeofday kqueue localtime_r memchr memcpy memmove mempcpy memset mkdir
-  mmap munmap nl_langinfo poll port_associate posix_fadvise posix_fallocate
-  posix_memalign pow putenv rmdir select setlocale sigaction sleep socket stpcpy
-  strcasecmp strchr strcspn strdup strerror strftime strncasecmp strptime strstr
-  strtol strtoul strtoull timegm tzset unsetenv usleep utime utimes vfork
-  vprintf)
-foreach(_function IN LISTS _function_checks)
-  string(TOUPPER "${_function}" _upper)
-  set(_variable "HAVE_${_upper}")
-  aria2_check_function("${_function}" "${_variable}")
-endforeach()
+aria2_check_c_symbol(__argz_count HAVE___ARGZ_COUNT "argz.h")
+aria2_check_c_symbol(__argz_next HAVE___ARGZ_NEXT "argz.h")
+aria2_check_c_symbol(__argz_stringify HAVE___ARGZ_STRINGIFY "argz.h")
+aria2_check_c_symbol(alarm HAVE_ALARM "unistd.h")
+aria2_check_c_symbol(atexit HAVE_ATEXIT "stdlib.h")
+aria2_check_c_symbol(basename HAVE_BASENAME "libgen.h")
+aria2_check_c_symbol(daemon HAVE_DAEMON "unistd.h")
+aria2_check_c_symbol(epoll_create HAVE_EPOLL_CREATE "sys/epoll.h")
+aria2_check_c_symbol(fallocate HAVE_FALLOCATE "fcntl.h")
+aria2_check_c_symbol(fork HAVE_FORK "unistd.h")
+aria2_check_c_symbol(ftruncate HAVE_FTRUNCATE "unistd.h")
+aria2_check_c_symbol(gai_strerror HAVE_GAI_STRERROR "netdb.h")
+aria2_check_c_symbol(getaddrinfo HAVE_GETADDRINFO "sys/types.h;sys/socket.h;netdb.h")
+aria2_check_c_symbol(getcwd HAVE_GETCWD "unistd.h")
+aria2_check_c_symbol(getentropy HAVE_GETENTROPY "unistd.h")
+aria2_check_c_symbol(gethostbyaddr HAVE_GETHOSTBYADDR "netdb.h")
+aria2_check_c_symbol(gethostbyname HAVE_GETHOSTBYNAME "netdb.h")
+aria2_check_c_symbol(getifaddrs HAVE_GETIFADDRS "ifaddrs.h")
+aria2_check_c_symbol(getnameinfo HAVE_GETNAMEINFO "sys/types.h;sys/socket.h;netdb.h")
+aria2_check_c_symbol(getpagesize HAVE_GETPAGESIZE "unistd.h")
+aria2_check_c_symbol(gettimeofday HAVE_GETTIMEOFDAY "sys/time.h")
+aria2_check_c_symbol(kqueue HAVE_KQUEUE "sys/types.h;sys/event.h")
+aria2_check_c_symbol(memchr HAVE_MEMCHR "string.h")
+aria2_check_c_symbol(memcpy HAVE_MEMCPY "string.h")
+aria2_check_c_symbol(memmove HAVE_MEMMOVE "string.h")
+aria2_check_c_symbol(mempcpy HAVE_MEMPCPY "string.h")
+aria2_check_c_symbol(memset HAVE_MEMSET "string.h")
+aria2_check_c_symbol(mkdir HAVE_MKDIR "sys/stat.h")
+aria2_check_c_symbol(mmap HAVE_MMAP "sys/mman.h")
+aria2_check_c_symbol(munmap HAVE_MUNMAP "sys/mman.h")
+aria2_check_c_symbol(nl_langinfo HAVE_NL_LANGINFO "langinfo.h")
+aria2_check_c_symbol(poll HAVE_POLL "poll.h")
+aria2_check_c_symbol(port_associate HAVE_PORT_ASSOCIATE "port.h")
+aria2_check_c_symbol(posix_fadvise HAVE_POSIX_FADVISE "fcntl.h")
+aria2_check_c_symbol(posix_fallocate HAVE_POSIX_FALLOCATE "fcntl.h")
+aria2_check_c_symbol(posix_memalign HAVE_POSIX_MEMALIGN "stdlib.h")
+aria2_check_c_symbol(pow HAVE_POW "math.h")
+aria2_check_c_symbol(putenv HAVE_PUTENV "stdlib.h")
+aria2_check_c_symbol(rmdir HAVE_RMDIR "unistd.h")
+aria2_check_c_symbol(select HAVE_SELECT "sys/select.h")
+aria2_check_c_symbol(setlocale HAVE_SETLOCALE "locale.h")
+aria2_check_c_symbol(sigaction HAVE_SIGACTION "signal.h")
+aria2_check_c_symbol(sleep HAVE_SLEEP "unistd.h")
+aria2_check_c_symbol(socket HAVE_SOCKET "sys/types.h;sys/socket.h")
+aria2_check_c_symbol(stpcpy HAVE_STPCPY "string.h")
+aria2_check_c_symbol(strcasecmp HAVE_STRCASECMP "strings.h")
+aria2_check_c_symbol(strchr HAVE_STRCHR "string.h")
+aria2_check_c_symbol(strcspn HAVE_STRCSPN "string.h")
+aria2_check_c_symbol(strdup HAVE_STRDUP "string.h")
+aria2_check_c_symbol(strerror HAVE_STRERROR "string.h")
+aria2_check_c_symbol(strftime HAVE_STRFTIME "time.h")
+aria2_check_c_symbol(strncasecmp HAVE_STRNCASECMP "strings.h")
+aria2_check_c_symbol(strstr HAVE_STRSTR "string.h")
+aria2_check_c_symbol(strtol HAVE_STRTOL "stdlib.h")
+aria2_check_c_symbol(strtoul HAVE_STRTOUL "stdlib.h")
+aria2_check_c_symbol(strtoull HAVE_STRTOULL "stdlib.h")
+aria2_check_c_symbol(timegm HAVE_TIMEGM "time.h")
+aria2_check_c_symbol(tzset HAVE_TZSET "time.h")
+aria2_check_c_symbol(unsetenv HAVE_UNSETENV "stdlib.h")
+aria2_check_c_symbol(usleep HAVE_USLEEP "unistd.h")
+aria2_check_c_symbol(utime HAVE_UTIME "utime.h")
+aria2_check_c_symbol(utimes HAVE_UTIMES "sys/time.h")
+aria2_check_c_symbol(vfork HAVE_VFORK "unistd.h")
+aria2_check_c_symbol(vprintf HAVE_VPRINTF "stdio.h")
+
+aria2_check_c_compiles(HAVE_ASCTIME_R "
+#include <time.h>
+int main(void) {
+  struct tm value;
+  char buffer[32];
+  return asctime_r(&value, buffer) == 0;
+}")
+
+aria2_check_c_compiles(HAVE_LOCALTIME_R "
+#include <time.h>
+int main(void) {
+  time_t value = 0;
+  struct tm result;
+  return localtime_r(&value, &result) == 0;
+}")
+
+aria2_check_c_compiles(HAVE_STRPTIME "
+#include <time.h>
+int main(void) {
+  struct tm result;
+  return strptime(\"1970\", \"%Y\", &result) == 0;
+}")
+
+aria2_check_c_compiles(HAVE_WORKING_FORK "
+#include <sys/types.h>
+#include <unistd.h>
+int main(void) {
+  pid_t pid = fork();
+  return pid == (pid_t)-1;
+}")
+
+aria2_check_c_compiles(HAVE_WORKING_VFORK "
+#include <sys/types.h>
+#include <unistd.h>
+int main(void) {
+  pid_t pid = vfork();
+  return pid == (pid_t)-1;
+}")
 
 if(WIN32)
   set(HAVE_GETADDRINFO 1)

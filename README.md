@@ -4,56 +4,65 @@
 [![Release](https://img.shields.io/github/v/release/AnInsomniacy/aria2-next.svg)](https://github.com/AnInsomniacy/aria2-next/releases)
 [![License: GPLv2](https://img.shields.io/badge/license-GPLv2-blue.svg)](COPYING)
 
-aria2-next is the maintained [aria2](https://github.com/aria2/aria2) fork used as the `aria2c` sidecar engine for [Motrix Next](https://github.com/AnInsomniacy/motrix-next).
+aria2-next is a maintained fork of [aria2](https://github.com/aria2/aria2), built specifically as the `aria2c` sidecar engine for [Motrix Next](https://github.com/AnInsomniacy/motrix-next).
 
-It is maintained from the upstream aria2 codebase with a large issue-review pass, targeted reliability fixes, a CMake-only build, current release dependencies, and reproducible binaries for macOS, Windows, Linux, and Android.
+It stays compatible with the original aria2 runtime surface. The binary is still `aria2c`; existing CLI options, configuration files, session files, JSON-RPC methods, package metadata, and public libaria2 headers keep the aria2 format so other aria2 users and integrations can use these builds directly.
 
-The runtime surface stays aria2-compatible for non-Motrix users. The executable name, CLI options, configuration files, session files, JSON-RPC API, and libaria2 headers keep the original aria2 format unless a change is explicitly documented.
+This fork also carries a large maintenance pass over upstream aria2. The review started from the upstream issue backlog of 1,000+ issues, was cleaned and triaged into a bug-focused set, and is preserved in [`maintenance/issue-review-matrix.csv`](maintenance/issue-review-matrix.csv). The maintained build path was also migrated from Autotools to CMake with reproducible release automation for macOS, Windows, Linux, and Android.
 
-## Relationship to Motrix Next
+## What aria2-next Is
 
-[Motrix Next](https://github.com/AnInsomniacy/motrix-next) runs aria2 as a native Tauri sidecar process. This repository supplies that engine.
+aria2-next is not a new downloader protocol or a Motrix-only binary format. It is aria2 with an actively maintained build, release, and reliability layer around it.
 
-The sidecar relationship is the main reason this fork exists. Motrix Next needs current, reproducible aria2 binaries across its supported platforms, including macOS Apple Silicon, macOS Intel, Windows x64, Windows ARM64, Linux x64, and Linux ARM64.
-
-The binaries are not locked to Motrix Next. They remain ordinary aria2-compatible `aria2c` builds and can be used by scripts, frontends, RPC clients, and automation that already know how to use aria2.
+| Area | What this repository provides |
+| --- | --- |
+| Engine | aria2-compatible `aria2c` binaries |
+| Primary consumer | Motrix Next native Tauri sidecar |
+| External consumers | Existing aria2 scripts, frontends, RPC clients, and automation |
+| Build system | CMake 3.25+ with Ninja presets |
+| Release targets | macOS, Windows, and Linux on x64 and ARM64 |
+| Additional packaging | Android ARM64 |
+| Maintenance record | Preserved upstream issue review matrix |
 
 ## Compatibility
 
-aria2-next follows the aria2 contract by default.
+The project keeps aria2 compatibility as the default behavior.
 
-| Surface | Compatibility expectation |
+| Surface | Compatibility |
 | --- | --- |
-| Executable | `aria2c` remains the primary binary |
-| CLI | Existing aria2 options and option names remain the baseline |
-| Configuration | Existing aria2 config files remain usable |
-| Sessions | Existing aria2 session and input file conventions remain usable |
-| RPC | JSON-RPC method names and response shapes follow aria2 |
-| Library | Public libaria2 headers remain under `src/includes/aria2/` |
+| Executable | `aria2c` |
+| CLI | aria2 option names and behavior |
+| Configuration | aria2 config file format |
+| Sessions | aria2 session and input file conventions |
+| RPC | aria2 JSON-RPC methods and response shapes |
+| Library | public libaria2 headers under `src/includes/aria2/` |
 
-Compatibility-sensitive changes should be rare, intentional, tested, and documented.
+Motrix Next uses this project as its embedded engine, but the release artifacts are ordinary aria2-compatible builds. They can be used outside Motrix Next wherever aria2-compatible behavior is expected.
 
-## Maintenance Work
+## Maintenance Audit
 
-This fork includes a large upstream issue review pass.
+The upstream issue review is documented under [`maintenance/`](maintenance/). The durable audit artifact is [`maintenance/issue-review-matrix.csv`](maintenance/issue-review-matrix.csv).
 
-The maintenance work started from the upstream aria2 issue backlog of more than 1,000 issues. After cleanup and triage, the actionable bug-focused set was reduced and reviewed in detail. The durable record preserved in this repository is [`maintenance/issue-review-matrix.csv`](maintenance/issue-review-matrix.csv).
+Current preserved review data:
 
-The preserved matrix contains 137 reviewed upstream open bug issues. Each row records the issue number, priority, affected module, title, final state, root-cause group, required action, and review evidence.
+| Metric | Count |
+| --- | ---: |
+| Reviewed upstream open bug issues preserved in the matrix | 137 |
+| Priority P1 rows | 98 |
+| Priority P2 rows | 13 |
+| Priority P3 rows | 26 |
+| Rows with final state `fixed-verified` | 44 |
+| Rows whose required action is `fixed-verified` | 37 |
 
-Current preserved results include:
+The review covers DNS and IPv6, TLS and certificates, BitTorrent and DHT, filesystem and session handling, HTTP range and retry behavior, RPC and WebSocket behavior, core behavior, and build/test infrastructure.
 
-- 44 issues with final state `fixed-verified`.
-- 37 issues whose required action was `fixed-verified`.
-- Reviewed classifications for reports that were already fixed, documented behavior, environment-specific, site-specific, platform-specific, not reproducible, or too large for a small isolated patch.
-
-The matrix is intentionally conservative. It separates fixes from non-code decisions so the repository keeps an auditable record instead of turning every upstream report into speculative code changes.
+Not every reviewed issue became a code change. The matrix keeps fixes, already-fixed reports, documented behavior, environment-specific reports, site-specific reports, platform-specific reports, non-reproducible reports, and larger architecture limitations separate so the maintenance history remains auditable.
 
 ## Build System Modernization
 
-aria2-next has moved the maintained build path from Autotools to CMake.
+The maintained build path has moved from Autotools to CMake.
 
-CMake is now the only supported build system for this repository. Release packaging, local development, tests, and cross-platform automation all build this checkout through CMake. Ninja is the default generator.
+CMake now owns local development, tests, package metadata generation, and release packaging for this repository. Ninja is the default generator. The migration preserved the existing aria2 feature surface while making cross-platform release jobs easier to reproduce and validate.
 
 ```bash
 cmake --preset default
@@ -72,15 +81,6 @@ ctest --test-dir build/default --output-on-failure
 
 Useful CMake options include `ARIA2_ENABLE_BITTORRENT`, `ARIA2_ENABLE_METALINK`, `ARIA2_ENABLE_WEBSOCKET`, `ARIA2_ENABLE_LIBARIA2`, `ARIA2_ENABLE_STATIC`, `ARIA2_WITH_APPLETLS`, `ARIA2_WITH_WINTLS`, `ARIA2_WITH_OPENSSL`, `ARIA2_WITH_GNUTLS`, `ARIA2_WITH_LIBXML2`, `ARIA2_WITH_EXPAT`, `ARIA2_WITH_CARES`, `ARIA2_WITH_ZLIB`, `ARIA2_WITH_SQLITE3`, and `ARIA2_WITH_LIBSSH2`.
 
-## What This Repository Provides
-
-- An aria2-compatible `aria2c` binary for Motrix Next and other integrations.
-- Six desktop release targets: macOS, Windows, and Linux on x64 and ARM64.
-- Android ARM64 packaging support for aria2-compatible mobile use.
-- A maintained CMake 3.25+ build system with Ninja as the default generator.
-- A documented release dependency baseline for reproducible packaging.
-- A preserved maintenance audit of upstream issue review and fix decisions.
-
 ## Downloads
 
 Prebuilt artifacts are published on the [GitHub Releases](https://github.com/AnInsomniacy/aria2-next/releases) page.
@@ -95,7 +95,7 @@ Prebuilt artifacts are published on the [GitHub Releases](https://github.com/AnI
 | Windows | ARM64 | `aria2-<version>-windows-arm64.zip` |
 | Checksums | all release assets | `aria2-<version>-checksums.sha256` |
 
-Use the downloaded binary as a normal aria2 binary:
+Use the downloaded binary the same way as aria2:
 
 ```bash
 aria2c https://example.com/file.iso
@@ -106,15 +106,9 @@ aria2c --enable-rpc --rpc-listen-all=false --rpc-listen-port=6800
 
 `CMakeLists.txt` is the project version source of truth. Release tags use `v{PROJECT_VERSION}`.
 
-The release workflow is designed around GitHub Releases:
+The release workflow runs when a matching GitHub Release is published. It validates the tag against `CMakeLists.txt`, builds all maintained platform artifacts, generates SHA-256 checksums, and uploads the assets to the published release.
 
-1. The release commit carries the target CMake project version.
-2. The GitHub Release is created and published for the matching `v<version>` tag.
-3. `.github/workflows/release.yml` validates the tag against `CMakeLists.txt`.
-4. The workflow builds all maintained platform artifacts.
-5. The workflow generates SHA-256 checksums and uploads assets to the published GitHub Release.
-
-Tag pushes alone do not publish release builds. `workflow_dispatch` is retained for manual release-path validation and uploads artifacts only to the workflow run.
+Tag pushes alone do not publish release builds. `workflow_dispatch` remains available for manual release-path validation and uploads artifacts only to the workflow run.
 
 ## Dependency Baseline
 

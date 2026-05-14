@@ -1,6 +1,6 @@
-# aria2-builder
+# aria2-next
 
-Cross-platform statically linked [aria2](https://github.com/aria2/aria2) builds — covering platforms beyond the official releases. All third-party dependencies compiled from source as static libraries.
+aria2-next is a maintained [aria2](https://github.com/aria2/aria2) fork focused on reliability fixes, current dependency baselines, and reproducible cross-platform builds.
 
 ## Supported Platforms
 
@@ -36,21 +36,28 @@ chmod +x aria2c   # Linux/macOS only
 
 | Dependency | Version | Platforms |
 |------------|---------|-----------|
-| zlib | 1.3.1 | All |
-| expat | 2.5.0 | All |
-| c-ares | 1.19.1 | All |
-| SQLite | 3.43.1 | All |
-| libssh2 | 1.11.0 | All |
-| OpenSSL | System | Linux |
+| zlib | 1.3.2 | All |
+| expat | 2.8.1 | All |
+| c-ares | 1.34.6 | All |
+| SQLite | 3.53.1 | All |
+| libssh2 | 1.11.1 | All |
+| OpenSSL | 3.5.6 LTS | Linux |
 | GMP | 6.3.0 | macOS, Windows |
-| libgpg-error | 1.51 | macOS |
-| libgcrypt | 1.10.3 | macOS |
+| libgpg-error | 1.61 | macOS |
+| libgcrypt | 1.12.2 | macOS |
 
 macOS binaries target `MACOSX_DEPLOYMENT_TARGET=11.0` (Big Sur+) for maximum compatibility.
 
 ## Origin
 
 Built as part of the [Motrix Next](https://github.com/AnInsomniacy/motrix-next) project. Binaries are universal and can be used by any project or standalone.
+
+## Repository Layout
+
+The project keeps core source code in `src/`, tests in `test/`, documentation sources in `doc/`, bundled third-party source in `third_party/`, packaging and release assets in `packaging/`, maintenance records in `maintenance/`, helper scripts in `tools/`, build macros in `m4/`, translations in `po/`, and library support code in `lib/`.
+
+Historical packaging files that are not part of the maintained release pipeline live under `packaging/legacy/`.
+Bundled third-party code is documented in `third_party/README.md`.
 
 ## License
 

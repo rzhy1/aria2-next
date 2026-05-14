@@ -29,7 +29,7 @@
 #  - $ virtualenv .
 #  - $ . bin/activate
 #  - $ pip install sphinx-build
-#  - $ ln -s ../makerelease-os.mk Makefile
+#  - $ ln -s ../packaging/macos/makerelease-osx.mk Makefile
 #  - $ make
 #
 # If you haven't checkout out a release tag, you need to specify NON_RELEASE.
@@ -61,7 +61,7 @@
 # with lipo is because of two things:
 #  1) Avoid patching c-ares, which hardcodes some sizes in its headers.
 #
-# Note: This Makefile uses resources from osx-package when creating the
+# Note: This Makefile uses resources from packaging/macos when creating the
 # *.pkg and *.dmg targets
 
 SHELL := bash
@@ -399,7 +399,7 @@ $(ARIA2_DIST).pkg: aria2.build $(ARIA2_DOCS) $(ARIA2_CHANGELOG)
 		--ownership recommended \
 		out.pkg
 	pkgbuild \
-		--root $(SRCDIR)/osx-package/etc \
+		--root $(SRCDIR)/packaging/macos/etc \
 		--identifier aria2.paths \
 		--version $(VERSION) \
 		--install-location /etc \
@@ -418,7 +418,7 @@ $(ARIA2_DIST).dmg: $(ARIA2_DIST).pkg
 	cp -av $(ARIA2_DIST).pkg dmg/aria2.pkg
 	find $(ARIA2_PREFIX)/share/doc/aria2 -maxdepth 1 -type f -exec cp -av "{}" dmg/Docs \;
 	rm -rf dmg/Docs/README dmg/Docs/README.rst
-	cp $(SRCDIR)/osx-package/DS_Store dmg/.DS_Store
+	cp $(SRCDIR)/packaging/macos/DS_Store dmg/.DS_Store
 	hdiutil create $@.uncompressed \
 		-srcfolder dmg \
 		-volname "aria2 $(VERSION) Intel" \

@@ -1,16 +1,23 @@
-SUBDIRS =  po lib deps src doc test
+SUBDIRS = po lib third_party src doc test
 
 ACLOCAL_AMFLAGS = -I m4 --install
 RST2HTML = @RST2HTML@
 
 EXTRA_DIST = config.rpath \
-	     script-helper \
-	     makerelease \
-	     mingw-config mingw-release mingw-build-memo \
-	     android-config \
-	     makerelease-osx.mk osx-package/DS_Store osx-package/etc/paths.d/aria2c osx-package/etc/manpaths.d/aria2 \
-	     Dockerfile.mingw \
-	     Dockerfile.raspberrypi \
+	     tools/script-helper \
+	     tools/import-po \
+	     tools/build_test.sh \
+	     packaging/scripts/makerelease \
+	     packaging/scripts/mingw-config packaging/scripts/mingw-release packaging/scripts/mingw-build-memo \
+	     packaging/scripts/android-config packaging/scripts/android-release \
+	     packaging/macos/makerelease-osx.mk \
+	     packaging/macos/DS_Store packaging/macos/etc/paths.d/aria2c packaging/macos/etc/manpaths.d/aria2 \
+	     packaging/docker/Dockerfile.mingw \
+	     packaging/docker/Dockerfile.android \
+	     packaging/legacy/Dockerfile.raspberrypi \
+	     packaging/legacy/travis.yml \
+	     packaging/android/generic-config packaging/android/openssl-config packaging/android/zlib-config \
+	     doc/requirements.txt \
 	     examples/libaria2ex.cc examples/libaria2wx.cc
 
 dist_doc_DATA = README README.rst README.html
@@ -30,7 +37,7 @@ endif # !HAVE_RST2HTML
 dist_noinst_DATA = LICENSE.OpenSSL
 
 # Format source files using clang-format.  Don't format source files
-# under deps directory since we are not responsible for their coding
+# under third_party directory since we are not responsible for their coding
 # style.
 clang-format:
 	CLANGFORMAT=`git config --get clangformat.binary`; \

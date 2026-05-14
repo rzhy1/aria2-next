@@ -66,6 +66,7 @@ protected:
   virtual const char* getQuery() const = 0;
 
 private:
+  std::string filename_;
   sqlite3* db_;
 };
 

@@ -56,7 +56,7 @@ std::string getImmutableSqliteUri(const std::string& filename)
 } // namespace
 
 Sqlite3CookieParser::Sqlite3CookieParser(const std::string& filename)
-    : db_(nullptr)
+    : filename_(filename), db_(nullptr)
 {
   int ret;
 #ifdef HAVE_SQLITE3_OPEN_V2
@@ -161,6 +161,28 @@ std::vector<std::unique_ptr<Cookie>> Sqlite3CookieParser::parse()
   char* sqlite3ErrMsg = nullptr;
   int ret =
       sqlite3_exec(db_, getQuery(), cookieRowMapper, &tcookies, &sqlite3ErrMsg);
+#ifdef HAVE_SQLITE3_OPEN_V2
+  if (SQLITE_OK != ret) {
+    sqlite3_free(sqlite3ErrMsg);
+    sqlite3ErrMsg = nullptr;
+
+    auto uri = getImmutableSqliteUri(filename_);
+    sqlite3* immutableDb = nullptr;
+    auto openRet =
+        sqlite3_open_v2(uri.c_str(), &immutableDb,
+                        SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nullptr);
+    if (SQLITE_OK == openRet) {
+      sqlite3_close(db_);
+      db_ = immutableDb;
+      tcookies.clear();
+      ret = sqlite3_exec(db_, getQuery(), cookieRowMapper, &tcookies,
+                         &sqlite3ErrMsg);
+    }
+    else {
+      sqlite3_close(immutableDb);
+    }
+  }
+#endif // HAVE_SQLITE3_OPEN_V2
   std::string errMsg;
   if (sqlite3ErrMsg) {
     errMsg = sqlite3ErrMsg;

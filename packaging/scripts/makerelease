@@ -2,6 +2,10 @@
 
 VERSION=$1
 PREV_VERSION=$2
+TOP_SRCDIR=${TOP_SRCDIR:-$(cd "$(dirname "$0")/../.." && pwd)}
+
+cd "$TOP_SRCDIR"
+. ./packaging/dependencies.env
 
 git checkout refs/tags/release-$VERSION
 git log --pretty=fuller --date=short refs/tags/release-$PREV_VERSION..HEAD > ChangeLog
@@ -21,14 +25,22 @@ release_mingw()
 
     docker build \
 	   --build-arg HOST=$HOST \
-	   --build-arg ARIA2_VERSION=release-$VERSION \
-	   --build-arg ARIA2_REF=refs/tags/release-$VERSION \
-	   -t aria2-mingw-$HOST - < Dockerfile.mingw
+	   --build-arg ZLIB_VERSION=$ZLIB_VERSION \
+	   --build-arg EXPAT_VERSION=$EXPAT_VERSION \
+	   --build-arg EXPAT_TAG=$EXPAT_TAG \
+	   --build-arg SQLITE_AUTOCONF_VERSION=$SQLITE_AUTOCONF_VERSION \
+	   --build-arg SQLITE_YEAR=$SQLITE_YEAR \
+	   --build-arg CARES_VERSION=$CARES_VERSION \
+	   --build-arg CARES_TAG=$CARES_TAG \
+	   --build-arg LIBSSH2_VERSION=$LIBSSH2_VERSION \
+	   --build-arg GMP_VERSION=$GMP_VERSION \
+	   -f packaging/docker/Dockerfile.mingw \
+	   -t aria2-mingw-$HOST .
 
     docker run --rm -it -v $PWD/mingw-out:/out aria2-mingw-$HOST \
 	   cp /aria2/src/aria2c.exe /out
 
-    ./mingw-release
+    ./packaging/scripts/mingw-release
 
     rm -rf mingw-out
 }
@@ -43,13 +55,21 @@ release_mingw x86_64-w64-mingw32 win-64bit
 mkdir -p android-out
 
 docker build \
-       --build-arg ARIA2_VERSION=release-$VERSION \
-       -t aria2-android - < Dockerfile.android
+       --build-arg ANDROID_NDK_VERSION=$ANDROID_NDK_VERSION \
+       --build-arg OPENSSL_VERSION=$OPENSSL_VERSION \
+       --build-arg LIBEXPAT_VERSION=$EXPAT_VERSION \
+       --build-arg LIBEXPAT_TAG=$EXPAT_TAG \
+       --build-arg ZLIB_VERSION=$ZLIB_VERSION \
+       --build-arg CARES_VERSION=$CARES_VERSION \
+       --build-arg CARES_TAG=$CARES_TAG \
+       --build-arg LIBSSH2_VERSION=$LIBSSH2_VERSION \
+       -f packaging/docker/Dockerfile.android \
+       -t aria2-android .
 
 docker run --rm -it -v $PWD/android-out:/out aria2-android \
        cp /root/build/aria2/src/aria2c /out
 
-./android-release
+./packaging/scripts/android-release
 
 rm -rf android-out
 

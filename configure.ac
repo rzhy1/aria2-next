@@ -993,13 +993,13 @@ if test "x$have_option_const_name" = "xyes"; then
 fi
 
 if test "x$enable_websocket" = "xyes"; then
-  AC_CONFIG_SUBDIRS([deps/wslay])
+  AC_CONFIG_SUBDIRS([third_party/wslay])
   enable_websocket=yes
   AC_DEFINE([ENABLE_WEBSOCKET], [1],
             [Define 1 if WebSocket support is enabled.])
   # $(top_srcdir) for `make distcheck`
-  WSLAY_CFLAGS="-I\$(top_builddir)/deps/wslay/lib/includes -I\$(top_srcdir)/deps/wslay/lib/includes"
-  WSLAY_LIBS="\$(top_builddir)/deps/wslay/lib/libwslay.la"
+  WSLAY_CFLAGS="-I\$(top_builddir)/third_party/wslay/lib/includes -I\$(top_srcdir)/third_party/wslay/lib/includes"
+  WSLAY_LIBS="\$(top_builddir)/third_party/wslay/lib/libwslay.la"
   AC_SUBST([WSLAY_CFLAGS])
   AC_SUBST([WSLAY_LIBS])
 fi
@@ -1064,7 +1064,7 @@ AC_CONFIG_FILES([Makefile
                 doc/manual-src/ru/conf.py
                 doc/manual-src/pt/Makefile
                 doc/manual-src/pt/conf.py
-                deps/Makefile])
+                third_party/Makefile])
 AC_OUTPUT
 
 AC_MSG_NOTICE([summary of build options:

@@ -239,10 +239,12 @@ necessary to build the program::
 
     $ autoreconf -i
 
-Also, you need `Sphinx <http://sphinx-doc.org/>`_ to build the man page.
+Also, install the pinned documentation toolchain to build the man page::
 
-If you are building aria2 for Mac OS X, take a look at
-the makerelease-osx.mk GNU Make makefile.
+    $ python3 -m pip install -r doc/requirements.txt
+
+If you are building aria2 for macOS, take a look at
+the ``packaging/macos/makerelease-osx.mk`` GNU Make makefile.
 
 The quickest way to build aria2 is first to run configure script::
 
@@ -309,9 +311,9 @@ mingw-w64 (http://mingw-w64.org/doku.php) cross-compiler on Debian
 Linux. The MinGW (http://www.mingw.org/) may not be able to build
 aria2.
 
-The easiest way to build Windows binary is using Dockerfile.mingw.  See
-Dockerfile.mingw how to build a binary.  If you cannot use Dockerfile,
-then continue to read the following paragraphs.
+The easiest way to build a Windows binary is using
+``packaging/docker/Dockerfile.mingw``. If you cannot use Dockerfile, then
+continue to read the following paragraphs.
 
 Basically, after compiling and installing depended libraries, you can
 do cross-compile just passing appropriate ``--host`` option and
@@ -320,7 +322,7 @@ variables to configure. For convenience and to lower our own
 development cost, we provide an easier way to configure the build
 settings.
 
-``mingw-config`` script is a configure script wrapper for mingw-w64.
+``packaging/scripts/mingw-config`` script is a configure script wrapper for mingw-w64.
 We use it to create official Windows build.  This script assumes
 the following libraries have been built for cross-compile:
 
@@ -347,7 +349,7 @@ Some environment variables can be adjusted to change build settings:
 
 For example, to build a 64bit binary do this::
 
-    $ HOST=x86_64-w64-mingw32 ./mingw-config
+    $ HOST=x86_64-w64-mingw32 ./packaging/scripts/mingw-config
 
 If you want libaria2 dll with ``--enable-libaria2``, then don't use
 ``ARIA2_STATIC=yes`` and prepare the DLL version of external
@@ -359,10 +361,10 @@ Cross-compiling Android binary
 In this section, we describe how to build Android binary using Android
 NDK cross-compiler on Debian Linux.
 
-At the time of this writing, Android NDK r21e should compile aria2
+At the time of this writing, Android NDK r29 should compile aria2
 without errors.
 
-``android-config`` script is a configure script wrapper for Android
+``packaging/scripts/android-config`` script is a configure script wrapper for Android
 build.  We use it to create an official Android build.  This script
 assumes the following libraries have been built for cross-compile:
 
@@ -376,25 +378,30 @@ When building the above libraries, make sure that disable shared
 library and enable only static library. We are going to link those
 libraries statically.
 
-``android-config`` assumes that ``$ANDROID_HOME`` and ``$NDK``
+``packaging/scripts/android-config`` assumes that ``$ANDROID_HOME`` and ``$NDK``
 environment variables are defined.
 
-We currently use Android NDK r21e.  ``$NDK`` should point to the
+We currently use Android NDK r29.  ``$NDK`` should point to the
 directory to Android NDK.  The build tools will be found under
 ``$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/``.
 
 All the dependent libraries must be installed under
 ``$ANDROID_HOME/usr/local``.
 
-After ``android-config``, run ``make`` to compile sources.
+After ``packaging/scripts/android-config``, run ``make`` to compile sources.
 
 Building documentation
 ----------------------
 
-`Sphinx <http://sphinx-doc.org/>`_ is used to building the
-documentation. aria2 man pages will be build when you run ``make`` if
-they are not up-to-date.  You can also build an HTML version of the aria2
-man page by ``make html``. The HTML version manual is also available
+`Sphinx <http://sphinx-doc.org/>`_ is used to build the documentation.
+Install the pinned documentation dependencies first::
+
+    $ python3 -m pip install -r doc/requirements.txt
+
+aria2 man pages will be built when you run ``make`` if they are not
+up-to-date.  You can also build an HTML version of the aria2 man page by
+``make html`` from the relevant ``doc/manual-src/<language>`` directory.
+The HTML version manual is also available
 `online <https://aria2.github.io/manual/en/html/>`_ (`Russian
 translation <https://aria2.github.io/manual/ru/html/>`_, `Portuguese
 translation <https://aria2.github.io/manual/pt/html/>`_).

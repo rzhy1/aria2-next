@@ -31,9 +31,9 @@
 # version.  If you delete this exception statement from all source
 # files in the program, then also delete it here.
 
-# cd to the directory where this script exists.
-cd "$(dirname $0)"
-. ./script-helper
+TOP_SRCDIR=${TOP_SRCDIR:-$(cd "$(dirname "$0")/../.." && pwd)}
+cd "$TOP_SRCDIR"
+. ./tools/script-helper
 
 get_version
 

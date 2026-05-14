@@ -7,7 +7,7 @@ INPUT_TGZ=$1
 PO_DIR=po
 
 if [ -z "$INPUT_TGZ" ]; then
-    echo "Usage: import-po /path/to/launchpad-export.tar.gz"
+    echo "Usage: tools/import-po /path/to/launchpad-export.tar.gz"
     echo "Specify input launchpad-export.tar.gz file"
     exit 1
 fi

@@ -281,7 +281,7 @@ no procedimento (configure). Para maior conveniência e menor custo
 de desenvolvimento, é fornecida uma maneira fácil de configurar as
 características do build / compilação.
 
-O script ``mingw-config`` é um ``(wrapper)`` para mingw-w64.
+O script ``packaging/scripts/mingw-config`` é um ``(wrapper)`` para mingw-w64.
 Sua utilização é para gerar uma compilação oficial para Windows.  Esse
 script assume que as seguintes bibliotecas tenham sido compiladas
 e/ou instaladas para a compilação cross:
@@ -309,7 +309,7 @@ Algumas variáveis de ambiente precisam ser ajustadas para compilar:
 
 Por exemplo, para construir um binário para 64bits utilize:: 
 
-    $ HOST=x86_64-w64-mingw32 ./mingw-config
+    $ HOST=x86_64-w64-mingw32 ./packaging/scripts/mingw-config
 
 .. index:: triple:  compilação cross; android; aria2c;
            pair:    configuração; compilação android
@@ -320,7 +320,7 @@ Compilação Cross Android binário
 Nessa seção, descrevemos como construir um binário usando o compilador-cross
 NDD no Linux Debian.
 
-``android-config`` é um script para configurar compilação para Android, o qual
+``packaging/scripts/android-config`` é um script para configurar compilação para Android, o qual
 assume que as seguintes bibliotecas também foram construídas para
 compilador-cross:
 
@@ -335,7 +335,7 @@ A compilação será feita somente com bibliotecas estáticas.
 A bibliteca zlib que vem com o Android NDK, portanto não é necessário
 compilar uma zlib nova.
 
-``android-config`` assume os seguintes pontos:
+``packaging/scripts/android-config`` assume os seguintes pontos:
 
 * Android NDK está instalado no local definido pela variável de ambiente
   ``$ANDROID_HOME``.  Consultar seção "3/ Chamando o compilador (jeito fácil):"
@@ -344,10 +344,10 @@ compilar uma zlib nova.
 * Bibliotecas dependentes devem estar instaladas em 
   ``$ANDROID_HOME/usr/local``.
 
-Antes executar ``android-config`` e ``android-make``, a variável de ambiente
+Antes executar ``packaging/scripts/android-config`` e ``make``, a variável de ambiente
 ``$ANDOIRD_HOME`` deve apontar para o caminho correto.
 
-Após ``android-config``, executar ``android-make`` para compilar os fontes.
+Após ``packaging/scripts/android-config``, executar ``make`` para compilar os fontes.
 
 .. index::	triple:    instalação; aria2; android;
                 triple:    execução; aria2; android;
@@ -660,4 +660,3 @@ Anotação sobre divergência entre Manual e o aria2:
 Esta página de manual pode não necessariamente conter a última informação.
 Caso haja discrepância entre alguma informação do manual e o aria2, por
 favor refira-se a versão em inglês resultante do comando ``man aria2c``
-

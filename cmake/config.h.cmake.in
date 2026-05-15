@@ -295,6 +295,9 @@
 /* Define to 1 if you have the 'rmdir' function. */
 #cmakedefine HAVE_RMDIR @HAVE_RMDIR@
 
+/* Define to 1 if SCH_CREDENTIALS and TLS_PARAMETERS are available. */
+#cmakedefine HAVE_SCH_CREDENTIALS @HAVE_SCH_CREDENTIALS@
+
 /* Define to 1 if you have the 'select' function. */
 #cmakedefine HAVE_SELECT @HAVE_SELECT@
 

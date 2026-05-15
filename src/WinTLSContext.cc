@@ -70,34 +70,34 @@ WinTLSContext::WinTLSContext(TLSSessionSide side, TLSVersion ver)
     : side_(side), store_(0)
 {
   memset(&credentials_, 0, sizeof(credentials_));
-#if defined(SCH_CREDENTIALS_VERSION)
+#if defined(HAVE_SCH_CREDENTIALS)
   memset(&tlsParams_, 0, sizeof(tlsParams_));
   credentials_.dwVersion = SCH_CREDENTIALS_VERSION;
   credentials_.cTlsParameters = 1;
   credentials_.pTlsParameters = &tlsParams_;
   tlsParams_.grbitDisabledProtocols = 0;
-#else  // !SCH_CREDENTIALS_VERSION
+#else  // !HAVE_SCH_CREDENTIALS
   credentials_.dwVersion = SCHANNEL_CRED_VERSION;
   credentials_.grbitEnabledProtocols = 0;
-#endif // !SCH_CREDENTIALS_VERSION
+#endif // !HAVE_SCH_CREDENTIALS
   if (side_ == TLS_CLIENT) {
     switch (ver) {
     case TLS_PROTO_TLS11:
-#if defined(SCH_CREDENTIALS_VERSION)
+#if defined(HAVE_SCH_CREDENTIALS)
       tlsParams_.grbitDisabledProtocols &= ~SP_PROT_TLS1_1_CLIENT;
-#else  // !SCH_CREDENTIALS_VERSION
+#else  // !HAVE_SCH_CREDENTIALS
       credentials_.grbitEnabledProtocols |= SP_PROT_TLS1_1_CLIENT;
-#endif // !SCH_CREDENTIALS_VERSION
+#endif // !HAVE_SCH_CREDENTIALS
     // fall through
     case TLS_PROTO_TLS12:
-#if defined(SCH_CREDENTIALS_VERSION)
+#if defined(HAVE_SCH_CREDENTIALS)
       tlsParams_.grbitDisabledProtocols &= ~SP_PROT_TLS1_2_CLIENT;
-#else  // !SCH_CREDENTIALS_VERSION
+#else  // !HAVE_SCH_CREDENTIALS
       credentials_.grbitEnabledProtocols |= SP_PROT_TLS1_2_CLIENT;
-#endif // !SCH_CREDENTIALS_VERSION
+#endif // !HAVE_SCH_CREDENTIALS
     // fall through
     case TLS_PROTO_TLS13:
-#if defined(SCH_CREDENTIALS_VERSION) && defined(SP_PROT_TLS1_3_CLIENT)
+#if defined(HAVE_SCH_CREDENTIALS) && defined(SP_PROT_TLS1_3_CLIENT)
       tlsParams_.grbitDisabledProtocols &= ~SP_PROT_TLS1_3_CLIENT;
 #elif defined(SP_PROT_TLS1_3_CLIENT)
       credentials_.grbitEnabledProtocols |= SP_PROT_TLS1_3_CLIENT;
@@ -113,21 +113,21 @@ WinTLSContext::WinTLSContext(TLSSessionSide side, TLSVersion ver)
   else {
     switch (ver) {
     case TLS_PROTO_TLS11:
-#if defined(SCH_CREDENTIALS_VERSION)
+#if defined(HAVE_SCH_CREDENTIALS)
       tlsParams_.grbitDisabledProtocols &= ~SP_PROT_TLS1_1_SERVER;
-#else  // !SCH_CREDENTIALS_VERSION
+#else  // !HAVE_SCH_CREDENTIALS
       credentials_.grbitEnabledProtocols |= SP_PROT_TLS1_1_SERVER;
-#endif // !SCH_CREDENTIALS_VERSION
+#endif // !HAVE_SCH_CREDENTIALS
     // fall through
     case TLS_PROTO_TLS12:
-#if defined(SCH_CREDENTIALS_VERSION)
+#if defined(HAVE_SCH_CREDENTIALS)
       tlsParams_.grbitDisabledProtocols &= ~SP_PROT_TLS1_2_SERVER;
-#else  // !SCH_CREDENTIALS_VERSION
+#else  // !HAVE_SCH_CREDENTIALS
       credentials_.grbitEnabledProtocols |= SP_PROT_TLS1_2_SERVER;
-#endif // !SCH_CREDENTIALS_VERSION
+#endif // !HAVE_SCH_CREDENTIALS
     // fall through
     case TLS_PROTO_TLS13:
-#if defined(SCH_CREDENTIALS_VERSION) && defined(SP_PROT_TLS1_3_SERVER)
+#if defined(HAVE_SCH_CREDENTIALS) && defined(SP_PROT_TLS1_3_SERVER)
       tlsParams_.grbitDisabledProtocols &= ~SP_PROT_TLS1_3_SERVER;
 #elif defined(SP_PROT_TLS1_3_SERVER)
       credentials_.grbitEnabledProtocols |= SP_PROT_TLS1_3_SERVER;
@@ -143,11 +143,11 @@ WinTLSContext::WinTLSContext(TLSSessionSide side, TLSVersion ver)
 
   // Strong protocol versions: Use a minimum strength, which might be later
   // refined using SCH_USE_STRONG_CRYPTO in the flags.
-#if defined(SCH_CREDENTIALS_VERSION)
+#if defined(HAVE_SCH_CREDENTIALS)
   credentials_.dwFlags |= SCH_USE_STRONG_CRYPTO;
-#else  // !SCH_CREDENTIALS_VERSION
+#else  // !HAVE_SCH_CREDENTIALS
   credentials_.dwMinimumCipherStrength = STRONG_CIPHER_BITS;
-#endif // !SCH_CREDENTIALS_VERSION
+#endif // !HAVE_SCH_CREDENTIALS
 
   setVerifyPeer(side_ == TLS_CLIENT);
 }
@@ -178,14 +178,14 @@ void WinTLSContext::setVerifyPeer(bool verify)
   // ourselves.
   credentials_.dwFlags = SCH_CRED_NO_DEFAULT_CREDS;
 
-#if !defined(SCH_CREDENTIALS_VERSION)
+#if !defined(HAVE_SCH_CREDENTIALS)
   if (credentials_.dwMinimumCipherStrength > WEAK_CIPHER_BITS) {
     // Enable strong crypto if we already set a minimum cipher streams.
     // This might actually require even stronger algorithms, which is a good
     // thing.
     credentials_.dwFlags |= SCH_USE_STRONG_CRYPTO;
   }
-#endif // !SCH_CREDENTIALS_VERSION
+#endif // !HAVE_SCH_CREDENTIALS
 
   if (side_ != TLS_CLIENT || !verify) {
     // No verification for servers and if user explicitly requested it

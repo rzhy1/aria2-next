@@ -330,6 +330,21 @@ aria2_pkg_check(LIBGCRYPT "libgcrypt>=${ARIA2_MIN_LIBGCRYPT_VERSION}")
 
 set(have_native_tls OFF)
 if(ARIA2_ENABLE_SSL AND WIN32 AND ARIA2_WITH_WINTLS)
+  cmake_push_check_state(RESET)
+  check_cxx_source_compiles("
+#include <winsock2.h>
+#include <windows.h>
+#include <security.h>
+#include <schnlsp.h>
+int main() {
+  SCH_CREDENTIALS credentials;
+  TLS_PARAMETERS tls_parameters;
+  credentials.dwVersion = SCH_CREDENTIALS_VERSION;
+  credentials.cTlsParameters = 1;
+  credentials.pTlsParameters = &tls_parameters;
+  return 0;
+}" HAVE_SCH_CREDENTIALS)
+  cmake_pop_check_state()
   set(HAVE_WINTLS 1)
   set(ENABLE_SSL 1)
   set(have_native_tls ON)

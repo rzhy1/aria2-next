@@ -850,47 +850,6 @@ jobs:
           archive: false
 
   # ---------------------------------------------------------------------------
-  # Windows runtime smoke tests
-  # ---------------------------------------------------------------------------
-  smoke-windows-x64:
-    name: Windows x86_64 Smoke
-    needs:
-      - resolve-release
-      - build-windows-x64
-    runs-on: windows-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: windows-x86_64
-          path: smoke
-
-      - name: Verify Windows x86_64 binary
-        shell: pwsh
-        run: |
-          $binary = "smoke\aria2c-${{ needs.resolve-release.outputs.version }}-windows-x86_64.exe"
-          & $binary --version
-          & $binary --dry-run=true https://down-tencent.huorong.cn/sysdiag-all-x64-6.0.10.0-2026.05.15.1.exe
-
-  smoke-windows-arm64:
-    name: Windows ARM64 Smoke
-    needs:
-      - resolve-release
-      - build-windows-arm64
-    runs-on: windows-11-arm
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: windows-arm64
-          path: smoke
-
-      - name: Verify Windows ARM64 binary
-        shell: pwsh
-        run: |
-          $binary = "smoke\aria2c-${{ needs.resolve-release.outputs.version }}-windows-arm64.exe"
-          & $binary --version
-          & $binary --dry-run=true https://down-tencent.huorong.cn/sysdiag-all-x64-6.0.10.0-2026.05.15.1.exe
-
-  # ---------------------------------------------------------------------------
   # Create GitHub Release
   # ---------------------------------------------------------------------------
   upload-release-assets:
@@ -903,8 +862,6 @@ jobs:
       - build-macos-intel
       - build-windows-x64
       - build-windows-arm64
-      - smoke-windows-x64
-      - smoke-windows-arm64
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name }}

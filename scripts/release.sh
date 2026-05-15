@@ -5,8 +5,7 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 Usage:
-  ./scripts/release.sh --stable
-  ./scripts/release.sh --beta <number>
+  ./scripts/release.sh
 
 This script stops after pushing the commit and annotated tag.
 Create the GitHub Release only after reviewing the release title and notes.
@@ -17,39 +16,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CMAKE_LISTS="$PROJECT_ROOT/CMakeLists.txt"
 
-CHANNEL=""
-CHANNEL_NUMBER=""
+if [ "$#" -eq 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+    usage
+    exit 0
+fi
 
-if [ "$#" -eq 0 ]; then
+if [ "$#" -ne 0 ]; then
   usage >&2
   exit 1
 fi
-
-case "${1:-}" in
-  --stable)
-    if [ "$#" -ne 1 ]; then
-      usage >&2
-      exit 1
-    fi
-    CHANNEL="stable"
-    ;;
-  --beta)
-    if [ "$#" -ne 2 ] || ! [[ "$2" =~ ^[1-9][0-9]*$ ]]; then
-      usage >&2
-      exit 1
-    fi
-    CHANNEL="beta"
-    CHANNEL_NUMBER="$2"
-    ;;
-  -h|--help)
-    usage
-    exit 0
-    ;;
-  *)
-    usage >&2
-    exit 1
-    ;;
-esac
 
 cd "$PROJECT_ROOT"
 
@@ -62,22 +37,11 @@ fi
 
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Invalid CMake project version: $VERSION" >&2
-  echo "Expected major.minor.patch. Release channel suffixes belong to tags only." >&2
+  echo "Expected major.minor.patch." >&2
   exit 1
 fi
 
-case "$CHANNEL" in
-  stable)
-    TAG="v$VERSION"
-    ;;
-  beta)
-    TAG="v$VERSION-beta.$CHANNEL_NUMBER"
-    ;;
-  *)
-    echo "Unsupported release channel: $CHANNEL" >&2
-    exit 1
-    ;;
-esac
+TAG="v$VERSION"
 
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   echo "Local tag already exists: $TAG" >&2

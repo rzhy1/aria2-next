@@ -81,7 +81,7 @@ The audit separates confirmed fixes, already-fixed reports, documented behavior,
 
 ## Release and Versioning
 
-`CMakeLists.txt` is the project version source of truth. Stable release tags use `v{PROJECT_VERSION}`. Beta release tags use `v{PROJECT_VERSION}-beta.N`.
+`CMakeLists.txt` is the project version source of truth. Release tags use `v{PROJECT_VERSION}`.
 
 The release workflow runs when a matching GitHub Release is published. It validates the tag against `CMakeLists.txt`, builds all maintained platform artifacts, generates SHA-256 checksums, and uploads assets to the published release.
 

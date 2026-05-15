@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to build, for example v2.0.2 or v2.0.2-beta.1
+        description: Release tag to build, for example v2.0.2
         required: true
         type: string
 
@@ -32,19 +32,18 @@ jobs:
         run: |
           VERSION=$(sed -n 's/^  VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | head -n 1)
           TAG_VERSION="${RELEASE_TAG#v}"
-          BASE_TAG_VERSION="${TAG_VERSION%%-*}"
 
           if [ -z "$VERSION" ]; then
             echo "Unable to read project version from CMakeLists.txt" >&2
             exit 1
           fi
 
-          if ! printf '%s\n' "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[1-9][0-9]*)?$'; then
+          if ! printf '%s\n' "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
             exit 1
           fi
 
-          if [ "$VERSION" != "$BASE_TAG_VERSION" ]; then
+          if [ "$VERSION" != "$TAG_VERSION" ]; then
             echo "Release tag $RELEASE_TAG does not match CMake project version $VERSION" >&2
             exit 1
           fi

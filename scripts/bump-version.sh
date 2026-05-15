@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bump the CMake project version. Release channel suffixes belong to tags.
+# Bump the CMake project version.
 set -euo pipefail
 
 usage() {
@@ -17,7 +17,6 @@ VERSION="$1"
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Invalid version: $VERSION" >&2
   echo "Expected a plain CMake project version: major.minor.patch" >&2
-  echo "Use release tags for channels, for example v2.0.2-beta.1." >&2
   exit 1
 fi
 

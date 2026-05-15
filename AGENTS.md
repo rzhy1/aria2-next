@@ -55,9 +55,9 @@ project(
 
 `PROJECT_VERSION` feeds generated package metadata and release artifact naming. Scripts that need the version must read it from `CMakeLists.txt`; they must not carry independent version constants.
 
-Use `./scripts/bump-version.sh <major.minor.patch>` to change the CMake project version. The script only accepts plain numeric versions because CMake project versions cannot carry release channel suffixes.
+Use `./scripts/bump-version.sh <major.minor.patch>` to change the CMake project version. The script only accepts plain numeric versions.
 
-Stable release tags use `v{PROJECT_VERSION}`. Beta release tags use `v{PROJECT_VERSION}-beta.N`, where `N` is a positive integer. The release workflow compares the CMake project version with the base tag version, so `v2.0.2-beta.1` must point to a commit whose CMake project version is `2.0.2`.
+Release tags use `v{PROJECT_VERSION}`. The tag version and CMake project version must match exactly after removing the leading `v`. Pre-release, beta, RC, channel, build-metadata, or date-based release suffixes are not supported.
 
 Treat published release tags as immutable. If a failed release has not been consumed, delete the failed GitHub Release and tag, fix the commit, then recreate the same release deliberately. If a release has been publicly consumed, stop and report the situation. Do not choose, bump, or publish a replacement version unless the maintainer explicitly specifies the new version.
 
@@ -75,9 +75,9 @@ Maintained release artifacts are Linux x86_64, Linux ARM64, macOS ARM64, macOS x
 
 Manual workflow runs are for release-path validation. Official release assets are uploaded only when a GitHub Release is published.
 
-Use `./scripts/release.sh --stable` for stable releases and `./scripts/release.sh --beta N` for beta releases. This script verifies the local build, stages changes, commits if needed, creates an annotated tag, and pushes the commit and tag. It does not create the GitHub Release, generate release notes, or trigger GitHub Actions manually.
+Use `./scripts/release.sh` for releases. This script verifies the local build, stages changes, commits if needed, creates an annotated tag, and pushes the commit and tag. It does not create the GitHub Release, generate release notes, or trigger GitHub Actions manually.
 
-After `release.sh` succeeds, generate an English release title and release notes from the commits included in the release, show them to the maintainer, and wait for approval before creating the GitHub Release. Stable releases must not be marked as pre-releases. Beta releases must be marked as pre-releases. Creating the GitHub Release triggers the official release workflow and asset upload.
+After `release.sh` succeeds, generate an English release title and release notes from the commits included in the release, show them to the maintainer, and wait for approval before creating the GitHub Release. Releases must not be marked as pre-releases. Creating the GitHub Release triggers the official release workflow and asset upload.
 
 Before publishing a GitHub Release, verify locally:
 
@@ -110,7 +110,7 @@ git push origin --delete v2.0.2
 
 If the GitHub Release exists and the release workflow failed before public consumption, delete the failed GitHub Release, delete the local and remote tag, fix the commit, rerun verification, and recreate the same tag deliberately.
 
-If the release has been publicly consumed, do not delete the release, delete the tag, or invent a replacement version. Stop, explain the failure, and wait for the maintainer to specify the exact next version and release channel.
+If the release has been publicly consumed, do not delete the release, delete the tag, or invent a replacement version. Stop, explain the failure, and wait for the maintainer to specify the exact next version.
 
 ## CI and Verification
 

@@ -4,9 +4,9 @@
 [![Release](https://img.shields.io/github/v/release/AnInsomniacy/aria2-next.svg)](https://github.com/AnInsomniacy/aria2-next/releases)
 [![License: GPLv2](https://img.shields.io/badge/license-GPLv2-blue.svg)](COPYING)
 
-aria2-next is the maintained `aria2c` engine for [Motrix Next](https://github.com/AnInsomniacy/motrix-next) and other aria2-compatible consumers. It keeps the original aria2 command, configuration, session, JSON-RPC, and libaria2 interfaces intact while publishing current, reproducible, portable builds.
+aria2-next is the maintained [aria2](https://github.com/aria2/aria2) engine for [Motrix Next](https://github.com/AnInsomniacy/motrix-next) and other aria2-compatible consumers. It keeps the original aria2 command, configuration, session, JSON-RPC, and libaria2 interfaces intact while publishing current, reproducible, portable builds.
 
-AnInsomniacy has maintained this fork since 2026. Maintenance focuses on cross-platform release reliability, dependency baselines, compatibility fixes, and a preserved audit of upstream issue history in [`docs/maintenance/issue-review-matrix.csv`](docs/maintenance/issue-review-matrix.csv).
+Maintenance focuses on cross-platform release reliability, dependency baselines, compatibility fixes, and a preserved audit of upstream issue history in [`docs/maintenance/issue-review-matrix.csv`](docs/maintenance/issue-review-matrix.csv).
 
 ## What This Repository Provides
 

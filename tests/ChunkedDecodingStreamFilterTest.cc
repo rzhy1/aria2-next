@@ -13,6 +13,18 @@
 
 namespace aria2 {
 
+namespace {
+const unsigned char* asBytes(const char* s)
+{
+  return reinterpret_cast<const unsigned char*>(s);
+}
+
+const unsigned char* asBytes(const std::string& s)
+{
+  return asBytes(s.data());
+}
+} // namespace
+
 class ChunkedDecodingStreamFilterTest : public CppUnit::TestFixture {
 
   CPPUNIT_TEST_SUITE(ChunkedDecodingStreamFilterTest);
@@ -56,9 +68,8 @@ CPPUNIT_TEST_SUITE_REGISTRATION(ChunkedDecodingStreamFilterTest);
 void ChunkedDecodingStreamFilterTest::testTransform()
 {
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("a\r\n1234567890\r\n");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "a\r\n1234567890\r\n";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)10, r);
     CPPUNIT_ASSERT_EQUAL(std::string("1234567890"), writer_->getString());
     CPPUNIT_ASSERT_EQUAL((size_t)15, filter_->getBytesProcessed());
@@ -69,9 +80,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   clearWriter();
   try {
     // Feed extension; see it is ignored.
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("3;extensionIgnored\r\n123\r\n");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "3;extensionIgnored\r\n123\r\n";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)3, r);
     CPPUNIT_ASSERT_EQUAL(std::string("123"), writer_->getString());
     CPPUNIT_ASSERT_EQUAL((size_t)25, filter_->getBytesProcessed());
@@ -83,10 +93,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   clearWriter();
   // Feed 2extensions; see it is ignored.
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>(
-            "3;extension1;extension2;\r\n123\r\n");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "3;extension1;extension2;\r\n123\r\n";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)3, r);
     CPPUNIT_ASSERT_EQUAL(std::string("123"), writer_->getString());
   }
@@ -96,9 +104,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   clearWriter();
   // Not all chunk size is available
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("1");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "1";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)0, r);
   }
   catch (DlAbortEx& e) {
@@ -106,9 +113,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   }
   clearWriter();
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("0\r\n1234567890123456\r\n");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "0\r\n1234567890123456\r\n";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)16, r);
     CPPUNIT_ASSERT_EQUAL(std::string("1234567890123456"), writer_->getString());
   }
@@ -118,9 +124,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   clearWriter();
   // Not all chunk data is available
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("10\r\n1234567890");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "10\r\n1234567890";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)10, r);
     CPPUNIT_ASSERT_EQUAL(std::string("1234567890"), writer_->getString());
   }
@@ -129,9 +134,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   }
   clearWriter();
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("123456\r\n");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "123456\r\n";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)6, r);
     CPPUNIT_ASSERT_EQUAL(std::string("123456"), writer_->getString());
   }
@@ -141,9 +145,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   clearWriter();
   // no trailing CR LF.
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("10\r\n1234567890123456");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "10\r\n1234567890123456";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)16, r);
     CPPUNIT_ASSERT_EQUAL(std::string("1234567890123456"), writer_->getString());
   }
@@ -153,9 +156,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   clearWriter();
   // feed only CR
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("\r");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "\r";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)0, r);
   }
   catch (DlAbortEx& e) {
@@ -163,9 +165,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   }
   // feed next LF
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("\n");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "\n";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)0, r);
     CPPUNIT_ASSERT_EQUAL(std::string(""), writer_->getString());
   }
@@ -174,9 +175,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   }
   // feed 0 CR LF.
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("0\r\n");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "0\r\n";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)0, r);
   }
   catch (DlAbortEx& e) {
@@ -184,9 +184,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   }
   // feed trailer
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("trailer\r\n");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "trailer\r\n";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)0, r);
   }
   catch (DlAbortEx& e) {
@@ -194,9 +193,8 @@ void ChunkedDecodingStreamFilterTest::testTransform()
   }
   // feed final CRLF
   try {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("\r\n");
-    ssize_t r = filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "\r\n";
+    ssize_t r = filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_ASSERT_EQUAL((ssize_t)0, r);
   }
   catch (DlAbortEx& e) {
@@ -209,9 +207,7 @@ void ChunkedDecodingStreamFilterTest::testTransform()
 void ChunkedDecodingStreamFilterTest::testTransform_withoutTrailer()
 {
   CPPUNIT_ASSERT_EQUAL(
-      (ssize_t)0, filter_->transform(
-                      writer_, segment_,
-                      reinterpret_cast<const unsigned char*>("0\r\n\r\n"), 5));
+      (ssize_t)0, filter_->transform(writer_, segment_, asBytes("0\r\n\r\n"), 5));
   CPPUNIT_ASSERT(filter_->finished());
 }
 
@@ -219,9 +215,7 @@ void ChunkedDecodingStreamFilterTest::testTransform_with2Trailers()
 {
   CPPUNIT_ASSERT_EQUAL(
       (ssize_t)0,
-      filter_->transform(
-          writer_, segment_,
-          reinterpret_cast<const unsigned char*>("0\r\nt1\r\nt2\r\n\r\n"), 13));
+      filter_->transform(writer_, segment_, asBytes("0\r\nt1\r\nt2\r\n\r\n"), 13));
   CPPUNIT_ASSERT(filter_->finished());
 }
 
@@ -229,9 +223,8 @@ void ChunkedDecodingStreamFilterTest::testTransform_largeChunkSize()
 {
   // chunkSize should be under 2^63-1
   {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("7fffffffffffffff\r\n");
-    filter_->transform(writer_, segment_, msg.data(), msg.size());
+    std::string msg = "7fffffffffffffff\r\n";
+    filter_->transform(writer_, segment_, asBytes(msg), msg.size());
   }
 }
 
@@ -239,10 +232,9 @@ void ChunkedDecodingStreamFilterTest::testTransform_tooLargeChunkSize()
 {
   // chunkSize 2^64 causes error
   {
-    std::basic_string<unsigned char> msg =
-        reinterpret_cast<const unsigned char*>("ffffffffffffffff\r\n");
+    std::string msg = "ffffffffffffffff\r\n";
     try {
-      filter_->transform(writer_, segment_, msg.data(), msg.size());
+      filter_->transform(writer_, segment_, asBytes(msg), msg.size());
       CPPUNIT_FAIL("exception must be thrown.");
     }
     catch (DlAbortEx& e) {
@@ -253,10 +245,9 @@ void ChunkedDecodingStreamFilterTest::testTransform_tooLargeChunkSize()
 
 void ChunkedDecodingStreamFilterTest::testTransform_chunkSizeMismatch()
 {
-  std::basic_string<unsigned char> msg =
-      reinterpret_cast<const unsigned char*>("3\r\n1234\r\n");
+  std::string msg = "3\r\n1234\r\n";
   try {
-    filter_->transform(writer_, segment_, msg.data(), msg.size());
+    filter_->transform(writer_, segment_, asBytes(msg), msg.size());
     CPPUNIT_FAIL("exception must be thrown.");
   }
   catch (DlAbortEx& e) {

@@ -89,9 +89,6 @@
 /* Define to 1 if you have the 'epoll_create' function. */
 #cmakedefine HAVE_EPOLL_CREATE @HAVE_EPOLL_CREATE@
 
-/* Define to 1 if you have the 'EVP_DigestInit_ex' function. */
-#cmakedefine HAVE_EVP_DIGESTINIT_EX @HAVE_EVP_DIGESTINIT_EX@
-
 /* Define to 1 if you have the 'EVP_sha224' function. */
 #cmakedefine HAVE_EVP_SHA224 @HAVE_EVP_SHA224@
 
@@ -259,8 +256,6 @@
 #cmakedefine HAVE_NL_LANGINFO @HAVE_NL_LANGINFO@
 
 /* Define to 1 if you have old openssl. */
-#cmakedefine HAVE_OLD_OPENSSL @HAVE_OLD_OPENSSL@
-
 /* Define to 1 if you have openssl. */
 #cmakedefine HAVE_OPENSSL @HAVE_OPENSSL@
 

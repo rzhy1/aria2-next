@@ -44,15 +44,6 @@
 
 namespace aria2 {
 
-#if !OPENSSL_101_API
-namespace {
-const unsigned char* ASN1_STRING_get0_data(ASN1_STRING* x)
-{
-  return ASN1_STRING_data(x);
-}
-} // namespace
-#endif // !OPENSSL_101_API
-
 TLSSession* TLSSession::make(TLSContext* ctx)
 {
   return new OpenSSLTLSSession(static_cast<OpenSSLTLSContext*>(ctx));
@@ -233,11 +224,7 @@ int OpenSSLTLSSession::tlsConnect(const std::string& hostname,
   }
   if (tlsContext_->getSide() == TLS_CLIENT && tlsContext_->getVerifyPeer()) {
     // verify peer
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
     auto peerCert = SSL_get1_peer_certificate(ssl_);
-#else  // !(OPENSSL_VERSION_NUMBER >= 0x30000000L)
-    auto peerCert = SSL_get_peer_certificate(ssl_);
-#endif // !(OPENSSL_VERSION_NUMBER >= 0x30000000L)
     if (!peerCert) {
       handshakeErr = "certificate not found";
       return TLS_ERR_ERROR;

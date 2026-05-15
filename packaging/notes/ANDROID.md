@@ -2,17 +2,7 @@
 
 This package contains the aria2-next `aria2c` binary for Android ARM64. It is a native command-line executable, not an Android application package.
 
-The binary is built with Android NDK r29. Maintained dependency versions are defined in `packaging/dependencies.env` in the source tree.
-
-Statically linked release dependencies:
-
-| Dependency | Version |
-| --- | --- |
-| OpenSSL | 3.5.6 LTS |
-| Expat | 2.8.1 |
-| zlib | 1.3.2 |
-| c-ares | 1.34.6 |
-| libssh2 | 1.11.1 |
+The binary is built with the Android NDK and statically linked release dependencies recorded in `packaging/dependencies.env` in the source tree.
 
 Example use from an Android shell environment:
 

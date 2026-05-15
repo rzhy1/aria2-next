@@ -90,19 +90,7 @@ Tag pushes alone do not publish release builds. `workflow_dispatch` remains avai
 ## Dependency Baseline
 
 Release dependency versions are tracked in [`packaging/dependencies.env`](packaging/dependencies.env).
-
-| Dependency | Version | Release usage |
-| --- | --- | --- |
-| zlib | 1.3.2 | All release targets |
-| Expat | 2.8.1 | XML parser release targets |
-| c-ares | 1.34.6 | Async DNS release targets |
-| SQLite | 3.53.1 | Cookie storage release targets |
-| libssh2 | 1.11.1 | SFTP release targets |
-| OpenSSL | 3.5.6 LTS | Linux, Windows, Android, optional macOS |
-| GMP | 6.3.0 | macOS and Windows dependency builds |
-| libgpg-error | 1.61 | macOS dependency builds |
-| libgcrypt | 1.12.2 | macOS dependency builds |
-| Android NDK | r29 | Android release build |
+The same file records versions, archive names, download URLs, and SHA-256 hashes for source archives consumed by release workflows and Docker build contexts.
 
 ## Repository Layout
 

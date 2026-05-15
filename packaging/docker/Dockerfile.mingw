@@ -1,141 +1,139 @@
-# Dockerfile to build aria2 Windows binary using ubuntu mingw-w64
-# cross compiler chain.
+# Dockerfile to build an aria2 Windows binary with Ubuntu MinGW-w64.
 #
-# $ docker build -f packaging/docker/Dockerfile.mingw -t aria2-mingw .
-#
-# After successful build, windows binary is located at
-# /aria2/build/release/aria2c.exe.  You can copy the binary using following
-# commands:
-#
-# $ docker run --rm -it -v /path/to/dest:/out aria2-mingw cp /aria2/build/release/aria2c.exe /out
+#   docker build -f packaging/docker/Dockerfile.mingw -t aria2-mingw .
+#   docker run --rm -v /path/to/dest:/out aria2-mingw \
+#     cp /aria2/build/release/aria2c.exe /out
 
 FROM ubuntu:22.04
 
 LABEL org.opencontainers.image.title="aria2-next Windows cross-build image"
 LABEL org.opencontainers.image.description="Builds aria2-next for Windows with CMake, Ninja, and MinGW-w64."
 
-# Change HOST to i686-w64-mingw32 to build a 32-bit binary.
 ARG HOST=x86_64-w64-mingw32
-ARG ZLIB_VERSION=1.3.2
-ARG EXPAT_VERSION=2.8.1
-ARG EXPAT_TAG=R_2_8_1
-ARG SQLITE_AUTOCONF_VERSION=3530100
-ARG SQLITE_YEAR=2026
-ARG CARES_VERSION=1.34.6
-ARG CARES_TAG=v1.34.6
-ARG LIBSSH2_VERSION=1.11.1
-ARG GMP_VERSION=6.3.0
-
-# It would be better to use nearest ubuntu archive mirror for faster
-# downloads.
-# RUN sed -ie 's/archive\.ubuntu/jp.archive.ubuntu/g' /etc/apt/sources.list
+ENV PREFIX=/usr/local/${HOST}
 
 RUN apt-get update && \
-    DEBIAN_FRONTEND="noninteractive" \
+    DEBIAN_FRONTEND=noninteractive \
     apt-get install -y --no-install-recommends \
-        make binutils cmake ninja-build \
-        patch ca-certificates \
-        pkg-config git curl dpkg-dev gcc-mingw-w64 g++-mingw-w64 \
-        lzip
+      make binutils cmake ninja-build \
+      patch ca-certificates pkg-config curl dpkg-dev \
+      gcc-mingw-w64 g++-mingw-w64 && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN curl --fail --show-error -L -O https://gmplib.org/download/gmp/gmp-$GMP_VERSION.tar.xz && \
-    curl --fail --show-error -L -O https://github.com/libexpat/libexpat/releases/download/$EXPAT_TAG/expat-$EXPAT_VERSION.tar.bz2 && \
-    curl --fail --show-error -L -O https://www.sqlite.org/$SQLITE_YEAR/sqlite-autoconf-$SQLITE_AUTOCONF_VERSION.tar.gz && \
-    curl --fail --show-error -L -O https://github.com/madler/zlib/releases/download/v$ZLIB_VERSION/zlib-$ZLIB_VERSION.tar.gz && \
-    curl --fail --show-error -L -O https://github.com/c-ares/c-ares/releases/download/$CARES_TAG/c-ares-$CARES_VERSION.tar.gz && \
-    curl --fail --show-error -L -O https://github.com/libssh2/libssh2/releases/download/libssh2-$LIBSSH2_VERSION/libssh2-$LIBSSH2_VERSION.tar.bz2
+WORKDIR /deps
+COPY packaging/dependencies.env /deps/packaging/dependencies.env
+COPY packaging/scripts/common.sh /deps/packaging/scripts/common.sh
 
-RUN tar xf gmp-$GMP_VERSION.tar.xz && \
-    cd gmp-$GMP_VERSION && \
+RUN . packaging/dependencies.env && \
+    . packaging/scripts/common.sh && \
+    curl_fetch "$GMP_URL" "$GMP_ARCHIVE" "$GMP_SHA256" && \
+    curl_fetch "$EXPAT_URL" "$EXPAT_ARCHIVE" "$EXPAT_SHA256" && \
+    curl_fetch "$SQLITE_URL" "$SQLITE_ARCHIVE" "$SQLITE_SHA256" && \
+    curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256" && \
+    curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256" && \
+    curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256" && \
+    curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+
+RUN . packaging/dependencies.env && \
+    tar xf "$GMP_ARCHIVE" && \
+    cd "gmp-$GMP_VERSION" && \
     ./configure \
-        --disable-shared \
-        --enable-static \
-        --prefix=/usr/local/$HOST \
-        --host=$HOST \
-        --disable-cxx \
-        --enable-fat \
-        CFLAGS="-mtune=generic -O2 -g0" && \
-    make -j$(nproc) install
+      --disable-shared --enable-static \
+      --prefix="$PREFIX" --host="$HOST" \
+      --disable-cxx --enable-fat \
+      CFLAGS="-mtune=generic -O2 -g0" && \
+    make -j"$(nproc)" install
 
-RUN tar xf expat-$EXPAT_VERSION.tar.bz2 && \
-    cd expat-$EXPAT_VERSION && \
+RUN . packaging/dependencies.env && \
+    tar xf "$EXPAT_ARCHIVE" && \
+    cd "expat-$EXPAT_VERSION" && \
     ./configure \
-        --disable-shared \
-        --enable-static \
-        --prefix=/usr/local/$HOST \
-        --host=$HOST \
-        --build=`dpkg-architecture -qDEB_BUILD_GNU_TYPE` && \
-    make -j$(nproc) install
+      --disable-shared --enable-static \
+      --prefix="$PREFIX" --host="$HOST" \
+      --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" && \
+    make -j"$(nproc)" install
 
-RUN tar xf sqlite-autoconf-$SQLITE_AUTOCONF_VERSION.tar.gz && \
-    cd sqlite-autoconf-$SQLITE_AUTOCONF_VERSION && \
+RUN . packaging/dependencies.env && \
+    tar xf "$SQLITE_ARCHIVE" && \
+    cd "sqlite-autoconf-$SQLITE_AUTOCONF_VERSION" && \
     ./configure \
-        --disable-shared \
-        --enable-static \
-        --prefix=/usr/local/$HOST \
-        --host=$HOST \
-        --build=`dpkg-architecture -qDEB_BUILD_GNU_TYPE` && \
-    make -j$(nproc) install
+      --disable-shared --enable-static \
+      --prefix="$PREFIX" --host="$HOST" \
+      --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" && \
+    make -j"$(nproc)" install
 
-RUN tar xf zlib-$ZLIB_VERSION.tar.gz && \
-    cd zlib-$ZLIB_VERSION && \
-    CC=$HOST-gcc \
-    AR=$HOST-ar \
-    LD=$HOST-ld \
-    RANLIB=$HOST-ranlib \
-    STRIP=$HOST-strip \
+RUN . packaging/dependencies.env && \
+    tar xf "$ZLIB_ARCHIVE" && \
+    cd "zlib-$ZLIB_VERSION" && \
+    CC="$HOST-gcc" AR="$HOST-ar" LD="$HOST-ld" \
+    RANLIB="$HOST-ranlib" STRIP="$HOST-strip" \
     ./configure \
-        --prefix=/usr/local/$HOST \
-        --libdir=/usr/local/$HOST/lib \
-        --includedir=/usr/local/$HOST/include \
-        --static && \
-    make -j$(nproc) install
+      --prefix="$PREFIX" \
+      --libdir="$PREFIX/lib" \
+      --includedir="$PREFIX/include" \
+      --static && \
+    make -j"$(nproc)" install
 
-RUN tar xf c-ares-$CARES_VERSION.tar.gz && \
-    cd c-ares-$CARES_VERSION && \
+RUN . packaging/dependencies.env && \
+    tar xf "$CARES_ARCHIVE" && \
+    cd "c-ares-$CARES_VERSION" && \
     ./configure \
-        --disable-shared \
-        --enable-static \
-        --without-random \
-        --prefix=/usr/local/$HOST \
-        --host=$HOST \
-        --build=`dpkg-architecture -qDEB_BUILD_GNU_TYPE` \
-        LIBS="-lws2_32" && \
-    make -j$(nproc) install
+      --disable-shared --enable-static --without-random \
+      --prefix="$PREFIX" --host="$HOST" \
+      --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" \
+      LIBS="-lws2_32" \
+      ac_cv_func_if_indextoname=no && \
+    make -j"$(nproc)" install
 
-RUN tar xf libssh2-$LIBSSH2_VERSION.tar.bz2 && \
-    cd libssh2-$LIBSSH2_VERSION && \
+RUN . packaging/dependencies.env && \
+    tar xf "$OPENSSL_ARCHIVE" && \
+    cd "openssl-$OPENSSL_VERSION" && \
+    ./Configure mingw64 no-shared no-module no-tests \
+      --cross-compile-prefix="$HOST-" \
+      --prefix="$PREFIX" --libdir=lib \
+      -O2 && \
+    make -j"$(nproc)" && \
+    make install_sw
+
+RUN . packaging/dependencies.env && \
+    tar xf "$LIBSSH2_ARCHIVE" && \
+    cd "libssh2-$LIBSSH2_VERSION" && \
     ./configure \
-        --disable-shared \
-        --enable-static \
-        --prefix=/usr/local/$HOST \
-        --host=$HOST \
-        --build=`dpkg-architecture -qDEB_BUILD_GNU_TYPE` \
-        LIBS="-lws2_32" && \
-    make -j$(nproc) install
+      --disable-shared --enable-static \
+      --disable-examples-build \
+      --prefix="$PREFIX" --host="$HOST" \
+      --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" \
+      --with-crypto=openssl --with-libssl-prefix="$PREFIX" \
+      CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib" \
+      PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" \
+      LIBS="-lws2_32 -lcrypt32" && \
+    make -j"$(nproc)" install
 
 COPY . /aria2
 WORKDIR /aria2
-RUN PKG_CONFIG_LIBDIR=/usr/local/$HOST/lib/pkgconfig \
+
+RUN PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" \
     cmake -S . -B build/release -G Ninja \
-        -DCMAKE_SYSTEM_NAME=Windows \
-        -DCMAKE_C_COMPILER=$HOST-gcc \
-        -DCMAKE_CXX_COMPILER=$HOST-g++ \
-        -DCMAKE_RC_COMPILER=$HOST-windres \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DARIA2_ENABLE_STATIC=ON \
-        -DARIA2_WITH_CARES=ON \
-        -DARIA2_WITH_GNUTLS=OFF \
-        -DARIA2_WITH_OPENSSL=OFF \
-        -DARIA2_WITH_WINTLS=ON \
-        -DARIA2_WITH_SQLITE3=ON \
-        -DARIA2_WITH_LIBXML2=OFF \
-        -DARIA2_WITH_EXPAT=ON \
-        -DARIA2_WITH_ZLIB=ON \
-        -DARIA2_WITH_GMP=ON \
-        -DARIA2_WITH_LIBSSH2=ON \
-        -DARIA2_WITH_LIBGCRYPT=OFF \
-        -DARIA2_WITH_LIBNETTLE=OFF \
-        -DCMAKE_PREFIX_PATH=/usr/local/$HOST && \
-    cmake --build build/release -j$(nproc) && \
-    $HOST-strip build/release/aria2c.exe
+      -DCMAKE_SYSTEM_NAME=Windows \
+      -DCMAKE_C_COMPILER="$HOST-gcc" \
+      -DCMAKE_CXX_COMPILER="$HOST-g++" \
+      -DCMAKE_RC_COMPILER="$HOST-windres" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DARIA2_ENABLE_STATIC=ON \
+      -DARIA2_WITH_CARES=ON \
+      -DARIA2_WITH_GNUTLS=OFF \
+      -DARIA2_WITH_OPENSSL=ON \
+      -DARIA2_WITH_WINTLS=OFF \
+      -DARIA2_WITH_SQLITE3=ON \
+      -DARIA2_WITH_LIBXML2=OFF \
+      -DARIA2_WITH_EXPAT=ON \
+      -DARIA2_WITH_ZLIB=ON \
+      -DARIA2_WITH_GMP=ON \
+      -DARIA2_WITH_LIBSSH2=ON \
+      -DARIA2_WITH_LIBGCRYPT=OFF \
+      -DARIA2_WITH_LIBNETTLE=OFF \
+      -DCMAKE_PREFIX_PATH="$PREFIX" \
+      -DCMAKE_EXE_LINKER_FLAGS="-L$PREFIX/lib -lcrypt32" \
+      -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config && \
+    cmake --build build/release -j"$(nproc)" && \
+    "$HOST-strip" build/release/aria2c.exe

@@ -38,27 +38,8 @@
 #include <openssl/evp.h>
 
 #include "Adler32MessageDigestImpl.h"
-#include "libssl_compat.h"
 
 namespace aria2 {
-
-#if !OPENSSL_101_API
-namespace {
-EVP_MD_CTX* EVP_MD_CTX_new() { return EVP_MD_CTX_create(); }
-} // namespace
-
-namespace {
-void EVP_MD_CTX_free(EVP_MD_CTX* ctx) { EVP_MD_CTX_destroy(ctx); }
-} // namespace
-
-namespace {
-int EVP_MD_CTX_reset(EVP_MD_CTX* ctx)
-{
-  EVP_MD_CTX_init(ctx);
-  return 1;
-}
-} // namespace
-#endif // !OPENSSL_101_API
 
 template <const EVP_MD* (*init_fn)()>
 class MessageDigestBase : public MessageDigestImpl {

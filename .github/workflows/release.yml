@@ -24,7 +24,7 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
 
@@ -59,7 +59,7 @@ jobs:
       PREFIX: /usr/local
       RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
 
@@ -72,12 +72,13 @@ jobs:
       - name: Download dependency sources
         run: |
           . packaging/dependencies.env
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
+          . packaging/scripts/common.sh
+          curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
+          curl_fetch "$EXPAT_URL" "$EXPAT_ARCHIVE" "$EXPAT_SHA256"
+          curl_fetch "$SQLITE_URL" "$SQLITE_ARCHIVE" "$SQLITE_SHA256"
+          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
+          curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+          curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
 
       - name: Build zlib
         run: |
@@ -153,7 +154,7 @@ jobs:
             -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config
           cmake --build build/release -j$(nproc)
           strip build/release/aria2c
-          ctest --test-dir build/release --output-on-failure || true
+          ctest --test-dir build/release --output-on-failure
           ldd build/release/aria2c || true
 
       - name: Package
@@ -166,7 +167,7 @@ jobs:
           cp docs/completion/aria2c "${DIRNAME}/aria2c.bash_completion" || true
           tar cJf "${DIRNAME}.tar.xz" "${DIRNAME}"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-x86_64
           path: aria2-*-linux-x86_64.tar.xz
@@ -182,7 +183,7 @@ jobs:
       PREFIX: /usr/local
       RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
 
@@ -195,12 +196,13 @@ jobs:
       - name: Download dependency sources
         run: |
           . packaging/dependencies.env
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
+          . packaging/scripts/common.sh
+          curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
+          curl_fetch "$EXPAT_URL" "$EXPAT_ARCHIVE" "$EXPAT_SHA256"
+          curl_fetch "$SQLITE_URL" "$SQLITE_ARCHIVE" "$SQLITE_SHA256"
+          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
+          curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+          curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
 
       - name: Build zlib
         run: |
@@ -276,7 +278,7 @@ jobs:
             -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config
           cmake --build build/release -j$(nproc)
           strip build/release/aria2c
-          ctest --test-dir build/release --output-on-failure || true
+          ctest --test-dir build/release --output-on-failure
           ldd build/release/aria2c || true
 
       - name: Package
@@ -289,7 +291,7 @@ jobs:
           cp docs/completion/aria2c "${DIRNAME}/aria2c.bash_completion" || true
           tar cJf "${DIRNAME}.tar.xz" "${DIRNAME}"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-aarch64
           path: aria2-*-linux-aarch64.tar.xz
@@ -306,7 +308,7 @@ jobs:
       RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
       MACOSX_VERSION_MIN: "11.0"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
 
@@ -316,14 +318,15 @@ jobs:
       - name: Download dependency sources
         run: |
           . packaging/dependencies.env
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBGPG_ERROR_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBGCRYPT_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
+          . packaging/scripts/common.sh
+          curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
+          curl_fetch "$EXPAT_URL" "$EXPAT_ARCHIVE" "$EXPAT_SHA256"
+          curl_fetch "$SQLITE_URL" "$SQLITE_ARCHIVE" "$SQLITE_SHA256"
+          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
+          curl_fetch "$GMP_URL" "$GMP_ARCHIVE" "$GMP_SHA256"
+          curl_fetch "$LIBGPG_ERROR_URL" "$LIBGPG_ERROR_ARCHIVE" "$LIBGPG_ERROR_SHA256"
+          curl_fetch "$LIBGCRYPT_URL" "$LIBGCRYPT_ARCHIVE" "$LIBGCRYPT_SHA256"
+          curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
 
       - name: Build zlib
         run: |
@@ -438,7 +441,7 @@ jobs:
           cp COPYING README.md "${DIRNAME}/"
           tar cjf "${DIRNAME}.tar.bz2" "${DIRNAME}"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-arm64
           path: aria2-*-macos-arm64.tar.bz2
@@ -455,7 +458,7 @@ jobs:
       RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
       MACOSX_VERSION_MIN: "11.0"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
 
@@ -465,14 +468,15 @@ jobs:
       - name: Download dependency sources
         run: |
           . packaging/dependencies.env
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBGPG_ERROR_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBGCRYPT_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
+          . packaging/scripts/common.sh
+          curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
+          curl_fetch "$EXPAT_URL" "$EXPAT_ARCHIVE" "$EXPAT_SHA256"
+          curl_fetch "$SQLITE_URL" "$SQLITE_ARCHIVE" "$SQLITE_SHA256"
+          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
+          curl_fetch "$GMP_URL" "$GMP_ARCHIVE" "$GMP_SHA256"
+          curl_fetch "$LIBGPG_ERROR_URL" "$LIBGPG_ERROR_ARCHIVE" "$LIBGPG_ERROR_SHA256"
+          curl_fetch "$LIBGCRYPT_URL" "$LIBGCRYPT_ARCHIVE" "$LIBGCRYPT_SHA256"
+          curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
 
       - name: Build zlib
         run: |
@@ -587,7 +591,7 @@ jobs:
           cp COPYING README.md "${DIRNAME}/"
           tar cjf "${DIRNAME}.tar.bz2" "${DIRNAME}"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-x86_64
           path: aria2-*-macos-x86_64.tar.bz2
@@ -604,7 +608,7 @@ jobs:
       RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
       PREFIX: /usr/local/x86_64-w64-mingw32
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
 
@@ -619,13 +623,14 @@ jobs:
       - name: Download dependencies
         run: |
           . packaging/dependencies.env
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
+          . packaging/scripts/common.sh
+          curl_fetch "$GMP_URL" "$GMP_ARCHIVE" "$GMP_SHA256"
+          curl_fetch "$EXPAT_URL" "$EXPAT_ARCHIVE" "$EXPAT_SHA256"
+          curl_fetch "$SQLITE_URL" "$SQLITE_ARCHIVE" "$SQLITE_SHA256"
+          curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
+          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
+          curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+          curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
 
       - name: Build gmp
         run: |
@@ -746,7 +751,7 @@ jobs:
           cp COPYING README.md "${DIRNAME}/"
           zip -r "${DIRNAME}.zip" "${DIRNAME}"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-x86_64
           path: aria2-*-windows-x86_64.zip
@@ -762,14 +767,13 @@ jobs:
       HOST: aarch64-w64-mingw32
       RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
       PREFIX: /usr/local/aarch64-w64-mingw32
-      LLVM_MINGW_VER: "20250114"
       CC: aarch64-w64-mingw32-clang
       CXX: aarch64-w64-mingw32-clang++
       AR: aarch64-w64-mingw32-ar
       RANLIB: aarch64-w64-mingw32-ranlib
       STRIP: aarch64-w64-mingw32-strip
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
 
@@ -779,20 +783,23 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             make binutils cmake ninja-build \
             patch ca-certificates pkg-config curl dpkg-dev lzip
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VER/llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-20.04-x86_64.tar.xz
-          tar xf llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-20.04-x86_64.tar.xz
-          echo "$PWD/llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-20.04-x86_64/bin" >> $GITHUB_PATH
+          . packaging/dependencies.env
+          . packaging/scripts/common.sh
+          curl_fetch "$LLVM_MINGW_URL" "$LLVM_MINGW_ARCHIVE" "$LLVM_MINGW_SHA256"
+          tar xf "$LLVM_MINGW_ARCHIVE"
+          echo "$PWD/llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64/bin" >> "$GITHUB_PATH"
 
       - name: Download dependencies
         run: |
           . packaging/dependencies.env
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$GMP_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$EXPAT_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$SQLITE_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$ZLIB_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$CARES_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$LIBSSH2_URL"
-          curl --fail --show-error -L --retry 5 --connect-timeout 15 -O "$OPENSSL_URL"
+          . packaging/scripts/common.sh
+          curl_fetch "$GMP_URL" "$GMP_ARCHIVE" "$GMP_SHA256"
+          curl_fetch "$EXPAT_URL" "$EXPAT_ARCHIVE" "$EXPAT_SHA256"
+          curl_fetch "$SQLITE_URL" "$SQLITE_ARCHIVE" "$SQLITE_SHA256"
+          curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
+          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
+          curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+          curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
 
       - name: Build gmp
         run: |
@@ -917,7 +924,7 @@ jobs:
           cp COPYING README.md "${DIRNAME}/"
           zip -r "${DIRNAME}.zip" "${DIRNAME}"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-arm64
           path: aria2-*-windows-arm64.zip
@@ -938,11 +945,11 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
@@ -965,7 +972,7 @@ jobs:
 
       - name: Upload artifacts for manual validation
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: aria2-${{ github.event.inputs.tag }}-release-assets
           path: artifacts/*

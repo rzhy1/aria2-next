@@ -34,17 +34,14 @@
 /* copyright --> */
 #include "LibsslARC4Encryptor.h"
 
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-#  include <cassert>
+#include <cassert>
 
-#  include <openssl/core_names.h>
+#include <openssl/core_names.h>
 
-#  include "DlAbortEx.h"
-#endif // OPENSSL_VERSION_NUMBER >= 0x30000000L
+#include "DlAbortEx.h"
 
 namespace aria2 {
 
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
 ARC4Encryptor::ARC4Encryptor() : ctx_{nullptr} {}
 
 ARC4Encryptor::~ARC4Encryptor()
@@ -53,15 +50,9 @@ ARC4Encryptor::~ARC4Encryptor()
     EVP_CIPHER_CTX_free(ctx_);
   }
 }
-#else  // !(OPENSSL_VERSION_NUMBER >= 0x30000000L)
-ARC4Encryptor::ARC4Encryptor() {}
-
-ARC4Encryptor::~ARC4Encryptor() = default;
-#endif // !(OPENSSL_VERSION_NUMBER >= 0x30000000L)
 
 void ARC4Encryptor::init(const unsigned char* key, size_t keyLength)
 {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
   if (ctx_) {
     EVP_CIPHER_CTX_free(ctx_);
   }
@@ -80,15 +71,11 @@ void ARC4Encryptor::init(const unsigned char* key, size_t keyLength)
   if (EVP_EncryptInit_ex2(ctx_, nullptr, key, nullptr, nullptr) != 1) {
     throw DL_ABORT_EX("Failed to set key to RC4 cipher");
   }
-#else  // !(OPENSSL_VERSION_NUMBER >= 0x30000000L)
-  RC4_set_key(&key_, keyLength, key);
-#endif // !(OPENSSL_VERSION_NUMBER >= 0x30000000L)
 }
 
 void ARC4Encryptor::encrypt(size_t len, unsigned char* out,
                             const unsigned char* in)
 {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
   int outlen;
 
   if (EVP_EncryptUpdate(ctx_, out, &outlen, in, len) != 1) {
@@ -96,9 +83,6 @@ void ARC4Encryptor::encrypt(size_t len, unsigned char* out,
   }
 
   assert(static_cast<size_t>(outlen) == len);
-#else  // !(OPENSSL_VERSION_NUMBER >= 0x30000000L)
-  RC4(&key_, len, in, out);
-#endif // !(OPENSSL_VERSION_NUMBER >= 0x30000000L)
 }
 
 } // namespace aria2

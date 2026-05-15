@@ -2,7 +2,7 @@
 
 This directory owns release packaging, cross-compilation helpers, Docker build contexts, platform package resources, and release dependency metadata.
 
-`dependencies.env` is the authoritative dependency version source for maintained release automation.
+`dependencies.env` is the authoritative dependency source for maintained release automation. It records versions, archive names, URLs, and SHA-256 hashes for downloaded release inputs.
 
 ## Layout
 
@@ -12,7 +12,7 @@ This directory owns release packaging, cross-compilation helpers, Docker build c
 | `docker/` | Dockerfiles for reproducible cross-platform build images |
 | `macos/` | macOS package resources |
 | `scripts/` | Release packaging helpers |
-| `dependencies.env` | Maintained dependency baseline |
+| `dependencies.env` | Maintained dependency baseline and source archive hashes |
 
 Supported packaging paths build this repository checkout through CMake. Third-party dependencies may use their own upstream build systems while they are being built as release dependencies.
 

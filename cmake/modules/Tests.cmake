@@ -1,5 +1,5 @@
 enable_testing()
-aria2_pkg_check(CPPUNIT "cppunit>=1.10.2")
+aria2_pkg_check(CPPUNIT "cppunit>=${ARIA2_MIN_CPPUNIT_VERSION}")
 if(CPPUNIT_FOUND)
   set(ARIA2_TEST_SOURCES ${ARIA2_TEST_SOURCES_BASE})
   if(ENABLE_XML_RPC)
@@ -47,4 +47,3 @@ if(CPPUNIT_FOUND)
   add_test(NAME aria2_tests COMMAND aria2_tests)
   set_tests_properties(aria2_tests PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()
-

@@ -215,8 +215,10 @@ On Fedora you need the following packages: gcc, gcc-c++, kernel-devel,
 libgcrypt-devel, libxml2-devel, openssl-devel, cppunit
 
 Source builds require CMake, Ninja, pkg-config, a C++11 compiler, and the
-development packages for the features you want to enable. Install the pinned
-documentation toolchain if you want to build the manual and man page::
+development packages for the features you want to enable. Modern maintained
+builds require OpenSSL 3.0 or newer when the OpenSSL backend is selected.
+Install the pinned documentation toolchain if you want to build the manual and
+man page::
 
     $ python3 -m pip install -r docs/requirements.txt
 
@@ -312,8 +314,8 @@ Cross-compiling Android binary
 In this section, we describe how to build Android binary using Android
 NDK cross-compiler on Debian Linux.
 
-At the time of this writing, Android NDK r29 should compile aria2
-without errors.
+The maintained Android NDK baseline is recorded in
+``packaging/dependencies.env``.
 
 The maintained release workflow and Android Dockerfile are the reference Android
 cross-build implementations. They assume the following libraries have been built
@@ -327,7 +329,8 @@ for cross-compilation:
 
 Build the dependency libraries as static libraries and install them under a
 single Android prefix. Then configure aria2 with CMake using the Android NDK
-toolchain variables. The maintained Dockerfile uses Android NDK r29 and passes
+toolchain variables. The maintained Dockerfile reads the NDK baseline from
+``packaging/dependencies.env`` and passes
 ``CMAKE_SYSTEM_NAME=Android``, ``CMAKE_ANDROID_NDK``,
 ``CMAKE_ANDROID_ARCH_ABI=arm64-v8a``, ``CMAKE_SYSTEM_VERSION``,
 ``CMAKE_PREFIX_PATH``, and ``PKG_CONFIG_LIBDIR``.

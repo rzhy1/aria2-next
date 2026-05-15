@@ -36,6 +36,7 @@
 #include "InternalDHKeyExchange.h"
 
 #include <cstring>
+#include <vector>
 
 #include "DlAbortEx.h"
 #include "LogFactory.h"
@@ -68,10 +69,10 @@ void DHKeyExchange::init(const unsigned char* prime, size_t primeBits,
   generator_ =
       n(reinterpret_cast<const unsigned char*>(gen.c_str()), gen.length());
 
-  size_t pbytes = (privateKeyBits + 7) / 8;
-  unsigned char buf[pbytes];
-  util::generateRandomData(buf, pbytes);
-  privateKey_ = n(buf, pbytes);
+  auto pbytes = (privateKeyBits + 7) / 8;
+  std::vector<unsigned char> buf(pbytes);
+  util::generateRandomData(buf.data(), pbytes);
+  privateKey_ = n(buf.data(), pbytes);
 
   keyLength_ = (primeBits + 7) / 8;
 }

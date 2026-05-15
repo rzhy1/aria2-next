@@ -146,7 +146,7 @@ Verified:
 - Maintained shell scripts passed `bash -n`.
 - `.github/workflows/release.yml` parsed successfully and exposed seven jobs: Linux x86_64, Linux ARM64, macOS ARM64, macOS Intel, Windows x86_64, Windows ARM64, and release.
 - Docker CLI is installed locally, but the Docker daemon is not running: `docker info` cannot connect to `/Users/sekiro/.docker/run/docker.sock`. Full Linux, Windows, Android, and GitHub Actions runner parity cannot be proven on this macOS ARM64 host without executing the actual CI runner matrix and cross-platform release environments. Repository-side validation was completed through CMake release-path updates, YAML parsing, shell syntax checks, local default builds, local libaria2 install verification, and local option-matrix builds.
-- AppleClang still emits existing source warnings for deprecated spacing in user-defined literal operators and libc++ deprecation warnings around `std::basic_string<unsigned char>`. These warnings predate the build-system migration and do not block the verified CMake build or CTest run.
+- AppleClang still emits existing platform deprecation warnings for SecureTransport and CommonCrypto MD5 usage. These warnings predate the build-system migration and do not block the verified CMake build or CTest run.
 
 Remaining:
 

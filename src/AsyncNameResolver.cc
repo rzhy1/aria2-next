@@ -48,6 +48,7 @@ void callback(void* arg, int status, int timeouts, ares_addrinfo* result)
 {
   AsyncNameResolver* resolverPtr = reinterpret_cast<AsyncNameResolver*>(arg);
   if (status != ARES_SUCCESS) {
+    resolverPtr->errorCode_ = status;
     resolverPtr->error_ = ares_strerror(status);
     resolverPtr->status_ = AsyncNameResolver::STATUS_ERROR;
     return;
@@ -62,6 +63,7 @@ void callback(void* arg, int status, int timeouts, ares_addrinfo* result)
   }
   ares_freeaddrinfo(result);
   if (resolverPtr->resolvedAddresses_.empty()) {
+    resolverPtr->errorCode_ = ARES_ENODATA;
     resolverPtr->error_ = "no address returned or address conversion failed";
     resolverPtr->status_ = AsyncNameResolver::STATUS_ERROR;
   }
@@ -113,27 +115,49 @@ void AsyncNameResolver::handle_sock_state(ares_socket_t fd, int read, int write)
 }
 
 AsyncNameResolver::AsyncNameResolver(int family, const std::string& servers)
-    : status_(STATUS_READY), family_(family)
+    : status_(STATUS_READY),
+      errorCode_(ARES_SUCCESS),
+      family_(family),
+      channel_(nullptr),
+      channelInitialized_(false)
 {
   ares_options opts{};
   opts.sock_state_cb = sock_state_cb;
   opts.sock_state_cb_data = this;
 
-  // TODO evaluate return value
-  ares_init_options(&channel_, &opts, ARES_OPT_SOCK_STATE_CB);
+  auto rv = ares_init_options(&channel_, &opts, ARES_OPT_SOCK_STATE_CB);
+  if (rv != ARES_SUCCESS) {
+    errorCode_ = rv;
+    error_ = ares_strerror(rv);
+    status_ = STATUS_ERROR;
+    return;
+  }
+  channelInitialized_ = true;
 
   if (!servers.empty()) {
-    if (ares_set_servers_csv(channel_, servers.c_str()) != ARES_SUCCESS) {
+    rv = ares_set_servers_csv(channel_, servers.c_str());
+    if (rv != ARES_SUCCESS) {
+      errorCode_ = rv;
+      error_ = ares_strerror(rv);
+      status_ = STATUS_ERROR;
       A2_LOG_DEBUG("ares_set_servers_csv failed");
     }
   }
 }
 
-AsyncNameResolver::~AsyncNameResolver() { ares_destroy(channel_); }
+AsyncNameResolver::~AsyncNameResolver()
+{
+  if (channelInitialized_) {
+    ares_destroy(channel_);
+  }
+}
 
 void AsyncNameResolver::resolve(const std::string& name)
 {
   hostname_ = name;
+  if (status_ == STATUS_ERROR) {
+    return;
+  }
   status_ = STATUS_QUERYING;
 
   ares_addrinfo_hints hints{};

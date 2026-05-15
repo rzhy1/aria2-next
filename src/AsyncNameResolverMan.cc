@@ -196,6 +196,47 @@ const std::string& AsyncNameResolverMan::getLastError() const
   return A2STR::NIL;
 }
 
+int AsyncNameResolverMan::getLastErrorCode() const
+{
+  for (size_t i = 0; i < numResolver_; ++i) {
+    if (asyncNameResolver_[i]->getStatus() == AsyncNameResolver::STATUS_ERROR) {
+      return asyncNameResolver_[i]->getErrorCode();
+    }
+  }
+  return ARES_SUCCESS;
+}
+
+bool shouldFallbackToSystemResolver(int aresErrorCode, bool explicitServers)
+{
+  if (explicitServers) {
+    return false;
+  }
+
+  switch (aresErrorCode) {
+  case ARES_ECONNREFUSED:
+  case ARES_ETIMEOUT:
+  case ARES_EFILE:
+  case ARES_ELOADIPHLPAPI:
+  case ARES_EADDRGETNETWORKPARAMS:
+  case ARES_ENOSERVER:
+    return true;
+  default:
+    return false;
+  }
+}
+
+bool AsyncNameResolverMan::shouldFallbackToSystemResolver() const
+{
+  for (size_t i = 0; i < numResolver_; ++i) {
+    if (asyncNameResolver_[i]->getStatus() == AsyncNameResolver::STATUS_ERROR &&
+        aria2::shouldFallbackToSystemResolver(
+            asyncNameResolver_[i]->getErrorCode(), hasExplicitServers())) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void AsyncNameResolverMan::reset(DownloadEngine* e, Command* command)
 {
   disableNameResolverCheck(e, command);

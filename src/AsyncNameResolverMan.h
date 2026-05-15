@@ -41,6 +41,8 @@
 #include <string>
 #include <memory>
 
+#include <ares.h>
+
 namespace aria2 {
 
 class AsyncNameResolver;
@@ -76,6 +78,9 @@ public:
   int getStatus() const;
   // Returns last error string
   const std::string& getLastError() const;
+  int getLastErrorCode() const;
+  bool shouldFallbackToSystemResolver() const;
+  bool hasExplicitServers() const { return !servers_.empty(); }
   // Resets state. Also removes resolvers from DownloadEngine.
   void reset(DownloadEngine* e, Command* command);
 
@@ -100,6 +105,8 @@ private:
 // Returns status value: 0 for in-progress, 1 for success and -1 for failure.
 int evaluateAsyncNameResolverStatus(size_t numResolver, size_t success,
                                     size_t error, bool ipv4Success);
+
+bool shouldFallbackToSystemResolver(int aresErrorCode, bool explicitServers);
 
 void configureAsyncNameResolverMan(AsyncNameResolverMan* asyncNameResolverMan,
                                    Option* option);

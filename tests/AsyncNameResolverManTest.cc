@@ -17,6 +17,9 @@ class AsyncNameResolverManTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testIPv6SuccessWaitsWhileIPv4IsPending);
   CPPUNIT_TEST(testAllResolversFailed);
   CPPUNIT_TEST(testNoResolversKeepsHistoricalFailureStatus);
+  CPPUNIT_TEST(testFallbackAllowedForResolverInfrastructureErrors);
+  CPPUNIT_TEST(testFallbackRejectedForAuthoritativeResolverErrors);
+  CPPUNIT_TEST(testFallbackRejectedForExplicitAsyncDnsServers);
   CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -31,6 +34,9 @@ public:
   void testIPv6SuccessWaitsWhileIPv4IsPending();
   void testAllResolversFailed();
   void testNoResolversKeepsHistoricalFailureStatus();
+  void testFallbackAllowedForResolverInfrastructureErrors();
+  void testFallbackRejectedForAuthoritativeResolverErrors();
+  void testFallbackRejectedForExplicitAsyncDnsServers();
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION(AsyncNameResolverManTest);
@@ -79,6 +85,32 @@ void AsyncNameResolverManTest::testAllResolversFailed()
 void AsyncNameResolverManTest::testNoResolversKeepsHistoricalFailureStatus()
 {
   CPPUNIT_ASSERT_EQUAL(-1, evaluateAsyncNameResolverStatus(0, 0, 0, false));
+}
+
+void AsyncNameResolverManTest::testFallbackAllowedForResolverInfrastructureErrors()
+{
+  CPPUNIT_ASSERT(shouldFallbackToSystemResolver(ARES_ENOSERVER, false));
+  CPPUNIT_ASSERT(shouldFallbackToSystemResolver(ARES_ECONNREFUSED, false));
+  CPPUNIT_ASSERT(shouldFallbackToSystemResolver(ARES_ETIMEOUT, false));
+  CPPUNIT_ASSERT(shouldFallbackToSystemResolver(ARES_EFILE, false));
+  CPPUNIT_ASSERT(shouldFallbackToSystemResolver(ARES_ELOADIPHLPAPI, false));
+  CPPUNIT_ASSERT(shouldFallbackToSystemResolver(ARES_EADDRGETNETWORKPARAMS,
+                                                false));
+}
+
+void AsyncNameResolverManTest::testFallbackRejectedForAuthoritativeResolverErrors()
+{
+  CPPUNIT_ASSERT(!shouldFallbackToSystemResolver(ARES_ENOTFOUND, false));
+  CPPUNIT_ASSERT(!shouldFallbackToSystemResolver(ARES_ENONAME, false));
+  CPPUNIT_ASSERT(!shouldFallbackToSystemResolver(ARES_ENODATA, false));
+  CPPUNIT_ASSERT(!shouldFallbackToSystemResolver(ARES_EREFUSED, false));
+}
+
+void AsyncNameResolverManTest::testFallbackRejectedForExplicitAsyncDnsServers()
+{
+  CPPUNIT_ASSERT(!shouldFallbackToSystemResolver(ARES_ENOSERVER, true));
+  CPPUNIT_ASSERT(!shouldFallbackToSystemResolver(ARES_ECONNREFUSED, true));
+  CPPUNIT_ASSERT(!shouldFallbackToSystemResolver(ARES_ETIMEOUT, true));
 }
 
 } // namespace aria2

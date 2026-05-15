@@ -35,6 +35,7 @@
 #include "AbstractCommand.h"
 
 #include <algorithm>
+#include <functional>
 
 #include "Request.h"
 #include "DownloadEngine.h"
@@ -775,6 +776,14 @@ std::string AbstractCommand::resolveHostname(std::vector<std::string>& addrs,
   }
 
   std::string ipaddr;
+  auto resolveWithSystemResolver = [&]() {
+    NameResolver res;
+    res.setSocktype(SOCK_STREAM);
+    if (e_->getOption()->getAsBool(PREF_DISABLE_IPV6)) {
+      res.setFamily(AF_INET);
+    }
+    res.resolve(addrs, hostname);
+  };
 #ifdef ENABLE_ASYNC_DNS
   if (getOption()->getAsBool(PREF_ASYNC_DNS)) {
     if (!asyncNameResolverMan_->started()) {
@@ -782,6 +791,21 @@ std::string AbstractCommand::resolveHostname(std::vector<std::string>& addrs,
     }
     switch (asyncNameResolverMan_->getStatus()) {
     case -1:
+      if (asyncNameResolverMan_->shouldFallbackToSystemResolver()) {
+        try {
+          resolveWithSystemResolver();
+          A2_LOG_INFO(fmt("CUID#%" PRId64
+                          " - Falling back to system name resolver for %s",
+                          getCuid(), hostname.c_str()));
+          break;
+        }
+        catch (const DlAbortEx& ex) {
+          throw DL_ABORT_EX2(
+              fmt(MSG_NAME_RESOLUTION_FAILED, getCuid(), hostname.c_str(),
+                  asyncNameResolverMan_->getLastError().c_str()),
+              ex);
+        }
+      }
       if (!isProxyRequest(req_->getProtocol(), getOption())) {
         e_->getRequestGroupMan()
             ->getOrCreateServerStat(req_->getHost(), req_->getProtocol())
@@ -807,12 +831,7 @@ std::string AbstractCommand::resolveHostname(std::vector<std::string>& addrs,
   else
 #endif // ENABLE_ASYNC_DNS
   {
-    NameResolver res;
-    res.setSocktype(SOCK_STREAM);
-    if (e_->getOption()->getAsBool(PREF_DISABLE_IPV6)) {
-      res.setFamily(AF_INET);
-    }
-    res.resolve(addrs, hostname);
+    resolveWithSystemResolver();
   }
   A2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_COMPLETE, getCuid(), hostname.c_str(),
                   strjoin(std::begin(addrs), std::end(addrs), ", ").c_str()));

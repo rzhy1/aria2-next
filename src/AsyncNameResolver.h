@@ -66,8 +66,10 @@ public:
 private:
   std::vector<AsyncNameResolverSocketEntry> socks_;
   STATUS status_;
+  int errorCode_;
   int family_;
   ares_channel channel_;
+  bool channelInitialized_;
 
   std::vector<std::string> resolvedAddresses_;
   std::string error_;
@@ -86,6 +88,8 @@ public:
   }
 
   const std::string& getError() const { return error_; }
+
+  int getErrorCode() const { return errorCode_; }
 
   STATUS getStatus() const { return status_; }
 

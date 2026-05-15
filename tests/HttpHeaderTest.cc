@@ -2,6 +2,7 @@
 
 #include <cppunit/extensions/HelperMacros.h>
 
+#include "a2io.h"
 #include "Range.h"
 #include "DlAbortEx.h"
 
@@ -11,6 +12,7 @@ class HttpHeaderTest : public CppUnit::TestFixture {
 
   CPPUNIT_TEST_SUITE(HttpHeaderTest);
   CPPUNIT_TEST(testGetRange);
+  CPPUNIT_TEST(testGetRangeAcceptsLargeContentLength);
   CPPUNIT_TEST(testFindAll);
   CPPUNIT_TEST(testClearField);
   CPPUNIT_TEST(testFieldContains);
@@ -19,6 +21,7 @@ class HttpHeaderTest : public CppUnit::TestFixture {
 
 public:
   void testGetRange();
+  void testGetRangeAcceptsLargeContentLength();
   void testFindAll();
   void testClearField();
   void testFieldContains();
@@ -26,6 +29,8 @@ public:
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION(HttpHeaderTest);
+
+static_assert(sizeof(a2_off_t) >= 8, "a2_off_t must support large files");
 
 void HttpHeaderTest::testGetRange()
 {
@@ -136,6 +141,18 @@ void HttpHeaderTest::testGetRange()
       // success
     }
   }
+}
+
+void HttpHeaderTest::testGetRangeAcceptsLargeContentLength()
+{
+  HttpHeader httpHeader;
+  httpHeader.put(HttpHeader::CONTENT_LENGTH, "6797948928");
+
+  Range range = httpHeader.getRange();
+
+  CPPUNIT_ASSERT_EQUAL((int64_t)0, range.startByte);
+  CPPUNIT_ASSERT_EQUAL((int64_t)6797948927LL, range.endByte);
+  CPPUNIT_ASSERT_EQUAL((int64_t)6797948928LL, range.entityLength);
 }
 
 void HttpHeaderTest::testFindAll()

@@ -61,6 +61,8 @@ public:
 
   virtual bool addSystemTrustedCACerts() = 0;
 
+  virtual bool addDefaultCABundle() = 0;
+
   // certfile can contain multiple certificates.
   virtual bool addTrustedCACertFile(const std::string& certfile) = 0;
 

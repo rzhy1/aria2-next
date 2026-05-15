@@ -4,6 +4,8 @@ This package contains the aria2-next `aria2c.exe` binary for Windows. It is stat
 
 The official release binary is checked before packaging so it does not require MinGW, LLVM, OpenSSL, zlib, expat, SQLite, c-ares, or libssh2 DLLs next to `aria2c.exe`.
 
+Official Windows releases use WinTLS for HTTPS verification and trust the Windows certificate store. No bundled `cacert.pem` is required for ordinary HTTPS downloads.
+
 Maintained dependency and Windows ARM64 llvm-mingw versions are recorded in `packaging/dependencies.env` in the source tree.
 
 Example use from PowerShell:

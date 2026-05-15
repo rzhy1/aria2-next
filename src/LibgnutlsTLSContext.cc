@@ -145,6 +145,15 @@ bool GnuTLSContext::addSystemTrustedCACerts()
 #endif
 }
 
+bool GnuTLSContext::addDefaultCABundle()
+{
+#ifdef CA_BUNDLE
+  return addTrustedCACertFile(CA_BUNDLE);
+#else  // !CA_BUNDLE
+  return false;
+#endif // !CA_BUNDLE
+}
+
 bool GnuTLSContext::addTrustedCACertFile(const std::string& certfile)
 {
   int ret = gnutls_certificate_set_x509_trust_file(certCred_, certfile.c_str(),

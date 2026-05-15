@@ -1011,12 +1011,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
   // HTTP Specific Options
   {
     OptionHandler* op(new LocalFilePathOptionHandler(
-        PREF_CA_CERTIFICATE, TEXT_CA_CERTIFICATE,
-#ifdef CA_BUNDLE
-        CA_BUNDLE,
-#else
-        "",
-#endif
+        PREF_CA_CERTIFICATE, TEXT_CA_CERTIFICATE, "",
         /* acceptStdin = */ false, 0, /* mustExist = */ false));
     op->addTag(TAG_HTTP);
     op->addTag(TAG_HTTPS);

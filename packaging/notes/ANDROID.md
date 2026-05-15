@@ -12,4 +12,4 @@ chmod 755 ./aria2c
 ./aria2c https://example.com/file.iso
 ```
 
-Android certificate and DNS paths differ across shells and devices. Pass `--ca-certificate`, `--async-dns`, or `--async-dns-server` explicitly when your runtime environment requires them.
+Android certificate and DNS paths differ across shells and devices. Pass `--ca-certificate`, `--async-dns`, or `--async-dns-server` explicitly when the shell environment does not expose usable defaults.

@@ -69,6 +69,8 @@ Prebuilt artifacts are published on the [GitHub Releases](https://github.com/AnI
 
 Linux and macOS downloads are executable files. If your browser clears the executable bit, run `chmod +x ./aria2c-<version>-<platform>`.
 
+Release binaries verify HTTPS certificates by default. Windows releases use WinTLS and the Windows trust store. OpenSSL and GnuTLS builds use system CA loading first, then a detected or explicitly configured CA bundle fallback.
+
 Use the binary like aria2:
 
 ```bash

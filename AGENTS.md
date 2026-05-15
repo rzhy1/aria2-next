@@ -73,7 +73,7 @@ The release workflow is `.github/workflows/release.yml`. It runs on `release: pu
 
 Maintained release artifacts are standalone executable assets named `aria2c-<version>-linux-x86_64`, `aria2c-<version>-linux-aarch64`, `aria2c-<version>-macos-arm64`, `aria2c-<version>-macos-x86_64`, `aria2c-<version>-windows-x86_64.exe`, `aria2c-<version>-windows-arm64.exe`, and `aria2c-<version>-checksums.sha256`.
 
-Manual workflow runs are for release-path validation. Official release assets are uploaded only when a GitHub Release is published.
+Manual workflow runs are for release-path validation. Official release assets are uploaded only when a GitHub Release is published. Release jobs must check runtime dependency closure and smoke-test HTTPS certificate verification before assets are uploaded.
 
 Use `./scripts/release.sh` for releases. This script verifies the local build, stages changes, commits if needed, creates an annotated tag, and pushes the commit and tag. It does not create the GitHub Release, generate release notes, or trigger GitHub Actions manually.
 

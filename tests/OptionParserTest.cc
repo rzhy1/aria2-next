@@ -25,6 +25,7 @@ class OptionParserTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testFindByShortName);
   CPPUNIT_TEST(testFindById);
   CPPUNIT_TEST(testParseDefaultValues);
+  CPPUNIT_TEST(testParseDefaultValuesDoesNotInjectCompileTimeCABundle);
   CPPUNIT_TEST(testParseArg);
   CPPUNIT_TEST(testParse);
   CPPUNIT_TEST(testParseKeyVals);
@@ -73,6 +74,7 @@ public:
   void testFindByShortName();
   void testFindById();
   void testParseDefaultValues();
+  void testParseDefaultValuesDoesNotInjectCompileTimeCABundle();
   void testParseArg();
   void testParse();
   void testParseKeyVals();
@@ -144,6 +146,14 @@ void OptionParserTest::testParseDefaultValues()
   CPPUNIT_ASSERT_EQUAL(std::string("1048576"), option.get(PREF_OUT));
   CPPUNIT_ASSERT_EQUAL(std::string("CHARLIE"), option.get(PREF_DAEMON));
   CPPUNIT_ASSERT(!option.defined(PREF_DIR));
+}
+
+void OptionParserTest::testParseDefaultValuesDoesNotInjectCompileTimeCABundle()
+{
+  Option option;
+  OptionParser::getInstance()->parseDefaultValues(option);
+
+  CPPUNIT_ASSERT(!option.defined(PREF_CA_CERTIFICATE));
 }
 
 void OptionParserTest::testParseArg()

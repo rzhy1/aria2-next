@@ -30,7 +30,7 @@ option(ARIA2_WITH_TCMALLOC "Use tcmalloc where available" OFF)
 option(ARIA2_WITH_JEMALLOC "Use jemalloc where available" OFF)
 option(ARIA2_WITH_GNUTLS_SYSTEM_CRYPTO_POLICY "Enable GnuTLS system crypto policy" OFF)
 
-set(ARIA2_CA_BUNDLE "" CACHE FILEPATH "Default CA bundle path")
+set(ARIA2_CA_BUNDLE "" CACHE FILEPATH "CA bundle fallback path for OpenSSL and GnuTLS builds")
 set(ARIA2_DEFAULT_DISK_CACHE "" CACHE STRING "Default disk cache size")
 set(ARIA2_BASH_COMPLETION_DIR "" CACHE PATH "Bash completion installation directory")
 

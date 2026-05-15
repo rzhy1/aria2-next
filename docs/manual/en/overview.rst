@@ -245,8 +245,9 @@ Since 1.1.0, aria2 checks the certificate of HTTPS servers by default. If you
 build with OpenSSL or a recent GnuTLS version that has
 ``gnutls_certificate_set_x509_system_trust()``, and the library is properly
 configured to locate the system-wide CA certificate store, aria2 loads those
-certificates at startup. If not, pass the CA bundle path with
-``-DARIA2_CA_BUNDLE=/path/to/ca-bundle``.
+certificates at startup. If that system lookup fails, aria2 uses a detected CA
+bundle path as the backend fallback. Set
+``-DARIA2_CA_BUNDLE=/path/to/ca-bundle`` to choose that fallback explicitly.
 
 Using WinTLS automatically uses the system certificate store, so an explicit CA
 bundle is not necessary for that backend.

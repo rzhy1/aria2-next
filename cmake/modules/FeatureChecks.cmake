@@ -17,6 +17,19 @@ set(SELECT_TYPE_ARG1 int)
 set(SELECT_TYPE_ARG234 "(fd_set *)")
 set(SELECT_TYPE_ARG5 "(struct timeval *)")
 
+if(NOT ARIA2_CA_BUNDLE AND NOT WIN32)
+  foreach(aria2_ca_bundle_candidate
+      /etc/ssl/certs/ca-certificates.crt
+      /etc/pki/tls/certs/ca-bundle.crt
+      /etc/ssl/cert.pem)
+    if(EXISTS "${aria2_ca_bundle_candidate}")
+      set(ARIA2_CA_BUNDLE "${aria2_ca_bundle_candidate}" CACHE FILEPATH
+          "CA bundle fallback path for OpenSSL and GnuTLS builds" FORCE)
+      break()
+    endif()
+  endforeach()
+endif()
+
 if(ARIA2_CA_BUNDLE)
   set(CA_BUNDLE "${ARIA2_CA_BUNDLE}")
 endif()

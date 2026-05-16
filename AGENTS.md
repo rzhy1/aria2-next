@@ -73,7 +73,7 @@ The release workflow is `.github/workflows/release.yml`. It runs on `release: pu
 
 Maintained release artifacts are standalone executable assets named `aria2c-<version>-linux-x86_64`, `aria2c-<version>-linux-aarch64`, `aria2c-<version>-macos-arm64`, `aria2c-<version>-macos-x86_64`, `aria2c-<version>-windows-x86_64.exe`, `aria2c-<version>-windows-arm64.exe`, and `aria2c-<version>-checksums.sha256`.
 
-Manual workflow runs are for release-path validation. Official release assets are uploaded only when a GitHub Release is published. Release jobs must check runtime dependency closure and smoke-test HTTPS certificate verification before assets are uploaded.
+Manual workflow runs are for release-path validation. Official release assets are uploaded only when a GitHub Release is published. Release jobs must check runtime dependency closure before assets are uploaded.
 
 Use `./scripts/release.sh` for releases. This script verifies the local build, stages changes, commits if needed, creates an annotated tag, and pushes the commit and tag. It does not create the GitHub Release, generate release notes, or trigger GitHub Actions manually.
 
@@ -87,12 +87,12 @@ v{VERSION} - {Concise Release Theme}
 
 Use a concrete theme, not a generic label. Good examples are `v2.0.2 - Release Automation and Packaging Refinements` and `v2.1.0 - Transport Stability Improvements`.
 
-Release notes must be written for users and integrators, not as a raw commit dump. Start with a short summary paragraph, then group changes by impact. Use these headings only when they contain real content:
+Release notes must be written for users and integrators, not as a raw commit dump. Follow the GitHub Releases and Keep a Changelog convention: use a concrete title, start with a short outcome-focused summary, group notable changes by user impact, mention breaking or security items before general changes, and keep downloads/checksums easy to find. Use these headings only when they contain real content:
 
 ```markdown
-## What's Changed
+## Summary
 
-One short paragraph covering the release scope and operational impact.
+One short paragraph covering the release scope, supported artifacts, and operational impact.
 
 ### Added
 - New user-visible capabilities, build targets, or supported workflows.
@@ -110,10 +110,18 @@ One short paragraph covering the release scope and operational impact.
 - Any incompatible change, removed behavior, migration requirement, or manual action.
 
 ### Downloads
-Release assets are built by GitHub Actions after this GitHub Release is published. Source code is available from the GitHub release tag.
+| Platform | Download |
+| --- | --- |
+| Linux x86_64 | `aria2c-{VERSION}-linux-x86_64` |
+| Linux ARM64 | `aria2c-{VERSION}-linux-aarch64` |
+| macOS Apple Silicon | `aria2c-{VERSION}-macos-arm64` |
+| macOS Intel | `aria2c-{VERSION}-macos-x86_64` |
+| Windows x86_64 | `aria2c-{VERSION}-windows-x86_64.exe` |
+| Windows ARM64 | `aria2c-{VERSION}-windows-arm64.exe` |
+| Checksums | `aria2c-{VERSION}-checksums.sha256` |
 ```
 
-Omit empty sections. Put `Breaking Changes` before `What's Changed` if users must act before upgrading. Put `Security` before `What's Changed` if the release contains a security fix. Keep bullets specific and outcome-focused. Avoid internal-only chores unless they affect consumers, packaging, reproducibility, maintainability, or the release process. Do not include unchecked claims, future promises, or raw commit hashes unless a maintainer asks for them.
+Omit empty sections. Put `Breaking Changes` before `Summary` if users must act before upgrading. Put `Security` before `Summary` if the release contains a security fix. Use present or past tense consistently. Keep bullets specific, outcome-focused, and scoped to user-visible behavior, compatibility, packaging, reproducibility, maintainability, or the release process. Avoid internal-only chores, unchecked claims, future promises, raw commit hashes, and contributor callouts unless the maintainer asks for them. Once assets are uploaded, prefer the concrete `Downloads` list over saying assets will be built later.
 
 Before publishing a GitHub Release, verify locally:
 

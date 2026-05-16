@@ -36,6 +36,9 @@ set(ARIA2_BASH_COMPLETION_DIR "" CACHE PATH "Bash completion installation direct
 
 if(ARIA2_ENABLE_STATIC)
   set(PKG_CONFIG_ARGN --static)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+  endif()
 endif()
 
 function(aria2_set01 variable value)

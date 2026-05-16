@@ -69,12 +69,15 @@ public:
   }
   virtual void digest(unsigned char* md) CXX11_OVERRIDE
   {
+#ifdef HAVE_NETTLE_HASH_DIGEST_WITHOUT_LENGTH
+    hash->digest(ctx_.get(), md);
+#else  // !HAVE_NETTLE_HASH_DIGEST_WITHOUT_LENGTH
     hash->digest(ctx_.get(), getDigestLength(), md);
+#endif // !HAVE_NETTLE_HASH_DIGEST_WITHOUT_LENGTH
   }
 
 private:
   std::unique_ptr<char[]> ctx_;
-  size_t len_;
 };
 
 typedef MessageDigestBase<&nettle_md5> MessageDigestMD5;

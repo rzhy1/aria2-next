@@ -192,6 +192,9 @@
 /* Define to 1 if you have libnettle. */
 #cmakedefine HAVE_LIBNETTLE @HAVE_LIBNETTLE@
 
+/* Define to 1 if nettle_hash_digest_func omits the digest length argument. */
+#cmakedefine HAVE_NETTLE_HASH_DIGEST_WITHOUT_LENGTH @HAVE_NETTLE_HASH_DIGEST_WITHOUT_LENGTH@
+
 /* Define to 1 if you have libssh2. */
 #cmakedefine HAVE_LIBSSH2 @HAVE_LIBSSH2@
 

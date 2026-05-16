@@ -328,6 +328,18 @@ aria2_pkg_check(OPENSSL "openssl>=${ARIA2_MIN_OPENSSL_VERSION}")
 aria2_pkg_check(LIBNETTLE "nettle>=${ARIA2_MIN_LIBNETTLE_VERSION}")
 aria2_pkg_check(LIBGCRYPT "libgcrypt>=${ARIA2_MIN_LIBGCRYPT_VERSION}")
 
+if(LIBNETTLE_FOUND)
+  cmake_push_check_state(RESET)
+  set(CMAKE_REQUIRED_LIBRARIES PkgConfig::LIBNETTLE)
+  check_cxx_source_compiles("
+#include <nettle/nettle-meta.h>
+int main() {
+  nettle_sha1.digest(0, 0);
+  return 0;
+}" HAVE_NETTLE_HASH_DIGEST_WITHOUT_LENGTH)
+  cmake_pop_check_state()
+endif()
+
 set(have_native_tls OFF)
 if(ARIA2_ENABLE_SSL AND WIN32 AND ARIA2_WITH_WINTLS)
   cmake_push_check_state(RESET)

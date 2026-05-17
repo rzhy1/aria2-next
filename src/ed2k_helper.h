@@ -15,6 +15,7 @@
 
 #include "common.h"
 #include "ed2k_hash.h"
+#include "ed2k_link.h"
 
 #include <cstdint>
 #include <string>
@@ -94,38 +95,6 @@ constexpr uint8_t KAD_FIREWALLED_UDP = 0x62;
 constexpr uint8_t KAD_FIND_VALUE = 0x02;
 constexpr uint8_t KAD_STORE = 0x04;
 constexpr uint8_t KAD_FIND_NODE = 0x0b;
-
-enum class LinkType {
-  FILE,
-  SERVER,
-  SERVER_LIST,
-  NODES_LIST,
-};
-
-struct Endpoint {
-  std::string host;
-  uint16_t port = 0;
-  uint16_t cryptOptions = 0;
-  std::string userHash;
-};
-
-struct FoundSource {
-  Endpoint endpoint;
-  uint32_t clientId = 0;
-  bool lowId = false;
-};
-
-struct Link {
-  LinkType type = LinkType::FILE;
-  std::string name;
-  int64_t size = 0;
-  std::string hash;
-  std::vector<std::string> pieceHashes;
-  std::string aichHash;
-  std::vector<Endpoint> sources;
-  Endpoint server;
-  std::string url;
-};
 
 struct PacketHeader {
   uint8_t protocol = 0;
@@ -381,10 +350,6 @@ struct NodesDat {
   std::vector<KadContact> contacts;
   std::vector<bool> verified;
 };
-
-Link parseLink(const std::string& uri);
-Endpoint parseEndpoint(const std::string& value);
-std::string toFileLink(const Link& link);
 
 uint16_t readUInt16(const char* data);
 uint32_t readUInt32(const char* data);

@@ -459,3 +459,18 @@ docs/maintenance/ed2k-implementation-checkpoints.md` passed.
 Remaining: Continue CP3 or CP4 with protocol-relevant module boundaries and
 link behavior only.
 Blocked: none.
+
+2026-05-18 CP3 partial
+Changed: Split ED2K URI link and text endpoint parsing/serialization from
+`ed2k_helper.*` into `ed2k_link.*`. Kept binary endpoint packing, packet
+helpers, server payloads, Kad payloads, Source Exchange, compression, and AICH
+payloads in `ed2k_helper.*` to avoid a broad protocol rewrite.
+Verified: `git diff --check cmake/Sources.cmake src/ed2k_helper.cc
+src/ed2k_helper.h src/ed2k_link.cc src/ed2k_link.h
+docs/maintenance/ed2k-implementation-checkpoints.md` passed.
+`cmake --build --preset default --target aria2_tests` passed.
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`.
+Remaining: Continue CP3 only for module boundaries needed by the next protocol
+checkpoint, likely packet/tag or server state, without adding duplicate tests.
+Blocked: none.

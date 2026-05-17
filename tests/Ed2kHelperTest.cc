@@ -90,6 +90,12 @@ void Ed2kHelperTest::testParseFileLink()
   CPPUNIT_ASSERT_EQUAL(
       std::string("0123456789abcdef0123456789abcdef"),
       util::toHex(link.hash));
+
+  auto encodedSeparators = parseLink(
+      "ed2k://%7Cfile%7Caria2%20next.bin%7C12345%7C"
+      "0123456789ABCDEF0123456789ABCDEF%7C/");
+  CPPUNIT_ASSERT_EQUAL(LinkType::FILE, encodedSeparators.type);
+  CPPUNIT_ASSERT_EQUAL(std::string("aria2 next.bin"), encodedSeparators.name);
 }
 
 void Ed2kHelperTest::testParseFileLinkWithOptions()

@@ -158,6 +158,8 @@ set(ARIA2_SOURCES_BASE
   src/ed2k_helper.h
   src/ed2k_link.cc
   src/ed2k_link.h
+  src/ed2k_packet.cc
+  src/ed2k_packet.h
   src/error_code.h
   src/Event.h
   src/EventPoll.h

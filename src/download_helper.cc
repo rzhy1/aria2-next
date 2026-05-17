@@ -257,7 +257,7 @@ createEd2kRequestGroup(const std::string& ed2kUri,
   auto gid = getGID(option);
   auto rg = std::make_shared<RequestGroup>(gid, option);
   const auto outputName =
-      option->blank(PREF_OUT) ? util::replace(link.name, "/", "-")
+      option->blank(PREF_OUT) ? util::fixTaintedBasename(link.name)
                               : option->get(PREF_OUT);
   auto dctx = std::make_shared<DownloadContext>(
       ed2k::PIECE_LENGTH, link.size,

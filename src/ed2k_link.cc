@@ -27,9 +27,16 @@ namespace {
 
 std::vector<std::string> splitFields(const std::string& uri)
 {
+  auto normalized = uri;
+  if (util::startsWith(normalized, "ed2k://%7C") ||
+      util::startsWith(normalized, "ed2k://%7c")) {
+    normalized = util::replace(normalized, "%7C", "|");
+    normalized = util::replace(normalized, "%7c", "|");
+  }
   std::vector<std::string> fields;
   std::vector<Scip> parts;
-  util::splitIter(uri.begin(), uri.end(), std::back_inserter(parts), '|');
+  util::splitIter(normalized.begin(), normalized.end(),
+                  std::back_inserter(parts), '|');
   for (const auto& part : parts) {
     fields.emplace_back(part.first, part.second);
   }

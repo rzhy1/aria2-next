@@ -169,7 +169,7 @@ void DownloadHelperTest::testCreateRequestGroupForUri()
 void DownloadHelperTest::testCreateRequestGroupForUri_ED2K()
 {
   std::vector<std::string> uris{
-      "ed2k://|file|aria2%20next.bin|9728001|"
+      "ed2k://|file|aria2%2Fnext.bin|9728001|"
       "0123456789abcdef0123456789abcdef|"
       "p=11111111111111111111111111111111:"
       "22222222222222222222222222222222|/"};
@@ -188,7 +188,8 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2K()
   CPPUNIT_ASSERT(ctx->hasAttribute(CTX_ATTR_ED2K));
   CPPUNIT_ASSERT_EQUAL(ed2k::PIECE_LENGTH, ctx->getPieceLength());
   CPPUNIT_ASSERT_EQUAL((int64_t)9728001, ctx->getTotalLength());
-  CPPUNIT_ASSERT_EQUAL(std::string("/tmp/aria2 next.bin"), ctx->getBasePath());
+  CPPUNIT_ASSERT_EQUAL(std::string("/tmp/aria2%2Fnext.bin"),
+                       ctx->getBasePath());
   CPPUNIT_ASSERT(ctx->getFirstFileEntry()->isRequested());
   CPPUNIT_ASSERT_EQUAL((size_t)0,
                        ctx->getFirstFileEntry()->getRemainingUris().size());
@@ -197,7 +198,7 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2K()
   CPPUNIT_ASSERT_EQUAL(4, group->getNumConcurrentCommand());
 
   auto attrs = getEd2kAttrs(ctx);
-  CPPUNIT_ASSERT_EQUAL(std::string("aria2 next.bin"), attrs->link.name);
+  CPPUNIT_ASSERT_EQUAL(std::string("aria2/next.bin"), attrs->link.name);
   CPPUNIT_ASSERT_EQUAL(
       std::string("0123456789abcdef0123456789abcdef"),
       util::toHex(attrs->link.hash));

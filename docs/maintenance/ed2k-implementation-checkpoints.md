@@ -474,3 +474,21 @@ docs/maintenance/ed2k-implementation-checkpoints.md` passed.
 Remaining: Continue CP3 only for module boundaries needed by the next protocol
 checkpoint, likely packet/tag or server state, without adding duplicate tests.
 Blocked: none.
+
+2026-05-18 CP3/CP4 partial
+Changed: Split ED2K endian helpers, packet framing, tag parsing, and tag
+serialization from `ed2k_helper.*` into `ed2k_packet.*`. Tightened CP4 link
+behavior by accepting browser-style `%7C` ED2K separators and routing default
+ED2K output names through aria2-next's existing tainted-basename sanitizer.
+Verified: `git diff --check cmake/Sources.cmake src/ed2k_helper.cc
+src/ed2k_helper.h src/ed2k_packet.cc src/ed2k_packet.h src/ed2k_link.cc
+src/download_helper.cc tests/Ed2kHelperTest.cc tests/DownloadHelperTest.cc
+docs/maintenance/ed2k-implementation-checkpoints.md` passed.
+`cmake --build --preset default --target aria2_tests` passed.
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`.
+Remaining: Continue reducing `ed2k_helper.*` by extracting server state,
+server.met, search, Kad, Source Exchange, compression, and AICH payload
+modules as their checkpoints require. CP4 still needs a final audit before it
+can be marked verified.
+Blocked: none.

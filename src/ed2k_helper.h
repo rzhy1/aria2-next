@@ -16,6 +16,7 @@
 #include "common.h"
 #include "ed2k_hash.h"
 #include "ed2k_link.h"
+#include "ed2k_packet.h"
 
 #include <cstdint>
 #include <string>
@@ -95,32 +96,6 @@ constexpr uint8_t KAD_FIREWALLED_UDP = 0x62;
 constexpr uint8_t KAD_FIND_VALUE = 0x02;
 constexpr uint8_t KAD_STORE = 0x04;
 constexpr uint8_t KAD_FIND_NODE = 0x0b;
-
-struct PacketHeader {
-  uint8_t protocol = 0;
-  uint32_t size = 0;
-  uint8_t opcode = 0;
-
-  size_t payloadSize() const { return size == 0 ? 0 : size - 1; }
-};
-
-enum class TagValueType {
-  UNKNOWN,
-  STRING,
-  UINT,
-  HASH,
-  BLOB,
-};
-
-struct Tag {
-  uint8_t id = 0;
-  std::string name;
-  uint8_t rawType = 0;
-  TagValueType valueType = TagValueType::UNKNOWN;
-  std::string stringValue;
-  uint64_t intValue = 0;
-  std::string binaryValue;
-};
 
 struct PartRange {
   int64_t begin = 0;
@@ -351,16 +326,6 @@ struct NodesDat {
   std::vector<bool> verified;
 };
 
-uint16_t readUInt16(const char* data);
-uint32_t readUInt32(const char* data);
-uint64_t readUInt64(const char* data);
-std::string packUInt16(uint16_t value);
-std::string packUInt32(uint32_t value);
-std::string packUInt64(uint64_t value);
-std::string createPacket(uint8_t protocol, uint8_t opcode,
-                         const std::string& payload);
-bool readPacketHeader(PacketHeader& header, const char* data, size_t length);
-bool parseTagList(std::vector<Tag>& tags, const std::string& payload);
 std::vector<Endpoint> parseServerMet(const std::string& data);
 std::string createLoginRequestPayload(const std::string& clientHash,
                                       uint16_t listenPort,

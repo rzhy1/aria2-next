@@ -11,6 +11,7 @@ class ProtocolDetectorTest : public CppUnit::TestFixture {
 
   CPPUNIT_TEST_SUITE(ProtocolDetectorTest);
   CPPUNIT_TEST(testIsStreamProtocol);
+  CPPUNIT_TEST(testGuessEd2kLink);
   CPPUNIT_TEST(testGuessTorrentFile);
   CPPUNIT_TEST(testGuessTorrentMagnet);
   CPPUNIT_TEST(testGuessMetalinkFile);
@@ -22,6 +23,7 @@ public:
   void tearDown() {}
 
   void testIsStreamProtocol();
+  void testGuessEd2kLink();
   void testGuessTorrentFile();
   void testGuessTorrentMagnet();
   void testGuessMetalinkFile();
@@ -39,6 +41,16 @@ void ProtocolDetectorTest::testIsStreamProtocol()
   CPPUNIT_ASSERT(!detector.isStreamProtocol("magnet:?xt=urn:btih:abc"));
   CPPUNIT_ASSERT(!detector.isStreamProtocol("E://downloads/file.torrent"));
   CPPUNIT_ASSERT(!detector.isStreamProtocol("/home/web/localhost/index.html"));
+}
+
+void ProtocolDetectorTest::testGuessEd2kLink()
+{
+  ProtocolDetector detector;
+  CPPUNIT_ASSERT(detector.guessEd2kLink(
+      "ed2k://|file|aria2-next.bin|1|0123456789abcdef0123456789abcdef|/"));
+  CPPUNIT_ASSERT(detector.guessEd2kLink("ed2k://|server|127.0.0.1|4661|/"));
+  CPPUNIT_ASSERT(!detector.guessEd2kLink("ed2k://|file|bad.bin|x|bad|/"));
+  CPPUNIT_ASSERT(!detector.guessEd2kLink("magnet:?xt=urn:btih:abc"));
 }
 
 void ProtocolDetectorTest::testGuessTorrentFile()

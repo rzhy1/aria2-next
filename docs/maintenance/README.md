@@ -10,6 +10,7 @@ stewardship but are not part of the build, tests, or release execution path.
 | `open-issue-review.md` | Human-readable summary of the upstream open issue review |
 | `issue-review-matrix.csv` | Complete issue-by-issue review matrix |
 | `cmake-migration-progress.md` | Checkpoint log for the CMake migration |
+| `ed2k-implementation-checkpoints.md` | Durable checkpoint log for native ED2K/eMule implementation work |
 
 Maintenance records should be durable and compact. Temporary API payloads,
 scratch research files, generated reports, and local caches should not be

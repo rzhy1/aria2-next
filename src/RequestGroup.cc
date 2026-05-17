@@ -62,6 +62,9 @@
 #include "DefaultBtProgressInfoFile.h"
 #include "DefaultPieceStorage.h"
 #include "download_handlers.h"
+#include "Ed2kAttribute.h"
+#include "Ed2kCommand.h"
+#include "Ed2kKadCommand.h"
 #include "MemoryBufferPreDownloadHandler.h"
 #include "DownloadHandlerConstants.h"
 #include "Option.h"
@@ -277,6 +280,76 @@ void RequestGroup::createInitialCommand(
   // file allocation takes a time.  For downloads in which file size
   // is unknown, session timer will not be reset.
   downloadContext_->resetDownloadStartTime();
+  if (downloadContext_->hasAttribute(CTX_ATTR_ED2K)) {
+    if (option_->getAsBool(PREF_DRY_RUN)) {
+      throw DOWNLOAD_FAILURE_EXCEPTION(
+          "Cancel ED2K download in dry-run context.");
+    }
+    if (e->getRequestGroupMan()->isSameFileBeingDownloaded(this)) {
+      throw DOWNLOAD_FAILURE_EXCEPTION2(
+          fmt(EX_DUPLICATE_FILE_DOWNLOAD,
+              downloadContext_->getBasePath().c_str()),
+          error_code::DUPLICATE_DOWNLOAD);
+    }
+    auto progressInfoFile = std::make_shared<DefaultBtProgressInfoFile>(
+        downloadContext_, nullptr, option_.get());
+    adjustFilename(progressInfoFile);
+    initPieceStorage();
+    progressInfoFile = std::make_shared<DefaultBtProgressInfoFile>(
+        downloadContext_, pieceStorage_, option_.get());
+    removeDefunctControlFile(progressInfoFile);
+    if (progressInfoFile->exists()) {
+      progressInfoFile->load();
+      pieceStorage_->getDiskAdaptor()->openFile();
+    }
+    else if (pieceStorage_->getDiskAdaptor()->fileExists()) {
+      if (!option_->getAsBool(PREF_ALLOW_OVERWRITE)) {
+        throw DOWNLOAD_FAILURE_EXCEPTION2(
+            fmt(MSG_FILE_ALREADY_EXISTS,
+                downloadContext_->getBasePath().c_str()),
+            error_code::FILE_ALREADY_EXISTS);
+      }
+      pieceStorage_->getDiskAdaptor()->openFile();
+    }
+    else {
+      pieceStorage_->getDiskAdaptor()->openFile();
+    }
+    progressInfoFile_ = progressInfoFile;
+
+    auto attrs = getEd2kAttrs(downloadContext_);
+    if (attrs->searchActive) {
+      for (const auto& server : attrs->servers) {
+        commands.push_back(
+            make_unique<Ed2kCommand>(e->newCUID(), this, e, server, true));
+      }
+      commands.push_back(make_unique<Ed2kKadCommand>(e->newCUID(), this, e));
+      if (commands.empty()) {
+        throw DOWNLOAD_FAILURE_EXCEPTION("ED2K search requires discovery data.");
+      }
+      e->setNoWait(true);
+      return;
+    }
+    attrs->pieceHashes = attrs->link.pieceHashes;
+    attrs->aichRootHash = attrs->link.aichHash;
+    for (const auto& source : attrs->link.sources) {
+      addEd2kPeer(attrs, source);
+    }
+    for (const auto& server : attrs->servers) {
+      commands.push_back(
+          make_unique<Ed2kCommand>(e->newCUID(), this, e, server, true));
+    }
+    for (const auto& peer : attrs->peers) {
+      commands.push_back(
+          make_unique<Ed2kCommand>(e->newCUID(), this, e, peer, false));
+    }
+    commands.push_back(make_unique<Ed2kKadCommand>(e->newCUID(), this, e));
+    if (commands.empty()) {
+      throw DOWNLOAD_FAILURE_EXCEPTION(
+          "ED2K download requires at least one server or source.");
+    }
+    e->setNoWait(true);
+    return;
+  }
 #ifdef ENABLE_BITTORRENT
   if (downloadContext_->hasAttribute(CTX_ATTR_BT)) {
     auto torrentAttrs = bittorrent::getTorrentAttrs(downloadContext_);

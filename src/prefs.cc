@@ -352,6 +352,16 @@ PrefPtr PREF_FORCE_SAVE = makePref("force-save");
 PrefPtr PREF_SAVE_NOT_FOUND = makePref("save-not-found");
 // value: 1*digit
 PrefPtr PREF_DISK_CACHE = makePref("disk-cache");
+// value: host:port[,host:port]
+PrefPtr PREF_ED2K_SERVER = makePref("ed2k-server");
+// value: path to server.met
+PrefPtr PREF_ED2K_SERVER_LIST = makePref("ed2k-server-list");
+// value: path to nodes.dat
+PrefPtr PREF_ED2K_NODE_LIST = makePref("ed2k-node-list");
+// value: hex-encoded ED2K server state
+PrefPtr PREF_ED2K_SERVER_STATE = makePref("ed2k-server-state");
+// value: hex-encoded ED2K Kad routing state
+PrefPtr PREF_ED2K_KAD_ROUTING_STATE = makePref("ed2k-kad-routing-state");
 // value: string
 PrefPtr PREF_GID = makePref("gid");
 // values: 1*digit

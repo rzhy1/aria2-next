@@ -52,6 +52,8 @@ std::unique_ptr<RpcMethod> noSuchRpcMethod;
 namespace {
 std::vector<std::string> rpcMethodNames = {
     "aria2.addUri",
+    "aria2.ed2kSearch",
+    "aria2.getEd2kSearchResults",
 #ifdef ENABLE_BITTORRENT
     "aria2.addTorrent",
     "aria2.getPeers",
@@ -117,6 +119,14 @@ std::unique_ptr<RpcMethod> createMethod(const std::string& methodName)
 {
   if (methodName == AddUriRpcMethod::getMethodName()) {
     return make_unique<AddUriRpcMethod>();
+  }
+
+  if (methodName == Ed2kSearchRpcMethod::getMethodName()) {
+    return make_unique<Ed2kSearchRpcMethod>();
+  }
+
+  if (methodName == GetEd2kSearchResultsRpcMethod::getMethodName()) {
+    return make_unique<GetEd2kSearchResultsRpcMethod>();
   }
 
 #ifdef ENABLE_BITTORRENT

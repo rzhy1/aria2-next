@@ -49,6 +49,9 @@ public:
   // Returns true if uri is http(s)/ftp, otherwise returns false.
   bool isStreamProtocol(const std::string& uri) const;
 
+  // Returns true if uri is a well-formed ED2K link.
+  bool guessEd2kLink(const std::string& uri) const;
+
   // Returns true if ProtocolDetector thinks uri is a path of BitTorrent
   // metainfo file, otherwise returns false.
   bool guessTorrentFile(const std::string& uri) const;

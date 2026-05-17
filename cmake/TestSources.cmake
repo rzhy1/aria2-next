@@ -99,6 +99,8 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/IteratableChunkChecksumValidatorTest.cc
   tests/IteratableChecksumValidatorTest.cc
   tests/MessageDigestTest.cc
+  tests/Ed2kHelperTest.cc
+  tests/Ed2kKadStateTest.cc
 )
 
 set(ARIA2_TEST_SOURCES_ENABLE_XML_RPC

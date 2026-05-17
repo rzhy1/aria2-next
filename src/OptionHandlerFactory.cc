@@ -184,6 +184,46 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
+    OptionHandler* op(new DefaultOptionHandler(PREF_ED2K_SERVER,
+                                               TEXT_ED2K_SERVER));
+    op->addTag(TAG_ADVANCED);
+    op->setInitialOption(true);
+    op->setChangeOptionForReserved(true);
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new LocalFilePathOptionHandler(
+        PREF_ED2K_SERVER_LIST, TEXT_ED2K_SERVER_LIST, NO_DEFAULT_VALUE));
+    op->addTag(TAG_ADVANCED);
+    op->setInitialOption(true);
+    op->setChangeOptionForReserved(true);
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new LocalFilePathOptionHandler(
+        PREF_ED2K_NODE_LIST, TEXT_ED2K_NODE_LIST, NO_DEFAULT_VALUE));
+    op->addTag(TAG_ADVANCED);
+    op->setInitialOption(true);
+    op->setChangeOptionForReserved(true);
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new DefaultOptionHandler(
+        PREF_ED2K_SERVER_STATE, NO_DESCRIPTION, NO_DEFAULT_VALUE));
+    op->setInitialOption(true);
+    op->setChangeOptionForReserved(true);
+    op->hide();
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new DefaultOptionHandler(
+        PREF_ED2K_KAD_ROUTING_STATE, NO_DESCRIPTION, NO_DEFAULT_VALUE));
+    op->setInitialOption(true);
+    op->setChangeOptionForReserved(true);
+    op->hide();
+    handlers.push_back(op);
+  }
+  {
     OptionHandler* op(new ParameterOptionHandler(
         PREF_CONSOLE_LOG_LEVEL, TEXT_CONSOLE_LOG_LEVEL, V_NOTICE,
         {std::begin(logLevels), std::end(logLevels)}));

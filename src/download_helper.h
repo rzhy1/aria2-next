@@ -44,6 +44,10 @@
 
 namespace aria2 {
 
+namespace ed2k {
+struct SearchQuery;
+} // namespace ed2k
+
 class RequestGroup;
 class Option;
 class MetadataInfo;
@@ -126,6 +130,10 @@ void createRequestGroupForUri(
     const std::shared_ptr<Option>& option, const std::vector<std::string>& uris,
     bool ignoreForceSequential = false, bool ignoreLocalPath = false,
     bool throwOnError = false);
+
+std::shared_ptr<RequestGroup>
+createEd2kSearchRequestGroup(const ed2k::SearchQuery& query,
+                             const std::shared_ptr<Option>& optionTemplate);
 
 template <typename InputIterator>
 void setMetadataInfo(InputIterator first, InputIterator last,

@@ -1,0 +1,198 @@
+/* <!-- copyright */
+/*
+ * aria2 - The high speed download utility
+ *
+ * Copyright (C) 2026 aria2-next contributors
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+/* copyright --> */
+#include "Ed2kAttribute.h"
+
+#include <algorithm>
+
+#include "DownloadContext.h"
+#include "DownloadEngine.h"
+#include "Ed2kCommand.h"
+#include "RequestGroup.h"
+#include "a2functional.h"
+
+namespace aria2 {
+
+Ed2kAttribute* getEd2kAttrs(const std::shared_ptr<DownloadContext>& dctx)
+{
+  return getEd2kAttrs(dctx.get());
+}
+
+Ed2kAttribute* getEd2kAttrs(DownloadContext* dctx)
+{
+  return static_cast<Ed2kAttribute*>(dctx->getAttribute(CTX_ATTR_ED2K).get());
+}
+
+bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
+{
+  if (!attrs || peer.host.empty() || peer.port == 0) {
+    return false;
+  }
+  auto i = std::find_if(attrs->peers.begin(), attrs->peers.end(),
+                        [&](const ed2k::Endpoint& item) {
+                          return item.host == peer.host &&
+                                 item.port == peer.port;
+                        });
+  if (i != attrs->peers.end()) {
+    return false;
+  }
+  attrs->peers.push_back(peer);
+  return true;
+}
+
+ed2k::ServerState* getEd2kServerState(Ed2kAttribute* attrs,
+                                      const ed2k::Endpoint& server)
+{
+  if (!attrs || server.host.empty() || server.port == 0) {
+    return nullptr;
+  }
+  auto i = std::find_if(attrs->serverStates.begin(), attrs->serverStates.end(),
+                        [&](const ed2k::ServerState& item) {
+                          return item.endpoint.host == server.host &&
+                                 item.endpoint.port == server.port;
+                        });
+  if (i != attrs->serverStates.end()) {
+    return &*i;
+  }
+  ed2k::ServerState state;
+  state.endpoint = server;
+  attrs->serverStates.push_back(state);
+  return &attrs->serverStates.back();
+}
+
+ed2k::ServerState* updateEd2kServerConnected(Ed2kAttribute* attrs,
+                                             const ed2k::Endpoint& server)
+{
+  auto state = getEd2kServerState(attrs, server);
+  if (!state) {
+    return nullptr;
+  }
+  state->connected = true;
+  return state;
+}
+
+void updateEd2kServerIdChange(Ed2kAttribute* attrs,
+                              const ed2k::Endpoint& server,
+                              const ed2k::ServerIdChange& idChange)
+{
+  auto state = updateEd2kServerConnected(attrs, server);
+  if (!state) {
+    return;
+  }
+  state->handshakeCompleted = true;
+  state->clientId = idChange.clientId;
+  state->highId = idChange.highId;
+  state->ipAddress = idChange.ipAddress;
+  state->tcpFlags = idChange.tcpFlags;
+  state->failCount = 0;
+  state->lastFailureTime = 0;
+  state->nextRetryTime = 0;
+}
+
+void updateEd2kServerStatus(Ed2kAttribute* attrs,
+                            const ed2k::Endpoint& server,
+                            const ed2k::ServerStatus& status)
+{
+  auto state = getEd2kServerState(attrs, server);
+  if (!state) {
+    return;
+  }
+  state->users = status.users;
+  state->files = status.files;
+}
+
+void updateEd2kServerUdpStatus(Ed2kAttribute* attrs,
+                               const ed2k::Endpoint& server,
+                               const ed2k::ServerStatus& status, int64_t now)
+{
+  auto state = getEd2kServerState(attrs, server);
+  if (!state) {
+    return;
+  }
+  state->users = status.users;
+  state->files = status.files;
+  state->maxUsers = status.maxUsers;
+  state->softFiles = status.softFiles;
+  state->hardFiles = status.hardFiles;
+  state->udpFlags = status.udpFlags;
+  state->lowIdUsers = status.lowIdUsers;
+  state->udpObfuscationPort = status.udpObfuscationPort;
+  state->tcpObfuscationPort = status.tcpObfuscationPort;
+  state->udpKey = status.udpKey;
+  state->udpStatusChallenge = status.challenge;
+  state->lastUdpStatusTime = now;
+}
+
+void updateEd2kServerMessage(Ed2kAttribute* attrs,
+                             const ed2k::Endpoint& server,
+                             const std::string& message)
+{
+  auto state = getEd2kServerState(attrs, server);
+  if (!state) {
+    return;
+  }
+  state->lastMessage = message;
+}
+
+void updateEd2kServerFailure(Ed2kAttribute* attrs,
+                             const ed2k::Endpoint& server, int64_t now,
+                             int64_t baseRetrySeconds)
+{
+  auto state = getEd2kServerState(attrs, server);
+  if (!state) {
+    return;
+  }
+  state->connected = false;
+  state->handshakeCompleted = false;
+  ++state->failCount;
+  state->lastFailureTime = now;
+  const auto multiplier = std::min<uint32_t>(state->failCount, 6);
+  state->nextRetryTime = now + baseRetrySeconds * multiplier;
+}
+
+size_t addEd2kSearchResults(Ed2kAttribute* attrs,
+                            const std::vector<ed2k::SearchResultEntry>& entries,
+                            bool moreResults)
+{
+  if (!attrs) {
+    return 0;
+  }
+  size_t added = 0;
+  for (const auto& entry : entries) {
+    auto i = std::find_if(attrs->searchResults.begin(),
+                          attrs->searchResults.end(),
+                          [&](const ed2k::SearchResultEntry& item) {
+                            return item.hash == entry.hash &&
+                                   item.size == entry.size;
+                          });
+    if (i == attrs->searchResults.end()) {
+      attrs->searchResults.push_back(entry);
+      ++added;
+    }
+  }
+  attrs->searchMoreResults = moreResults;
+  return added;
+}
+
+void schedulePendingEd2kPeers(RequestGroup* requestGroup, DownloadEngine* e)
+{
+  auto attrs = getEd2kAttrs(requestGroup->getDownloadContext());
+  while (attrs->nextPeerIndex < attrs->peers.size() &&
+         requestGroup->getNumCommand() <
+             requestGroup->getNumConcurrentCommand()) {
+    auto peer = attrs->peers[attrs->nextPeerIndex++];
+    e->addCommand(make_unique<Ed2kCommand>(e->newCUID(), requestGroup, e,
+                                           peer, false));
+  }
+}
+
+} // namespace aria2

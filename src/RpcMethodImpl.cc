@@ -36,6 +36,7 @@
 
 #include <cassert>
 #include <algorithm>
+#include <limits>
 #include <sstream>
 
 #include "Logger.h"
@@ -53,6 +54,7 @@
 #include "PieceStorage.h"
 #include "DownloadContext.h"
 #include "DiskAdaptor.h"
+#include "Ed2kAttribute.h"
 #include "FileEntry.h"
 #include "prefs.h"
 #include "message.h"
@@ -147,6 +149,20 @@ const char KEY_NUM_ACTIVE[] = "numActive";
 const char KEY_NUM_STOPPED_TOTAL[] = "numStoppedTotal";
 const char KEY_VERIFIED_LENGTH[] = "verifiedLength";
 const char KEY_VERIFY_PENDING[] = "verifyIntegrityPending";
+const char KEY_HASH[] = "hash";
+const char KEY_SOURCE_COUNT[] = "sourceCount";
+const char KEY_COMPLETE_SOURCE_COUNT[] = "completeSourceCount";
+const char KEY_FILE_TYPE[] = "fileType";
+const char KEY_EXTENSION[] = "extension";
+const char KEY_MEDIA_ARTIST[] = "mediaArtist";
+const char KEY_MEDIA_ALBUM[] = "mediaAlbum";
+const char KEY_MEDIA_TITLE[] = "mediaTitle";
+const char KEY_MEDIA_LENGTH[] = "mediaLength";
+const char KEY_MEDIA_BITRATE[] = "mediaBitrate";
+const char KEY_MEDIA_CODEC[] = "mediaCodec";
+const char KEY_SOURCE_NETWORK[] = "sourceNetwork";
+const char KEY_ED2K_LINK[] = "ed2kLink";
+const char KEY_MORE_RESULTS[] = "moreResults";
 } // namespace
 
 namespace {
@@ -255,6 +271,110 @@ std::unique_ptr<ValueBase> AddUriRpcMethod::process(const RpcRequest& req,
   else {
     throw DL_ABORT_EX("No URI to download.");
   }
+}
+
+namespace {
+int64_t getDictInt(const Dict* dict, const char* key, int64_t defaultValue)
+{
+  if (!dict) {
+    return defaultValue;
+  }
+  const auto value = downcast<Integer>(dict->get(key));
+  return value ? value->i() : defaultValue;
+}
+
+uint32_t getDictUInt32(const Dict* dict, const char* key)
+{
+  const auto value = getDictInt(dict, key, 0);
+  if (value <= 0) {
+    return 0;
+  }
+  if (value > std::numeric_limits<uint32_t>::max()) {
+    return std::numeric_limits<uint32_t>::max();
+  }
+  return static_cast<uint32_t>(value);
+}
+
+std::string getDictString(const Dict* dict, const char* key)
+{
+  if (!dict) {
+    return std::string();
+  }
+  const auto value = downcast<String>(dict->get(key));
+  return value ? value->s() : std::string();
+}
+
+std::unique_ptr<Dict>
+createEd2kSearchResultEntry(const ed2k::SearchResultEntry& entry)
+{
+  auto dict = Dict::g();
+  dict->put(KEY_HASH, util::toHex(entry.hash));
+  dict->put(KEY_NAME, entry.name);
+  dict->put(KEY_LENGTH, util::itos(entry.size));
+  dict->put(KEY_SOURCE_COUNT, util::uitos(entry.sourceCount));
+  dict->put(KEY_COMPLETE_SOURCE_COUNT,
+            util::uitos(entry.completeSourceCount));
+  dict->put(KEY_FILE_TYPE, entry.fileType);
+  dict->put(KEY_EXTENSION, entry.extension);
+  dict->put(KEY_MEDIA_ARTIST, entry.mediaArtist);
+  dict->put(KEY_MEDIA_ALBUM, entry.mediaAlbum);
+  dict->put(KEY_MEDIA_TITLE, entry.mediaTitle);
+  dict->put(KEY_MEDIA_LENGTH, entry.mediaLength);
+  dict->put(KEY_MEDIA_BITRATE, util::uitos(entry.mediaBitrate));
+  dict->put(KEY_MEDIA_CODEC, entry.mediaCodec);
+  dict->put(KEY_SOURCE_NETWORK, entry.sourceNetwork);
+  dict->put(KEY_ED2K_LINK, entry.ed2kLink);
+  return dict;
+}
+} // namespace
+
+std::unique_ptr<ValueBase> Ed2kSearchRpcMethod::process(const RpcRequest& req,
+                                                        DownloadEngine* e)
+{
+  const String* keywordParam = checkRequiredParam<String>(req, 0);
+  const Dict* optsParam = checkParam<Dict>(req, 1);
+  if (keywordParam->s().empty()) {
+    throw DL_ABORT_EX("ED2K search keyword is empty.");
+  }
+  ed2k::SearchQuery query;
+  query.keyword = keywordParam->s();
+  query.fileType = getDictString(optsParam, KEY_FILE_TYPE);
+  query.extension = getDictString(optsParam, KEY_EXTENSION);
+  query.minSize = getDictInt(optsParam, "minSize", 0);
+  query.maxSize = getDictInt(optsParam, "maxSize", 0);
+  query.minSourceCount = getDictUInt32(optsParam, "minSourceCount");
+  query.minCompleteSourceCount =
+      getDictUInt32(optsParam, "minCompleteSourceCount");
+
+  auto requestOption = std::make_shared<Option>(*e->getOption());
+  gatherRequestOption(requestOption.get(), optsParam);
+  auto group = createEd2kSearchRequestGroup(query, requestOption);
+  return addRequestGroup(group, e, false, 0);
+}
+
+std::unique_ptr<ValueBase>
+GetEd2kSearchResultsRpcMethod::process(const RpcRequest& req,
+                                       DownloadEngine* e)
+{
+  const String* gidParam = checkRequiredParam<String>(req, 0);
+  a2_gid_t gid = str2Gid(gidParam);
+  auto group = e->getRequestGroupMan()->findGroup(gid);
+  if (!group || !group->getDownloadContext()->hasAttribute(CTX_ATTR_ED2K)) {
+    throw DL_ABORT_EX(
+        fmt("No ED2K search data is available for GID#%s",
+            GroupId::toHex(gid).c_str()));
+  }
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+  auto result = Dict::g();
+  result->put(KEY_GID, GroupId::toHex(gid));
+  result->put(KEY_MORE_RESULTS,
+              attrs->searchMoreResults ? VLB_TRUE : VLB_FALSE);
+  auto entries = List::g();
+  for (const auto& entry : attrs->searchResults) {
+    entries->append(createEd2kSearchResultEntry(entry));
+  }
+  result->put("results", std::move(entries));
+  return std::move(result);
 }
 
 namespace {

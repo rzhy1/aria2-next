@@ -43,6 +43,7 @@
 #include "RecoverableException.h"
 #include "uri.h"
 #include "BufferedFile.h"
+#include "ed2k_helper.h"
 #ifdef ENABLE_BITTORRENT
 #  include "bittorrent_helper.h"
 #endif // ENABLE_BITTORRENT
@@ -63,6 +64,17 @@ bool ProtocolDetector::isStreamProtocol(const std::string& uri) const
   auto protocol = uri::getFieldString(us, USR_SCHEME, uri.c_str());
   return util::strieq(protocol, "http") || util::strieq(protocol, "https") ||
          util::strieq(protocol, "ftp") || util::strieq(protocol, "sftp");
+}
+
+bool ProtocolDetector::guessEd2kLink(const std::string& uri) const
+{
+  try {
+    ed2k::parseLink(uri);
+    return true;
+  }
+  catch (RecoverableException& e) {
+    return false;
+  }
 }
 
 bool ProtocolDetector::guessTorrentFile(const std::string& uri) const

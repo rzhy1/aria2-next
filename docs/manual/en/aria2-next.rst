@@ -9,7 +9,7 @@ DESCRIPTION
 -----------
 
 aria2 is a utility for downloading files. The supported protocols are
-HTTP(S), FTP, SFTP, BitTorrent, and Metalink. aria2 can download a
+HTTP(S), FTP, SFTP, BitTorrent, Metalink, and ED2K file links. aria2 can download a
 file from multiple sources/protocols and tries to utilize your maximum
 download bandwidth. It supports downloading a file from HTTP(S)/FTP
 /SFTP and BitTorrent at the same time, while the data downloaded from
@@ -648,6 +648,31 @@ BitTorrent/Metalink Options
   Print file listing of ".torrent", ".meta4" and ".metalink" file and exit.
   In case of ".torrent" file, additional information
   (infohash, piece length, etc) is also printed.
+
+ED2K Specific Options
+~~~~~~~~~~~~~~~~~~~~~
+
+.. option:: --ed2k-server=<HOST:PORT[,..]>
+
+  Add ED2K servers used to discover file sources for ED2K file links.
+  Multiple servers can be separated with commas.
+
+.. option:: --ed2k-server-list=<FILE>
+
+  Load ED2K servers from a local ``server.met`` file.
+
+.. option:: --ed2k-node-list=<FILE>
+
+  Load ED2K Kad bootstrap nodes from a local ``nodes.dat`` file.
+
+  .. note::
+
+    ED2K support currently includes native file links, server source
+    discovery, Source Exchange, Kad bootstrap/source/search discovery,
+    compressed part decoding, MD4 part verification, and AICH metadata
+    exchange. Save-session now preserves Kad routing state for ED2K tasks.
+    Sharing, upload queues, peer credits, and broader ED2K state persistence
+    are still being completed.
 
 BitTorrent Specific Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2138,6 +2163,9 @@ of URIs. These optional lines must start with white space(s).
   * :option:`continue <-c>`
   * :option:`dir <-d>`
   * :option:`dry-run <--dry-run>`
+  * :option:`ed2k-node-list <--ed2k-node-list>`
+  * :option:`ed2k-server <--ed2k-server>`
+  * :option:`ed2k-server-list <--ed2k-server-list>`
   * :option:`enable-http-keep-alive <--enable-http-keep-alive>`
   * :option:`enable-http-pipelining <--enable-http-pipelining>`
   * :option:`enable-mmap <--enable-mmap>`
@@ -2420,6 +2448,60 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
     >>> s.aria2.addUri(['http://example.org/file'], {}, 0)
     'ca3d829cee549a4d'
+
+.. function:: aria2.ed2kSearch([secret], keyword[, options])
+
+  This method starts an ED2K/eMule search task and returns the GID of the search
+  task. *keyword* is a non-empty string. *options* is a struct and may include
+  normal request options such as ``dir``, ``ed2k-server``,
+  ``ed2k-server-list``, and ``ed2k-node-list``. The following ED2K search
+  filters are recognized: ``fileType``, ``extension``, ``minSize``,
+  ``maxSize``, ``minSourceCount``, and ``minCompleteSourceCount``.
+
+  Search results are collected asynchronously from configured ED2K servers and
+  Kad bootstrap nodes. Use :func:`aria2.getEd2kSearchResults` with the returned
+  GID to read the accumulated results. Each result contains an ``ed2kLink`` that
+  can be passed to :func:`aria2.addUri` to create a normal ED2K download.
+
+  **JSON-RPC Example**
+
+  ::
+
+    >>> import json
+    >>> import urllib.request
+    >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'ed2k-search',
+    ...                       'method':'aria2.ed2kSearch',
+    ...                       'params':['ubuntu iso',
+    ...                                 {'ed2k-server':'203.0.113.10:4661'}]})
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> c.read().decode()
+    '{"id":"ed2k-search","jsonrpc":"2.0","result":"2089b05ecca3d829"}'
+
+.. function:: aria2.getEd2kSearchResults([secret], gid)
+
+  This method returns the current ED2K search state for *gid*. The response is a
+  struct with ``gid``, ``moreResults``, and ``results``. ``moreResults`` is
+  ``true`` when a server indicates more search results are available.
+
+  Each entry in ``results`` contains stable fields for Motrix Next and other RPC
+  clients: ``hash``, ``name``, ``length``, ``sourceCount``,
+  ``completeSourceCount``, ``fileType``, ``extension``, ``mediaArtist``,
+  ``mediaAlbum``, ``mediaTitle``, ``mediaLength``, ``mediaBitrate``,
+  ``mediaCodec``, ``sourceNetwork``, and ``ed2kLink``. Numeric values are
+  returned as decimal strings, matching existing aria2 RPC conventions.
+
+  **JSON-RPC Example**
+
+  ::
+
+    >>> import json
+    >>> import urllib.request
+    >>> jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'ed2k-results',
+    ...                       'method':'aria2.getEd2kSearchResults',
+    ...                       'params':['2089b05ecca3d829']})
+    >>> c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq.encode())
+    >>> c.read().decode()
+    '{"id":"ed2k-results","jsonrpc":"2.0","result":{"gid":"2089b05ecca3d829","moreResults":false,"results":[]}}'
 
 .. function:: aria2.addTorrent([secret], torrent[, uris[, options[, position]]])
 

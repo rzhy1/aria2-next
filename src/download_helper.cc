@@ -45,6 +45,7 @@
 #include "paramed_string.h"
 #include "UriListParser.h"
 #include "DownloadContext.h"
+#include "Ed2kAttribute.h"
 #include "RecoverableException.h"
 #include "DlAbortEx.h"
 #include "message.h"
@@ -58,10 +59,12 @@
 #include "ByteArrayDiskWriter.h"
 #include "a2functional.h"
 #include "ByteArrayDiskWriterFactory.h"
+#include "BufferedFile.h"
 #include "MetadataInfo.h"
 #include "OptionParser.h"
 #include "SegList.h"
 #include "download_handlers.h"
+#include "ed2k_helper.h"
 #include "SimpleRandomizer.h"
 #ifdef ENABLE_BITTORRENT
 #  include "bittorrent_helper.h"
@@ -127,6 +130,161 @@ std::shared_ptr<GroupId> getGID(const std::shared_ptr<Option>& option)
 } // namespace
 
 namespace {
+void addUniqueEndpoint(std::vector<ed2k::Endpoint>& endpoints,
+                       const ed2k::Endpoint& endpoint)
+{
+  if (endpoint.host.empty() || endpoint.port == 0) {
+    return;
+  }
+  auto i = std::find_if(endpoints.begin(), endpoints.end(),
+                        [&](const ed2k::Endpoint& item) {
+                          return item.host == endpoint.host &&
+                                 item.port == endpoint.port;
+                        });
+  if (i == endpoints.end()) {
+    endpoints.push_back(endpoint);
+  }
+}
+
+void addEndpointList(std::vector<ed2k::Endpoint>& endpoints,
+                     const std::string& value)
+{
+  std::vector<Scip> entries;
+  util::splitIter(value.begin(), value.end(), std::back_inserter(entries),
+                  ',');
+  for (const auto& entry : entries) {
+    addUniqueEndpoint(
+        endpoints,
+        ed2k::parseEndpoint(std::string(entry.first, entry.second)));
+  }
+}
+
+std::string readLocalFile(const std::string& path)
+{
+  BufferedFile fp(path.c_str(), BufferedFile::READ);
+  if (!fp) {
+    throw DL_ABORT_EX(fmt("Cannot open ED2K metadata file: %s", path.c_str()));
+  }
+  std::ostringstream out;
+  fp.transfer(out);
+  return out.str();
+}
+
+void addServerMetFile(std::vector<ed2k::Endpoint>& endpoints,
+                      const std::string& path)
+{
+  for (const auto& endpoint : ed2k::parseServerMet(readLocalFile(path))) {
+    addUniqueEndpoint(endpoints, endpoint);
+  }
+}
+
+void addOptionEd2kServers(std::vector<ed2k::Endpoint>& endpoints,
+                          const std::shared_ptr<Option>& option)
+{
+  if (!option->blank(PREF_ED2K_SERVER)) {
+    addEndpointList(endpoints, option->get(PREF_ED2K_SERVER));
+  }
+  if (!option->blank(PREF_ED2K_SERVER_LIST)) {
+    addServerMetFile(endpoints, option->get(PREF_ED2K_SERVER_LIST));
+  }
+}
+
+std::vector<ed2k::ServerState>
+createEd2kServerStates(const std::shared_ptr<Option>& option)
+{
+  std::vector<ed2k::ServerState> states;
+  if (option->blank(PREF_ED2K_SERVER_STATE)) {
+    return states;
+  }
+  ed2k::ServerState state;
+  const auto payload = option->get(PREF_ED2K_SERVER_STATE);
+  if (payload.size() % 2 != 0 || !util::isHexDigit(payload) ||
+      !ed2k::parseServerStatePayload(
+          state, util::fromHex(payload.begin(), payload.end()))) {
+    throw DL_ABORT_EX("Cannot parse ED2K server state.");
+  }
+  states.push_back(state);
+  return states;
+}
+
+std::shared_ptr<ed2k::KadRoutingTable>
+createEd2kKadRoutingTable(const std::shared_ptr<Option>& option,
+                          const std::string& selfId)
+{
+  if (!option->blank(PREF_ED2K_KAD_ROUTING_STATE)) {
+    ed2k::KadRoutingSnapshot snapshot;
+    const auto state = option->get(PREF_ED2K_KAD_ROUTING_STATE);
+    if (state.size() % 2 != 0 || !util::isHexDigit(state) ||
+        !ed2k::parseKadRoutingStatePayload(
+            snapshot, util::fromHex(state.begin(), state.end()))) {
+      throw DL_ABORT_EX("Cannot parse ED2K Kad routing state.");
+    }
+    auto table = std::make_shared<ed2k::KadRoutingTable>(selfId);
+    table->restore(snapshot);
+    return table;
+  }
+  if (option->blank(PREF_ED2K_NODE_LIST)) {
+    return nullptr;
+  }
+  ed2k::NodesDat nodes;
+  if (!ed2k::parseNodesDat(
+          nodes, readLocalFile(option->get(PREF_ED2K_NODE_LIST)))) {
+    throw DL_ABORT_EX(fmt("Cannot parse ED2K node list: %s",
+                          option->get(PREF_ED2K_NODE_LIST).c_str()));
+  }
+  auto table = std::make_shared<ed2k::KadRoutingTable>(selfId);
+  for (const auto& contact : nodes.contacts) {
+    ed2k::Endpoint endpoint;
+    endpoint.host = contact.host;
+    endpoint.port = contact.udpPort;
+    table->addRouterNode(endpoint);
+  }
+  return table;
+}
+} // namespace
+
+namespace {
+std::shared_ptr<RequestGroup>
+createEd2kRequestGroup(const std::string& ed2kUri,
+                       const std::shared_ptr<Option>& optionTemplate)
+{
+  auto link = ed2k::parseLink(ed2kUri);
+  if (link.type != ed2k::LinkType::FILE) {
+    throw DL_ABORT_EX("Only ED2K file links can create downloads.");
+  }
+
+  auto option = util::copy(optionTemplate);
+  auto gid = getGID(option);
+  auto rg = std::make_shared<RequestGroup>(gid, option);
+  const auto outputName =
+      option->blank(PREF_OUT) ? util::replace(link.name, "/", "-")
+                              : option->get(PREF_OUT);
+  auto dctx = std::make_shared<DownloadContext>(
+      ed2k::PIECE_LENGTH, link.size,
+      util::applyDir(option->get(PREF_DIR), outputName));
+  dctx->getFirstFileEntry()->setMaxConnectionPerServer(
+      option->getAsInt(PREF_MAX_CONNECTION_PER_SERVER));
+  auto attrs = std::make_shared<Ed2kAttribute>();
+  attrs->link = std::move(link);
+  addOptionEd2kServers(attrs->servers, option);
+  attrs->serverStates = createEd2kServerStates(option);
+  attrs->kadRoutingTable =
+      createEd2kKadRoutingTable(option, attrs->link.hash);
+  dctx->setAttribute(CTX_ATTR_ED2K, std::move(attrs));
+  dctx->setAcceptMetalink(false);
+  rg->setDownloadContext(dctx);
+  rg->setNumConcurrentCommand(option->getAsInt(PREF_SPLIT));
+
+  if (option->getAsBool(PREF_ENABLE_RPC)) {
+    rg->setPauseRequested(option->getAsBool(PREF_PAUSE));
+  }
+
+  removeOneshotOption(option);
+  return rg;
+}
+} // namespace
+
+namespace {
 std::shared_ptr<RequestGroup>
 createRequestGroup(const std::shared_ptr<Option>& optionTemplate,
                    const std::vector<std::string>& uris,
@@ -161,6 +319,47 @@ createRequestGroup(const std::shared_ptr<Option>& optionTemplate,
   return rg;
 }
 } // namespace
+
+std::shared_ptr<RequestGroup>
+createEd2kSearchRequestGroup(const ed2k::SearchQuery& query,
+                             const std::shared_ptr<Option>& optionTemplate)
+{
+  auto option = util::copy(optionTemplate);
+  auto gid = getGID(option);
+  auto rg = std::make_shared<RequestGroup>(gid, option);
+  auto dctx = std::make_shared<DownloadContext>(
+      ed2k::PIECE_LENGTH, 0,
+      util::applyDir(option->get(PREF_DIR),
+                     "aria2-next-ed2k-search-" + gid->toHex()));
+  auto attrs = std::make_shared<Ed2kAttribute>();
+  attrs->searchActive = true;
+  attrs->searchQuery = query;
+  attrs->link.type = ed2k::LinkType::FILE;
+  attrs->link.name = query.keyword;
+  attrs->link.size = 0;
+  addOptionEd2kServers(attrs->servers, option);
+  attrs->serverStates = createEd2kServerStates(option);
+  if (!option->blank(PREF_ED2K_NODE_LIST)) {
+    attrs->kadRoutingTable =
+        createEd2kKadRoutingTable(option,
+                                  ed2k::createKadKeywordTarget(query.keyword));
+  }
+  if (attrs->servers.empty()) {
+    if (!attrs->kadRoutingTable ||
+        attrs->kadRoutingTable->getRouterNodes().empty()) {
+      throw DL_ABORT_EX("ED2K search requires at least one server or Kad node.");
+    }
+  }
+  dctx->setAttribute(CTX_ATTR_ED2K, std::move(attrs));
+  dctx->setAcceptMetalink(false);
+  rg->setDownloadContext(dctx);
+  rg->setNumConcurrentCommand(option->getAsInt(PREF_SPLIT));
+  if (option->getAsBool(PREF_ENABLE_RPC)) {
+    rg->setPauseRequested(option->getAsBool(PREF_PAUSE));
+  }
+  removeOneshotOption(option);
+  return rg;
+}
 
 #if defined(ENABLE_BITTORRENT) || defined(ENABLE_METALINK)
 namespace {
@@ -428,6 +627,19 @@ public:
       }
     }
 #endif // ENABLE_BITTORRENT
+    else if (detector_.guessEd2kLink(uri)) {
+      try {
+        requestGroups_.push_back(createEd2kRequestGroup(uri, option_));
+      }
+      catch (RecoverableException& e) {
+        if (throwOnError_) {
+          throw;
+        }
+        else {
+          A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
+        }
+      }
+    }
 #ifdef ENABLE_METALINK
     else if (!ignoreLocalPath_ && detector_.guessMetalinkFile(uri)) {
       try {
@@ -597,6 +809,8 @@ void removeOneshotOption(const std::shared_ptr<Option>& option)
 {
   option->remove(PREF_PAUSE);
   option->remove(PREF_GID);
+  option->remove(PREF_ED2K_SERVER_STATE);
+  option->remove(PREF_ED2K_KAD_ROUTING_STATE);
 }
 
 } // namespace aria2

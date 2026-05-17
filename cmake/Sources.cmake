@@ -144,6 +144,18 @@ set(ARIA2_SOURCES_BASE
   src/download_handlers.h
   src/download_helper.cc
   src/download_helper.h
+  src/Ed2kAttribute.cc
+  src/Ed2kAttribute.h
+  src/Ed2kCommand.cc
+  src/Ed2kCommand.h
+  src/Ed2kKadCommand.cc
+  src/Ed2kKadCommand.h
+  src/Ed2kKadState.cc
+  src/Ed2kKadState.h
+  src/ed2k_hash.cc
+  src/ed2k_hash.h
+  src/ed2k_helper.cc
+  src/ed2k_helper.h
   src/error_code.h
   src/Event.h
   src/EventPoll.h

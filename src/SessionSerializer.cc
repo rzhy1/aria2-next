@@ -54,6 +54,8 @@
 #include "OptionParser.h"
 #include "OptionHandler.h"
 #include "SHA1IOFile.h"
+#include "Ed2kAttribute.h"
+#include "ed2k_helper.h"
 
 #if HAVE_ZLIB
 #  include "GZipFile.h"
@@ -213,6 +215,35 @@ bool writeDownloadResult(IOFile& fp, std::set<a2_gid_t>& metainfoCache,
     // only save first file entry
     if (dr->fileEntries.empty()) {
       return true;
+    }
+    if (dr->attrs.size() > CTX_ATTR_ED2K && dr->attrs[CTX_ATTR_ED2K]) {
+      auto attrs = static_cast<Ed2kAttribute*>(dr->attrs[CTX_ATTR_ED2K].get());
+      if (!writeUri(fp, ed2k::toFileLink(attrs->link)) ||
+          fp.write("\n", 1) != 1 ||
+          !writeOptionLine(fp, PREF_GID, dr->gid->toHex())) {
+        return false;
+      }
+      if (pauseRequested &&
+          !writeOptionLine(fp, PREF_PAUSE, A2_V_TRUE)) {
+        return false;
+      }
+      if (attrs->kadRoutingTable) {
+        const auto state = util::toHex(ed2k::createKadRoutingStatePayload(
+            attrs->kadRoutingTable->snapshot()));
+        if (!state.empty() &&
+            !writeOptionLine(fp, PREF_ED2K_KAD_ROUTING_STATE, state)) {
+          return false;
+        }
+      }
+      for (const auto& serverState : attrs->serverStates) {
+        const auto state =
+            util::toHex(ed2k::createServerStatePayload(serverState));
+        if (!state.empty() &&
+            !writeOptionLine(fp, PREF_ED2K_SERVER_STATE, state)) {
+          return false;
+        }
+      }
+      return writeOption(fp, dr->option);
     }
     const std::shared_ptr<FileEntry>& file = dr->fileEntries[0];
     // Don't save download if there are no URIs.

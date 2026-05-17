@@ -136,6 +136,24 @@ public:
   static const char* getMethodName() { return "aria2.addUri"; }
 };
 
+class Ed2kSearchRpcMethod : public RpcMethod {
+protected:
+  virtual std::unique_ptr<ValueBase> process(const RpcRequest& req,
+                                             DownloadEngine* e) CXX11_OVERRIDE;
+
+public:
+  static const char* getMethodName() { return "aria2.ed2kSearch"; }
+};
+
+class GetEd2kSearchResultsRpcMethod : public RpcMethod {
+protected:
+  virtual std::unique_ptr<ValueBase> process(const RpcRequest& req,
+                                             DownloadEngine* e) CXX11_OVERRIDE;
+
+public:
+  static const char* getMethodName() { return "aria2.getEd2kSearchResults"; }
+};
+
 class RemoveRpcMethod : public RpcMethod {
 protected:
   virtual std::unique_ptr<ValueBase> process(const RpcRequest& req,

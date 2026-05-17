@@ -305,6 +305,16 @@ extern PrefPtr PREF_FORCE_SAVE;
 extern PrefPtr PREF_SAVE_NOT_FOUND;
 // value: 1*digit
 extern PrefPtr PREF_DISK_CACHE;
+// value: host:port[,host:port]
+extern PrefPtr PREF_ED2K_SERVER;
+// value: path to server.met
+extern PrefPtr PREF_ED2K_SERVER_LIST;
+// value: path to nodes.dat
+extern PrefPtr PREF_ED2K_NODE_LIST;
+// value: hex-encoded ED2K server state
+extern PrefPtr PREF_ED2K_SERVER_STATE;
+// value: hex-encoded ED2K Kad routing state
+extern PrefPtr PREF_ED2K_KAD_ROUTING_STATE;
 // value: string
 extern PrefPtr PREF_GID;
 // values: 1*digit

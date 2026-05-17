@@ -443,3 +443,19 @@ of 1`.
 Remaining: Continue CP3 only where the next checkpoint needs cleaner link,
 packet, Kad, or state boundaries. Do not add broad test scaffolding.
 Blocked: none.
+
+2026-05-18 pruning-cleanup verified
+Changed: Removed the remaining comment and shared-file-view capability fields
+from the eMule misc option model and helper test. These fields belong to
+pruned social/UI surfaces and are no longer parsed into supported local state
+or advertised by local peer info.
+Verified: `rg -n "acceptCommentVersion|noViewSharedFiles|supportsPreview|supportsCaptcha|preview|captcha|acceptComment" src/ed2k_helper.* src/Ed2kCommand.* tests/Ed2kHelperTest.cc docs/maintenance/ed2k-implementation-checkpoints.md`
+shows only pruning-policy documentation references. `git diff --check
+src/ed2k_helper.cc src/ed2k_helper.h tests/Ed2kHelperTest.cc
+docs/maintenance/ed2k-implementation-checkpoints.md` passed.
+`cmake --build --preset default --target aria2_tests` passed.
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`.
+Remaining: Continue CP3 or CP4 with protocol-relevant module boundaries and
+link behavior only.
+Blocked: none.

@@ -183,8 +183,6 @@ struct EmuleMiscOptions {
   uint8_t secureIdentVersion = 0;
   uint8_t sourceExchange1Version = 0;
   uint8_t extendedRequestsVersion = 0;
-  uint8_t acceptCommentVersion = 0;
-  bool noViewSharedFiles = false;
   bool multiPacket = false;
 };
 

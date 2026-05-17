@@ -719,7 +719,6 @@ void Ed2kHelperTest::testEmuleInfoPayload()
   info.miscOptions.dataCompressionVersion = 1;
   info.miscOptions.sourceExchange1Version = 3;
   info.miscOptions.extendedRequestsVersion = 2;
-  info.miscOptions.noViewSharedFiles = true;
   info.miscOptions.multiPacket = true;
   info.miscOptions2.supportsSourceExchange2 = true;
   info.miscOptions2.supportsLargeFiles = true;
@@ -734,7 +733,6 @@ void Ed2kHelperTest::testEmuleInfoPayload()
   CPPUNIT_ASSERT_EQUAL((uint8_t)1, parsed.miscOptions.dataCompressionVersion);
   CPPUNIT_ASSERT_EQUAL((uint8_t)3, parsed.miscOptions.sourceExchange1Version);
   CPPUNIT_ASSERT_EQUAL((uint8_t)2, parsed.miscOptions.extendedRequestsVersion);
-  CPPUNIT_ASSERT(parsed.miscOptions.noViewSharedFiles);
   CPPUNIT_ASSERT(parsed.miscOptions.multiPacket);
   CPPUNIT_ASSERT(parsed.miscOptions2.supportsSourceExchange2);
   CPPUNIT_ASSERT(parsed.miscOptions2.supportsLargeFiles);

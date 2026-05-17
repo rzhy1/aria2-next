@@ -405,8 +405,6 @@ uint32_t emuleMiscOptionsValue(const EmuleMiscOptions& options)
          ((options.secureIdentVersion & 0x0fu) << 16) |
          ((options.sourceExchange1Version & 0x0fu) << 12) |
          ((options.extendedRequestsVersion & 0x0fu) << 8) |
-         ((options.acceptCommentVersion & 0x0fu) << 4) |
-         (static_cast<uint32_t>(options.noViewSharedFiles) << 2) |
          (static_cast<uint32_t>(options.multiPacket) << 1);
 }
 
@@ -420,8 +418,6 @@ EmuleMiscOptions parseEmuleMiscOptions(uint32_t value)
   options.secureIdentVersion = (value >> 16) & 0x0f;
   options.sourceExchange1Version = (value >> 12) & 0x0f;
   options.extendedRequestsVersion = (value >> 8) & 0x0f;
-  options.acceptCommentVersion = (value >> 4) & 0x0f;
-  options.noViewSharedFiles = (value >> 2) & 0x01;
   options.multiPacket = (value >> 1) & 0x01;
   return options;
 }

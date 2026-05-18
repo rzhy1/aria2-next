@@ -2252,6 +2252,21 @@ void DownloadHelperTest::testEd2kKadCommandTraversesSourceSearch()
   closerSocket.readData(data, len);
   CPPUNIT_ASSERT(ed2k::readPacketHeader(header, data, len));
   CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::KAD_PROTOCOL, header.protocol);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::KAD_REQ, header.opcode);
+
+  const auto closerResponse = ed2k::createPacket(
+      ed2k::KAD_PROTOCOL, ed2k::KAD_RES,
+      ed2k::createKadResponsePayload(fileHash, std::vector<ed2k::KadContact>{}));
+  closerSocket.writeData(closerResponse.data(), closerResponse.size(),
+                         "127.0.0.1", commandPtr->getLocalUdpPort());
+
+  CPPUNIT_ASSERT(commandPtr->waitLocalUdpReadable(1));
+  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
+  CPPUNIT_ASSERT(closerSocket.isReadable(1));
+  len = sizeof(data);
+  closerSocket.readData(data, len);
+  CPPUNIT_ASSERT(ed2k::readPacketHeader(header, data, len));
+  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::KAD_PROTOCOL, header.protocol);
   CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::KAD_SEARCH_SOURCES_REQ, header.opcode);
 }
 

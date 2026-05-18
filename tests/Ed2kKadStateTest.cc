@@ -14,6 +14,7 @@ class Ed2kKadStateTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testRoutingPromotesReplacementOnFailure);
   CPPUNIT_TEST(testRoutingFindClosestAndSnapshot);
   CPPUNIT_TEST(testRoutingBootstrapAndRefresh);
+  CPPUNIT_TEST(testTraversalContinuesBeforeSearch);
   CPPUNIT_TEST(testExpiredTransactionCarriesContactForFailure);
   CPPUNIT_TEST(testTransactionCompletionMatchesTarget);
   CPPUNIT_TEST(testTransactionCompletionAndExpiry);
@@ -23,6 +24,7 @@ public:
   void testRoutingPromotesReplacementOnFailure();
   void testRoutingFindClosestAndSnapshot();
   void testRoutingBootstrapAndRefresh();
+  void testTraversalContinuesBeforeSearch();
   void testExpiredTransactionCarriesContactForFailure();
   void testTransactionCompletionMatchesTarget();
   void testTransactionCompletionAndExpiry();
@@ -122,6 +124,35 @@ void Ed2kKadStateTest::testRoutingBootstrapAndRefresh()
   CPPUNIT_ASSERT(table.needRefresh(target, 200));
   CPPUNIT_ASSERT_EQUAL(self, target);
   CPPUNIT_ASSERT(!table.needRefresh(target, 210));
+}
+
+void Ed2kKadStateTest::testTraversalContinuesBeforeSearch()
+{
+  auto target = hashFromHex("0123456789abcdef0123456789abcdef");
+  auto seed = contactFromHex("11111111111111111111111111111111",
+                             "203.0.113.1", 4672);
+  auto closer = contactFromHex("0123456789abcdef0123456789abcdee",
+                               "203.0.113.2", 4672);
+  KadTraversal traversal(KadTraversalKind::SOURCE_LOOKUP, target, 12345, 1, 2);
+
+  auto actions = traversal.start(std::vector<KadContact>{seed});
+  CPPUNIT_ASSERT_EQUAL((size_t)1, actions.size());
+  CPPUNIT_ASSERT_EQUAL(KadTraversalActionType::FIND_NODE, actions[0].type);
+  CPPUNIT_ASSERT_EQUAL(seed.id, actions[0].contact.id);
+
+  actions = traversal.onResponse(seed, std::vector<KadContact>{closer});
+  CPPUNIT_ASSERT_EQUAL((size_t)1, actions.size());
+  CPPUNIT_ASSERT_EQUAL(KadTraversalActionType::FIND_NODE, actions[0].type);
+  CPPUNIT_ASSERT_EQUAL(closer.id, actions[0].contact.id);
+
+  actions = traversal.onResponse(closer, std::vector<KadContact>());
+  CPPUNIT_ASSERT_EQUAL((size_t)2, actions.size());
+  CPPUNIT_ASSERT_EQUAL(KadTraversalActionType::SEARCH, actions[0].type);
+  CPPUNIT_ASSERT_EQUAL(KadTraversalActionType::SEARCH, actions[1].type);
+  CPPUNIT_ASSERT((actions[0].contact.id == seed.id &&
+                  actions[1].contact.id == closer.id) ||
+                 (actions[0].contact.id == closer.id &&
+                  actions[1].contact.id == seed.id));
 }
 
 void Ed2kKadStateTest::testExpiredTransactionCarriesContactForFailure()

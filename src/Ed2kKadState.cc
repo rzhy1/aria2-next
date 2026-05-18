@@ -35,6 +35,11 @@ bool sameEndpoint(const Endpoint& lhs, const Endpoint& rhs)
   return lhs.host == rhs.host && lhs.port == rhs.port;
 }
 
+bool sameEndpoint(const KadContact& lhs, const KadContact& rhs)
+{
+  return lhs.host == rhs.host && lhs.udpPort == rhs.udpPort;
+}
+
 bool validId(const std::string& id) { return id.size() == HASH_LENGTH; }
 
 void validateId(const std::string& id)
@@ -352,6 +357,166 @@ size_t KadRoutingTable::bucketIndex(const std::string& id) const
     }
   }
   return 127;
+}
+
+KadTraversal::KadTraversal() = default;
+
+KadTraversal::KadTraversal(KadTraversalKind kind, std::string targetId,
+                           uint64_t size, size_t branchFactor,
+                           size_t targetNodes)
+    : kind_(kind),
+      targetId_(std::move(targetId)),
+      size_(size),
+      branchFactor_(branchFactor == 0 ? 3 : branchFactor),
+      targetNodes_(targetNodes == 0 ? 8 : targetNodes),
+      done_(false)
+{
+  validateId(targetId_);
+}
+
+std::vector<KadTraversalAction> KadTraversal::start(
+    const std::vector<KadContact>& seeds)
+{
+  for (const auto& seed : seeds) {
+    addContact(seed);
+  }
+  return nextActions();
+}
+
+std::vector<KadTraversalAction> KadTraversal::onResponse(
+    const KadContact& contact, const std::vector<KadContact>& closer)
+{
+  for (auto& observer : observers_) {
+    if (sameContact(observer.contact, contact) ||
+        sameEndpoint(observer.contact, contact)) {
+      if (!observer.alive) {
+        observer.alive = true;
+      }
+      if (inFlight_ > 0) {
+        --inFlight_;
+      }
+      break;
+    }
+  }
+  for (const auto& item : closer) {
+    addContact(item);
+  }
+  return nextActions();
+}
+
+std::vector<KadTraversalAction> KadTraversal::onFailure(
+    const KadContact& contact)
+{
+  for (auto& observer : observers_) {
+    if (sameContact(observer.contact, contact) ||
+        sameEndpoint(observer.contact, contact)) {
+      if (!observer.failed) {
+        observer.failed = true;
+      }
+      if (inFlight_ > 0) {
+        --inFlight_;
+      }
+      break;
+    }
+  }
+  return nextActions();
+}
+
+void KadTraversal::addContact(const KadContact& contact)
+{
+  if (!validId(contact.id) || contact.host.empty() || contact.udpPort == 0) {
+    return;
+  }
+  auto i = std::find_if(observers_.begin(), observers_.end(),
+                        [&](const Observer& observer) {
+                          return sameContact(observer.contact, contact) ||
+                                 sameEndpoint(observer.contact, contact);
+                        });
+  if (i != observers_.end()) {
+    if (i->contact.id.empty()) {
+      i->contact.id = contact.id;
+    }
+    if (i->contact.tcpPort == 0) {
+      i->contact.tcpPort = contact.tcpPort;
+    }
+    if (i->contact.version == 0) {
+      i->contact.version = contact.version;
+    }
+    return;
+  }
+
+  Observer observer;
+  observer.contact = contact;
+  auto insertPos = std::lower_bound(
+      observers_.begin(), observers_.end(), observer,
+      [&](const Observer& lhs, const Observer& rhs) {
+        return distanceCompare(lhs.contact.id, rhs.contact.id, targetId_) < 0;
+      });
+  observers_.insert(insertPos, observer);
+  if (observers_.size() > 100) {
+    observers_.resize(100);
+  }
+}
+
+std::vector<KadTraversalAction> KadTraversal::nextActions()
+{
+  std::vector<KadTraversalAction> actions;
+  if (done_) {
+    return actions;
+  }
+
+  size_t alive = 0;
+  for (const auto& observer : observers_) {
+    if (observer.alive && !observer.failed) {
+      ++alive;
+    }
+  }
+
+  for (auto& observer : observers_) {
+    if (inFlight_ >= branchFactor_ || alive >= targetNodes_) {
+      break;
+    }
+    if (observer.queried || observer.failed) {
+      continue;
+    }
+    observer.queried = true;
+    ++inFlight_;
+    KadTraversalAction action;
+    action.type = KadTraversalActionType::FIND_NODE;
+    action.contact = observer.contact;
+    actions.push_back(action);
+  }
+
+  if (!actions.empty() || inFlight_ != 0) {
+    return actions;
+  }
+
+  startSearch(actions);
+  return actions;
+}
+
+void KadTraversal::startSearch(std::vector<KadTraversalAction>& actions)
+{
+  if (searchStarted_) {
+    done_ = true;
+    return;
+  }
+  searchStarted_ = true;
+  for (const auto& observer : observers_) {
+    if (observer.failed) {
+      continue;
+    }
+    KadTraversalAction action;
+    action.type = KadTraversalActionType::SEARCH;
+    action.contact = observer.contact;
+    actions.push_back(action);
+    if (actions.size() >= targetNodes_) {
+      break;
+    }
+  }
+  if (actions.empty()) {
+    done_ = true;
+  }
 }
 
 void KadTransactionTable::add(const KadTransaction& transaction)

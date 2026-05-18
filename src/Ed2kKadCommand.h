@@ -18,7 +18,9 @@
 #include <deque>
 #include <memory>
 #include <string>
+#include <vector>
 
+#include "Ed2kKadState.h"
 #include "ed2k_link.h"
 
 namespace aria2 {
@@ -52,6 +54,9 @@ private:
   void queueServerStatusPoll();
   void queueSourceSearch();
   void queueKeywordSearch();
+  void queueTraversalActions(
+      ed2k::KadTraversal& traversal,
+      const std::vector<ed2k::KadTraversalAction>& actions);
   void queuePacket(const ed2k::Endpoint& endpoint, uint8_t opcode,
                    const std::string& payload);
   void queueEd2kUdpPacket(const ed2k::Endpoint& endpoint, uint8_t opcode,

@@ -45,6 +45,8 @@ struct Ed2kAttribute : public ContextAttribute {
   std::vector<ed2k::SearchResultEntry> searchResults;
   std::shared_ptr<ed2k::KadRoutingTable> kadRoutingTable;
   ed2k::KadTransactionTable kadTransactions;
+  std::unique_ptr<ed2k::KadTraversal> kadSourceTraversal;
+  std::unique_ptr<ed2k::KadTraversal> kadKeywordTraversal;
   size_t nextServerIndex = 0;
   bool searchActive = false;
   bool searchMoreResults = false;

@@ -23,6 +23,23 @@ and failed with two ED2K test failures.
 Remaining: Fix CP1 before adding more protocol behavior.
 Blocked: none.
 
+2026-05-18 CP12 partial
+Changed: Added a focused native Kad traversal controller for source and
+keyword lookups. Lookup now keeps candidate state, limits in-flight requests,
+adds closer contacts from `KAD_RES`, continues querying closer contacts before
+the final search phase, and completes `KAD_SEARCH_RES` transactions so
+successful search contacts are not later failed by timeout cleanup. The UDP
+command still owns socket I/O and packet scheduling on the existing event loop.
+Verified: The focused command simulation failed before the change because the
+first closer contact received `KAD_SEARCH_SOURCES_REQ` immediately instead of
+another `KAD_REQ`. After the change, `cmake --build --preset default --target
+aria2_tests` passed with the existing local Tcl/Tk search-path linker warning,
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`, and `git diff --check` passed.
+Remaining: CP12 still needs Kad source publish, firewalled checks, and durable
+operational state before it can be verified.
+Blocked: none.
+
 2026-05-18 CP0 scope-update
 Changed: Strengthened the scope from a practical downloader to complete native
 ED2K/eMule parity against the local reference repositories. Added the

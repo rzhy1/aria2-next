@@ -231,6 +231,58 @@ void Ed2kKadCommand::queueRefresh()
   }
 }
 
+void Ed2kKadCommand::queueTraversalActions(
+    ed2k::KadTraversal& traversal,
+    const std::vector<ed2k::KadTraversalAction>& actions)
+{
+  auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
+  for (const auto& action : actions) {
+    const auto endpoint = toEndpoint(action.contact);
+    if (action.type == ed2k::KadTraversalActionType::FIND_NODE) {
+      const auto searchType =
+          traversal.kind() == ed2k::KadTraversalKind::KEYWORD_LOOKUP
+              ? ed2k::KAD_FIND_VALUE
+              : ed2k::KAD_FIND_NODE;
+      queuePacket(endpoint, ed2k::KAD_REQ,
+                  ed2k::createKadRequestPayload(
+                      searchType, traversal.targetId(), action.contact.id));
+      ed2k::KadTransaction tx;
+      tx.endpoint = endpoint;
+      tx.contact = action.contact;
+      tx.purpose =
+          traversal.kind() == ed2k::KadTraversalKind::KEYWORD_LOOKUP
+              ? ed2k::KadTransactionPurpose::KEYWORD_LOOKUP
+              : ed2k::KadTransactionPurpose::SOURCE_LOOKUP;
+      tx.expectedOpcode = ed2k::KAD_RES;
+      tx.targetId = traversal.targetId();
+      tx.sentTime = nowSeconds();
+      attrs->kadTransactions.add(tx);
+      continue;
+    }
+
+    if (traversal.kind() == ed2k::KadTraversalKind::KEYWORD_LOOKUP) {
+      queuePacket(endpoint, ed2k::KAD_SEARCH_KEYS_REQ,
+                  ed2k::createKadSearchKeysRequestPayload(
+                      traversal.targetId(), 0));
+    }
+    else {
+      queuePacket(endpoint, ed2k::KAD_SEARCH_SOURCES_REQ,
+                  ed2k::createKadSearchSourcesRequestPayload(
+                      traversal.targetId(), 0, traversal.size()));
+    }
+    ed2k::KadTransaction tx;
+    tx.endpoint = endpoint;
+    tx.contact = action.contact;
+    tx.purpose = traversal.kind() == ed2k::KadTraversalKind::KEYWORD_LOOKUP
+                     ? ed2k::KadTransactionPurpose::KEYWORD_LOOKUP
+                     : ed2k::KadTransactionPurpose::SOURCE_LOOKUP;
+    tx.expectedOpcode = ed2k::KAD_SEARCH_RES;
+    tx.targetId = traversal.targetId();
+    tx.sentTime = nowSeconds();
+    attrs->kadTransactions.add(tx);
+  }
+}
+
 void Ed2kKadCommand::queueSourceSearch()
 {
   if (sourceSearchSent_) {
@@ -241,21 +293,15 @@ void Ed2kKadCommand::queueSourceSearch()
     return;
   }
   auto contacts = attrs->kadRoutingTable->findClosest(attrs->link.hash, 8, true);
-  for (const auto& contact : contacts) {
-    const auto endpoint = toEndpoint(contact);
-    queuePacket(endpoint, ed2k::KAD_REQ,
-                ed2k::createKadRequestPayload(ed2k::KAD_FIND_NODE,
-                                               attrs->link.hash, contact.id));
-    ed2k::KadTransaction tx;
-    tx.endpoint = endpoint;
-    tx.contact = contact;
-    tx.purpose = ed2k::KadTransactionPurpose::SOURCE_LOOKUP;
-    tx.expectedOpcode = ed2k::KAD_RES;
-    tx.targetId = attrs->link.hash;
-    tx.sentTime = nowSeconds();
-    attrs->kadTransactions.add(tx);
+  if (contacts.empty()) {
+    return;
   }
-  sourceSearchSent_ = !contacts.empty();
+  attrs->kadSourceTraversal = make_unique<ed2k::KadTraversal>(
+      ed2k::KadTraversalKind::SOURCE_LOOKUP, attrs->link.hash,
+      attrs->link.size);
+  queueTraversalActions(*attrs->kadSourceTraversal,
+                        attrs->kadSourceTraversal->start(contacts));
+  sourceSearchSent_ = true;
 }
 
 void Ed2kKadCommand::queueKeywordSearch()
@@ -270,21 +316,14 @@ void Ed2kKadCommand::queueKeywordSearch()
   }
   const auto targetId = ed2k::createKadKeywordTarget(attrs->searchQuery.keyword);
   auto contacts = attrs->kadRoutingTable->findClosest(targetId, 8, true);
-  for (const auto& contact : contacts) {
-    const auto endpoint = toEndpoint(contact);
-    queuePacket(endpoint, ed2k::KAD_REQ,
-                ed2k::createKadRequestPayload(ed2k::KAD_FIND_VALUE, targetId,
-                                               contact.id));
-    ed2k::KadTransaction tx;
-    tx.endpoint = endpoint;
-    tx.contact = contact;
-    tx.purpose = ed2k::KadTransactionPurpose::KEYWORD_LOOKUP;
-    tx.expectedOpcode = ed2k::KAD_RES;
-    tx.targetId = targetId;
-    tx.sentTime = nowSeconds();
-    attrs->kadTransactions.add(tx);
+  if (contacts.empty()) {
+    return;
   }
-  keywordSearchSent_ = !contacts.empty();
+  attrs->kadKeywordTraversal = make_unique<ed2k::KadTraversal>(
+      ed2k::KadTraversalKind::KEYWORD_LOOKUP, targetId, 0);
+  queueTraversalActions(*attrs->kadKeywordTraversal,
+                        attrs->kadKeywordTraversal->start(contacts));
+  keywordSearchSent_ = true;
 }
 
 void Ed2kKadCommand::sendQueuedPackets()
@@ -438,30 +477,21 @@ void Ed2kKadCommand::handlePacket(const ed2k::Endpoint& endpoint,
     if (!knownResponse) {
       return;
     }
+    attrs->kadRoutingTable->nodeSeen(tx.contact, nowSeconds());
     for (const auto& contact : response.contacts) {
       attrs->kadRoutingTable->heardAbout(contact, nowSeconds());
-      const auto contactEndpoint = toEndpoint(contact);
-      if (tx.purpose == ed2k::KadTransactionPurpose::KEYWORD_LOOKUP) {
-        queuePacket(contactEndpoint, ed2k::KAD_SEARCH_KEYS_REQ,
-                    ed2k::createKadSearchKeysRequestPayload(response.targetId,
-                                                            0));
-      }
-      else if (tx.purpose == ed2k::KadTransactionPurpose::SOURCE_LOOKUP) {
-        queuePacket(contactEndpoint, ed2k::KAD_SEARCH_SOURCES_REQ,
-                    ed2k::createKadSearchSourcesRequestPayload(
-                        response.targetId, 0, attrs->link.size));
-      }
-      else {
-        continue;
-      }
-      ed2k::KadTransaction resultTx;
-      resultTx.endpoint = contactEndpoint;
-      resultTx.contact = contact;
-      resultTx.purpose = tx.purpose;
-      resultTx.expectedOpcode = ed2k::KAD_SEARCH_RES;
-      resultTx.targetId = response.targetId;
-      resultTx.sentTime = nowSeconds();
-      attrs->kadTransactions.add(resultTx);
+    }
+    if (tx.purpose == ed2k::KadTransactionPurpose::KEYWORD_LOOKUP &&
+        attrs->kadKeywordTraversal) {
+      queueTraversalActions(*attrs->kadKeywordTraversal,
+                            attrs->kadKeywordTraversal->onResponse(
+                                tx.contact, response.contacts));
+    }
+    else if (tx.purpose == ed2k::KadTransactionPurpose::SOURCE_LOOKUP &&
+             attrs->kadSourceTraversal) {
+      queueTraversalActions(*attrs->kadSourceTraversal,
+                            attrs->kadSourceTraversal->onResponse(
+                                tx.contact, response.contacts));
     }
     return;
   }
@@ -469,6 +499,8 @@ void Ed2kKadCommand::handlePacket(const ed2k::Endpoint& endpoint,
     ed2k::KadSearchResult result;
     if (ed2k::parseKadSearchResultPayload(result, payload)) {
       auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
+      ed2k::KadTransaction tx;
+      attrs->kadTransactions.complete(endpoint, opcode, result.targetId, tx);
       if (attrs->searchActive) {
         auto entries = ed2k::kadSearchEntriesToSearchResults(result.entries,
                                                             "kad");
@@ -500,6 +532,18 @@ bool Ed2kKadCommand::execute()
     if (attrs->kadRoutingTable) {
       for (const auto& tx : expired) {
         attrs->kadRoutingTable->nodeFailed(tx.contact);
+        if (tx.purpose == ed2k::KadTransactionPurpose::KEYWORD_LOOKUP &&
+            attrs->kadKeywordTraversal) {
+          queueTraversalActions(*attrs->kadKeywordTraversal,
+                                attrs->kadKeywordTraversal->onFailure(
+                                    tx.contact));
+        }
+        else if (tx.purpose == ed2k::KadTransactionPurpose::SOURCE_LOOKUP &&
+                 attrs->kadSourceTraversal) {
+          queueTraversalActions(*attrs->kadSourceTraversal,
+                                attrs->kadSourceTraversal->onFailure(
+                                    tx.contact));
+        }
       }
     }
     schedulePendingEd2kServers(requestGroup_, e_);

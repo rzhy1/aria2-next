@@ -58,6 +58,21 @@ enum class KadTransactionPurpose {
   REFRESH,
 };
 
+enum class KadTraversalKind {
+  SOURCE_LOOKUP,
+  KEYWORD_LOOKUP,
+};
+
+enum class KadTraversalActionType {
+  FIND_NODE,
+  SEARCH,
+};
+
+struct KadTraversalAction {
+  KadTraversalActionType type = KadTraversalActionType::FIND_NODE;
+  KadContact contact;
+};
+
 class KadRoutingTable {
 public:
   explicit KadRoutingTable(std::string selfId, size_t bucketSize = 10);
@@ -94,6 +109,44 @@ private:
 
   void addNode(const KadContact& contact, bool confirmed, int64_t now);
   size_t bucketIndex(const std::string& id) const;
+};
+
+class KadTraversal {
+public:
+  KadTraversal();
+  KadTraversal(KadTraversalKind kind, std::string targetId, uint64_t size,
+               size_t branchFactor = 3, size_t targetNodes = 8);
+
+  std::vector<KadTraversalAction> start(const std::vector<KadContact>& seeds);
+  std::vector<KadTraversalAction> onResponse(
+      const KadContact& contact, const std::vector<KadContact>& closer);
+  std::vector<KadTraversalAction> onFailure(const KadContact& contact);
+  bool done() const { return done_; }
+  KadTraversalKind kind() const { return kind_; }
+  const std::string& targetId() const { return targetId_; }
+  uint64_t size() const { return size_; }
+
+private:
+  struct Observer {
+    KadContact contact;
+    bool queried = false;
+    bool alive = false;
+    bool failed = false;
+  };
+
+  KadTraversalKind kind_ = KadTraversalKind::SOURCE_LOOKUP;
+  std::string targetId_;
+  uint64_t size_ = 0;
+  size_t branchFactor_ = 3;
+  size_t targetNodes_ = 8;
+  size_t inFlight_ = 0;
+  bool searchStarted_ = false;
+  bool done_ = true;
+  std::vector<Observer> observers_;
+
+  void addContact(const KadContact& contact);
+  std::vector<KadTraversalAction> nextActions();
+  void startSearch(std::vector<KadTraversalAction>& actions);
 };
 
 struct KadTransaction {

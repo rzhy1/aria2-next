@@ -4,11 +4,14 @@
 
 #include "DownloadResult.h"
 #include "Ed2kAttribute.h"
+#include "Ed2kSharedFile.h"
 #include "File.h"
 #include "FileEntry.h"
 #include "Option.h"
 #include "TestUtil.h"
 #include "ed2k_link.h"
+#include "ed2k_packet.h"
+#include "ed2k_peer.h"
 #include "prefs.h"
 #include "util.h"
 
@@ -22,6 +25,9 @@ class Ed2kSharedStoreTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testRejectMissingOrWrongSizeFile);
   CPPUNIT_TEST(testSharedFileStatePayload);
   CPPUNIT_TEST(testImportOptionFile);
+  CPPUNIT_TEST(testSharedFileProtocolPayloads);
+  CPPUNIT_TEST(testSharedFilePartPayload);
+  CPPUNIT_TEST(testSharedFileAichAnswerPayload);
   CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -29,6 +35,9 @@ public:
   void testRejectMissingOrWrongSizeFile();
   void testSharedFileStatePayload();
   void testImportOptionFile();
+  void testSharedFileProtocolPayloads();
+  void testSharedFilePartPayload();
+  void testSharedFileAichAnswerPayload();
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION(Ed2kSharedStoreTest);
@@ -154,6 +163,122 @@ void Ed2kSharedStoreTest::testImportOptionFile()
   CPPUNIT_ASSERT_EQUAL((int64_t)4000, files[0].lastHashTime);
   CPPUNIT_ASSERT(files[0].origin == SharedOrigin::IMPORTED_FILE);
   CPPUNIT_ASSERT_EQUAL(ed2k::md4Digest(readFile(path)), files[0].hash);
+}
+
+void Ed2kSharedStoreTest::testSharedFileProtocolPayloads()
+{
+  const std::string path = A2_TEST_OUT_DIR "/ed2k-shared-protocol.bin";
+  createFile(path, 123);
+
+  SharedFile file;
+  file.hash.assign(16, '\x77');
+  file.pieceHashes.push_back(file.hash);
+  file.path = path;
+  file.name = "protocol.bin";
+  file.size = 123;
+  file.completed = true;
+
+  auto name = createSharedFileNameAnswerPayload(file);
+  CPPUNIT_ASSERT_EQUAL(file.hash, name.substr(0, HASH_LENGTH));
+  CPPUNIT_ASSERT_EQUAL((uint16_t)file.name.size(),
+                       readUInt16(name.data() + HASH_LENGTH));
+  CPPUNIT_ASSERT_EQUAL(file.name, name.substr(HASH_LENGTH + 2));
+
+  std::vector<bool> bitfield;
+  CPPUNIT_ASSERT(parseFileStatusPayload(
+      bitfield, createSharedFileStatusPayload(file), file.hash));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, bitfield.size());
+  CPPUNIT_ASSERT(bitfield[0]);
+
+  std::vector<std::string> hashes;
+  std::string payload;
+  CPPUNIT_ASSERT(createSharedFileHashSetPayload(payload, file));
+  CPPUNIT_ASSERT(parseHashSetAnswerPayload(hashes, payload, file.hash));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, hashes.size());
+  CPPUNIT_ASSERT_EQUAL(file.hash, hashes[0]);
+
+  file.pieceHashes.clear();
+  file.size = static_cast<int64_t>(PIECE_LENGTH) + 1;
+  CPPUNIT_ASSERT(!createSharedFileHashSetPayload(payload, file));
+}
+
+void Ed2kSharedStoreTest::testSharedFilePartPayload()
+{
+  const std::string path = A2_TEST_OUT_DIR "/ed2k-shared-part.bin";
+  {
+    std::ofstream out(path.c_str(), std::ios::binary);
+    out << "0123456789abcdef";
+  }
+
+  SharedFile file;
+  file.hash.assign(16, '\x88');
+  file.path = path;
+  file.name = "part.bin";
+  file.size = 16;
+  file.completed = true;
+
+  PartRange range;
+  range.begin = 2;
+  range.end = 6;
+  std::string payload;
+  CPPUNIT_ASSERT(createSharedFilePartPayload(payload, file, range, false));
+  CPPUNIT_ASSERT_EQUAL(file.hash, payload.substr(0, HASH_LENGTH));
+  CPPUNIT_ASSERT_EQUAL((uint32_t)2, readUInt32(payload.data() + HASH_LENGTH));
+  CPPUNIT_ASSERT_EQUAL((uint32_t)6,
+                       readUInt32(payload.data() + HASH_LENGTH + 4));
+  CPPUNIT_ASSERT_EQUAL(std::string("2345"), payload.substr(HASH_LENGTH + 8));
+
+  std::vector<PartRange> ranges;
+  std::string hash;
+  CPPUNIT_ASSERT(parsePartRequestPayload(
+      ranges, hash, createRequestPartsPayload(file.hash,
+                                              std::vector<PartRange>(1, range),
+                                              false),
+      false));
+  CPPUNIT_ASSERT_EQUAL(file.hash, hash);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, ranges.size());
+  CPPUNIT_ASSERT_EQUAL((int64_t)2, ranges[0].begin);
+  CPPUNIT_ASSERT_EQUAL((int64_t)6, ranges[0].end);
+
+  range.end = 17;
+  CPPUNIT_ASSERT(!createSharedFilePartPayload(payload, file, range, false));
+}
+
+void Ed2kSharedStoreTest::testSharedFileAichAnswerPayload()
+{
+  const std::string path = A2_TEST_OUT_DIR "/ed2k-shared-aich.bin";
+  std::string block0(EMBLOCK_LENGTH, 'a');
+  std::string block1(EMBLOCK_LENGTH, 'b');
+  std::string block2(100, 'c');
+  const auto data = block0 + block1 + block2;
+  {
+    std::ofstream out(path.c_str(), std::ios::binary);
+    out << data;
+  }
+
+  SharedFile file;
+  file.hash.assign(16, '\x99');
+  file.path = path;
+  file.name = "aich.bin";
+  file.size = data.size();
+  file.completed = true;
+  file.aichRootHash = aichRootHash(data.data(), data.size());
+
+  std::string payload;
+  CPPUNIT_ASSERT(createSharedFileAichAnswerPayload(
+      payload, file, 0, file.aichRootHash));
+
+  AichAnswer answer;
+  CPPUNIT_ASSERT(parseAichAnswerPayload(answer, payload, file.hash));
+  CPPUNIT_ASSERT(!answer.failed);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)0, answer.partIndex);
+  CPPUNIT_ASSERT_EQUAL(file.aichRootHash, answer.rootHash);
+
+  AichRecoveryData recovery;
+  CPPUNIT_ASSERT(parseAichRecoveryData(recovery, answer.recoveryData,
+                                       data.size(), false));
+  CPPUNIT_ASSERT(verifyAichRecoveryData(recovery, file.aichRootHash,
+                                        data.size(), 0));
 }
 
 } // namespace ed2k

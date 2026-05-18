@@ -734,3 +734,22 @@ Remaining: CP13 still needs incoming listener matching for shared/completed
 files and shared-file status, hashset, Source Exchange, AICH, and part response
 serving.
 Blocked: none.
+
+2026-05-18 CP13 partial
+Changed: Added native shared-file peer serving through `Ed2kSharedFile` and
+the existing `Ed2kCommand` peer path. Shared files can now answer
+`OP_REQUESTFILENAME`, `OP_SETREQFILEID`, `OP_HASHSETREQUEST`,
+`OP_REQUESTSOURCES`, `OP_REQUESTSOURCES2`, `OP_AICHFILEHASHREQ`,
+`OP_AICHREQUEST`, `OP_REQUESTPARTS`, and `OP_REQUESTPARTS_I64`. File data is
+read from the existing disk path, AICH recovery answers are generated from the
+shared file and validated before sending, missing files return no-file where
+the protocol has that response, and multi-part hashset answers are withheld
+unless real part hashes are available.
+Verified: `cmake --build --preset default --target aria2_tests` passed with
+the existing local Tcl/Tk search-path linker warning. `build/default/aria2_tests`
+passed with `OK (1105)`. `ctest --preset default --output-on-failure -R
+aria2_tests` passed with `100% tests passed, 0 tests failed out of 1`.
+`git diff --check` passed.
+Remaining: CP13 still needs incoming shared/completed-only listener matching.
+CP14 must add upload queue ranks, slots, limits, statistics, and peer credits.
+Blocked: none.

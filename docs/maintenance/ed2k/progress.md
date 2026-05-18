@@ -849,7 +849,9 @@ Blocked: none.
 Changed: Ran the final local verification gate after CP0 through CP17 were
 marked verified. No packaging or release-facing script files changed in the
 ED2K CP16-CP18 work, so the packaging shell syntax checks were not part of this
-gate.
+gate. Closed the remaining reference-parity status rows for client lifecycle,
+persistence, and NAT helper replacement so every meaningful reference subsystem
+is verified, adapted, replaced, or pruned with recorded evidence.
 Verified: `cmake --preset default` passed and generated the default build
 tree. It reported that OpenSSL 4.0 was unavailable locally and selected the
 GnuTLS backend for this preset. `cmake --build --preset default` passed with

@@ -327,7 +327,7 @@ void RequestGroup::createInitialCommand(
     attrs->pieceHashes = attrs->link.pieceHashes;
     attrs->aichRootHash = attrs->link.aichHash;
     for (const auto& source : attrs->link.sources) {
-      addEd2kPeer(attrs, source);
+      addEd2kPeer(attrs, source, ed2k::PEER_SOURCE_RESUME);
     }
     schedulePendingEd2kServers(this, e);
     for (const auto& peer : attrs->peers) {

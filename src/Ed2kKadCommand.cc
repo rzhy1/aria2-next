@@ -405,7 +405,7 @@ void Ed2kKadCommand::handlePacket(const ed2k::Endpoint& endpoint,
       }
       auto peers = ed2k::extractKadSourceEndpoints(result);
       for (const auto& peer : peers) {
-        addEd2kPeer(attrs, peer);
+        addEd2kPeer(attrs, peer, ed2k::PEER_SOURCE_KAD);
       }
       schedulePendingEd2kPeers(requestGroup_, e_);
     }

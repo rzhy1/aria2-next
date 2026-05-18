@@ -20,6 +20,7 @@
 #include "Ed2kCommand.h"
 #include "RequestGroup.h"
 #include "a2functional.h"
+#include "util.h"
 #include "wallclock.h"
 
 namespace aria2 {
@@ -52,13 +53,80 @@ bool addUniqueEndpoint(std::vector<ed2k::Endpoint>& endpoints,
   return true;
 }
 
+bool sameEndpoint(const ed2k::Endpoint& lhs, const ed2k::Endpoint& rhs)
+{
+  return lhs.host == rhs.host && lhs.port == rhs.port;
+}
+
+bool isFilteredSourceExchangePeer(const ed2k::Endpoint& peer,
+                                  const ed2k::Endpoint& remotePeer)
+{
+  if (peer.host.empty() || peer.port == 0) {
+    return true;
+  }
+  if (sameEndpoint(peer, remotePeer)) {
+    return true;
+  }
+  if (util::isNumericHost(peer.host) &&
+      (peer.host == "0.0.0.0" || peer.host == "127.0.0.1" ||
+       peer.host == "::" || peer.host == "::1")) {
+    return true;
+  }
+  return false;
+}
+
 bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
 {
+  return addEd2kPeer(attrs, peer, 0);
+}
+
+bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
+                 uint32_t sourceFlag)
+{
   if (!attrs || !addUniqueEndpoint(attrs->peers, peer)) {
+    auto state = getEd2kPeerState(attrs, peer);
+    if (state) {
+      if (!peer.userHash.empty() && state->endpoint.userHash.empty()) {
+        state->endpoint.userHash = peer.userHash;
+      }
+      if (peer.cryptOptions != 0 && state->endpoint.cryptOptions == 0) {
+        state->endpoint.cryptOptions = peer.cryptOptions;
+      }
+      state->sourceFlags |= sourceFlag;
+    }
     return false;
   }
-  getEd2kPeerState(attrs, peer);
+  auto state = getEd2kPeerState(attrs, peer);
+  if (state) {
+    state->sourceFlags |= sourceFlag;
+  }
   return true;
+}
+
+size_t mergeEd2kSourceExchangePeers(
+    Ed2kAttribute* attrs, const std::vector<ed2k::SourceExchangeEntry>& entries,
+    const ed2k::Endpoint& remotePeer)
+{
+  if (!attrs) {
+    return 0;
+  }
+  size_t added = 0;
+  for (const auto& entry : entries) {
+    auto peer = entry.endpoint;
+    if (!entry.userHash.empty()) {
+      peer.userHash = entry.userHash;
+    }
+    if (entry.cryptOptions != 0) {
+      peer.cryptOptions = entry.cryptOptions;
+    }
+    if (isFilteredSourceExchangePeer(peer, remotePeer)) {
+      continue;
+    }
+    if (addEd2kPeer(attrs, peer, ed2k::PEER_SOURCE_EXCHANGE)) {
+      ++added;
+    }
+  }
+  return added;
 }
 
 ed2k::PeerState* getEd2kPeerState(Ed2kAttribute* attrs,

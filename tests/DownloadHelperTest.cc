@@ -53,6 +53,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KServerState);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KMultipleServerStates);
   CPPUNIT_TEST(testEd2kPeerDeduplication);
+  CPPUNIT_TEST(testEd2kSourceExchangeMergePolicy);
   CPPUNIT_TEST(testEd2kPeerSchedulingSkipsBackoff);
   CPPUNIT_TEST(testEd2kPeerCommandRecordsFailure);
   CPPUNIT_TEST(testEd2kPeerCommandBacksOffOnDisconnect);
@@ -104,6 +105,7 @@ public:
   void testCreateRequestGroupForUri_ED2KServerState();
   void testCreateRequestGroupForUri_ED2KMultipleServerStates();
   void testEd2kPeerDeduplication();
+  void testEd2kSourceExchangeMergePolicy();
   void testEd2kPeerSchedulingSkipsBackoff();
   void testEd2kPeerCommandRecordsFailure();
   void testEd2kPeerCommandBacksOffOnDisconnect();
@@ -510,6 +512,39 @@ void DownloadHelperTest::testEd2kPeerDeduplication()
   CPPUNIT_ASSERT_EQUAL((uint32_t)1, state->failCount);
   CPPUNIT_ASSERT_EQUAL((int64_t)100, state->lastFailureTime);
   CPPUNIT_ASSERT_EQUAL((int64_t)130, state->nextRetryTime);
+}
+
+void DownloadHelperTest::testEd2kSourceExchangeMergePolicy()
+{
+  Ed2kAttribute attrs;
+  ed2k::Endpoint remote;
+  remote.host = "203.0.113.20";
+  remote.port = 4662;
+
+  std::string userHash(16, '\x11');
+  ed2k::SourceExchangeEntry first;
+  first.endpoint.host = "203.0.113.10";
+  first.endpoint.port = 4662;
+  first.userHash = userHash;
+  first.cryptOptions = 0x83;
+
+  ed2k::SourceExchangeEntry duplicate = first;
+  ed2k::SourceExchangeEntry self;
+  self.endpoint = remote;
+  ed2k::SourceExchangeEntry loopback;
+  loopback.endpoint.host = "127.0.0.1";
+  loopback.endpoint.port = 4662;
+
+  std::vector<ed2k::SourceExchangeEntry> entries{first, duplicate, self,
+                                                 loopback};
+  CPPUNIT_ASSERT_EQUAL((size_t)1,
+                       mergeEd2kSourceExchangePeers(&attrs, entries, remote));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs.peers.size());
+  auto state = getEd2kPeerState(&attrs, first.endpoint);
+  CPPUNIT_ASSERT(state);
+  CPPUNIT_ASSERT_EQUAL(userHash, state->endpoint.userHash);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)0x83, state->endpoint.cryptOptions);
+  CPPUNIT_ASSERT((state->sourceFlags & ed2k::PEER_SOURCE_EXCHANGE) != 0);
 }
 
 void DownloadHelperTest::testEd2kPeerSchedulingSkipsBackoff()

@@ -25,6 +25,11 @@ namespace aria2 {
 namespace ed2k {
 
 constexpr uint8_t SOURCE_EXCHANGE2_VERSION = 4;
+constexpr uint32_t PEER_SOURCE_INCOMING = 1u << 0;
+constexpr uint32_t PEER_SOURCE_SERVER = 1u << 1;
+constexpr uint32_t PEER_SOURCE_KAD = 1u << 2;
+constexpr uint32_t PEER_SOURCE_RESUME = 1u << 3;
+constexpr uint32_t PEER_SOURCE_EXCHANGE = 1u << 4;
 
 struct PartRange {
   int64_t begin = 0;
@@ -82,6 +87,7 @@ struct PeerState {
   Endpoint endpoint;
   std::vector<bool> partStatus;
   std::vector<PartRange> requestedParts;
+  uint32_t sourceFlags = 0;
   bool connecting = false;
   bool queued = false;
   uint16_t queueRank = 0;

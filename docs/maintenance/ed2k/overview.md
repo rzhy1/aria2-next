@@ -48,9 +48,9 @@ Current branch: `main`.
 
 Current HEAD observed during the tracker split: `d2fc1f53`.
 
-Operational status: ED2K/eMule support is still incomplete. CP0 through CP8 are
-verified. CP9 through CP18 remain partial or open. The current implementation
-is roughly 45 percent of the complete target and must not be presented as full
+Operational status: ED2K/eMule support is still incomplete. CP0 through CP9 are
+verified. CP10 through CP18 remain partial or open. The current implementation
+is roughly 50 percent of the complete target and must not be presented as full
 ED2K/eMule support.
 
 The draft has been committed through the first protocol module split.
@@ -81,7 +81,9 @@ handling, server messages, server lists, and UDP global status parsing are
 partially present. Peer TCP handshake, eMule extended info, file request, file
 status, hashset request, Source Exchange request and answer handling, normal
 part transfer, compressed part transfer, MD4 part verification, and AICH packet
-parsing are partially present.
+parsing are present. Source Exchange merge now preserves SX2 v4 user hash and
+crypt options, source labels, deduplication, endpoint filtering, and existing
+peer backoff state.
 
 Incoming peer listening exists for the active-download path. The listener uses
 the existing event loop, accepts TCP peers, routes them only when there is a

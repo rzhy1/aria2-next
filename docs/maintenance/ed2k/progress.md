@@ -505,3 +505,21 @@ aria2_tests` passed with the existing local Tcl/Tk search-path linker warning.
 Remaining: Move to CP9 Source Exchange merge policy. Full shared-file binding
 and upload responses remain owned by CP13 and CP14.
 Blocked: none.
+
+2026-05-18 CP9 verified
+Changed: Added a native Source Exchange merge policy for SX1 and SX2 answers.
+The merge path now filters invalid endpoints, loopback endpoints, and the
+answering peer itself; deduplicates repeated sources; preserves SX2 v4 user
+hash and crypt options; records source ownership in PeerState; and leaves
+existing retry/backoff state intact for known peers. Server, resume, Kad, and
+SX peer sources now carry explicit source flags for later scheduling and status
+work.
+Verified: `git diff --check` passed. `cmake --build --preset default --target
+aria2_tests` passed with the existing local Tcl/Tk search-path linker warning.
+`ctest --preset default --output-on-failure -R aria2_tests` initially exposed
+a non-deterministic existing local socket timing failure in
+`testEd2kPeerCommandBacksOffOnDisconnect`; an immediate direct `aria2_tests`
+rerun and a second `ctest --preset default --output-on-failure -R aria2_tests`
+both passed with `100% tests passed, 0 tests failed out of 1`.
+Remaining: Move to CP10 ED2K source and piece policy.
+Blocked: none.

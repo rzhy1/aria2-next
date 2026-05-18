@@ -601,7 +601,8 @@ bool Ed2kCommand::readBody()
 
 void Ed2kCommand::addPeer(const ed2k::Endpoint& peer)
 {
-  addEd2kPeer(getEd2kAttrs(getDownloadContext()), peer);
+  addEd2kPeer(getEd2kAttrs(getDownloadContext()), peer,
+              ed2k::PEER_SOURCE_SERVER);
 }
 
 void Ed2kCommand::addPeers(const std::vector<ed2k::Endpoint>& peers)
@@ -756,12 +757,7 @@ void Ed2kCommand::handlePeerPacket()
       if (!ed2k::parseAnswerSources2Payload(answer, body_, attrs->link.hash)) {
         throw DL_RETRY_EX("Bad ED2K source exchange answer.");
       }
-      std::vector<ed2k::Endpoint> peers;
-      peers.reserve(answer.entries.size());
-      for (const auto& entry : answer.entries) {
-        peers.push_back(entry.endpoint);
-      }
-      addPeers(peers);
+      mergeEd2kSourceExchangePeers(attrs, answer.entries, endpoint_);
       schedulePendingPeers();
       break;
     }
@@ -772,12 +768,7 @@ void Ed2kCommand::handlePeerPacket()
                                            version)) {
         throw DL_RETRY_EX("Bad ED2K source exchange answer.");
       }
-      std::vector<ed2k::Endpoint> peers;
-      peers.reserve(answer.entries.size());
-      for (const auto& entry : answer.entries) {
-        peers.push_back(entry.endpoint);
-      }
-      addPeers(peers);
+      mergeEd2kSourceExchangePeers(attrs, answer.entries, endpoint_);
       schedulePendingPeers();
       break;
     }

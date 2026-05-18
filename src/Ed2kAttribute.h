@@ -52,6 +52,11 @@ struct Ed2kAttribute : public ContextAttribute {
 Ed2kAttribute* getEd2kAttrs(DownloadContext* dctx);
 Ed2kAttribute* getEd2kAttrs(const std::shared_ptr<DownloadContext>& dctx);
 bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer);
+bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
+                 uint32_t sourceFlag);
+size_t mergeEd2kSourceExchangePeers(
+    Ed2kAttribute* attrs, const std::vector<ed2k::SourceExchangeEntry>& entries,
+    const ed2k::Endpoint& remotePeer);
 ed2k::PeerState* getEd2kPeerState(Ed2kAttribute* attrs,
                                   const ed2k::Endpoint& peer);
 bool markEd2kPeerQueued(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,

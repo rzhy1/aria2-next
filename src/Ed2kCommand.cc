@@ -548,14 +548,14 @@ void Ed2kCommand::handlePartData(int64_t begin, const std::string& data)
   if (begin < 0 || data.empty()) {
     throw DL_RETRY_EX("Bad ED2K part range.");
   }
-  getPieceStorage()->getDiskAdaptor()->writeData(
-      reinterpret_cast<const unsigned char*>(data.data()), data.size(), begin);
-  getDownloadContext()->updateDownload(data.size());
-
   std::vector<std::shared_ptr<Segment>> segments;
   getSegmentMan()->getInFlightSegment(segments, getCuid());
   for (auto& segment : segments) {
     if (segment->getPositionToWrite() == begin) {
+      getPieceStorage()->getDiskAdaptor()->writeData(
+          reinterpret_cast<const unsigned char*>(data.data()), data.size(),
+          begin);
+      getDownloadContext()->updateDownload(data.size());
       segment->updateWrittenLength(data.size());
       if (segment->complete()) {
         if (verifyPiece(segment->getIndex())) {

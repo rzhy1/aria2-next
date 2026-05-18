@@ -443,3 +443,17 @@ Remaining: Continue CP7 by auditing bad part range and segment release
 behavior, then decide whether a small peer download-session boundary should be
 split from `Ed2kCommand`.
 Blocked: none.
+
+2026-05-18 CP7 partial
+Changed: Moved ED2K part range validation ahead of disk writes. Peer part data
+is now accepted only when the begin offset matches an in-flight SegmentMan
+segment owned by the command. Unexpected part ranges enter the existing retry
+backoff path without writing the payload to the target file.
+Verified: The focused unexpected-part regression failed before the fix because
+the payload reached the target file before range validation. After the fix,
+`cmake --build --preset default --target aria2_tests` passed and `ctest
+--preset default --output-on-failure -R aria2_tests` passed with `100% tests
+passed, 0 tests failed out of 1`.
+Remaining: Continue CP7 by deciding whether a small peer download-session
+boundary should be split from `Ed2kCommand` before moving to CP9/CP10.
+Blocked: none.

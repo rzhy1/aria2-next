@@ -91,6 +91,7 @@ private:
 
 struct KadTransaction {
   Endpoint endpoint;
+  KadContact contact;
   uint8_t expectedOpcode = 0;
   std::string targetId;
   int64_t sentTime = 0;

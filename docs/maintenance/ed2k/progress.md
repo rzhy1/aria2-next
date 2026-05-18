@@ -571,3 +571,15 @@ Remaining: CP12 still needs a full iterative traversal controller,
 timeout/failure backoff, refresh, source publish, firewalled checks, and
 durable operational state.
 Blocked: none.
+
+2026-05-18 CP12 partial
+Changed: Connected Kad transaction timeout handling back to routing quality.
+Kad transactions now retain the contacted node, and expired transactions mark
+that node failed in the routing table instead of being discarded silently.
+Verified: `git diff --check` passed. `cmake --build --preset default --target
+aria2_tests` passed with the existing local Tcl/Tk search-path linker warning.
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`.
+Remaining: CP12 still needs a full iterative traversal controller, refresh,
+source publish, firewalled checks, and durable operational state.
+Blocked: none.

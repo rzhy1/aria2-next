@@ -14,6 +14,7 @@ class Ed2kKadStateTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testRoutingPromotesReplacementOnFailure);
   CPPUNIT_TEST(testRoutingFindClosestAndSnapshot);
   CPPUNIT_TEST(testRoutingBootstrapAndRefresh);
+  CPPUNIT_TEST(testExpiredTransactionCarriesContactForFailure);
   CPPUNIT_TEST(testTransactionCompletionAndExpiry);
   CPPUNIT_TEST_SUITE_END();
 
@@ -21,6 +22,7 @@ public:
   void testRoutingPromotesReplacementOnFailure();
   void testRoutingFindClosestAndSnapshot();
   void testRoutingBootstrapAndRefresh();
+  void testExpiredTransactionCarriesContactForFailure();
   void testTransactionCompletionAndExpiry();
 };
 
@@ -118,6 +120,25 @@ void Ed2kKadStateTest::testRoutingBootstrapAndRefresh()
   CPPUNIT_ASSERT(table.needRefresh(target, 200));
   CPPUNIT_ASSERT_EQUAL(self, target);
   CPPUNIT_ASSERT(!table.needRefresh(target, 210));
+}
+
+void Ed2kKadStateTest::testExpiredTransactionCarriesContactForFailure()
+{
+  KadTransactionTable table;
+  KadTransaction tx;
+  tx.endpoint = endpoint("203.0.113.9", 4672);
+  tx.contact = contactFromHex("31d6cfe0d16ae931b73c59d7e0c089c0",
+                              "203.0.113.9", 4672);
+  tx.expectedOpcode = KAD_RES;
+  tx.targetId = hashFromHex("00000000000000000000000000000000");
+  tx.sentTime = 100;
+  table.add(tx);
+
+  auto expired = table.expire(113, 12);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, expired.size());
+  CPPUNIT_ASSERT_EQUAL(tx.contact.id, expired[0].contact.id);
+  CPPUNIT_ASSERT_EQUAL(tx.contact.host, expired[0].contact.host);
+  CPPUNIT_ASSERT_EQUAL(tx.contact.udpPort, expired[0].contact.udpPort);
 }
 
 void Ed2kKadStateTest::testTransactionCompletionAndExpiry()

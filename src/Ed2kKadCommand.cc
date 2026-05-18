@@ -220,6 +220,7 @@ void Ed2kKadCommand::queueSourceSearch()
                                                attrs->link.hash, contact.id));
     ed2k::KadTransaction tx;
     tx.endpoint = endpoint;
+    tx.contact = contact;
     tx.expectedOpcode = ed2k::KAD_RES;
     tx.targetId = attrs->link.hash;
     tx.sentTime = nowSeconds();
@@ -247,6 +248,7 @@ void Ed2kKadCommand::queueKeywordSearch()
                                                contact.id));
     ed2k::KadTransaction tx;
     tx.endpoint = endpoint;
+    tx.contact = contact;
     tx.expectedOpcode = ed2k::KAD_RES;
     tx.targetId = targetId;
     tx.sentTime = nowSeconds();
@@ -420,6 +422,7 @@ void Ed2kKadCommand::handlePacket(const ed2k::Endpoint& endpoint,
       }
       ed2k::KadTransaction resultTx;
       resultTx.endpoint = contactEndpoint;
+      resultTx.contact = contact;
       resultTx.expectedOpcode = ed2k::KAD_SEARCH_RES;
       resultTx.targetId = response.targetId;
       resultTx.sentTime = nowSeconds();
@@ -458,7 +461,12 @@ bool Ed2kKadCommand::execute()
     }
     receivePackets();
     auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
-    attrs->kadTransactions.expire(nowSeconds(), 12);
+    const auto expired = attrs->kadTransactions.expire(nowSeconds(), 12);
+    if (attrs->kadRoutingTable) {
+      for (const auto& tx : expired) {
+        attrs->kadRoutingTable->nodeFailed(tx.contact);
+      }
+    }
     schedulePendingEd2kServers(requestGroup_, e_);
     queueServerStatusPoll();
     queueBootstrap();

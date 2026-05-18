@@ -513,6 +513,31 @@ void Ed2kKadCommand::handlePacket(const ed2k::Endpoint& endpoint,
       }
       schedulePendingEd2kPeers(requestGroup_, e_);
     }
+    return;
+  }
+  if (opcode == ed2k::KAD_PUBLISH_SOURCE_REQ) {
+    ed2k::KadPublishSourceRequest request;
+    if (!ed2k::parseKadPublishSourceRequestPayload(request, payload)) {
+      return;
+    }
+    attrs->kadSourceIndex.store(request.fileId, request.source);
+    queuePacket(endpoint, ed2k::KAD_PUBLISH_RES,
+                ed2k::createKadPublishResultPayload(request.fileId, 1));
+    return;
+  }
+  if (opcode == ed2k::KAD_SEARCH_SOURCES_REQ) {
+    ed2k::KadSearchSourcesRequest request;
+    if (!ed2k::parseKadSearchSourcesRequestPayload(request, payload)) {
+      return;
+    }
+    auto entries = attrs->kadSourceIndex.find(request.targetId,
+                                             request.startPosition, 50);
+    if (!entries.empty()) {
+      queuePacket(endpoint, ed2k::KAD_SEARCH_RES,
+                  ed2k::createKadSearchResultPayload(
+                      clientKadId(e_), request.targetId, entries));
+    }
+    return;
   }
 }
 

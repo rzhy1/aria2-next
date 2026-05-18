@@ -616,3 +616,21 @@ and `ctest --preset default --output-on-failure -R aria2_tests` passed with
 Remaining: CP12 still needs a full iterative traversal controller, source
 publish, firewalled checks, and durable operational state.
 Blocked: none.
+
+2026-05-18 CP12 partial
+Changed: Added a native Kad published-source index and wired
+`KAD_PUBLISH_SOURCE_REQ` plus direct `KAD_SEARCH_SOURCES_REQ` handling into the
+existing UDP command path. Published source entries are stored by file hash,
+deduplicated by source ID or endpoint, acknowledged with `KAD_PUBLISH_RES`, and
+returned as `KAD_SEARCH_RES` through the focused Kad search-result payload
+helper. This matches the local reference behavior for inbound source publish
+and local source lookup without adding another event loop or runtime.
+Verified: The focused local UDP publish/search command test failed before the
+change because no publish response was sent. After the change,
+`cmake --build --preset default --target aria2_tests` passed with the existing
+local Tcl/Tk search-path linker warning, and `ctest --preset default
+--output-on-failure -R aria2_tests` passed with `100% tests passed, 0 tests
+failed out of 1`.
+Remaining: CP12 still needs outbound source publish, firewalled checks, and
+durable operational state.
+Blocked: none.

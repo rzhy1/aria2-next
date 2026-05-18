@@ -22,6 +22,7 @@
 
 #include "ed2k_hash.h"
 #include "ed2k_kad.h"
+#include "ed2k_kad_search.h"
 
 namespace aria2 {
 
@@ -170,6 +171,23 @@ public:
 
 private:
   std::vector<KadTransaction> transactions_;
+};
+
+class KadSourceIndex {
+public:
+  void store(const std::string& fileId, const KadSearchEntry& source);
+  std::vector<KadSearchEntry> find(const std::string& fileId,
+                                   size_t startPosition,
+                                   size_t limit) const;
+  size_t size() const;
+
+private:
+  struct Bucket {
+    std::string fileId;
+    std::vector<KadSearchEntry> sources;
+  };
+
+  std::vector<Bucket> buckets_;
 };
 
 } // namespace ed2k

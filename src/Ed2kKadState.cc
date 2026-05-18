@@ -35,6 +35,15 @@ bool sameEndpoint(const Endpoint& lhs, const Endpoint& rhs)
   return lhs.host == rhs.host && lhs.port == rhs.port;
 }
 
+bool sameSourceEndpoint(const KadSearchEntry& lhs, const KadSearchEntry& rhs)
+{
+  Endpoint lhsEndpoint;
+  Endpoint rhsEndpoint;
+  return extractKadSourceEndpoint(lhsEndpoint, lhs) &&
+         extractKadSourceEndpoint(rhsEndpoint, rhs) &&
+         sameEndpoint(lhsEndpoint, rhsEndpoint);
+}
+
 bool sameEndpoint(const KadContact& lhs, const KadContact& rhs)
 {
   return lhs.host == rhs.host && lhs.udpPort == rhs.udpPort;
@@ -573,6 +582,62 @@ std::vector<KadTransaction> KadTransactionTable::expire(int64_t now,
     }
   }
   return expired;
+}
+
+void KadSourceIndex::store(const std::string& fileId,
+                           const KadSearchEntry& source)
+{
+  validateId(fileId);
+  validateId(source.id);
+  auto bucket = std::find_if(buckets_.begin(), buckets_.end(),
+                             [&](const Bucket& item) {
+                               return item.fileId == fileId;
+                             });
+  if (bucket == buckets_.end()) {
+    Bucket item;
+    item.fileId = fileId;
+    buckets_.push_back(std::move(item));
+    bucket = buckets_.end() - 1;
+  }
+  auto sourcePos = std::find_if(bucket->sources.begin(), bucket->sources.end(),
+                                [&](const KadSearchEntry& item) {
+                                  return item.id == source.id ||
+                                         sameSourceEndpoint(item, source);
+                                });
+  if (sourcePos == bucket->sources.end()) {
+    bucket->sources.push_back(source);
+  }
+  else {
+    *sourcePos = source;
+  }
+}
+
+std::vector<KadSearchEntry> KadSourceIndex::find(const std::string& fileId,
+                                                 size_t startPosition,
+                                                 size_t limit) const
+{
+  validateId(fileId);
+  auto bucket = std::find_if(buckets_.begin(), buckets_.end(),
+                             [&](const Bucket& item) {
+                               return item.fileId == fileId;
+                             });
+  if (bucket == buckets_.end() || startPosition >= bucket->sources.size()) {
+    return std::vector<KadSearchEntry>();
+  }
+  const auto end = limit == 0
+                       ? bucket->sources.size()
+                       : std::min(bucket->sources.size(), startPosition + limit);
+  return std::vector<KadSearchEntry>(bucket->sources.begin() + startPosition,
+                                     bucket->sources.begin() + end);
+}
+
+size_t KadSourceIndex::size() const
+{
+  size_t total = 0;
+  for (const auto& bucket : buckets_) {
+    total += bucket.sources.size();
+  }
+  return total;
 }
 
 } // namespace ed2k

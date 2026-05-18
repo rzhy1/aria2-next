@@ -1003,11 +1003,9 @@ void Ed2kHelperTest::testKadSearchPublishAndFirewallPayloads()
   CPPUNIT_ASSERT(parseKadPublishSourceRequestPayload(parsedPublish, publish));
   CPPUNIT_ASSERT_EQUAL(fileId, parsedPublish.fileId);
 
-  std::string searchRes;
-  searchRes += sourceId;
-  searchRes += fileId;
-  searchRes += packUInt16(1);
-  searchRes.append(publish.begin() + HASH_LENGTH, publish.end());
+  auto searchRes = createKadSearchResultPayload(
+      sourceId, fileId,
+      std::vector<KadSearchEntry>{parsedPublish.source});
   KadSearchResult result;
   CPPUNIT_ASSERT(parseKadSearchResultPayload(result, searchRes));
   CPPUNIT_ASSERT_EQUAL(sourceId, result.sourceId);

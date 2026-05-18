@@ -123,36 +123,62 @@ bool parseKadSearchResultPayload(KadSearchResult& result,
   }
 }
 
+std::string createKadSearchResultPayload(
+    const std::string& sourceId, const std::string& targetId,
+    const std::vector<KadSearchEntry>& entries)
+{
+  validateHashLength(sourceId);
+  validateHashLength(targetId);
+  if (entries.size() > std::numeric_limits<uint16_t>::max()) {
+    throw DL_ABORT_EX("Too many Kad search results.");
+  }
+  std::string payload = sourceId;
+  payload += targetId;
+  payload += packUInt16(static_cast<uint16_t>(entries.size()));
+  for (const auto& entry : entries) {
+    payload += packKadSearchEntry(entry);
+  }
+  return payload;
+}
+
+bool extractKadSourceEndpoint(Endpoint& endpoint, const KadSearchEntry& entry)
+{
+  uint32_t ip = 0;
+  uint16_t port = 0;
+  uint64_t sourceType = 0;
+  bool hasIp = false;
+  bool hasPort = false;
+  for (const auto& tag : entry.tags) {
+    if (tag.valueType != TagValueType::UINT) {
+      continue;
+    }
+    if (tag.id == 0xfe) {
+      ip = static_cast<uint32_t>(tag.intValue);
+      hasIp = true;
+    }
+    else if (tag.id == 0xfd) {
+      port = static_cast<uint16_t>(tag.intValue);
+      hasPort = true;
+    }
+    else if (tag.id == 0xff) {
+      sourceType = tag.intValue;
+    }
+  }
+  if (!hasIp || !hasPort || port == 0 ||
+      (sourceType != 0 && sourceType != 1 && sourceType != 4)) {
+    return false;
+  }
+  endpoint.host = ipv4FromEndpoint(ip);
+  endpoint.port = port;
+  return true;
+}
+
 std::vector<Endpoint> extractKadSourceEndpoints(const KadSearchResult& result)
 {
   std::vector<Endpoint> endpoints;
   for (const auto& entry : result.entries) {
-    uint32_t ip = 0;
-    uint16_t port = 0;
-    uint64_t sourceType = 0;
-    bool hasIp = false;
-    bool hasPort = false;
-    for (const auto& tag : entry.tags) {
-      if (tag.valueType != TagValueType::UINT) {
-        continue;
-      }
-      if (tag.id == 0xfe) {
-        ip = static_cast<uint32_t>(tag.intValue);
-        hasIp = true;
-      }
-      else if (tag.id == 0xfd) {
-        port = static_cast<uint16_t>(tag.intValue);
-        hasPort = true;
-      }
-      else if (tag.id == 0xff) {
-        sourceType = tag.intValue;
-      }
-    }
-    if (hasIp && hasPort && port != 0 &&
-        (sourceType == 0 || sourceType == 1 || sourceType == 4)) {
-      Endpoint endpoint;
-      endpoint.host = ipv4FromEndpoint(ip);
-      endpoint.port = port;
+    Endpoint endpoint;
+    if (extractKadSourceEndpoint(endpoint, entry)) {
       endpoints.push_back(std::move(endpoint));
     }
   }

@@ -58,6 +58,12 @@ std::string createKadSearchKeysRequestPayload(const std::string& targetId,
                                               uint16_t startPosition);
 bool parseKadSearchResultPayload(KadSearchResult& result,
                                  const std::string& payload);
+std::string createKadSearchResultPayload(const std::string& sourceId,
+                                         const std::string& targetId,
+                                         const std::vector<KadSearchEntry>&
+                                             entries);
+bool extractKadSourceEndpoint(Endpoint& endpoint,
+                              const KadSearchEntry& entry);
 std::vector<Endpoint> extractKadSourceEndpoints(const KadSearchResult& result);
 std::string createKadPublishSourceRequestPayload(const std::string& fileId,
                                                  const Endpoint& source,

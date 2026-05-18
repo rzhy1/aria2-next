@@ -26,7 +26,7 @@ namespace ed2k {
 namespace {
 
 constexpr char SERVER_STATE_MAGIC[] = "A2ED2KSRV";
-constexpr uint32_t SERVER_STATE_VERSION = 1;
+constexpr uint32_t SERVER_STATE_VERSION = 2;
 
 void validateHashLength(const std::string& hash)
 {
@@ -372,6 +372,7 @@ std::string createServerStatePayload(const ServerState& state)
   payload += packUInt32(state.udpKey);
   payload += packUInt32(state.udpStatusChallenge);
   appendInt64(payload, state.lastUdpStatusTime);
+  appendInt64(payload, state.nextSourceRequestTime);
   payload += packUInt32(state.failCount);
   appendInt64(payload, state.lastFailureTime);
   appendInt64(payload, state.nextRetryTime);
@@ -390,7 +391,7 @@ bool parseServerStatePayload(ServerState& state, const std::string& payload)
       return false;
     }
     const auto version = readUInt32(readBytes(payload, offset, 4).data());
-    if (version != SERVER_STATE_VERSION) {
+    if (version != 1 && version != SERVER_STATE_VERSION) {
       return false;
     }
     ServerState parsed;
@@ -416,6 +417,9 @@ bool parseServerStatePayload(ServerState& state, const std::string& payload)
     parsed.udpStatusChallenge =
         readUInt32(readBytes(payload, offset, 4).data());
     parsed.lastUdpStatusTime = readInt64(payload, offset);
+    if (version >= 2) {
+      parsed.nextSourceRequestTime = readInt64(payload, offset);
+    }
     parsed.failCount = readUInt32(readBytes(payload, offset, 4).data());
     parsed.lastFailureTime = readInt64(payload, offset);
     parsed.nextRetryTime = readInt64(payload, offset);

@@ -87,6 +87,14 @@ ed2k::EmulePeerInfo createLocalPeerInfo()
   info.miscOptions2.supportsSourceExchange2 = true;
   return info;
 }
+
+int64_t nextServerSourceRequestTime()
+{
+  return std::chrono::duration_cast<std::chrono::seconds>(
+             global::wallclock().getTime().time_since_epoch())
+             .count() +
+         60;
+}
 } // namespace
 
 Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
@@ -560,6 +568,8 @@ void Ed2kCommand::handleServerPacket()
     }
     else {
       queueGetSources();
+      updateEd2kServerSourceRequestTime(attrs, endpoint_,
+                                        nextServerSourceRequestTime());
     }
     state_ = State::WRITE;
     return;

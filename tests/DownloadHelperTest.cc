@@ -51,6 +51,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kServerStateUpdate);
   CPPUNIT_TEST(testEd2kInitialServerCommandRecordsFailure);
   CPPUNIT_TEST(testEd2kInitialServerCommandUpdatesServerState);
+  CPPUNIT_TEST(testEd2kServerSourceRefreshSchedulesHandshakeServer);
   CPPUNIT_TEST(testEd2kServerListSchedulesLearnedServer);
   CPPUNIT_TEST(testEd2kServerCommandRequestsLowIdCallback);
   CPPUNIT_TEST(testEd2kPeerCommandAnswersSourceExchange2);
@@ -89,6 +90,7 @@ public:
   void testEd2kServerStateUpdate();
   void testEd2kInitialServerCommandRecordsFailure();
   void testEd2kInitialServerCommandUpdatesServerState();
+  void testEd2kServerSourceRefreshSchedulesHandshakeServer();
   void testEd2kServerListSchedulesLearnedServer();
   void testEd2kServerCommandRequestsLowIdCallback();
   void testEd2kPeerCommandAnswersSourceExchange2();
@@ -460,6 +462,11 @@ void DownloadHelperTest::testEd2kServerStateUpdate()
   updateEd2kServerMessage(&attrs, server, "hello");
   CPPUNIT_ASSERT_EQUAL(std::string("hello"), state->lastMessage);
 
+  updateEd2kServerSourceRequestTime(&attrs, server, 90);
+  CPPUNIT_ASSERT(!state->connected);
+  CPPUNIT_ASSERT(!state->connecting);
+  CPPUNIT_ASSERT_EQUAL((int64_t)90, state->nextSourceRequestTime);
+
   updateEd2kServerFailure(&attrs, server, 100, 30);
   CPPUNIT_ASSERT(!state->connected);
   CPPUNIT_ASSERT(!state->handshakeCompleted);
@@ -583,6 +590,37 @@ void DownloadHelperTest::testEd2kInitialServerCommandUpdatesServerState()
   CPPUNIT_ASSERT_EQUAL((uint32_t)1234, state->users);
   CPPUNIT_ASSERT_EQUAL((uint32_t)5678, state->files);
   CPPUNIT_ASSERT_EQUAL(std::string("hello"), state->lastMessage);
+}
+
+void DownloadHelperTest::testEd2kServerSourceRefreshSchedulesHandshakeServer()
+{
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|/"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_ED2K_SERVER, "203.0.113.10:4661");
+  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
+  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_DRY_RUN, A2_V_TRUE);
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+  auto group = result[0];
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+  auto state = getEd2kServerState(attrs, attrs->servers[0]);
+  state->handshakeCompleted = true;
+  state->nextSourceRequestTime = 1;
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
+  std::vector<std::unique_ptr<Command>> commands;
+
+  schedulePendingEd2kServers(commands, group.get(), &engine);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, commands.size());
 }
 
 void DownloadHelperTest::testEd2kServerListSchedulesLearnedServer()

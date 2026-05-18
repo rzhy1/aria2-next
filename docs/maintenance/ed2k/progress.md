@@ -267,3 +267,20 @@ Remaining: Continue CP6 with server retry/backoff ownership, source request
 cadence, server metadata handling, and any missing LowID/client UDP callback
 behavior.
 Blocked: none.
+
+2026-05-18 CP6 partial
+Changed: Added a persisted `nextSourceRequestTime` to ED2K server state and
+allowed handshake-complete servers to be rescheduled when the timed source
+refresh is due. The short-lived server command model now requests initial
+sources after IDChange, records the next refresh, and can reconnect for later
+GetSources without consuming peer download slots. The server-state parser still
+accepts the previous draft payload version and defaults the new refresh cursor
+to zero.
+Verified: The focused source-refresh scheduler regression failed before the
+change because a handshake-complete server was always skipped. After the
+change, `cmake --build --preset default --target aria2_tests` passed,
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`, and `git diff --check` passed.
+Remaining: Continue CP6 with server metadata handling and missing
+LowID/client UDP callback behavior.
+Blocked: none.

@@ -67,6 +67,7 @@ struct ServerState {
   uint32_t udpKey = 0;
   uint32_t udpStatusChallenge = 0;
   int64_t lastUdpStatusTime = 0;
+  int64_t nextSourceRequestTime = 0;
   uint32_t failCount = 0;
   int64_t lastFailureTime = 0;
   int64_t nextRetryTime = 0;

@@ -157,6 +157,19 @@ void updateEd2kServerMessage(Ed2kAttribute* attrs,
   state->lastMessage = message;
 }
 
+void updateEd2kServerSourceRequestTime(Ed2kAttribute* attrs,
+                                       const ed2k::Endpoint& server,
+                                       int64_t nextTime)
+{
+  auto state = getEd2kServerState(attrs, server);
+  if (!state) {
+    return;
+  }
+  state->connected = false;
+  state->connecting = false;
+  state->nextSourceRequestTime = nextTime;
+}
+
 void updateEd2kServerFailure(Ed2kAttribute* attrs,
                              const ed2k::Endpoint& server, int64_t now,
                              int64_t baseRetrySeconds)
@@ -230,7 +243,12 @@ void schedulePendingEd2kServers(std::vector<std::unique_ptr<Command>>& commands,
     if (!state) {
       continue;
     }
-    if (state->connecting || state->handshakeCompleted) {
+    if (state->connecting) {
+      continue;
+    }
+    if (state->handshakeCompleted &&
+        (state->nextSourceRequestTime == 0 ||
+         state->nextSourceRequestTime > now)) {
       continue;
     }
     if (state->nextRetryTime > 0 && state->nextRetryTime > now) {

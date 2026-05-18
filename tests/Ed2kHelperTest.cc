@@ -1026,6 +1026,7 @@ void Ed2kHelperTest::testServerStatePayload()
   state.udpKey = 0x11223344;
   state.udpStatusChallenge = 0x55aa0011;
   state.lastUdpStatusTime = 120;
+  state.nextSourceRequestTime = 180;
   state.failCount = 2;
   state.lastFailureTime = 100;
   state.nextRetryTime = 160;
@@ -1054,10 +1055,20 @@ void Ed2kHelperTest::testServerStatePayload()
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x11223344, parsed.udpKey);
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x55aa0011, parsed.udpStatusChallenge);
   CPPUNIT_ASSERT_EQUAL((int64_t)120, parsed.lastUdpStatusTime);
+  CPPUNIT_ASSERT_EQUAL((int64_t)180, parsed.nextSourceRequestTime);
   CPPUNIT_ASSERT_EQUAL((uint32_t)2, parsed.failCount);
   CPPUNIT_ASSERT_EQUAL((int64_t)100, parsed.lastFailureTime);
   CPPUNIT_ASSERT_EQUAL((int64_t)160, parsed.nextRetryTime);
   CPPUNIT_ASSERT_EQUAL(std::string("hello"), parsed.lastMessage);
+
+  std::string v1Payload = payload;
+  v1Payload.replace(sizeof("A2ED2KSRV") - 1, 4, packUInt32(1));
+  v1Payload.erase(sizeof("A2ED2KSRV") - 1 + 4 + 2 + server.host.size() + 2 +
+                  2 + 4 + 1 + 2 + state.ipAddress.size() + 4 + 4 + 4 + 4 +
+                  4 + 4 + 4 + 4 + 2 + 2 + 4 + 4 + 8,
+                  8);
+  CPPUNIT_ASSERT(parseServerStatePayload(parsed, v1Payload));
+  CPPUNIT_ASSERT_EQUAL((int64_t)0, parsed.nextSourceRequestTime);
 
   CPPUNIT_ASSERT(!parseServerStatePayload(parsed,
                                           payload.substr(0, payload.size() - 1)));

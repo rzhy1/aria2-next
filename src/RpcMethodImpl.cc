@@ -55,6 +55,8 @@
 #include "DownloadContext.h"
 #include "DiskAdaptor.h"
 #include "Ed2kAttribute.h"
+#include "Ed2kSharedStore.h"
+#include "Ed2kUploadQueue.h"
 #include "FileEntry.h"
 #include "prefs.h"
 #include "message.h"
@@ -136,6 +138,7 @@ const char KEY_FILES[] = "files";
 const char KEY_DIR[] = "dir";
 const char KEY_URIS[] = "uris";
 const char KEY_BITTORRENT[] = "bittorrent";
+const char KEY_ED2K[] = "ed2k";
 const char KEY_INFO[] = "info";
 const char KEY_NAME[] = "name";
 const char KEY_ANNOUNCE_LIST[] = "announceList";
@@ -733,6 +736,109 @@ bool requested_key(const std::vector<std::string>& keys, const std::string& k)
 }
 } // namespace
 
+namespace {
+size_t countEd2kConnectedServers(const Ed2kAttribute* attrs)
+{
+  size_t count = 0;
+  for (const auto& state : attrs->serverStates) {
+    if (state.connected || state.handshakeCompleted) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+size_t countEd2kQueuedPeers(const Ed2kAttribute* attrs)
+{
+  size_t count = 0;
+  for (const auto& state : attrs->peerStates) {
+    if (state.queued) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+size_t countEd2kAcceptedPeers(const Ed2kAttribute* attrs)
+{
+  size_t count = 0;
+  for (const auto& state : attrs->peerStates) {
+    if (state.accepted) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+size_t countEd2kDeadPeers(const Ed2kAttribute* attrs)
+{
+  size_t count = 0;
+  for (const auto& state : attrs->peerStates) {
+    if (state.dead) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+std::unique_ptr<Dict> createEd2kStatusEntry(const Ed2kAttribute* attrs,
+                                            RequestGroupMan* rgman)
+{
+  auto dict = Dict::g();
+  if (!attrs->link.hash.empty()) {
+    dict->put(KEY_HASH, util::toHex(attrs->link.hash));
+  }
+  if (!attrs->link.name.empty()) {
+    dict->put(KEY_NAME, attrs->link.name);
+  }
+  if (attrs->link.size > 0) {
+    dict->put(KEY_LENGTH, util::itos(attrs->link.size));
+  }
+  dict->put("partHashCount", util::uitos(attrs->pieceHashes.size()));
+  if (!attrs->aichRootHash.empty()) {
+    dict->put("aichRoot", util::toHex(attrs->aichRootHash));
+  }
+  dict->put("serverCount", util::uitos(attrs->serverStates.size()));
+  dict->put("connectedServerCount",
+            util::uitos(countEd2kConnectedServers(attrs)));
+  dict->put("peerCount", util::uitos(attrs->peerStates.size()));
+  dict->put("queuedPeerCount", util::uitos(countEd2kQueuedPeers(attrs)));
+  dict->put("acceptedPeerCount", util::uitos(countEd2kAcceptedPeers(attrs)));
+  dict->put("deadPeerCount", util::uitos(countEd2kDeadPeers(attrs)));
+  dict->put("kadNodeCount",
+            util::uitos(attrs->kadRoutingTable
+                            ? attrs->kadRoutingTable->liveSize()
+                            : 0));
+  dict->put("kadRouterCount",
+            util::uitos(attrs->kadRoutingTable
+                            ? attrs->kadRoutingTable->getRouterNodes().size()
+                            : 0));
+  dict->put("kadFirewalled",
+            attrs->kadFirewalled ? Bool::gTrue() : Bool::gFalse());
+  dict->put("kadObservedAddressCount",
+            util::uitos(attrs->kadObservedAddresses.size()));
+  dict->put("searchActive",
+            attrs->searchActive ? Bool::gTrue() : Bool::gFalse());
+  dict->put("searchMoreResults",
+            attrs->searchMoreResults ? Bool::gTrue() : Bool::gFalse());
+  dict->put("searchResultCount", util::uitos(attrs->searchResults.size()));
+  if (rgman && rgman->getEd2kSharedStore()) {
+    dict->put("sharedFileCount",
+              util::uitos(rgman->getEd2kSharedStore()->size()));
+  }
+  if (rgman && rgman->getEd2kUploadQueue()) {
+    auto uploadQueue = rgman->getEd2kUploadQueue();
+    dict->put("uploadingPeerCount",
+              util::uitos(uploadQueue->uploadingCount()));
+    dict->put("waitingUploadPeerCount",
+              util::uitos(uploadQueue->waitingCount()));
+    dict->put("peerCreditCount",
+              util::uitos(uploadQueue->credits().list().size()));
+  }
+  return dict;
+}
+} // namespace
+
 void gatherProgressCommon(Dict* entryDict,
                           const std::shared_ptr<RequestGroup>& group,
                           const std::vector<std::string>& keys)
@@ -807,6 +913,13 @@ void gatherProgressCommon(Dict* entryDict,
   }
   if (requested_key(keys, KEY_DIR)) {
     entryDict->put(KEY_DIR, group->getOption()->get(PREF_DIR));
+  }
+  if (requested_key(keys, KEY_ED2K)) {
+    if (dctx->hasAttribute(CTX_ATTR_ED2K)) {
+      auto attrs = getEd2kAttrs(dctx);
+      entryDict->put(KEY_ED2K,
+                     createEd2kStatusEntry(attrs, group->getRequestGroupMan()));
+    }
   }
 }
 

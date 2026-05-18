@@ -2818,6 +2818,78 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
       ``name``
         name in info dictionary. ``name.utf-8`` is used if available.
 
+  ``ed2k``
+    Struct which contains ED2K/eMule state. ED2K only. It is present for active
+    ED2K downloads and search tasks, and contains following keys. Numeric
+    values are decimal strings unless noted otherwise.
+
+    ``hash``
+      ED2K file hash as lowercase hexadecimal, when the task has a file hash.
+
+    ``name``
+      ED2K file name, when the task has file metadata.
+
+    ``length``
+      ED2K file length in bytes, when the task has file metadata.
+
+    ``partHashCount``
+      Number of known ED2K MD4 part hashes.
+
+    ``aichRoot``
+      AICH root hash as lowercase hexadecimal, when known.
+
+    ``serverCount``
+      Number of known ED2K server states for this task.
+
+    ``connectedServerCount``
+      Number of ED2K servers currently connected or past handshake.
+
+    ``peerCount``
+      Number of known ED2K peer states for this task.
+
+    ``queuedPeerCount``
+      Number of known ED2K peers that reported an upload queue rank.
+
+    ``acceptedPeerCount``
+      Number of known ED2K peers that accepted an upload request.
+
+    ``deadPeerCount``
+      Number of known ED2K peers currently in retry backoff.
+
+    ``kadNodeCount``
+      Number of live nodes in this task's Kad routing table.
+
+    ``kadRouterCount``
+      Number of configured or learned Kad router nodes.
+
+    ``kadFirewalled``
+      Boolean Kad firewalled state.
+
+    ``kadObservedAddressCount``
+      Number of externally observed IPv4 addresses learned through Kad.
+
+    ``searchActive``
+      Boolean indicating whether this ED2K task is still collecting search
+      results.
+
+    ``searchMoreResults``
+      Boolean indicating whether an ED2K server reported more search results.
+
+    ``searchResultCount``
+      Number of accumulated ED2K search results.
+
+    ``sharedFileCount``
+      Number of files currently indexed by the ED2K shared-file store.
+
+    ``uploadingPeerCount``
+      Number of ED2K peers currently occupying upload slots.
+
+    ``waitingUploadPeerCount``
+      Number of ED2K peers waiting in the upload queue.
+
+    ``peerCreditCount``
+      Number of ED2K peer credit records currently loaded.
+
   ``verifiedLength``
     The number of verified number of bytes while the files are being
     hash checked.  This key exists only when this download is being

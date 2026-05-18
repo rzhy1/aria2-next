@@ -807,3 +807,22 @@ default --output-on-failure -R aria2_tests` passed with `100% tests passed, 0
 tests failed out of 1`, and `git diff --check` passed.
 Remaining: Move to CP16 Motrix Next status surfaces.
 Blocked: none.
+
+2026-05-18 CP16 verified
+Changed: Added ED2K status output to the existing `aria2.tellStatus` path.
+ED2K tasks can now return a nested `ed2k` struct with file hash, name, length,
+known part-hash count, AICH root, server counts, peer queue/accepted/dead
+counts, Kad node/router/firewall/observed-address state, and search
+activity/result state. The same struct includes shared-file count, upload
+slot/waiting counts, and peer credit count from the RequestGroupMan-owned ED2K
+stores. Non-ED2K tasks omit the field. The RPC manual documents the stable
+Motrix-facing field names and value types.
+Verified: The new RPC status test failed before implementation because
+`gatherProgressCommon(..., {"ed2k"})` returned no fields. An intermediate run
+also exposed the root cause that non-ED2K tasks must not call `getEd2kAttrs`.
+After the fix, `cmake --build --preset default --target aria2_tests` passed
+with the existing local Tcl/Tk search-path linker warning and `ctest --preset
+default --output-on-failure -R aria2_tests` passed with `100% tests passed, 0
+tests failed out of 1`.
+Remaining: Move to CP17 documentation and completions.
+Blocked: none.

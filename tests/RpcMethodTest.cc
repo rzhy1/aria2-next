@@ -74,6 +74,7 @@ class RpcMethodTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kSearchResults);
   CPPUNIT_TEST(testEd2kSearchResultLinkCreatesDownload);
   CPPUNIT_TEST(testGatherStoppedDownload);
+  CPPUNIT_TEST(testGatherProgressEd2kStatus);
 #ifdef ENABLE_BITTORRENT
   CPPUNIT_TEST(testGatherStoppedDownload_bt);
 #endif // ENABLE_BITTORRENT
@@ -147,6 +148,7 @@ public:
   void testEd2kSearchResults();
   void testEd2kSearchResultLinkCreatesDownload();
   void testGatherStoppedDownload();
+  void testGatherProgressEd2kStatus();
 #ifdef ENABLE_BITTORRENT
   void testGatherStoppedDownload_bt();
 #endif // ENABLE_BITTORRENT
@@ -1076,6 +1078,101 @@ void RpcMethodTest::testGatherStoppedDownload()
   gatherStoppedDownload(entry.get(), d, keys);
   CPPUNIT_ASSERT_EQUAL((size_t)1, entry->size());
   CPPUNIT_ASSERT(entry->containsKey("gid"));
+}
+
+void RpcMethodTest::testGatherProgressEd2kStatus()
+{
+  auto dctx = std::make_shared<DownloadContext>(
+      ed2k::PIECE_LENGTH, 1024, A2_TEST_OUT_DIR "/ed2k-status.bin");
+  auto attrs = std::make_shared<Ed2kAttribute>();
+  attrs->link.type = ed2k::LinkType::FILE;
+  attrs->link.name = "ed2k-status.bin";
+  attrs->link.size = 1024;
+  attrs->link.hash = std::string(ed2k::HASH_LENGTH, '\x42');
+  attrs->searchActive = true;
+  attrs->searchMoreResults = true;
+  attrs->searchResults.resize(2);
+  attrs->pieceHashes.push_back(std::string(ed2k::HASH_LENGTH, '\x11'));
+  attrs->aichRootHash = std::string(ed2k::AICH_HASH_LENGTH, '\x22');
+
+  ed2k::ServerState server;
+  server.endpoint.host = "203.0.113.10";
+  server.endpoint.port = 4661;
+  server.name = "server";
+  server.connected = true;
+  server.handshakeCompleted = true;
+  server.highId = true;
+  server.users = 10;
+  server.files = 20;
+  attrs->serverStates.push_back(server);
+
+  ed2k::PeerState peer;
+  peer.endpoint.host = "203.0.113.20";
+  peer.endpoint.port = 4662;
+  peer.sourceFlags = ed2k::PEER_SOURCE_SERVER;
+  peer.queued = true;
+  peer.queueRank = 7;
+  attrs->peerStates.push_back(peer);
+
+  attrs->kadRoutingTable = std::make_shared<ed2k::KadRoutingTable>(
+      std::string(ed2k::HASH_LENGTH, '\x33'));
+  ed2k::KadContact kadNode;
+  kadNode.id = std::string(ed2k::HASH_LENGTH, '\x34');
+  kadNode.host = "203.0.113.31";
+  kadNode.udpPort = 4672;
+  kadNode.tcpPort = 4662;
+  kadNode.version = 8;
+  attrs->kadRoutingTable->nodeSeen(kadNode, 100);
+  ed2k::Endpoint router;
+  router.host = "203.0.113.30";
+  router.port = 4672;
+  attrs->kadRoutingTable->addRouterNode(router);
+  attrs->kadObservedAddresses.push_back("198.51.100.1");
+  attrs->kadFirewalled = false;
+
+  dctx->setAttribute(CTX_ATTR_ED2K, attrs);
+  auto group =
+      std::make_shared<RequestGroup>(GroupId::create(), util::copy(option_));
+  group->setDownloadContext(dctx);
+  group->setRequestGroupMan(e_->getRequestGroupMan().get());
+
+  auto entry = Dict::g();
+  gatherProgressCommon(entry.get(), group, {"ed2k"});
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, entry->size());
+  auto ed2kStatus = downcast<Dict>(entry->get("ed2k"));
+  CPPUNIT_ASSERT(ed2kStatus);
+  CPPUNIT_ASSERT_EQUAL(std::string("42424242424242424242424242424242"),
+                       getString(ed2kStatus, "hash"));
+  CPPUNIT_ASSERT_EQUAL(std::string("ed2k-status.bin"),
+                       getString(ed2kStatus, "name"));
+  CPPUNIT_ASSERT_EQUAL(std::string("1024"), getString(ed2kStatus, "length"));
+  CPPUNIT_ASSERT_EQUAL(std::string("1"),
+                       getString(ed2kStatus, "partHashCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("2222222222222222222222222222222222222222"),
+                       getString(ed2kStatus, "aichRoot"));
+  CPPUNIT_ASSERT_EQUAL(std::string("1"),
+                       getString(ed2kStatus, "serverCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("1"),
+                       getString(ed2kStatus, "connectedServerCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("1"), getString(ed2kStatus, "peerCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("1"),
+                       getString(ed2kStatus, "queuedPeerCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("1"), getString(ed2kStatus, "kadNodeCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("1"), getString(ed2kStatus, "kadRouterCount"));
+  CPPUNIT_ASSERT(!downcast<Bool>(ed2kStatus->get("kadFirewalled"))->val());
+  CPPUNIT_ASSERT_EQUAL(std::string("2"),
+                       getString(ed2kStatus, "searchResultCount"));
+  CPPUNIT_ASSERT(downcast<Bool>(ed2kStatus->get("searchActive"))->val());
+  CPPUNIT_ASSERT(downcast<Bool>(ed2kStatus->get("searchMoreResults"))->val());
+  CPPUNIT_ASSERT_EQUAL(std::string("0"),
+                       getString(ed2kStatus, "sharedFileCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("0"),
+                       getString(ed2kStatus, "uploadingPeerCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("0"),
+                       getString(ed2kStatus, "waitingUploadPeerCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("0"),
+                       getString(ed2kStatus, "peerCreditCount"));
 }
 
 #ifdef ENABLE_BITTORRENT

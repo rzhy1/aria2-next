@@ -171,6 +171,7 @@ private:
   std::unique_ptr<util::security::HMAC> tokenHMAC_;
   std::unique_ptr<util::security::HMACResult> tokenExpected_;
   uint16_t ed2kTcpPort_ = 0;
+  bool ed2kTcpListenActive_ = false;
 
 public:
   DownloadEngine(std::unique_ptr<EventPoll> eventPoll);
@@ -233,6 +234,10 @@ public:
   uint16_t getEd2kTcpPort() const { return ed2kTcpPort_; }
 
   void setEd2kTcpPort(uint16_t port) { ed2kTcpPort_ = port; }
+
+  bool isEd2kTcpListenActive() const { return ed2kTcpListenActive_; }
+
+  void setEd2kTcpListenActive(bool active) { ed2kTcpListenActive_ = active; }
 
   void setStatCalc(std::unique_ptr<StatCalc> statCalc);
 

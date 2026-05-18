@@ -28,6 +28,7 @@ class SocketCore;
 
 namespace ed2k {
 struct SharedFile;
+class SharedResponder;
 } // namespace ed2k
 
 class Ed2kCommand : public AbstractCommand {
@@ -89,18 +90,9 @@ private:
   void queueAichRecoveryRequest(size_t pieceIndex);
   void queueSourceExchangeRequest();
   void queueSourceExchangeAnswer(uint8_t version);
-  void queueSharedSourceExchangeAnswer(const std::string& fileHash,
-                                       uint8_t version);
   void queuePeerStartUpload();
   void queuePeerPartRequest();
-  const ed2k::SharedFile* findSharedFile(const std::string& hash) const;
-  void queueNoFile(const std::string& fileHash);
-  bool queueSharedFileNameAnswer(const std::string& fileHash);
-  bool queueSharedFileStatusAnswer(const std::string& fileHash);
-  bool queueSharedHashSetAnswer(const std::string& fileHash);
-  bool queueSharedAichFileHashAnswer(const std::string& fileHash);
-  bool queueSharedAichAnswer(const std::string& fileHash);
-  bool queueSharedPartAnswers(bool use64BitOffsets);
+  ed2k::SharedResponder createSharedResponder();
   bool updatePeerEndpointFromHello(bool helloPacket);
   void addPeer(const ed2k::Endpoint& peer);
   void addPeers(const std::vector<ed2k::Endpoint>& peers);

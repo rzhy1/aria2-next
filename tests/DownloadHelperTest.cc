@@ -19,6 +19,7 @@
 #include "DlRetryEx.h"
 #include "Ed2kAttribute.h"
 #include "Ed2kCommand.h"
+#include "Ed2kListenCommand.h"
 #include "Ed2kKadCommand.h"
 #include "Ed2kPeerTransfer.h"
 #include "Option.h"
@@ -79,6 +80,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kPeerCommandAppliesAichRecoveryData);
   CPPUNIT_TEST(testEd2kIncomingPeerListenerAnswersHello);
   CPPUNIT_TEST(testEd2kPeerCommandServesSharedFile);
+  CPPUNIT_TEST(testEd2kIncomingSharedPeerServesImportedFile);
   CPPUNIT_TEST(testEd2kPeerSchedulingSkipsConnectingPeer);
   CPPUNIT_TEST(testEd2kServerStateUpdate);
   CPPUNIT_TEST(testEd2kInitialServerCommandRecordsFailure);
@@ -144,6 +146,7 @@ public:
   void testEd2kPeerCommandAppliesAichRecoveryData();
   void testEd2kIncomingPeerListenerAnswersHello();
   void testEd2kPeerCommandServesSharedFile();
+  void testEd2kIncomingSharedPeerServesImportedFile();
   void testEd2kPeerSchedulingSkipsConnectingPeer();
   void testEd2kServerStateUpdate();
   void testEd2kInitialServerCommandRecordsFailure();
@@ -1558,6 +1561,93 @@ void DownloadHelperTest::testEd2kPeerCommandServesSharedFile()
                            ed2k::OP_FILESTATUS) != opcodes.end());
   CPPUNIT_ASSERT(std::find(opcodes.begin(), opcodes.end(),
                            ed2k::OP_HASHSETANSWER) != opcodes.end());
+  CPPUNIT_ASSERT(std::find(opcodes.begin(), opcodes.end(),
+                           ed2k::OP_SENDINGPART) != opcodes.end());
+}
+
+void DownloadHelperTest::testEd2kIncomingSharedPeerServesImportedFile()
+{
+  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-shared-listener";
+  const std::string sharedPath = outdir + "/shared.bin";
+  File(outdir).mkdirs();
+  {
+    std::ofstream out(sharedPath.c_str(), std::ios::binary);
+    out << "0123456789abcdef";
+  }
+
+  const std::string fileHash = ed2k::md4Digest(readFile(sharedPath));
+  option_->put(PREF_ED2K_SHARE_FILE, sharedPath);
+  option_->put(PREF_ENABLE_RPC, A2_V_TRUE);
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>(), 1, option_.get()));
+
+  auto listenCommand =
+      make_unique<Ed2kListenCommand>(engine.newCUID(), &engine, AF_INET);
+  CPPUNIT_ASSERT(listenCommand->bindPort(0));
+  engine.addCommand(std::move(listenCommand));
+
+  SocketCore peerSocket;
+  peerSocket.establishConnection("127.0.0.1", engine.getEd2kTcpPort());
+  peerSocket.setNonBlockingMode();
+  for (int i = 0; i < 8 && !peerSocket.isWritable(0); ++i) {
+    engine.run(true);
+  }
+  CPPUNIT_ASSERT(peerSocket.isWritable(0));
+
+  peerSocket.writeData(ed2k::createPacket(
+      ed2k::PROTO_EDONKEY, ed2k::OP_REQUESTFILENAME, fileHash));
+
+  ed2k::PartRange range;
+  range.begin = 2;
+  range.end = 6;
+  peerSocket.writeData(ed2k::createPacket(
+      ed2k::PROTO_EDONKEY, ed2k::OP_REQUESTPARTS,
+      ed2k::createRequestPartsPayload(fileHash,
+                                      std::vector<ed2k::PartRange>(1, range),
+                                      false)));
+
+  std::string packet;
+  std::vector<uint8_t> opcodes;
+  for (int i = 0; i < 24; ++i) {
+    if (!peerSocket.isReadable(0)) {
+      engine.run(true);
+    }
+    if (!peerSocket.isReadable(0)) {
+      continue;
+    }
+    char buf[512];
+    size_t len = sizeof(buf);
+    peerSocket.readData(buf, len);
+    packet.append(buf, len);
+    size_t offset = 0;
+    while (packet.size() - offset >= 6) {
+      ed2k::PacketHeader header;
+      CPPUNIT_ASSERT(ed2k::readPacketHeader(header, packet.data() + offset,
+                                            packet.size() - offset));
+      const auto packetSize = 5 + header.size;
+      if (packet.size() - offset < packetSize) {
+        break;
+      }
+      const auto payload = packet.substr(offset + 6, header.payloadSize());
+      if (header.opcode == ed2k::OP_SENDINGPART) {
+        CPPUNIT_ASSERT_EQUAL(fileHash, payload.substr(0, ed2k::HASH_LENGTH));
+        CPPUNIT_ASSERT_EQUAL((uint32_t)2,
+                             ed2k::readUInt32(payload.data() + 16));
+        CPPUNIT_ASSERT_EQUAL((uint32_t)6,
+                             ed2k::readUInt32(payload.data() + 20));
+        CPPUNIT_ASSERT_EQUAL(std::string("2345"), payload.substr(24));
+      }
+      opcodes.push_back(header.opcode);
+      offset += packetSize;
+    }
+    packet.erase(0, offset);
+  }
+
+  CPPUNIT_ASSERT(std::find(opcodes.begin(), opcodes.end(),
+                           ed2k::OP_REQFILENAMEANSWER) != opcodes.end());
   CPPUNIT_ASSERT(std::find(opcodes.begin(), opcodes.end(),
                            ed2k::OP_SENDINGPART) != opcodes.end());
 }

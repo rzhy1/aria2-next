@@ -154,6 +154,10 @@ set(ARIA2_SOURCES_BASE
   src/Ed2kPeerTransfer.h
   src/Ed2kSharedFile.cc
   src/Ed2kSharedFile.h
+  src/Ed2kSharedPeerCommand.cc
+  src/Ed2kSharedPeerCommand.h
+  src/Ed2kSharedResponder.cc
+  src/Ed2kSharedResponder.h
   src/Ed2kSharedStore.cc
   src/Ed2kSharedStore.h
   src/Ed2kKadCommand.cc

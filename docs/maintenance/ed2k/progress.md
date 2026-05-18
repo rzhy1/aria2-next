@@ -753,3 +753,21 @@ aria2_tests` passed with `100% tests passed, 0 tests failed out of 1`.
 Remaining: CP13 still needs incoming shared/completed-only listener matching.
 CP14 must add upload queue ranks, slots, limits, statistics, and peer credits.
 Blocked: none.
+
+
+2026-05-18 CP13 verified
+Changed: Completed shared/completed-only incoming peer routing. `Ed2kListenCommand`
+now keeps the ED2K TCP listener alive when shared files exist, tracks listener
+activity separately from the bound port, and routes incoming peers without a
+unique active ED2K download group to `Ed2kSharedPeerCommand`. Shared peer
+serving now uses `Ed2kSharedResponder`, so active-download peers and
+shared-only peers share the same filename, status, hashset, Source Exchange,
+AICH, no-file, and part response logic instead of duplicating protocol payload
+construction.
+Verified: `cmake --build --preset default --target aria2_tests` passed with
+the existing local Tcl/Tk search-path linker warning. `build/default/aria2_tests`
+passed with `OK (1106)`. `ctest --preset default --output-on-failure -R
+aria2_tests` passed with `100% tests passed, 0 tests failed out of 1`.
+`git diff --check` passed.
+Remaining: Move to CP14 upload queue and credits.
+Blocked: none.

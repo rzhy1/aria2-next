@@ -334,7 +334,7 @@ void RequestGroup::createInitialCommand(
       commands.push_back(
           make_unique<Ed2kCommand>(e->newCUID(), this, e, peer, false));
     }
-    if (e->getEd2kTcpPort() == 0) {
+    if (!e->isEd2kTcpListenActive()) {
       auto listenCommand =
           make_unique<Ed2kListenCommand>(e->newCUID(), e, AF_INET);
       if (listenCommand->bindPort(

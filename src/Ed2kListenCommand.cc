@@ -16,6 +16,8 @@
 #include "DownloadEngine.h"
 #include "Ed2kAttribute.h"
 #include "Ed2kCommand.h"
+#include "Ed2kSharedPeerCommand.h"
+#include "Ed2kSharedStore.h"
 #include "LogFactory.h"
 #include "Logger.h"
 #include "RecoverableException.h"
@@ -42,6 +44,7 @@ Ed2kListenCommand::~Ed2kListenCommand()
       e_->setEd2kTcpPort(0);
     }
   }
+  e_->setEd2kTcpListenActive(false);
 }
 
 bool Ed2kListenCommand::bindPort(uint16_t port)
@@ -56,6 +59,7 @@ bool Ed2kListenCommand::bindPort(uint16_t port)
     socket_->beginListen();
     e_->addSocketForReadCheck(socket_, this);
     e_->setEd2kTcpPort(socket_->getAddrInfo().port);
+    e_->setEd2kTcpListenActive(true);
     A2_LOG_NOTICE(fmt(_("IPv%d ED2K: listening on TCP port %u"), ipv,
                       socket_->getAddrInfo().port));
     return true;
@@ -103,7 +107,10 @@ bool Ed2kListenCommand::peerAlreadyActive(RequestGroup* group,
 
 bool Ed2kListenCommand::execute()
 {
-  if (e_->isHaltRequested() || e_->getRequestGroupMan()->downloadFinished()) {
+  auto sharedStore = e_->getRequestGroupMan()->getEd2kSharedStore();
+  const bool hasSharedFiles = sharedStore && sharedStore->size() != 0;
+  if (e_->isHaltRequested() ||
+      (e_->getRequestGroupMan()->downloadFinished() && !hasSharedFiles)) {
     return true;
   }
 
@@ -112,14 +119,21 @@ bool Ed2kListenCommand::execute()
       auto peerSocket = socket_->acceptConnection();
       peerSocket->applyIpDscp();
       auto group = findEd2kRequestGroup();
-      if (!group) {
-        peerSocket->closeConnection();
-        continue;
-      }
       auto endpoint = peerSocket->getPeerInfo();
       ed2k::Endpoint peer;
       peer.host = endpoint.addr;
       peer.port = endpoint.port;
+      if (!group) {
+        if (!hasSharedFiles) {
+          peerSocket->closeConnection();
+          continue;
+        }
+        e_->addCommand(make_unique<Ed2kSharedPeerCommand>(
+            e_->newCUID(), e_, peer, peerSocket));
+        A2_LOG_DEBUG(fmt("Accepted ED2K shared peer connection from %s:%u.",
+                         peer.host.c_str(), peer.port));
+        continue;
+      }
       if (peerAlreadyActive(group, peer)) {
         peerSocket->closeConnection();
         continue;

@@ -25,8 +25,7 @@
 #include "DownloadFailureException.h"
 #include "Ed2kAttribute.h"
 #include "Ed2kPeerTransfer.h"
-#include "Ed2kSharedFile.h"
-#include "Ed2kSharedStore.h"
+#include "Ed2kSharedResponder.h"
 #include "FileEntry.h"
 #include "LogFactory.h"
 #include "Logger.h"
@@ -396,24 +395,6 @@ void Ed2kCommand::queueSourceExchangeAnswer(uint8_t version)
   }
 }
 
-void Ed2kCommand::queueSharedSourceExchangeAnswer(const std::string& fileHash,
-                                                  uint8_t version)
-{
-  if (!findSharedFile(fileHash)) {
-    return;
-  }
-  std::vector<ed2k::SourceExchangeEntry> entries;
-  if (version >= 2) {
-    queuePacket(ed2k::PROTO_EMULE, ed2k::OP_ANSWERSOURCES2,
-                ed2k::createAnswerSources2Payload(fileHash, version,
-                                                  entries));
-  }
-  else {
-    queuePacket(ed2k::PROTO_EMULE, ed2k::OP_ANSWERSOURCES,
-                ed2k::createAnswerSourcesPayload(fileHash, version, entries));
-  }
-}
-
 void Ed2kCommand::queuePeerStartUpload()
 {
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_STARTUPLOADREQ,
@@ -461,125 +442,11 @@ void Ed2kCommand::queuePeerPartRequest()
                                               use64BitOffsets_));
 }
 
-const ed2k::SharedFile*
-Ed2kCommand::findSharedFile(const std::string& hash) const
+ed2k::SharedResponder Ed2kCommand::createSharedResponder()
 {
   auto rgman = getDownloadEngine()->getRequestGroupMan().get();
-  if (!rgman || !rgman->getEd2kSharedStore()) {
-    return nullptr;
-  }
-  return rgman->getEd2kSharedStore()->findByHash(hash);
-}
-
-void Ed2kCommand::queueNoFile(const std::string& fileHash)
-{
-  if (fileHash.size() == ed2k::HASH_LENGTH) {
-    queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_FILEREQANSNOFIL, fileHash);
-  }
-}
-
-bool Ed2kCommand::queueSharedFileNameAnswer(const std::string& fileHash)
-{
-  auto file = findSharedFile(fileHash);
-  if (!file) {
-    queueNoFile(fileHash);
-    return false;
-  }
-  queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_REQFILENAMEANSWER,
-              ed2k::createSharedFileNameAnswerPayload(*file));
-  return true;
-}
-
-bool Ed2kCommand::queueSharedFileStatusAnswer(const std::string& fileHash)
-{
-  auto file = findSharedFile(fileHash);
-  if (!file) {
-    queueNoFile(fileHash);
-    return false;
-  }
-  queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_FILESTATUS,
-              ed2k::createSharedFileStatusPayload(*file));
-  return true;
-}
-
-bool Ed2kCommand::queueSharedHashSetAnswer(const std::string& fileHash)
-{
-  auto file = findSharedFile(fileHash);
-  if (!file) {
-    queueNoFile(fileHash);
-    return false;
-  }
-  std::string payload;
-  if (!ed2k::createSharedFileHashSetPayload(payload, *file)) {
-    return false;
-  }
-  queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_HASHSETANSWER, payload);
-  return true;
-}
-
-bool Ed2kCommand::queueSharedAichFileHashAnswer(const std::string& fileHash)
-{
-  auto file = findSharedFile(fileHash);
-  if (!file) {
-    return false;
-  }
-  if (file->aichRootHash.empty()) {
-    return false;
-  }
-  queuePacket(ed2k::PROTO_EMULE, ed2k::OP_AICHFILEHASHANS,
-              ed2k::createAichFileHashAnswerPayload(fileHash,
-                                                    file->aichRootHash));
-  return true;
-}
-
-bool Ed2kCommand::queueSharedAichAnswer(const std::string& fileHash)
-{
-  ed2k::AichRequest request;
-  if (!ed2k::parseAichRequestPayload(request, body_, fileHash)) {
-    return false;
-  }
-  auto file = findSharedFile(fileHash);
-  if (!file || file->aichRootHash.empty() ||
-      request.rootHash != file->aichRootHash) {
-    queuePacket(ed2k::PROTO_EMULE, ed2k::OP_AICHANSWER, fileHash);
-    return false;
-  }
-  std::string payload;
-  if (!ed2k::createSharedFileAichAnswerPayload(payload, *file,
-                                               request.partIndex,
-                                               request.rootHash)) {
-    queuePacket(ed2k::PROTO_EMULE, ed2k::OP_AICHANSWER, fileHash);
-    return false;
-  }
-  queuePacket(ed2k::PROTO_EMULE, ed2k::OP_AICHANSWER, payload);
-  return true;
-}
-
-bool Ed2kCommand::queueSharedPartAnswers(bool use64BitOffsets)
-{
-  std::vector<ed2k::PartRange> ranges;
-  std::string fileHash;
-  if (!ed2k::parsePartRequestPayload(ranges, fileHash, body_,
-                                     use64BitOffsets)) {
-    return false;
-  }
-  auto file = findSharedFile(fileHash);
-  if (!file) {
-    queueNoFile(fileHash);
-    return false;
-  }
-  for (const auto& range : ranges) {
-    std::string payload;
-    if (!ed2k::createSharedFilePartPayload(payload, *file, range,
-                                           use64BitOffsets)) {
-      continue;
-    }
-    queuePacket(ed2k::PROTO_EDONKEY,
-                use64BitOffsets ? ed2k::OP_SENDINGPART_I64
-                                : ed2k::OP_SENDINGPART,
-                payload);
-  }
-  return true;
+  auto store = rgman ? rgman->getEd2kSharedStore() : nullptr;
+  return ed2k::SharedResponder(store, outbox_);
 }
 
 bool Ed2kCommand::updatePeerEndpointFromHello(bool helloPacket)
@@ -934,10 +801,9 @@ void Ed2kCommand::handlePeerPacket()
           state_ = State::WRITE;
         }
       }
-      else if (findSharedFile(body_)) {
-        queueSharedSourceExchangeAnswer(
+      else if (createSharedResponder().queueSourceExchangeAnswer(
             body_,
-            std::max<uint8_t>(1, remotePeerInfo_.miscOptions.sourceExchange1Version));
+            std::max<uint8_t>(1, remotePeerInfo_.miscOptions.sourceExchange1Version))) {
         if (!outbox_.empty()) {
           state_ = State::WRITE;
         }
@@ -953,11 +819,10 @@ void Ed2kCommand::handlePeerPacket()
         }
       }
       else if (body_.size() >= ed2k::HASH_LENGTH + 3 &&
-               findSharedFile(body_.substr(3, ed2k::HASH_LENGTH)) &&
                ed2k::parseRequestSources2Payload(
-                   version, body_, body_.substr(3, ed2k::HASH_LENGTH))) {
-        queueSharedSourceExchangeAnswer(body_.substr(3, ed2k::HASH_LENGTH),
-                                        version);
+                   version, body_, body_.substr(3, ed2k::HASH_LENGTH)) &&
+               createSharedResponder().queueSourceExchangeAnswer(
+                   body_.substr(3, ed2k::HASH_LENGTH), version)) {
         if (!outbox_.empty()) {
           state_ = State::WRITE;
         }
@@ -969,7 +834,7 @@ void Ed2kCommand::handlePeerPacket()
     }
     case ed2k::OP_AICHFILEHASHREQ:
       if (body_.size() != ed2k::HASH_LENGTH ||
-          !queueSharedAichFileHashAnswer(body_)) {
+          !createSharedResponder().queueAichFileHashAnswer(body_)) {
         break;
       }
       state_ = State::WRITE;
@@ -1017,7 +882,8 @@ void Ed2kCommand::handlePeerPacket()
     }
     case ed2k::OP_AICHREQUEST:
       if (body_.size() >= ed2k::HASH_LENGTH) {
-        queueSharedAichAnswer(body_.substr(0, ed2k::HASH_LENGTH));
+        createSharedResponder().queueAichAnswer(
+            body_.substr(0, ed2k::HASH_LENGTH), body_);
         if (!outbox_.empty()) {
           state_ = State::WRITE;
         }
@@ -1060,14 +926,14 @@ void Ed2kCommand::handlePeerPacket()
     if (body_.size() != ed2k::HASH_LENGTH) {
       throw DL_RETRY_EX("Bad ED2K file request.");
     }
-    queueSharedFileNameAnswer(body_);
+    createSharedResponder().queueFileNameAnswer(body_);
     state_ = State::WRITE;
     break;
   case ed2k::OP_SETREQFILEID:
     if (body_.size() != ed2k::HASH_LENGTH) {
       throw DL_RETRY_EX("Bad ED2K file status request.");
     }
-    queueSharedFileStatusAnswer(body_);
+    createSharedResponder().queueFileStatusAnswer(body_);
     state_ = State::WRITE;
     break;
   case ed2k::OP_FILESTATUS: {
@@ -1107,7 +973,7 @@ void Ed2kCommand::handlePeerPacket()
     if (body_.size() != ed2k::HASH_LENGTH) {
       throw DL_RETRY_EX("Bad ED2K hash set request.");
     }
-    queueSharedHashSetAnswer(body_);
+    createSharedResponder().queueHashSetAnswer(body_);
     state_ = State::WRITE;
     break;
   case ed2k::OP_ACCEPTUPLOADREQ:
@@ -1178,13 +1044,13 @@ void Ed2kCommand::handlePeerPacket()
     break;
   }
   case ed2k::OP_REQUESTPARTS:
-    queueSharedPartAnswers(false);
+    createSharedResponder().queuePartAnswers(body_, false);
     if (!outbox_.empty()) {
       state_ = State::WRITE;
     }
     break;
   case ed2k::OP_REQUESTPARTS_I64:
-    queueSharedPartAnswers(true);
+    createSharedResponder().queuePartAnswers(body_, true);
     if (!outbox_.empty()) {
       state_ = State::WRITE;
     }

@@ -90,6 +90,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kKadCommandUpdatesServerUdpStatus);
   CPPUNIT_TEST(testEd2kKadCommandHandlesClientUdpReask);
   CPPUNIT_TEST(testEd2kKadCommandTraversesSourceSearch);
+  CPPUNIT_TEST(testEd2kKadCommandRefreshesRoutingTable);
   CPPUNIT_TEST(testEd2kSearchResultDeduplication);
   CPPUNIT_TEST(testCreateRequestGroupForUri_parameterized);
   CPPUNIT_TEST(testCreateRequestGroupForUriList);
@@ -149,6 +150,7 @@ public:
   void testEd2kKadCommandUpdatesServerUdpStatus();
   void testEd2kKadCommandHandlesClientUdpReask();
   void testEd2kKadCommandTraversesSourceSearch();
+  void testEd2kKadCommandRefreshesRoutingTable();
   void testEd2kSearchResultDeduplication();
   void testCreateRequestGroupForUri_parameterized();
   void testCreateRequestGroupForUriList();
@@ -2251,6 +2253,70 @@ void DownloadHelperTest::testEd2kKadCommandTraversesSourceSearch()
   CPPUNIT_ASSERT(ed2k::readPacketHeader(header, data, len));
   CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::KAD_PROTOCOL, header.protocol);
   CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::KAD_SEARCH_SOURCES_REQ, header.opcode);
+}
+
+void DownloadHelperTest::testEd2kKadCommandRefreshesRoutingTable()
+{
+  const std::string fileHashHex = "0123456789abcdef0123456789abcdef";
+  const std::string selfIdHex("ffffffffffffffffffffffffffffffff");
+  const auto selfId = util::fromHex(selfIdHex.begin(), selfIdHex.end());
+  const std::string nodeIdHex("11111111111111111111111111111111");
+  const auto nodeId = util::fromHex(nodeIdHex.begin(), nodeIdHex.end());
+
+  SocketCore nodeSocket(SOCK_DGRAM);
+  nodeSocket.bind(0);
+  nodeSocket.setNonBlockingMode();
+  auto nodeSocketEndpoint = nodeSocket.getAddrInfo();
+
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|" + fileHashHex + "|/"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
+  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_DRY_RUN, A2_V_TRUE);
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+  auto group = result[0];
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+  attrs->kadRoutingTable = std::make_shared<ed2k::KadRoutingTable>(selfId);
+  ed2k::KadContact node;
+  node.id = nodeId;
+  node.host = "127.0.0.1";
+  node.udpPort = nodeSocketEndpoint.port;
+  node.tcpPort = 4662;
+  node.version = 8;
+  attrs->kadRoutingTable->nodeSeen(node, 1);
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
+  engine.addRoutineCommand(
+      make_unique<Ed2kKadCommand>(engine.newCUID(), group.get(), &engine));
+
+  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
+  char data[512];
+  bool sawRefresh = false;
+  for (size_t i = 0; i < 4 && nodeSocket.isReadable(1); ++i) {
+    size_t len = sizeof(data);
+    nodeSocket.readData(data, len);
+    ed2k::PacketHeader header;
+    CPPUNIT_ASSERT(ed2k::readPacketHeader(header, data, len));
+    if (header.protocol != ed2k::KAD_PROTOCOL ||
+        header.opcode != ed2k::KAD_REQ) {
+      continue;
+    }
+    ed2k::KadRequest request;
+    CPPUNIT_ASSERT(ed2k::parseKadRequestPayload(
+        request, std::string(data + 6, data + len)));
+    if (request.targetId == selfId &&
+        request.searchType == ed2k::KAD_FIND_NODE) {
+      sawRefresh = true;
+    }
+  }
+  CPPUNIT_ASSERT(sawRefresh);
 }
 
 void DownloadHelperTest::testEd2kSearchResultDeduplication()

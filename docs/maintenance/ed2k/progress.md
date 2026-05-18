@@ -583,3 +583,19 @@ aria2_tests` passed with the existing local Tcl/Tk search-path linker warning.
 Remaining: CP12 still needs a full iterative traversal controller, refresh,
 source publish, firewalled checks, and durable operational state.
 Blocked: none.
+
+2026-05-18 CP12 partial
+Changed: Added Kad routing-table refresh scheduling on the existing UDP command
+path. Refresh now sends `KAD_REQ` with `KAD_FIND_NODE` to close known contacts.
+Kad transactions carry an explicit purpose, and `KAD_RES` completion now
+matches endpoint plus target so maintenance refresh cannot consume source or
+keyword lookup responses from the same node.
+Verified: The focused refresh command test failed before implementation because
+the only `KAD_REQ` target was the file hash. After the change,
+`git diff --check` passed, `cmake --build --preset default --target
+aria2_tests` passed with the existing local Tcl/Tk search-path linker warning,
+and `ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`.
+Remaining: CP12 still needs a full iterative traversal controller, source
+publish, firewalled checks, and durable operational state.
+Blocked: none.

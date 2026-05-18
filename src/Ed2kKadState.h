@@ -51,6 +51,13 @@ struct KadRoutingSnapshot {
   int64_t lastSelfRefresh = 0;
 };
 
+enum class KadTransactionPurpose {
+  BOOTSTRAP,
+  SOURCE_LOOKUP,
+  KEYWORD_LOOKUP,
+  REFRESH,
+};
+
 class KadRoutingTable {
 public:
   explicit KadRoutingTable(std::string selfId, size_t bucketSize = 10);
@@ -92,6 +99,7 @@ private:
 struct KadTransaction {
   Endpoint endpoint;
   KadContact contact;
+  KadTransactionPurpose purpose = KadTransactionPurpose::BOOTSTRAP;
   uint8_t expectedOpcode = 0;
   std::string targetId;
   int64_t sentTime = 0;
@@ -102,6 +110,8 @@ public:
   void add(const KadTransaction& transaction);
   bool complete(const Endpoint& endpoint, uint8_t opcode,
                 KadTransaction& transaction);
+  bool complete(const Endpoint& endpoint, uint8_t opcode,
+                const std::string& targetId, KadTransaction& transaction);
   std::vector<KadTransaction> expire(int64_t now, int64_t timeoutSeconds);
   size_t size() const { return transactions_.size(); }
 

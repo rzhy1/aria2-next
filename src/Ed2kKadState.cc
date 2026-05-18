@@ -375,6 +375,24 @@ bool KadTransactionTable::complete(const Endpoint& endpoint, uint8_t opcode,
   return true;
 }
 
+bool KadTransactionTable::complete(const Endpoint& endpoint, uint8_t opcode,
+                                   const std::string& targetId,
+                                   KadTransaction& transaction)
+{
+  auto i = std::find_if(transactions_.begin(), transactions_.end(),
+                        [&](const KadTransaction& item) {
+                          return item.expectedOpcode == opcode &&
+                                 item.targetId == targetId &&
+                                 sameEndpoint(item.endpoint, endpoint);
+                        });
+  if (i == transactions_.end()) {
+    return false;
+  }
+  transaction = *i;
+  transactions_.erase(i);
+  return true;
+}
+
 std::vector<KadTransaction> KadTransactionTable::expire(int64_t now,
                                                         int64_t timeoutSeconds)
 {

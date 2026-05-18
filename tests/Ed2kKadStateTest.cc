@@ -15,6 +15,7 @@ class Ed2kKadStateTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testRoutingFindClosestAndSnapshot);
   CPPUNIT_TEST(testRoutingBootstrapAndRefresh);
   CPPUNIT_TEST(testExpiredTransactionCarriesContactForFailure);
+  CPPUNIT_TEST(testTransactionCompletionMatchesTarget);
   CPPUNIT_TEST(testTransactionCompletionAndExpiry);
   CPPUNIT_TEST_SUITE_END();
 
@@ -23,6 +24,7 @@ public:
   void testRoutingFindClosestAndSnapshot();
   void testRoutingBootstrapAndRefresh();
   void testExpiredTransactionCarriesContactForFailure();
+  void testTransactionCompletionMatchesTarget();
   void testTransactionCompletionAndExpiry();
 };
 
@@ -139,6 +141,34 @@ void Ed2kKadStateTest::testExpiredTransactionCarriesContactForFailure()
   CPPUNIT_ASSERT_EQUAL(tx.contact.id, expired[0].contact.id);
   CPPUNIT_ASSERT_EQUAL(tx.contact.host, expired[0].contact.host);
   CPPUNIT_ASSERT_EQUAL(tx.contact.udpPort, expired[0].contact.udpPort);
+}
+
+void Ed2kKadStateTest::testTransactionCompletionMatchesTarget()
+{
+  KadTransactionTable table;
+  KadTransaction refresh;
+  refresh.endpoint = endpoint("203.0.113.9", 4672);
+  refresh.expectedOpcode = KAD_RES;
+  refresh.purpose = KadTransactionPurpose::REFRESH;
+  refresh.targetId = hashFromHex("ffffffffffffffffffffffffffffffff");
+  refresh.sentTime = 100;
+  table.add(refresh);
+
+  KadTransaction lookup;
+  lookup.endpoint = refresh.endpoint;
+  lookup.expectedOpcode = KAD_RES;
+  lookup.purpose = KadTransactionPurpose::SOURCE_LOOKUP;
+  lookup.targetId = hashFromHex("0123456789abcdef0123456789abcdef");
+  lookup.sentTime = 100;
+  table.add(lookup);
+
+  KadTransaction completed;
+  CPPUNIT_ASSERT(table.complete(endpoint("203.0.113.9", 4672), KAD_RES,
+                                lookup.targetId, completed));
+  CPPUNIT_ASSERT_EQUAL(KadTransactionPurpose::SOURCE_LOOKUP,
+                       completed.purpose);
+  CPPUNIT_ASSERT_EQUAL(lookup.targetId, completed.targetId);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, table.size());
 }
 
 void Ed2kKadStateTest::testTransactionCompletionAndExpiry()

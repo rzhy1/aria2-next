@@ -197,7 +197,35 @@ void Ed2kKadCommand::queueBootstrap()
     queuePacket(endpoint, ed2k::KAD_BOOTSTRAP_REQ, std::string());
     ed2k::KadTransaction tx;
     tx.endpoint = endpoint;
+    tx.purpose = ed2k::KadTransactionPurpose::BOOTSTRAP;
     tx.expectedOpcode = ed2k::KAD_BOOTSTRAP_RES;
+    tx.sentTime = nowSeconds();
+    attrs->kadTransactions.add(tx);
+  }
+}
+
+void Ed2kKadCommand::queueRefresh()
+{
+  auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
+  if (!attrs->kadRoutingTable || attrs->kadRoutingTable->liveSize() == 0) {
+    return;
+  }
+  std::string targetId;
+  if (!attrs->kadRoutingTable->needRefresh(targetId, nowSeconds())) {
+    return;
+  }
+  auto contacts = attrs->kadRoutingTable->findClosest(targetId, 8, true);
+  for (const auto& contact : contacts) {
+    const auto endpoint = toEndpoint(contact);
+    queuePacket(endpoint, ed2k::KAD_REQ,
+                ed2k::createKadRequestPayload(ed2k::KAD_FIND_NODE, targetId,
+                                               contact.id));
+    ed2k::KadTransaction tx;
+    tx.endpoint = endpoint;
+    tx.contact = contact;
+    tx.purpose = ed2k::KadTransactionPurpose::REFRESH;
+    tx.expectedOpcode = ed2k::KAD_RES;
+    tx.targetId = targetId;
     tx.sentTime = nowSeconds();
     attrs->kadTransactions.add(tx);
   }
@@ -221,6 +249,7 @@ void Ed2kKadCommand::queueSourceSearch()
     ed2k::KadTransaction tx;
     tx.endpoint = endpoint;
     tx.contact = contact;
+    tx.purpose = ed2k::KadTransactionPurpose::SOURCE_LOOKUP;
     tx.expectedOpcode = ed2k::KAD_RES;
     tx.targetId = attrs->link.hash;
     tx.sentTime = nowSeconds();
@@ -249,6 +278,7 @@ void Ed2kKadCommand::queueKeywordSearch()
     ed2k::KadTransaction tx;
     tx.endpoint = endpoint;
     tx.contact = contact;
+    tx.purpose = ed2k::KadTransactionPurpose::KEYWORD_LOOKUP;
     tx.expectedOpcode = ed2k::KAD_RES;
     tx.targetId = targetId;
     tx.sentTime = nowSeconds();
@@ -403,26 +433,31 @@ void Ed2kKadCommand::handlePacket(const ed2k::Endpoint& endpoint,
     }
     ed2k::KadTransaction tx;
     const auto knownResponse =
-        attrs->kadTransactions.complete(endpoint, opcode, tx);
-    if (!knownResponse || tx.targetId != response.targetId) {
+        attrs->kadTransactions.complete(endpoint, opcode, response.targetId,
+                                        tx);
+    if (!knownResponse) {
       return;
     }
     for (const auto& contact : response.contacts) {
       attrs->kadRoutingTable->heardAbout(contact, nowSeconds());
       const auto contactEndpoint = toEndpoint(contact);
-      if (attrs->searchActive) {
+      if (tx.purpose == ed2k::KadTransactionPurpose::KEYWORD_LOOKUP) {
         queuePacket(contactEndpoint, ed2k::KAD_SEARCH_KEYS_REQ,
                     ed2k::createKadSearchKeysRequestPayload(response.targetId,
                                                             0));
       }
-      else {
+      else if (tx.purpose == ed2k::KadTransactionPurpose::SOURCE_LOOKUP) {
         queuePacket(contactEndpoint, ed2k::KAD_SEARCH_SOURCES_REQ,
                     ed2k::createKadSearchSourcesRequestPayload(
                         response.targetId, 0, attrs->link.size));
       }
+      else {
+        continue;
+      }
       ed2k::KadTransaction resultTx;
       resultTx.endpoint = contactEndpoint;
       resultTx.contact = contact;
+      resultTx.purpose = tx.purpose;
       resultTx.expectedOpcode = ed2k::KAD_SEARCH_RES;
       resultTx.targetId = response.targetId;
       resultTx.sentTime = nowSeconds();
@@ -476,6 +511,7 @@ bool Ed2kKadCommand::execute()
     else {
       queueSourceSearch();
     }
+    queueRefresh();
     sendQueuedPackets();
   }
   catch (DlAbortEx& e) {

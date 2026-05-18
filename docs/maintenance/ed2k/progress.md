@@ -700,3 +700,21 @@ the existing local Tcl/Tk search-path linker warning. `ctest --preset default
 failed out of 1`. `git diff --check` passed.
 Remaining: Move to CP13 sharing and shared store.
 Blocked: none.
+
+2026-05-18 CP13 partial
+Changed: Added the first native ED2K shared-store owner. `Ed2kSharedStore`
+indexes validated completed single-file ED2K downloads by hash, keeps path,
+name, size, piece hashes, AICH root, origin, completion state, and last hash
+time, deduplicates replacement entries by ED2K hash, and rejects missing or
+size-mismatched files. `RequestGroupMan::addDownloadResult` now imports
+finished ED2K download results into the store without changing normal download
+result retention.
+Verified: `cmake --build --preset default --target aria2_tests` passed with
+the existing local Tcl/Tk search-path linker warning. `ctest --preset default
+--output-on-failure -R aria2_tests` passed with `100% tests passed, 0 tests
+failed out of 1`. `git diff --check` passed.
+Remaining: CP13 still needs imported shared file hashing/indexing,
+restart-safe shared metadata persistence, incoming listener matching for
+shared/completed files, and shared-file status, hashset, Source Exchange,
+AICH, and part response serving.
+Blocked: none.

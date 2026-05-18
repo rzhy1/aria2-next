@@ -61,6 +61,9 @@ class OutputFile;
 class UriListParser;
 class WrDiskCache;
 class OpenedFileCounter;
+namespace ed2k {
+class SharedStore;
+} // namespace ed2k
 
 typedef IndexedList<a2_gid_t, std::shared_ptr<RequestGroup>> RequestGroupList;
 typedef IndexedList<a2_gid_t, std::shared_ptr<DownloadResult>>
@@ -122,6 +125,8 @@ private:
   std::unique_ptr<WrDiskCache> wrDiskCache_;
 
   std::shared_ptr<OpenedFileCounter> openedFileCounter_;
+
+  std::unique_ptr<ed2k::SharedStore> ed2kSharedStore_;
 
   // The number of stopped downloads so far in total, including
   // evicted DownloadResults.
@@ -266,6 +271,11 @@ public:
   bool removeDownloadResult(a2_gid_t gid);
 
   void addDownloadResult(const std::shared_ptr<DownloadResult>& downloadResult);
+
+  ed2k::SharedStore* getEd2kSharedStore() const
+  {
+    return ed2kSharedStore_.get();
+  }
 
   const std::vector<std::shared_ptr<DownloadResult>>&
   getUnfinishedDownloadResult() const

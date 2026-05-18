@@ -152,6 +152,8 @@ set(ARIA2_SOURCES_BASE
   src/Ed2kListenCommand.h
   src/Ed2kPeerTransfer.cc
   src/Ed2kPeerTransfer.h
+  src/Ed2kSharedStore.cc
+  src/Ed2kSharedStore.h
   src/Ed2kKadCommand.cc
   src/Ed2kKadCommand.h
   src/Ed2kKadState.cc

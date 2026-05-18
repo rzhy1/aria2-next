@@ -48,6 +48,7 @@
 #include "LogFactory.h"
 #include "Logger.h"
 #include "DownloadEngine.h"
+#include "Ed2kSharedStore.h"
 #include "message.h"
 #include "a2functional.h"
 #include "DownloadResult.h"
@@ -124,6 +125,7 @@ RequestGroupMan::RequestGroupMan(
       maxDownloadResult_(option->getAsInt(PREF_MAX_DOWNLOAD_RESULT)),
       openedFileCounter_(std::make_shared<OpenedFileCounter>(
           this, option->getAsInt(PREF_BT_MAX_OPEN_FILES))),
+      ed2kSharedStore_(make_unique<ed2k::SharedStore>()),
       numStoppedTotal_(0)
 {
   setupOptimizeConcurrentDownloads();
@@ -947,6 +949,10 @@ void RequestGroupMan::addDownloadResult(
     const std::shared_ptr<DownloadResult>& dr)
 {
   ++numStoppedTotal_;
+  ed2kSharedStore_->addCompletedDownload(
+      *dr, std::chrono::duration_cast<std::chrono::seconds>(
+               global::wallclock().getTime().time_since_epoch())
+               .count());
   bool rv = downloadResults_.push_back(dr->gid->getNumericId(), dr);
   assert(rv);
   while (downloadResults_.size() > maxDownloadResult_) {

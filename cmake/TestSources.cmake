@@ -101,6 +101,7 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/MessageDigestTest.cc
   tests/Ed2kHelperTest.cc
   tests/Ed2kKadStateTest.cc
+  tests/Ed2kSharedStoreTest.cc
 )
 
 set(ARIA2_TEST_SOURCES_ENABLE_XML_RPC

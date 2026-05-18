@@ -299,3 +299,17 @@ Verified: A focused parser regression failed before implementation because
 Remaining: Continue CP6 with missing LowID/client UDP callback behavior and a
 final server-session audit.
 Blocked: none.
+
+2026-05-18 CP6 partial
+Changed: Allowed OP_CALLBACKREQUESTED parsing to accept both the base 6-byte
+endpoint payload and the 23-byte extended payload used by aMule/libed2k style
+servers. The current command path still routes the callback by endpoint and
+does not claim crypt-layer handling from the extension bytes.
+Verified: The focused callback parser assertion failed before implementation
+for the 23-byte extended payload. After the fix,
+`cmake --build --preset default --target aria2_tests` passed and
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`.
+Remaining: Continue CP6 with client UDP reask behavior and a final
+server-session audit.
+Blocked: none.

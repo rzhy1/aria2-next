@@ -325,6 +325,11 @@ void Ed2kHelperTest::testProtocolPayloads()
       callbackEndpoint, packUInt32(0x04030201) + packUInt16(4662)));
   CPPUNIT_ASSERT_EQUAL(std::string("1.2.3.4"), callbackEndpoint.host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4662, callbackEndpoint.port);
+  CPPUNIT_ASSERT(parseCallbackRequestIncomingPayload(
+      callbackEndpoint, packUInt32(0x04030201) + packUInt16(4662) +
+                            std::string(17, '\0')));
+  CPPUNIT_ASSERT_EQUAL(std::string("1.2.3.4"), callbackEndpoint.host);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4662, callbackEndpoint.port);
 
   std::vector<bool> bitfield;
   bitfield.push_back(true);

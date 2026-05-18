@@ -247,7 +247,7 @@ std::string createCallbackRequestPayload(uint32_t clientId)
 bool parseCallbackRequestIncomingPayload(Endpoint& endpoint,
                                          const std::string& payload)
 {
-  if (payload.size() != 6) {
+  if (payload.size() != 6 && payload.size() != 23) {
     return false;
   }
   size_t offset = 0;

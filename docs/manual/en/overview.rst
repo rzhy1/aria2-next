@@ -213,10 +213,10 @@ libgcrypt-devel, libxml2-devel, openssl-devel, cppunit
 Source builds require CMake, Ninja, pkg-config, a C++11 compiler, and the
 development packages for the features you want to enable. Modern maintained
 builds require OpenSSL 4.0 or newer when the OpenSSL backend is selected.
-Install the pinned documentation toolchain if you want to build the manual and
-man page::
+Install the documentation toolchain if you want to build the manual and man
+page::
 
-    $ python3 -m pip install -r docs/requirements.txt
+    $ python3 -m pip install 'sphinx>=8.2,<9' 'sphinx-rtd-theme>=3.0,<4'
 
 The quickest local build uses the default preset::
 
@@ -336,9 +336,9 @@ Building documentation
 ----------------------
 
 `Sphinx <http://sphinx-doc.org/>`_ is used to build the documentation.
-Install the pinned documentation dependencies first::
+Install the documentation dependencies first::
 
-    $ python3 -m pip install -r docs/requirements.txt
+    $ python3 -m pip install 'sphinx>=8.2,<9' 'sphinx-rtd-theme>=3.0,<4'
 
 aria2 man pages will be built when you run ``make`` if they are not
 up-to-date.  You can also build an HTML version of the aria2 man page by

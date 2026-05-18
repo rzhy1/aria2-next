@@ -832,8 +832,8 @@ Changed: Updated release-facing ED2K documentation to match the implemented
 feature set instead of using draft wording. Regenerated the bash completion
 file from the current `aria2-next --help=#all` output so completion includes
 all public ED2K options, including `--ed2k-listen-port`.
-Verified: Installed `docs/requirements.txt` into the requested conda `global`
-environment. Under `conda activate global`,
+Verified: Installed the documented Sphinx dependencies into the requested
+conda `global` environment. Under `conda activate global`,
 `python3 docs/completion/make_bash_completion.py build/default/aria2-next
 >/tmp/aria2-next.completion && cmp -s /tmp/aria2-next.completion
 docs/completion/aria2-next && bash -n docs/completion/aria2-next &&

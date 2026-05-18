@@ -122,9 +122,17 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
   setTimeout(std::chrono::seconds(getOption()->getAsInt(PREF_CONNECT_TIMEOUT)));
   disableReadCheckSocket();
   disableWriteCheckSocket();
+  if (mode_ == Mode::PEER) {
+    markEd2kPeerConnecting(getEd2kAttrs(getDownloadContext()), endpoint_);
+  }
 }
 
-Ed2kCommand::~Ed2kCommand() = default;
+Ed2kCommand::~Ed2kCommand()
+{
+  if (mode_ == Mode::PEER && getDownloadContext()) {
+    markEd2kPeerDisconnected(getEd2kAttrs(getDownloadContext()), endpoint_);
+  }
+}
 
 bool Ed2kCommand::execute()
 {

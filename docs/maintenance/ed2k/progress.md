@@ -381,3 +381,17 @@ passed, 0 tests failed out of 1`.
 Remaining: Continue CP7 with request lifecycle ownership, duplicate peer
 rejection, disconnect handling, and corrupt-piece retry through PeerState.
 Blocked: none.
+
+2026-05-18 CP7 partial
+Changed: Added PeerState connecting ownership so peer scheduling skips
+already in-flight peers and clears the connecting flag when a peer command is
+destroyed. This suppresses duplicate outbound peer commands without changing
+the existing single event loop.
+Verified: The focused in-flight peer scheduling test failed before the change
+because PeerState had no connecting state. After the change, `cmake --build
+--preset default --target aria2_tests` passed and `ctest --preset default
+--output-on-failure -R aria2_tests` passed with `100% tests passed, 0 tests
+failed out of 1`.
+Remaining: Continue CP7 with request lifecycle ownership, disconnect handling,
+and corrupt-piece retry through PeerState.
+Blocked: none.

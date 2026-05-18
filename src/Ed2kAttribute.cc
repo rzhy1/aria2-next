@@ -98,6 +98,28 @@ bool markEd2kPeerQueued(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
   return true;
 }
 
+bool markEd2kPeerConnecting(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
+{
+  auto state = getEd2kPeerState(attrs, peer);
+  if (!state) {
+    return false;
+  }
+  state->connecting = true;
+  return true;
+}
+
+bool markEd2kPeerDisconnected(Ed2kAttribute* attrs,
+                              const ed2k::Endpoint& peer)
+{
+  auto state = getEd2kPeerState(attrs, peer);
+  if (!state) {
+    return false;
+  }
+  state->connecting = false;
+  state->accepted = false;
+  return true;
+}
+
 bool updateEd2kPeerPartStatus(Ed2kAttribute* attrs,
                               const ed2k::Endpoint& peer,
                               const std::vector<bool>& partStatus)
@@ -116,6 +138,7 @@ bool markEd2kPeerAccepted(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
   if (!state) {
     return false;
   }
+  state->connecting = false;
   state->accepted = true;
   state->queued = false;
   state->dead = false;
@@ -129,6 +152,7 @@ bool markEd2kPeerOutOfParts(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
     return false;
   }
   state->outOfParts = true;
+  state->connecting = false;
   state->accepted = false;
   state->queued = true;
   return true;
@@ -141,6 +165,7 @@ bool markEd2kPeerCancelled(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
     return false;
   }
   state->cancelled = true;
+  state->connecting = false;
   state->accepted = false;
   state->queued = false;
   return true;
@@ -154,6 +179,7 @@ bool markEd2kPeerFailure(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
     return false;
   }
   state->queued = false;
+  state->connecting = false;
   state->dead = true;
   state->accepted = false;
   ++state->failCount;
@@ -397,8 +423,12 @@ void schedulePendingEd2kPeers(RequestGroup* requestGroup, DownloadEngine* e)
     if (state && state->dead && state->nextRetryTime > now) {
       continue;
     }
+    if (state && state->connecting) {
+      continue;
+    }
     if (state) {
       state->dead = false;
+      state->connecting = true;
     }
     e->addCommand(make_unique<Ed2kCommand>(e->newCUID(), requestGroup, e,
                                            peer, false));

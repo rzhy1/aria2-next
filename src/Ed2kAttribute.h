@@ -57,6 +57,9 @@ ed2k::PeerState* getEd2kPeerState(Ed2kAttribute* attrs,
 bool markEd2kPeerQueued(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
                         uint16_t rank,
                         const std::vector<bool>& partStatus);
+bool markEd2kPeerConnecting(Ed2kAttribute* attrs, const ed2k::Endpoint& peer);
+bool markEd2kPeerDisconnected(Ed2kAttribute* attrs,
+                              const ed2k::Endpoint& peer);
 bool updateEd2kPeerPartStatus(Ed2kAttribute* attrs,
                               const ed2k::Endpoint& peer,
                               const std::vector<bool>& partStatus);

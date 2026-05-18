@@ -52,6 +52,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kPeerDeduplication);
   CPPUNIT_TEST(testEd2kPeerSchedulingSkipsBackoff);
   CPPUNIT_TEST(testEd2kPeerCommandRecordsFailure);
+  CPPUNIT_TEST(testEd2kPeerSchedulingSkipsConnectingPeer);
   CPPUNIT_TEST(testEd2kServerStateUpdate);
   CPPUNIT_TEST(testEd2kInitialServerCommandRecordsFailure);
   CPPUNIT_TEST(testEd2kInitialServerCommandUpdatesServerState);
@@ -96,6 +97,7 @@ public:
   void testEd2kPeerDeduplication();
   void testEd2kPeerSchedulingSkipsBackoff();
   void testEd2kPeerCommandRecordsFailure();
+  void testEd2kPeerSchedulingSkipsConnectingPeer();
   void testEd2kServerStateUpdate();
   void testEd2kInitialServerCommandRecordsFailure();
   void testEd2kInitialServerCommandUpdatesServerState();
@@ -556,6 +558,39 @@ void DownloadHelperTest::testEd2kPeerCommandRecordsFailure()
   CPPUNIT_ASSERT_EQUAL((uint32_t)1, state->failCount);
   CPPUNIT_ASSERT(state->lastFailureTime > 0);
   CPPUNIT_ASSERT(state->nextRetryTime >= state->lastFailureTime + 30);
+}
+
+void DownloadHelperTest::testEd2kPeerSchedulingSkipsConnectingPeer()
+{
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|/"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_ED2K_SERVER, "203.0.113.10:4661");
+  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
+  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_DRY_RUN, A2_V_TRUE);
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+  auto group = result[0];
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+  ed2k::Endpoint peer;
+  peer.host = "203.0.113.20";
+  peer.port = 4662;
+  addEd2kPeer(attrs, peer);
+  auto state = getEd2kPeerState(attrs, peer);
+  state->connecting = true;
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
+
+  schedulePendingEd2kPeers(group.get(), &engine);
+
+  CPPUNIT_ASSERT_EQUAL((int32_t)0, group->getNumCommand());
 }
 
 void DownloadHelperTest::testEd2kServerStateUpdate()

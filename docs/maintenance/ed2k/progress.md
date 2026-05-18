@@ -557,3 +557,17 @@ aria2_tests` passed with `100% tests passed, 0 tests failed out of 1`.
 Remaining: Move to CP12 Kad bootstrap and routing. Sharing and upload-side AICH
 serving remain CP13 and CP14 ownership.
 Blocked: none.
+
+2026-05-18 CP12 partial
+Changed: Advanced Kad source and keyword lookup from direct one-shot search
+requests to the reference two-stage shape. Known Kad contacts now receive
+`KAD_REQ` first. `KAD_RES` responses are matched to tracked transactions,
+closer contacts are inserted into the routing table, and the returned contacts
+then receive `KAD_SEARCH_SOURCES_REQ` or `KAD_SEARCH_KEYS_REQ`.
+Verified: `git diff --check` passed. `cmake --build --preset default --target
+aria2_tests` passed. `ctest --preset default --output-on-failure -R
+aria2_tests` passed with `100% tests passed, 0 tests failed out of 1`.
+Remaining: CP12 still needs a full iterative traversal controller,
+timeout/failure backoff, refresh, source publish, firewalled checks, and
+durable operational state.
+Blocked: none.

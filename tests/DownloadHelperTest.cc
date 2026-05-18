@@ -89,6 +89,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kPeerCommandAnswersSourceExchange2);
   CPPUNIT_TEST(testEd2kKadCommandUpdatesServerUdpStatus);
   CPPUNIT_TEST(testEd2kKadCommandHandlesClientUdpReask);
+  CPPUNIT_TEST(testEd2kKadCommandTraversesSourceSearch);
   CPPUNIT_TEST(testEd2kSearchResultDeduplication);
   CPPUNIT_TEST(testCreateRequestGroupForUri_parameterized);
   CPPUNIT_TEST(testCreateRequestGroupForUriList);
@@ -147,6 +148,7 @@ public:
   void testEd2kPeerCommandAnswersSourceExchange2();
   void testEd2kKadCommandUpdatesServerUdpStatus();
   void testEd2kKadCommandHandlesClientUdpReask();
+  void testEd2kKadCommandTraversesSourceSearch();
   void testEd2kSearchResultDeduplication();
   void testCreateRequestGroupForUri_parameterized();
   void testCreateRequestGroupForUriList();
@@ -2166,6 +2168,89 @@ void DownloadHelperTest::testEd2kKadCommandHandlesClientUdpReask()
   CPPUNIT_ASSERT(ed2k::parseUdpReaskAckPayload(
       parsedAck, std::string(data + 6, data + len)));
   CPPUNIT_ASSERT_EQUAL((uint16_t)0, parsedAck.rank);
+}
+
+void DownloadHelperTest::testEd2kKadCommandTraversesSourceSearch()
+{
+  const std::string fileHashHex = "0123456789abcdef0123456789abcdef";
+  const auto fileHash = util::fromHex(fileHashHex.begin(), fileHashHex.end());
+  const std::string seedIdHex("11111111111111111111111111111111");
+  const auto seedId = util::fromHex(seedIdHex.begin(), seedIdHex.end());
+  const std::string closerIdHex("0123456789abcdef0123456789abcdee");
+  const auto closerId = util::fromHex(closerIdHex.begin(), closerIdHex.end());
+
+  SocketCore seedSocket(SOCK_DGRAM);
+  seedSocket.bind(0);
+  seedSocket.setNonBlockingMode();
+  auto seedSocketEndpoint = seedSocket.getAddrInfo();
+  SocketCore closerSocket(SOCK_DGRAM);
+  closerSocket.bind(0);
+  closerSocket.setNonBlockingMode();
+  auto closerSocketEndpoint = closerSocket.getAddrInfo();
+
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|/"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
+  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_DRY_RUN, A2_V_TRUE);
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+  auto group = result[0];
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+  attrs->kadRoutingTable =
+      std::make_shared<ed2k::KadRoutingTable>(std::string(16, '\xff'));
+  ed2k::KadContact seed;
+  seed.id = seedId;
+  seed.host = "127.0.0.1";
+  seed.udpPort = seedSocketEndpoint.port;
+  seed.tcpPort = 4662;
+  seed.version = 8;
+  attrs->kadRoutingTable->nodeSeen(seed, 1);
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
+  auto command = make_unique<Ed2kKadCommand>(engine.newCUID(), group.get(),
+                                             &engine);
+  auto commandPtr = command.get();
+  engine.addRoutineCommand(std::move(command));
+
+  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
+  CPPUNIT_ASSERT(seedSocket.isReadable(1));
+  char data[256];
+  size_t len = sizeof(data);
+  seedSocket.readData(data, len);
+  ed2k::PacketHeader header;
+  CPPUNIT_ASSERT(ed2k::readPacketHeader(header, data, len));
+  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::KAD_PROTOCOL, header.protocol);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::KAD_REQ, header.opcode);
+
+  ed2k::KadContact closer;
+  closer.id = closerId;
+  closer.host = "127.0.0.1";
+  closer.udpPort = closerSocketEndpoint.port;
+  closer.tcpPort = 4662;
+  closer.version = 8;
+  const auto response = ed2k::createPacket(
+      ed2k::KAD_PROTOCOL, ed2k::KAD_RES,
+      ed2k::createKadResponsePayload(
+          fileHash, std::vector<ed2k::KadContact>{closer}));
+  seedSocket.writeData(response.data(), response.size(), "127.0.0.1",
+                       commandPtr->getLocalUdpPort());
+
+  CPPUNIT_ASSERT(commandPtr->waitLocalUdpReadable(1));
+  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
+  CPPUNIT_ASSERT(closerSocket.isReadable(1));
+  len = sizeof(data);
+  closerSocket.readData(data, len);
+  CPPUNIT_ASSERT(ed2k::readPacketHeader(header, data, len));
+  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::KAD_PROTOCOL, header.protocol);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::KAD_SEARCH_SOURCES_REQ, header.opcode);
 }
 
 void DownloadHelperTest::testEd2kSearchResultDeduplication()

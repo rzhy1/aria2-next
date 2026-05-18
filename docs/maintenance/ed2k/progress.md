@@ -194,3 +194,16 @@ Verified: Documentation-only restructuring. `git diff --check` passed.
 Remaining: Continue CP5 using `docs/maintenance/ed2k/checkpoints.csv` as the
 main progress source.
 Blocked: none.
+
+2026-05-18 CP5 partial
+Changed: Fixed the ED2K session restore path for multiple persisted server
+states. `ed2k-server-state` is now a cumulative hidden session option, and the
+RequestGroup restore helper parses newline-delimited server-state payloads
+while preserving the existing single-state format.
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`.
+Remaining: Continue CP5 persistence coverage for ED2K metadata, sources,
+hashsets, AICH state, Kad state, shared files, and credits without broad test
+scaffolding.
+Blocked: none.

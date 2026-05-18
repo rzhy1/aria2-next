@@ -200,14 +200,19 @@ createEd2kServerStates(const std::shared_ptr<Option>& option)
   if (option->blank(PREF_ED2K_SERVER_STATE)) {
     return states;
   }
-  ed2k::ServerState state;
-  const auto payload = option->get(PREF_ED2K_SERVER_STATE);
-  if (payload.size() % 2 != 0 || !util::isHexDigit(payload) ||
-      !ed2k::parseServerStatePayload(
-          state, util::fromHex(payload.begin(), payload.end()))) {
-    throw DL_ABORT_EX("Cannot parse ED2K server state.");
+  std::istringstream in(option->get(PREF_ED2K_SERVER_STATE));
+  for (std::string payload; std::getline(in, payload);) {
+    if (payload.empty()) {
+      continue;
+    }
+    ed2k::ServerState state;
+    if (payload.size() % 2 != 0 || !util::isHexDigit(payload) ||
+        !ed2k::parseServerStatePayload(
+            state, util::fromHex(payload.begin(), payload.end()))) {
+      throw DL_ABORT_EX("Cannot parse ED2K server state.");
+    }
+    states.push_back(state);
   }
-  states.push_back(state);
   return states;
 }
 

@@ -46,6 +46,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KNodesDat);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KKadRoutingState);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KServerState);
+  CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KMultipleServerStates);
   CPPUNIT_TEST(testEd2kPeerDeduplication);
   CPPUNIT_TEST(testEd2kServerStateUpdate);
   CPPUNIT_TEST(testEd2kInitialServerCommandRecordsFailure);
@@ -82,6 +83,7 @@ public:
   void testCreateRequestGroupForUri_ED2KNodesDat();
   void testCreateRequestGroupForUri_ED2KKadRoutingState();
   void testCreateRequestGroupForUri_ED2KServerState();
+  void testCreateRequestGroupForUri_ED2KMultipleServerStates();
   void testEd2kPeerDeduplication();
   void testEd2kServerStateUpdate();
   void testEd2kInitialServerCommandRecordsFailure();
@@ -341,6 +343,39 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KServerState()
   CPPUNIT_ASSERT_EQUAL((uint32_t)1234, restored.users);
   CPPUNIT_ASSERT_EQUAL((uint32_t)5678, restored.files);
   CPPUNIT_ASSERT_EQUAL(std::string("hello"), restored.lastMessage);
+}
+
+void DownloadHelperTest::testCreateRequestGroupForUri_ED2KMultipleServerStates()
+{
+  ed2k::ServerState first;
+  first.endpoint.host = "203.0.113.10";
+  first.endpoint.port = 4661;
+  first.users = 1234;
+
+  ed2k::ServerState second;
+  second.endpoint.host = "203.0.113.11";
+  second.endpoint.port = 4662;
+  second.users = 5678;
+
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|/"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_ED2K_SERVER_STATE,
+               util::toHex(ed2k::createServerStatePayload(first)) + "\n" +
+                   util::toHex(ed2k::createServerStatePayload(second)) + "\n");
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+
+  auto attrs = getEd2kAttrs(result[0]->getDownloadContext());
+  CPPUNIT_ASSERT_EQUAL((size_t)2, attrs->serverStates.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.10"),
+                       attrs->serverStates[0].endpoint.host);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)1234, attrs->serverStates[0].users);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.11"),
+                       attrs->serverStates[1].endpoint.host);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)5678, attrs->serverStates[1].users);
 }
 
 void DownloadHelperTest::testEd2kPeerDeduplication()

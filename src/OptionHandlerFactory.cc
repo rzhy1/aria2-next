@@ -208,9 +208,10 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(new DefaultOptionHandler(
-        PREF_ED2K_SERVER_STATE, NO_DESCRIPTION, NO_DEFAULT_VALUE));
+    OptionHandler* op(new CumulativeOptionHandler(
+        PREF_ED2K_SERVER_STATE, NO_DESCRIPTION, NO_DEFAULT_VALUE, "\n"));
     op->setInitialOption(true);
+    op->setCumulative(true);
     op->setChangeOptionForReserved(true);
     op->hide();
     handlers.push_back(op);

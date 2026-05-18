@@ -313,3 +313,16 @@ for the 23-byte extended payload. After the fix,
 Remaining: Continue CP6 with client UDP reask behavior and a final
 server-session audit.
 Blocked: none.
+
+2026-05-18 CP6 partial
+Changed: Added compact ED2K client UDP helpers for REASKFILEPING and REASKACK.
+Ed2kKadCommand now accepts eMule UDP reask packets in the existing UDP socket,
+records REASKACK peers as queued, records QUEUEFULL and FILENOTFOUND peers as
+dead, and answers matching REASKFILEPING packets with a minimal REASKACK. Full
+upload-queue ranks and buddy callback routing remain CP14-owned behavior.
+Verified: `cmake --build --preset default --target aria2_tests` passed and
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`.
+Remaining: Continue CP6 with a final server-session audit, then move to CP7 or
+record any CP14-owned UDP upload details in the parity ledger.
+Blocked: none.

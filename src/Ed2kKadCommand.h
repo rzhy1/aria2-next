@@ -55,6 +55,8 @@ private:
                    const std::string& payload);
   void queueEd2kUdpPacket(const ed2k::Endpoint& endpoint, uint8_t opcode,
                           const std::string& payload);
+  void queueEmuleUdpPacket(const ed2k::Endpoint& endpoint, uint8_t opcode,
+                           const std::string& payload);
   void sendQueuedPackets();
   void receivePackets();
   void handlePacket(const ed2k::Endpoint& endpoint, uint8_t opcode,

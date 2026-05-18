@@ -34,6 +34,7 @@ class Ed2kHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCompressedPartPayloads);
   CPPUNIT_TEST(testInflateCompressedPartData);
   CPPUNIT_TEST(testEmuleInfoPayload);
+  CPPUNIT_TEST(testUdpReaskPayloads);
   CPPUNIT_TEST(testAichPayloads);
   CPPUNIT_TEST(testAichHashTree);
   CPPUNIT_TEST(testKadPacketPayloads);
@@ -65,6 +66,7 @@ public:
   void testCompressedPartPayloads();
   void testInflateCompressedPartData();
   void testEmuleInfoPayload();
+  void testUdpReaskPayloads();
   void testAichPayloads();
   void testAichHashTree();
   void testKadPacketPayloads();
@@ -758,6 +760,34 @@ void Ed2kHelperTest::testEmuleInfoPayload()
   CPPUNIT_ASSERT(parsed.miscOptions.multiPacket);
   CPPUNIT_ASSERT(parsed.miscOptions2.supportsSourceExchange2);
   CPPUNIT_ASSERT(parsed.miscOptions2.supportsLargeFiles);
+}
+
+void Ed2kHelperTest::testUdpReaskPayloads()
+{
+  std::string fileHashHex("0123456789abcdef0123456789abcdef");
+  auto fileHash = util::fromHex(fileHashHex.begin(), fileHashHex.end());
+  auto ping = createUdpReaskFilePingPayload(fileHash, 7);
+  UdpReask reask;
+  CPPUNIT_ASSERT(parseUdpReaskFilePingPayload(reask, ping));
+  CPPUNIT_ASSERT_EQUAL(fileHash, reask.fileHash);
+  CPPUNIT_ASSERT(reask.hasCompleteSources);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)7, reask.completeSources);
+  CPPUNIT_ASSERT(parseUdpReaskFilePingPayload(reask, fileHash));
+  CPPUNIT_ASSERT(!reask.hasCompleteSources);
+
+  auto ackPayload =
+      createUdpReaskAckPayload(std::vector<bool>{true, false, true}, 42);
+  UdpReaskAck ack;
+  CPPUNIT_ASSERT(parseUdpReaskAckPayload(ack, ackPayload));
+  CPPUNIT_ASSERT_EQUAL((size_t)3, ack.bitfield.size());
+  CPPUNIT_ASSERT(ack.bitfield[0]);
+  CPPUNIT_ASSERT(!ack.bitfield[1]);
+  CPPUNIT_ASSERT(ack.bitfield[2]);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)42, ack.rank);
+  CPPUNIT_ASSERT(parseUdpReaskAckPayload(ack, createUdpReaskAckPayload(3)));
+  CPPUNIT_ASSERT(ack.bitfield.empty());
+  CPPUNIT_ASSERT_EQUAL((uint16_t)3, ack.rank);
+  CPPUNIT_ASSERT(!parseUdpReaskAckPayload(ack, std::string(3, '\0')));
 }
 
 void Ed2kHelperTest::testAichPayloads()

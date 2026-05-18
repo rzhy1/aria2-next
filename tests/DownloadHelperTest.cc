@@ -57,6 +57,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kServerCommandRequestsLowIdCallback);
   CPPUNIT_TEST(testEd2kPeerCommandAnswersSourceExchange2);
   CPPUNIT_TEST(testEd2kKadCommandUpdatesServerUdpStatus);
+  CPPUNIT_TEST(testEd2kKadCommandHandlesClientUdpReask);
   CPPUNIT_TEST(testEd2kSearchResultDeduplication);
   CPPUNIT_TEST(testCreateRequestGroupForUri_parameterized);
   CPPUNIT_TEST(testCreateRequestGroupForUriList);
@@ -97,6 +98,7 @@ public:
   void testEd2kServerCommandRequestsLowIdCallback();
   void testEd2kPeerCommandAnswersSourceExchange2();
   void testEd2kKadCommandUpdatesServerUdpStatus();
+  void testEd2kKadCommandHandlesClientUdpReask();
   void testEd2kSearchResultDeduplication();
   void testCreateRequestGroupForUri_parameterized();
   void testCreateRequestGroupForUriList();
@@ -852,7 +854,7 @@ void DownloadHelperTest::testEd2kServerCommandRequestsLowIdCallback()
     }
   }
 
-  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::PROTO_EDONKEY, header.protocol);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::PROTO_EMULE, header.protocol);
   CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::OP_CALLBACKREQUEST, header.opcode);
 }
 
@@ -1010,6 +1012,84 @@ void DownloadHelperTest::testEd2kKadCommandUpdatesServerUdpStatus()
   CPPUNIT_ASSERT_EQUAL((uint16_t)4665, state->udpObfuscationPort);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4666, state->tcpObfuscationPort);
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x11223344, state->udpKey);
+}
+
+void DownloadHelperTest::testEd2kKadCommandHandlesClientUdpReask()
+{
+  const std::string fileHashHex = "0123456789abcdef0123456789abcdef";
+  const auto fileHash = util::fromHex(fileHashHex.begin(), fileHashHex.end());
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|/"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
+  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_DRY_RUN, A2_V_TRUE);
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+  auto group = result[0];
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+
+  SocketCore peerSocket(SOCK_DGRAM);
+  peerSocket.bind(0);
+  peerSocket.setNonBlockingMode();
+  auto peerEndpoint = peerSocket.getAddrInfo();
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
+  auto command = make_unique<Ed2kKadCommand>(engine.newCUID(), group.get(),
+                                             &engine);
+  auto commandPtr = command.get();
+  engine.addRoutineCommand(std::move(command));
+
+  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
+
+  auto ack = ed2k::createPacket(ed2k::PROTO_EMULE, ed2k::OP_REASKACK,
+                                ed2k::createUdpReaskAckPayload(5));
+  peerSocket.writeData(ack.data(), ack.size(), "127.0.0.1",
+                       commandPtr->getLocalUdpPort());
+
+  CPPUNIT_ASSERT(commandPtr->waitLocalUdpReadable(1));
+  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs->queuedPeers.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("127.0.0.1"), attrs->queuedPeers[0].host);
+  CPPUNIT_ASSERT_EQUAL(peerEndpoint.port, attrs->queuedPeers[0].port);
+
+  auto queueFull = ed2k::createPacket(ed2k::PROTO_EMULE, ed2k::OP_QUEUEFULL,
+                                      std::string());
+  peerSocket.writeData(queueFull.data(), queueFull.size(), "127.0.0.1",
+                       commandPtr->getLocalUdpPort());
+
+  CPPUNIT_ASSERT(commandPtr->waitLocalUdpReadable(1));
+  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs->deadPeers.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("127.0.0.1"), attrs->deadPeers[0].host);
+  CPPUNIT_ASSERT_EQUAL(peerEndpoint.port, attrs->deadPeers[0].port);
+
+  auto reask = ed2k::createPacket(ed2k::PROTO_EMULE, ed2k::OP_REASKFILEPING,
+                                  ed2k::createUdpReaskFilePingPayload(
+                                      fileHash, 0));
+  peerSocket.writeData(reask.data(), reask.size(), "127.0.0.1",
+                       commandPtr->getLocalUdpPort());
+
+  CPPUNIT_ASSERT(commandPtr->waitLocalUdpReadable(1));
+  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
+  CPPUNIT_ASSERT(peerSocket.isReadable(1));
+  char data[64];
+  size_t len = sizeof(data);
+  peerSocket.readData(data, len);
+  ed2k::PacketHeader header;
+  CPPUNIT_ASSERT(ed2k::readPacketHeader(header, data, len));
+  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::PROTO_EMULE, header.protocol);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::OP_REASKACK, header.opcode);
+  ed2k::UdpReaskAck parsedAck;
+  CPPUNIT_ASSERT(ed2k::parseUdpReaskAckPayload(
+      parsedAck, std::string(data + 6, data + len)));
+  CPPUNIT_ASSERT_EQUAL((uint16_t)0, parsedAck.rank);
 }
 
 void DownloadHelperTest::testEd2kSearchResultDeduplication()

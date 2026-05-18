@@ -29,6 +29,7 @@
 #include "ed2k_kad.h"
 #include "ed2k_kad_search.h"
 #include "ed2k_packet.h"
+#include "ed2k_peer.h"
 #include "ed2k_search.h"
 #include "ed2k_server.h"
 #include "fmt.h"
@@ -150,6 +151,14 @@ void Ed2kKadCommand::queueEd2kUdpPacket(const ed2k::Endpoint& endpoint,
       endpoint, ed2k::createPacket(ed2k::PROTO_EDONKEY, opcode, payload)));
 }
 
+void Ed2kKadCommand::queueEmuleUdpPacket(const ed2k::Endpoint& endpoint,
+                                         uint8_t opcode,
+                                         const std::string& payload)
+{
+  outbox_.push_back(std::make_pair(
+      endpoint, ed2k::createPacket(ed2k::PROTO_EMULE, opcode, payload)));
+}
+
 void Ed2kKadCommand::queueServerStatusPoll()
 {
   const auto now = nowSeconds();
@@ -264,7 +273,8 @@ void Ed2kKadCommand::receivePackets()
     if (!ed2k::readPacketHeader(header, reinterpret_cast<const char*>(data.data()),
                                 static_cast<size_t>(length)) ||
         (header.protocol != ed2k::KAD_PROTOCOL &&
-         header.protocol != ed2k::PROTO_EDONKEY) ||
+         header.protocol != ed2k::PROTO_EDONKEY &&
+         header.protocol != ed2k::PROTO_EMULE) ||
         header.payloadSize() + 6 != static_cast<size_t>(length)) {
       continue;
     }
@@ -273,7 +283,8 @@ void Ed2kKadCommand::receivePackets()
     endpoint.port = sender.port;
     std::string payload(reinterpret_cast<const char*>(data.data()) + 6,
                         reinterpret_cast<const char*>(data.data()) + length);
-    if (header.protocol == ed2k::PROTO_EDONKEY) {
+    if (header.protocol == ed2k::PROTO_EDONKEY ||
+        header.protocol == ed2k::PROTO_EMULE) {
       handleEd2kUdpPacket(endpoint, header.opcode, payload);
     }
     else {
@@ -286,6 +297,31 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
                                          uint8_t opcode,
                                          const std::string& payload)
 {
+  if (opcode == ed2k::OP_REASKACK) {
+    ed2k::UdpReaskAck ack;
+    if (ed2k::parseUdpReaskAckPayload(ack, payload)) {
+      addEd2kQueuedPeer(getEd2kAttrs(requestGroup_->getDownloadContext()),
+                        endpoint);
+    }
+    return;
+  }
+  if (opcode == ed2k::OP_QUEUEFULL || opcode == ed2k::OP_FILENOTFOUND) {
+    addEd2kDeadPeer(getEd2kAttrs(requestGroup_->getDownloadContext()),
+                    endpoint);
+    return;
+  }
+  if (opcode == ed2k::OP_REASKFILEPING) {
+    ed2k::UdpReask reask;
+    auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
+    if (!ed2k::parseUdpReaskFilePingPayload(reask, payload) ||
+        reask.fileHash != attrs->link.hash) {
+      queueEmuleUdpPacket(endpoint, ed2k::OP_FILENOTFOUND, std::string());
+      return;
+    }
+    queueEmuleUdpPacket(endpoint, ed2k::OP_REASKACK,
+                       ed2k::createUdpReaskAckPayload(0));
+    return;
+  }
   if (opcode != ed2k::OP_GLOBSERVSTATRES || endpoint.port < 4) {
     return;
   }

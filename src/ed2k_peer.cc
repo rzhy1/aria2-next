@@ -396,6 +396,77 @@ bool parseEmuleInfoPayload(EmulePeerInfo& info, const std::string& payload)
   return true;
 }
 
+std::string createUdpReaskFilePingPayload(const std::string& fileHash,
+                                          uint16_t completeSources)
+{
+  validateHashLength(fileHash);
+  return fileHash + packUInt16(completeSources);
+}
+
+bool parseUdpReaskFilePingPayload(UdpReask& reask,
+                                  const std::string& payload)
+{
+  if (payload.size() != HASH_LENGTH && payload.size() != HASH_LENGTH + 2) {
+    return false;
+  }
+  size_t offset = 0;
+  UdpReask parsed;
+  parsed.fileHash = readBytes(payload, offset, HASH_LENGTH);
+  if (offset < payload.size()) {
+    parsed.completeSources = readUInt16(readBytes(payload, offset, 2).data());
+    parsed.hasCompleteSources = true;
+  }
+  reask = std::move(parsed);
+  return true;
+}
+
+std::string createUdpReaskAckPayload(uint16_t rank)
+{
+  return packUInt16(rank);
+}
+
+std::string createUdpReaskAckPayload(const std::vector<bool>& bitfield,
+                                     uint16_t rank)
+{
+  if (bitfield.size() > std::numeric_limits<uint16_t>::max()) {
+    throw DL_ABORT_EX("ED2K file status bitfield is too large.");
+  }
+  std::string payload;
+  payload += packUInt16(static_cast<uint16_t>(bitfield.size()));
+  payload.append((bitfield.size() + 7) / 8, '\0');
+  for (size_t i = 0; i < bitfield.size(); ++i) {
+    if (bitfield[i]) {
+      payload[2 + i / 8] |= static_cast<char>(0x80 >> (i & 7));
+    }
+  }
+  payload += packUInt16(rank);
+  return payload;
+}
+
+bool parseUdpReaskAckPayload(UdpReaskAck& ack, const std::string& payload)
+{
+  if (payload.size() != 2 && payload.size() < 4) {
+    return false;
+  }
+  size_t offset = 0;
+  UdpReaskAck parsed;
+  if (payload.size() > 2) {
+    auto bitCount = readUInt16(readBytes(payload, offset, 2).data());
+    auto byteCount = (bitCount + 7) / 8;
+    if (payload.size() - offset != byteCount + 2) {
+      return false;
+    }
+    auto raw = readBytes(payload, offset, byteCount);
+    parsed.bitfield.assign(bitCount, false);
+    for (size_t i = 0; i < bitCount; ++i) {
+      parsed.bitfield[i] = raw[i / 8] & static_cast<char>(0x80 >> (i & 7));
+    }
+  }
+  parsed.rank = readUInt16(readBytes(payload, offset, 2).data());
+  ack = std::move(parsed);
+  return true;
+}
+
 } // namespace ed2k
 
 } // namespace aria2

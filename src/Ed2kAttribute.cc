@@ -34,21 +34,37 @@ Ed2kAttribute* getEd2kAttrs(DownloadContext* dctx)
   return static_cast<Ed2kAttribute*>(dctx->getAttribute(CTX_ATTR_ED2K).get());
 }
 
+bool addUniqueEndpoint(std::vector<ed2k::Endpoint>& endpoints,
+                       const ed2k::Endpoint& endpoint)
+{
+  if (endpoint.host.empty() || endpoint.port == 0) {
+    return false;
+  }
+  auto i = std::find_if(endpoints.begin(), endpoints.end(),
+                        [&](const ed2k::Endpoint& item) {
+                          return item.host == endpoint.host &&
+                                 item.port == endpoint.port;
+                        });
+  if (i != endpoints.end()) {
+    return false;
+  }
+  endpoints.push_back(endpoint);
+  return true;
+}
+
 bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
 {
-  if (!attrs || peer.host.empty() || peer.port == 0) {
-    return false;
-  }
-  auto i = std::find_if(attrs->peers.begin(), attrs->peers.end(),
-                        [&](const ed2k::Endpoint& item) {
-                          return item.host == peer.host &&
-                                 item.port == peer.port;
-                        });
-  if (i != attrs->peers.end()) {
-    return false;
-  }
-  attrs->peers.push_back(peer);
-  return true;
+  return attrs && addUniqueEndpoint(attrs->peers, peer);
+}
+
+bool addEd2kQueuedPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
+{
+  return attrs && addUniqueEndpoint(attrs->queuedPeers, peer);
+}
+
+bool addEd2kDeadPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
+{
+  return attrs && addUniqueEndpoint(attrs->deadPeers, peer);
 }
 
 ed2k::ServerState* getEd2kServerState(Ed2kAttribute* attrs,

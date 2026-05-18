@@ -35,6 +35,8 @@ struct Ed2kAttribute : public ContextAttribute {
   std::vector<ed2k::Endpoint> servers;
   std::vector<ed2k::ServerState> serverStates;
   std::vector<ed2k::Endpoint> peers;
+  std::vector<ed2k::Endpoint> deadPeers;
+  std::vector<ed2k::Endpoint> queuedPeers;
   std::vector<std::string> pieceHashes;
   std::string aichRootHash;
   ed2k::SearchQuery searchQuery;
@@ -50,6 +52,8 @@ struct Ed2kAttribute : public ContextAttribute {
 Ed2kAttribute* getEd2kAttrs(DownloadContext* dctx);
 Ed2kAttribute* getEd2kAttrs(const std::shared_ptr<DownloadContext>& dctx);
 bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer);
+bool addEd2kQueuedPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer);
+bool addEd2kDeadPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer);
 ed2k::ServerState* getEd2kServerState(Ed2kAttribute* attrs,
                                       const ed2k::Endpoint& server);
 ed2k::ServerState* updateEd2kServerConnecting(Ed2kAttribute* attrs,

@@ -67,6 +67,17 @@ struct EmulePeerInfo {
   EmuleMiscOptions2 miscOptions2;
 };
 
+struct UdpReask {
+  std::string fileHash;
+  uint16_t completeSources = 0;
+  bool hasCompleteSources = false;
+};
+
+struct UdpReaskAck {
+  std::vector<bool> bitfield;
+  uint16_t rank = 0;
+};
+
 std::string createFileStatusPayload(const std::string& fileHash,
                                     const std::vector<bool>& bitfield);
 bool parseFileStatusPayload(std::vector<bool>& bitfield,
@@ -101,6 +112,14 @@ bool parseAnswerSources2Payload(SourceExchangeAnswer& answer,
                                 const std::string& expectedFileHash);
 std::string createEmuleInfoPayload(const EmulePeerInfo& info);
 bool parseEmuleInfoPayload(EmulePeerInfo& info, const std::string& payload);
+std::string createUdpReaskFilePingPayload(const std::string& fileHash,
+                                          uint16_t completeSources = 0);
+bool parseUdpReaskFilePingPayload(UdpReask& reask,
+                                  const std::string& payload);
+std::string createUdpReaskAckPayload(uint16_t rank);
+std::string createUdpReaskAckPayload(const std::vector<bool>& bitfield,
+                                     uint16_t rank);
+bool parseUdpReaskAckPayload(UdpReaskAck& ack, const std::string& payload);
 
 } // namespace ed2k
 

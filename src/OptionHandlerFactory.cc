@@ -208,6 +208,14 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
+    OptionHandler* op(new NumberOptionHandler(
+        PREF_ED2K_LISTEN_PORT, TEXT_ED2K_LISTEN_PORT, "4662", 0,
+        UINT16_MAX));
+    op->addTag(TAG_ADVANCED);
+    op->setInitialOption(true);
+    handlers.push_back(op);
+  }
+  {
     OptionHandler* op(new CumulativeOptionHandler(
         PREF_ED2K_SERVER_STATE, NO_DESCRIPTION, NO_DEFAULT_VALUE, "\n"));
     op->setInitialOption(true);

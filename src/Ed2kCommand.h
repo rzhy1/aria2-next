@@ -24,6 +24,8 @@
 
 namespace aria2 {
 
+class SocketCore;
+
 class Ed2kCommand : public AbstractCommand {
 private:
   enum class Mode { SERVER, PEER };
@@ -56,6 +58,7 @@ private:
   bool sourceExchangeRequested_;
   bool aichFileHashRequested_;
   bool use64BitOffsets_;
+  bool incoming_;
   ed2k::EmulePeerInfo localPeerInfo_;
   ed2k::EmulePeerInfo remotePeerInfo_;
 
@@ -84,6 +87,7 @@ private:
   void queueSourceExchangeAnswer(uint8_t version);
   void queuePeerStartUpload();
   void queuePeerPartRequest();
+  bool updatePeerEndpointFromHello(bool helloPacket);
   void addPeer(const ed2k::Endpoint& peer);
   void addPeers(const std::vector<ed2k::Endpoint>& peers);
   void schedulePendingPeers();
@@ -96,6 +100,9 @@ public:
   Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup, DownloadEngine* e,
               ed2k::Endpoint endpoint, bool serverMode,
               bool countAsDownloadCommand = true);
+  Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup, DownloadEngine* e,
+              ed2k::Endpoint endpoint,
+              const std::shared_ptr<SocketCore>& socket);
   virtual ~Ed2kCommand();
 
   virtual bool execute() CXX11_OVERRIDE;

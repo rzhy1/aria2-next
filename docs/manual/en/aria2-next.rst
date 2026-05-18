@@ -665,6 +665,11 @@ ED2K Specific Options
 
   Load ED2K Kad bootstrap nodes from a local ``nodes.dat`` file.
 
+.. option:: --ed2k-listen-port=<PORT>
+
+  Set TCP port number for incoming ED2K peer connections. Use ``0`` to let the
+  operating system choose an available local port. Default: ``4662``
+
   .. note::
 
     ED2K support currently includes native file links, server source
@@ -2165,6 +2170,7 @@ of URIs. These optional lines must start with white space(s).
   * :option:`dir <-d>`
   * :option:`dry-run <--dry-run>`
   * :option:`ed2k-node-list <--ed2k-node-list>`
+  * :option:`ed2k-listen-port <--ed2k-listen-port>`
   * :option:`ed2k-server <--ed2k-server>`
   * :option:`ed2k-server-list <--ed2k-server-list>`
   * :option:`enable-http-keep-alive <--enable-http-keep-alive>`

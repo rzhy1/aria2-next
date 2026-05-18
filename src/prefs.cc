@@ -358,6 +358,8 @@ PrefPtr PREF_ED2K_SERVER = makePref("ed2k-server");
 PrefPtr PREF_ED2K_SERVER_LIST = makePref("ed2k-server-list");
 // value: path to nodes.dat
 PrefPtr PREF_ED2K_NODE_LIST = makePref("ed2k-node-list");
+// value: 0-65535
+PrefPtr PREF_ED2K_LISTEN_PORT = makePref("ed2k-listen-port");
 // value: hex-encoded ED2K server state
 PrefPtr PREF_ED2K_SERVER_STATE = makePref("ed2k-server-state");
 // value: hex-encoded ED2K Kad routing state

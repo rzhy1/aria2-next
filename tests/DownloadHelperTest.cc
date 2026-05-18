@@ -60,6 +60,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kPeerCommandRejectsUnexpectedPartBeforeWrite);
   CPPUNIT_TEST(testEd2kPeerCommandTracksRequestedParts);
   CPPUNIT_TEST(testEd2kPeerCommandWritesCompressedPart);
+  CPPUNIT_TEST(testEd2kIncomingPeerListenerAnswersHello);
   CPPUNIT_TEST(testEd2kPeerSchedulingSkipsConnectingPeer);
   CPPUNIT_TEST(testEd2kServerStateUpdate);
   CPPUNIT_TEST(testEd2kInitialServerCommandRecordsFailure);
@@ -110,6 +111,7 @@ public:
   void testEd2kPeerCommandRejectsUnexpectedPartBeforeWrite();
   void testEd2kPeerCommandTracksRequestedParts();
   void testEd2kPeerCommandWritesCompressedPart();
+  void testEd2kIncomingPeerListenerAnswersHello();
   void testEd2kPeerSchedulingSkipsConnectingPeer();
   void testEd2kServerStateUpdate();
   void testEd2kInitialServerCommandRecordsFailure();
@@ -969,6 +971,128 @@ void DownloadHelperTest::testEd2kPeerCommandWritesCompressedPart()
   std::string fileData((std::istreambuf_iterator<char>(in)),
                        std::istreambuf_iterator<char>());
   CPPUNIT_ASSERT_EQUAL(data, fileData);
+}
+
+void DownloadHelperTest::testEd2kIncomingPeerListenerAnswersHello()
+{
+  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-incoming-peer";
+  const std::string outfile = outdir + "/aria2 next incoming peer.bin";
+  File(outfile).remove();
+  File(outfile + DefaultBtProgressInfoFile::getSuffix()).remove();
+  File(outdir).mkdirs();
+
+  const std::string data = "incoming peer data";
+  const auto fileHash = ed2k::md4Digest(data);
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next%20incoming%20peer.bin|" +
+      util::uitos(data.size()) + "|" + util::toHex(fileHash) + "|/"};
+  option_->put(PREF_DIR, outdir);
+  option_->put(PREF_ED2K_LISTEN_PORT, "0");
+  option_->put(PREF_CONNECT_TIMEOUT, "1");
+  option_->put(PREF_TIMEOUT, "1");
+  option_->put(PREF_RETRY_WAIT, "30");
+  option_->put(PREF_SPLIT, "1");
+  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
+  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_DRY_RUN, A2_V_FALSE);
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+  auto group = result[0];
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  auto rgman = make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{}, 1, option_.get());
+  group->setRequestGroupMan(rgman.get());
+  group->setState(RequestGroup::STATE_ACTIVE);
+  rgman->addRequestGroup(group);
+  engine.setRequestGroupMan(std::move(rgman));
+  std::vector<std::unique_ptr<Command>> commands;
+  group->createInitialCommand(commands, &engine);
+  engine.addCommand(std::move(commands));
+
+  for (int i = 0; i < 8 && !engine.getEd2kTcpPort(); ++i) {
+    engine.run(true);
+  }
+  CPPUNIT_ASSERT(engine.getEd2kTcpPort() != 0);
+
+  SocketCore peerSocket;
+  peerSocket.establishConnection("127.0.0.1", engine.getEd2kTcpPort());
+  ed2k::Endpoint peer;
+  peer.host = "127.0.0.1";
+  peer.port = 4662;
+  peerSocket.setNonBlockingMode();
+  for (int i = 0; i < 8 && !peerSocket.isWritable(0); ++i) {
+    engine.run(true);
+  }
+  CPPUNIT_ASSERT(peerSocket.isWritable(0));
+
+  std::string hello;
+  hello.push_back(static_cast<char>(ed2k::HASH_LENGTH));
+  hello += ed2k::createLoginRequestPayload(
+      std::string(ed2k::HASH_LENGTH, '\x22'), peer.port, "incoming");
+  hello += std::string(6, '\0');
+  peerSocket.writeData(
+      ed2k::createPacket(ed2k::PROTO_EDONKEY, ed2k::OP_HELLO, hello));
+
+  auto readHelloAnswer = [&](SocketCore& socket, int attempts) {
+    ed2k::PacketHeader header;
+    std::string packet;
+    for (int i = 0; i < attempts; ++i) {
+      if (!socket.isReadable(0)) {
+        engine.run(true);
+      }
+      if (!socket.isReadable(0)) {
+        continue;
+      }
+      char buf[128];
+      size_t len = sizeof(buf);
+      socket.readData(buf, len);
+      packet.append(buf, len);
+      size_t offset = 0;
+      while (packet.size() - offset >= 6) {
+        CPPUNIT_ASSERT(ed2k::readPacketHeader(header, packet.data() + offset,
+                                              packet.size() - offset));
+        const auto packetSize = 5 + header.size;
+        if (packet.size() - offset < packetSize) {
+          break;
+        }
+        if (header.opcode == ed2k::OP_HELLOANSWER) {
+          CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::PROTO_EDONKEY,
+                               header.protocol);
+          return true;
+        }
+        offset += packetSize;
+      }
+      packet.erase(0, offset);
+    }
+    return false;
+  };
+
+  CPPUNIT_ASSERT(readHelloAnswer(peerSocket, 16));
+  auto state = getEd2kPeerState(attrs, peer);
+  CPPUNIT_ASSERT(state);
+  CPPUNIT_ASSERT(state->connecting);
+  CPPUNIT_ASSERT(!state->dead);
+
+  SocketCore duplicateSocket;
+  duplicateSocket.establishConnection("127.0.0.1", engine.getEd2kTcpPort());
+  duplicateSocket.setNonBlockingMode();
+  for (int i = 0; i < 8 && !duplicateSocket.isWritable(0); ++i) {
+    engine.run(true);
+  }
+  CPPUNIT_ASSERT(duplicateSocket.isWritable(0));
+  duplicateSocket.writeData(
+      ed2k::createPacket(ed2k::PROTO_EDONKEY, ed2k::OP_HELLO, hello));
+  for (int i = 0; i < 8 && duplicateSocket.isOpen(); ++i) {
+    if (!duplicateSocket.isReadable(0)) {
+      engine.run(true);
+    }
+  }
+  CPPUNIT_ASSERT(!readHelloAnswer(duplicateSocket, 2));
 }
 
 void DownloadHelperTest::testEd2kPeerSchedulingSkipsConnectingPeer()

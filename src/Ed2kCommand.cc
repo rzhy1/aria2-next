@@ -115,6 +115,7 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       peerAccepted_(false),
       sourceExchangeRequested_(false),
       aichFileHashRequested_(false),
+      incoming_(false),
       use64BitOffsets_(requestGroup->getDownloadContext()->getTotalLength() >
                        std::numeric_limits<uint32_t>::max()),
       localPeerInfo_(createLocalPeerInfo())
@@ -125,6 +126,32 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
   if (mode_ == Mode::PEER) {
     markEd2kPeerConnecting(getEd2kAttrs(getDownloadContext()), endpoint_);
   }
+}
+
+Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
+                         DownloadEngine* e, ed2k::Endpoint endpoint,
+                         const std::shared_ptr<SocketCore>& socket)
+    : AbstractCommand(cuid, makeEd2kRequest(endpoint, false),
+                      requestGroup->getDownloadContext()->getFirstFileEntry(),
+                      requestGroup, e, socket, nullptr, true, true),
+      mode_(Mode::PEER),
+      endpoint_(std::move(endpoint)),
+      state_(State::READ_HEADER),
+      connectedPort_(endpoint_.port),
+      headerRead_(0),
+      bodyRead_(0),
+      peerFileStatusReceived_(false),
+      peerFileRequestSent_(false),
+      peerAccepted_(false),
+      sourceExchangeRequested_(false),
+      aichFileHashRequested_(false),
+      use64BitOffsets_(requestGroup->getDownloadContext()->getTotalLength() >
+                       std::numeric_limits<uint32_t>::max()),
+      incoming_(true),
+      localPeerInfo_(createLocalPeerInfo())
+{
+  setTimeout(std::chrono::seconds(getOption()->getAsInt(PREF_CONNECT_TIMEOUT)));
+  markEd2kPeerConnecting(getEd2kAttrs(getDownloadContext()), endpoint_);
 }
 
 Ed2kCommand::~Ed2kCommand()
@@ -399,6 +426,66 @@ void Ed2kCommand::queuePeerPartRequest()
                                : ed2k::OP_REQUESTPARTS,
               ed2k::createRequestPartsPayload(attrs->link.hash, ranges,
                                               use64BitOffsets_));
+}
+
+bool Ed2kCommand::updatePeerEndpointFromHello(bool helloPacket)
+{
+  const auto minimumSize = ed2k::HASH_LENGTH + 6 + (helloPacket ? 1 : 0);
+  if (!incoming_ || body_.size() < minimumSize) {
+    return true;
+  }
+  size_t offset = helloPacket ? 1 : 0;
+  const auto userHash = body_.substr(offset, ed2k::HASH_LENGTH);
+  offset += ed2k::HASH_LENGTH + 4;
+  const auto listenPort = ed2k::readUInt16(body_.data() + offset);
+  if (listenPort == 0 || listenPort == endpoint_.port) {
+    auto state = getEd2kPeerState(getEd2kAttrs(getDownloadContext()), endpoint_);
+    if (state && userHash.size() == ed2k::HASH_LENGTH) {
+      state->endpoint.userHash = userHash;
+    }
+    return true;
+  }
+
+  auto attrs = getEd2kAttrs(getDownloadContext());
+  auto oldEndpoint = endpoint_;
+  ed2k::Endpoint newEndpoint = endpoint_;
+  newEndpoint.port = listenPort;
+  newEndpoint.userHash = userHash;
+  auto findState = [&](const ed2k::Endpoint& peer) -> ed2k::PeerState* {
+    auto i = std::find_if(attrs->peerStates.begin(), attrs->peerStates.end(),
+                          [&](const ed2k::PeerState& state) {
+                            return state.endpoint.host == peer.host &&
+                                   state.endpoint.port == peer.port;
+                          });
+    return i == attrs->peerStates.end() ? nullptr : &*i;
+  };
+  auto oldState = findState(oldEndpoint);
+  auto existingState = findState(newEndpoint);
+  if (existingState && existingState != oldState &&
+      (existingState->connecting || existingState->accepted)) {
+    if (oldState) {
+      oldState->connecting = false;
+      oldState->accepted = false;
+      oldState->requestedParts.clear();
+    }
+    state_ = State::DONE;
+    return false;
+  }
+  endpoint_ = newEndpoint;
+  addEd2kPeer(attrs, endpoint_);
+  auto newState = getEd2kPeerState(attrs, endpoint_);
+  if (newState) {
+    newState->connecting = true;
+    newState->dead = false;
+    newState->endpoint.userHash = userHash;
+  }
+  oldState = findState(oldEndpoint);
+  if (oldState && oldState != newState) {
+    oldState->connecting = false;
+    oldState->accepted = false;
+    oldState->requestedParts.clear();
+  }
+  return true;
 }
 
 void Ed2kCommand::startResolve()
@@ -744,12 +831,18 @@ void Ed2kCommand::handlePeerPacket()
   }
   switch (currentHeader_.opcode) {
   case ed2k::OP_HELLO:
+    if (!updatePeerEndpointFromHello(true)) {
+      break;
+    }
     queuePeerHelloAnswer();
     queueEmuleInfo(true);
     queuePeerFileRequest();
     state_ = State::WRITE;
     break;
   case ed2k::OP_HELLOANSWER:
+    if (!updatePeerEndpointFromHello(false)) {
+      break;
+    }
     queueEmuleInfo(false);
     queuePeerFileRequest();
     state_ = State::WRITE;
@@ -915,6 +1008,10 @@ bool Ed2kCommand::executeInternal()
   while (true) {
     switch (state_) {
     case State::INIT:
+      if (incoming_) {
+        state_ = State::READ_HEADER;
+        break;
+      }
       if (mode_ == Mode::SERVER) {
         queueServerLogin();
       }

@@ -48,10 +48,10 @@ Current branch: `main`.
 
 Current HEAD observed during the tracker split: `d2fc1f53`.
 
-Operational status: ED2K/eMule support is still incomplete. CP0 through CP7 are
-verified. CP8 through CP18 remain partial or open. The current implementation
-is roughly 40 to 45 percent of the complete target and must not be presented as
-full ED2K/eMule support.
+Operational status: ED2K/eMule support is still incomplete. CP0 through CP8 are
+verified. CP9 through CP18 remain partial or open. The current implementation
+is roughly 45 percent of the complete target and must not be presented as full
+ED2K/eMule support.
 
 The draft has been committed through the first protocol module split.
 `src/ed2k_helper.cc` has been deleted. `src/ed2k_helper.h` remains only as an
@@ -83,17 +83,21 @@ status, hashset request, Source Exchange request and answer handling, normal
 part transfer, compressed part transfer, MD4 part verification, and AICH packet
 parsing are partially present.
 
-The current draft has no complete incoming peer listener. Upload behavior is
-not yet an upload queue with slots, ranks, limits, statistics, and credits.
-Sharing and imported shared files are not first-class persistent state. Kad has
-packet helpers, bootstrap, hello, and simple search requests, but it lacks a
-full traversal engine, publish loop, firewalled checks, routing refresh policy,
-and durable operational state. AICH has hashing and packet parsing, but not
-full tree verification, trust handling, or recovery application. Resume
-persists active download metadata, learned sources, hashsets, server state, and
-Kad routing state, but not future sharing or peer credit state. CLI/RPC status
-does not yet expose the full
-server, peer, Kad, queue, search, share, and upload model.
+Incoming peer listening exists for the active-download path. The listener uses
+the existing event loop, accepts TCP peers, routes them only when there is a
+unique active ED2K download group, rejects duplicate active endpoints, and
+normalizes incoming Hello endpoints to the peer's advertised ED2K listen port.
+Shared/completed-file matching is still owned by the future shared store and
+upload checkpoints. Upload behavior is not yet an upload queue with slots,
+ranks, limits, statistics, and credits. Sharing and imported shared files are
+not first-class persistent state. Kad has packet helpers, bootstrap, hello, and
+simple search requests, but it lacks a full traversal engine, publish loop,
+firewalled checks, routing refresh policy, and durable operational state. AICH
+has hashing and packet parsing, but not full tree verification, trust handling,
+or recovery application. Resume persists active download metadata, learned
+sources, hashsets, server state, and Kad routing state, but not future sharing
+or peer credit state. CLI/RPC status does not yet expose the full server, peer,
+Kad, queue, search, share, and upload model.
 
 Release-facing documentation currently risks overstating draft support. Before
 any release-facing checkpoint is marked verified, CLI help, manual text, RPC

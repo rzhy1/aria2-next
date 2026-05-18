@@ -64,6 +64,7 @@
 #include "download_handlers.h"
 #include "Ed2kAttribute.h"
 #include "Ed2kCommand.h"
+#include "Ed2kListenCommand.h"
 #include "Ed2kKadCommand.h"
 #include "MemoryBufferPreDownloadHandler.h"
 #include "DownloadHandlerConstants.h"
@@ -332,6 +333,15 @@ void RequestGroup::createInitialCommand(
     for (const auto& peer : attrs->peers) {
       commands.push_back(
           make_unique<Ed2kCommand>(e->newCUID(), this, e, peer, false));
+    }
+    if (e->getEd2kTcpPort() == 0) {
+      auto listenCommand =
+          make_unique<Ed2kListenCommand>(e->newCUID(), e, AF_INET);
+      if (listenCommand->bindPort(
+              static_cast<uint16_t>(
+                  option_->getAsInt(PREF_ED2K_LISTEN_PORT)))) {
+        e->addCommand(std::move(listenCommand));
+      }
     }
     commands.push_back(make_unique<Ed2kKadCommand>(e->newCUID(), this, e));
     if (commands.empty()) {

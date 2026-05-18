@@ -487,3 +487,21 @@ Remaining: Move to CP8 incoming peer listener. Source Exchange merge policy,
 full source/piece scheduling, incoming peer acceptance, sharing, and upload
 remain owned by later checkpoints.
 Blocked: none.
+
+2026-05-18 CP8 verified
+Changed: Added an ED2K TCP listener for incoming active-download peers. The
+listener binds through aria2-next's existing EventPoll path, is created once
+per engine from ED2K request-group startup, honors `--ed2k-listen-port`, routes
+accepted sockets only when there is a unique active ED2K download group,
+rejects duplicate active endpoints, and hands accepted sockets to the existing
+peer command state machine. Incoming peer Hello handling now records the remote
+user hash and migrates the temporary TCP source endpoint to the peer's
+advertised ED2K listen port. Shared/completed-file matching remains CP13/CP14
+ownership.
+Verified: `git diff --check` passed. `cmake --build --preset default --target
+aria2_tests` passed with the existing local Tcl/Tk search-path linker warning.
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`.
+Remaining: Move to CP9 Source Exchange merge policy. Full shared-file binding
+and upload responses remain owned by CP13 and CP14.
+Blocked: none.

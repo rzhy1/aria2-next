@@ -311,6 +311,8 @@ extern PrefPtr PREF_ED2K_SERVER;
 extern PrefPtr PREF_ED2K_SERVER_LIST;
 // value: path to nodes.dat
 extern PrefPtr PREF_ED2K_NODE_LIST;
+// value: 0-65535
+extern PrefPtr PREF_ED2K_LISTEN_PORT;
 // value: hex-encoded ED2K server state
 extern PrefPtr PREF_ED2K_SERVER_STATE;
 // value: hex-encoded ED2K Kad routing state

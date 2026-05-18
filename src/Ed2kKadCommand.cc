@@ -20,6 +20,7 @@
 #include "Ed2kAttribute.h"
 #include "LogFactory.h"
 #include "Logger.h"
+#include "Option.h"
 #include "RequestGroup.h"
 #include "RequestGroupMan.h"
 #include "SimpleRandomizer.h"
@@ -33,6 +34,7 @@
 #include "ed2k_search.h"
 #include "ed2k_server.h"
 #include "fmt.h"
+#include "prefs.h"
 #include "wallclock.h"
 
 namespace aria2 {
@@ -58,6 +60,11 @@ ed2k::Endpoint toEndpoint(const ed2k::KadContact& contact)
 }
 
 constexpr int64_t SERVER_STATUS_POLL_INTERVAL = 45;
+
+int64_t peerRetryWait(const DownloadEngine* e)
+{
+  return std::max<int64_t>(1, e->getOption()->getAsInt(PREF_RETRY_WAIT));
+}
 
 uint32_t createChallenge()
 {
@@ -300,14 +307,14 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
   if (opcode == ed2k::OP_REASKACK) {
     ed2k::UdpReaskAck ack;
     if (ed2k::parseUdpReaskAckPayload(ack, payload)) {
-      addEd2kQueuedPeer(getEd2kAttrs(requestGroup_->getDownloadContext()),
-                        endpoint);
+      markEd2kPeerQueued(getEd2kAttrs(requestGroup_->getDownloadContext()),
+                         endpoint, ack.rank, ack.bitfield);
     }
     return;
   }
   if (opcode == ed2k::OP_QUEUEFULL || opcode == ed2k::OP_FILENOTFOUND) {
-    addEd2kDeadPeer(getEd2kAttrs(requestGroup_->getDownloadContext()),
-                    endpoint);
+    markEd2kPeerDead(getEd2kAttrs(requestGroup_->getDownloadContext()),
+                     endpoint, nowSeconds(), peerRetryWait(e_));
     return;
   }
   if (opcode == ed2k::OP_REASKFILEPING) {

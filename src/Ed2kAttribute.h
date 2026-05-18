@@ -16,6 +16,7 @@
 #include "ContextAttribute.h"
 #include "Ed2kKadState.h"
 #include "ed2k_link.h"
+#include "ed2k_peer.h"
 #include "ed2k_search.h"
 #include "ed2k_server.h"
 
@@ -35,8 +36,7 @@ struct Ed2kAttribute : public ContextAttribute {
   std::vector<ed2k::Endpoint> servers;
   std::vector<ed2k::ServerState> serverStates;
   std::vector<ed2k::Endpoint> peers;
-  std::vector<ed2k::Endpoint> deadPeers;
-  std::vector<ed2k::Endpoint> queuedPeers;
+  std::vector<ed2k::PeerState> peerStates;
   std::vector<std::string> pieceHashes;
   std::string aichRootHash;
   ed2k::SearchQuery searchQuery;
@@ -52,8 +52,13 @@ struct Ed2kAttribute : public ContextAttribute {
 Ed2kAttribute* getEd2kAttrs(DownloadContext* dctx);
 Ed2kAttribute* getEd2kAttrs(const std::shared_ptr<DownloadContext>& dctx);
 bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer);
-bool addEd2kQueuedPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer);
-bool addEd2kDeadPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer);
+ed2k::PeerState* getEd2kPeerState(Ed2kAttribute* attrs,
+                                  const ed2k::Endpoint& peer);
+bool markEd2kPeerQueued(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
+                        uint16_t rank,
+                        const std::vector<bool>& partStatus);
+bool markEd2kPeerDead(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
+                      int64_t now, int64_t baseRetrySeconds);
 ed2k::ServerState* getEd2kServerState(Ed2kAttribute* attrs,
                                       const ed2k::Endpoint& server);
 ed2k::ServerState* updateEd2kServerConnecting(Ed2kAttribute* attrs,

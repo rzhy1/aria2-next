@@ -78,6 +78,17 @@ struct UdpReaskAck {
   uint16_t rank = 0;
 };
 
+struct PeerState {
+  Endpoint endpoint;
+  std::vector<bool> partStatus;
+  bool queued = false;
+  uint16_t queueRank = 0;
+  bool dead = false;
+  uint32_t failCount = 0;
+  int64_t lastFailureTime = 0;
+  int64_t nextRetryTime = 0;
+};
+
 std::string createFileStatusPayload(const std::string& fileHash,
                                     const std::vector<bool>& bitfield);
 bool parseFileStatusPayload(std::vector<bool>& bitfield,

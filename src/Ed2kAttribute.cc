@@ -54,17 +54,62 @@ bool addUniqueEndpoint(std::vector<ed2k::Endpoint>& endpoints,
 
 bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
 {
-  return attrs && addUniqueEndpoint(attrs->peers, peer);
+  if (!attrs || !addUniqueEndpoint(attrs->peers, peer)) {
+    return false;
+  }
+  getEd2kPeerState(attrs, peer);
+  return true;
 }
 
-bool addEd2kQueuedPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
+ed2k::PeerState* getEd2kPeerState(Ed2kAttribute* attrs,
+                                  const ed2k::Endpoint& peer)
 {
-  return attrs && addUniqueEndpoint(attrs->queuedPeers, peer);
+  if (!attrs || peer.host.empty() || peer.port == 0) {
+    return nullptr;
+  }
+  auto i = std::find_if(attrs->peerStates.begin(), attrs->peerStates.end(),
+                        [&](const ed2k::PeerState& state) {
+                          return state.endpoint.host == peer.host &&
+                                 state.endpoint.port == peer.port;
+                        });
+  if (i != attrs->peerStates.end()) {
+    return &*i;
+  }
+  ed2k::PeerState state;
+  state.endpoint = peer;
+  attrs->peerStates.push_back(state);
+  return &attrs->peerStates.back();
 }
 
-bool addEd2kDeadPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
+bool markEd2kPeerQueued(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
+                        uint16_t rank,
+                        const std::vector<bool>& partStatus)
 {
-  return attrs && addUniqueEndpoint(attrs->deadPeers, peer);
+  auto state = getEd2kPeerState(attrs, peer);
+  if (!state) {
+    return false;
+  }
+  state->queued = true;
+  state->dead = false;
+  state->queueRank = rank;
+  state->partStatus = partStatus;
+  return true;
+}
+
+bool markEd2kPeerDead(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
+                      int64_t now, int64_t baseRetrySeconds)
+{
+  auto state = getEd2kPeerState(attrs, peer);
+  if (!state) {
+    return false;
+  }
+  state->queued = false;
+  state->dead = true;
+  ++state->failCount;
+  state->lastFailureTime = now;
+  const auto multiplier = std::min<uint32_t>(state->failCount, 6);
+  state->nextRetryTime = now + baseRetrySeconds * multiplier;
+  return true;
 }
 
 ed2k::ServerState* getEd2kServerState(Ed2kAttribute* attrs,
@@ -279,10 +324,20 @@ void schedulePendingEd2kServers(std::vector<std::unique_ptr<Command>>& commands,
 void schedulePendingEd2kPeers(RequestGroup* requestGroup, DownloadEngine* e)
 {
   auto attrs = getEd2kAttrs(requestGroup->getDownloadContext());
+  const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                       global::wallclock().getTime().time_since_epoch())
+                       .count();
   while (attrs->nextPeerIndex < attrs->peers.size() &&
          requestGroup->getNumStreamCommand() <
              requestGroup->getNumConcurrentCommand()) {
     auto peer = attrs->peers[attrs->nextPeerIndex++];
+    auto state = getEd2kPeerState(attrs, peer);
+    if (state && state->dead && state->nextRetryTime > now) {
+      continue;
+    }
+    if (state) {
+      state->dead = false;
+    }
     e->addCommand(make_unique<Ed2kCommand>(e->newCUID(), requestGroup, e,
                                            peer, false));
   }

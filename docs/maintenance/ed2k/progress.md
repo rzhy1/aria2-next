@@ -340,3 +340,16 @@ aria2_tests` passed. `ctest --preset default --output-on-failure -R
 aria2_tests` passed with `100% tests passed, 0 tests failed out of 1`.
 Remaining: Move to CP7 peer outbound download session.
 Blocked: none.
+
+2026-05-18 CP7 partial
+Changed: Added first-class ED2K peer state ownership for queue rank, part
+status, dead-peer state, failure count, last failure time, and retry backoff.
+UDP REASKACK, QUEUEFULL, and FILENOTFOUND now update PeerState instead of
+separate endpoint lists, and peer scheduling skips dead peers until retry time.
+Verified: A focused peer-state test failed before implementation because no
+PeerState API existed. After implementation, `cmake --build --preset default
+--target aria2_tests` passed and `ctest --preset default --output-on-failure
+-R aria2_tests` passed with `100% tests passed, 0 tests failed out of 1`.
+Remaining: Continue CP7 by routing queue rank packets, peer failure paths,
+cancel/out-of-parts handling, and download-session state through PeerState.
+Blocked: none.

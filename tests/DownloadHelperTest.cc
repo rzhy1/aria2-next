@@ -49,6 +49,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KServerState);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KMultipleServerStates);
   CPPUNIT_TEST(testEd2kPeerDeduplication);
+  CPPUNIT_TEST(testEd2kPeerSchedulingSkipsBackoff);
   CPPUNIT_TEST(testEd2kServerStateUpdate);
   CPPUNIT_TEST(testEd2kInitialServerCommandRecordsFailure);
   CPPUNIT_TEST(testEd2kInitialServerCommandUpdatesServerState);
@@ -90,6 +91,7 @@ public:
   void testCreateRequestGroupForUri_ED2KServerState();
   void testCreateRequestGroupForUri_ED2KMultipleServerStates();
   void testEd2kPeerDeduplication();
+  void testEd2kPeerSchedulingSkipsBackoff();
   void testEd2kServerStateUpdate();
   void testEd2kInitialServerCommandRecordsFailure();
   void testEd2kInitialServerCommandUpdatesServerState();
@@ -442,10 +444,65 @@ void DownloadHelperTest::testEd2kPeerDeduplication()
   CPPUNIT_ASSERT(addEd2kPeer(&attrs, peer));
   CPPUNIT_ASSERT(!addEd2kPeer(&attrs, peer));
   CPPUNIT_ASSERT_EQUAL((size_t)1, attrs.peers.size());
+  auto state = getEd2kPeerState(&attrs, peer);
+  CPPUNIT_ASSERT(state);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.10"), state->endpoint.host);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4662, state->endpoint.port);
 
   peer.port = 4663;
   CPPUNIT_ASSERT(addEd2kPeer(&attrs, peer));
   CPPUNIT_ASSERT_EQUAL((size_t)2, attrs.peers.size());
+
+  std::vector<bool> partStatus;
+  partStatus.push_back(true);
+  partStatus.push_back(false);
+  CPPUNIT_ASSERT(markEd2kPeerQueued(&attrs, peer, 7, partStatus));
+  state = getEd2kPeerState(&attrs, peer);
+  CPPUNIT_ASSERT(state->queued);
+  CPPUNIT_ASSERT(!state->dead);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)7, state->queueRank);
+  CPPUNIT_ASSERT_EQUAL((size_t)2, state->partStatus.size());
+
+  CPPUNIT_ASSERT(markEd2kPeerDead(&attrs, peer, 100, 30));
+  CPPUNIT_ASSERT(!state->queued);
+  CPPUNIT_ASSERT(state->dead);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)1, state->failCount);
+  CPPUNIT_ASSERT_EQUAL((int64_t)100, state->lastFailureTime);
+  CPPUNIT_ASSERT_EQUAL((int64_t)130, state->nextRetryTime);
+}
+
+void DownloadHelperTest::testEd2kPeerSchedulingSkipsBackoff()
+{
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|/"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_ED2K_SERVER, "203.0.113.10:4661");
+  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
+  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_DRY_RUN, A2_V_TRUE);
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+  auto group = result[0];
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+  ed2k::Endpoint peer;
+  peer.host = "203.0.113.20";
+  peer.port = 4662;
+  addEd2kPeer(attrs, peer);
+  auto state = getEd2kPeerState(attrs, peer);
+  state->dead = true;
+  state->nextRetryTime = std::numeric_limits<int64_t>::max();
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
+
+  schedulePendingEd2kPeers(group.get(), &engine);
+
+  CPPUNIT_ASSERT_EQUAL((int32_t)0, group->getNumCommand());
 }
 
 void DownloadHelperTest::testEd2kServerStateUpdate()
@@ -1035,7 +1092,10 @@ void DownloadHelperTest::testEd2kKadCommandHandlesClientUdpReask()
   SocketCore peerSocket(SOCK_DGRAM);
   peerSocket.bind(0);
   peerSocket.setNonBlockingMode();
-  auto peerEndpoint = peerSocket.getAddrInfo();
+  auto peerSocketEndpoint = peerSocket.getAddrInfo();
+  ed2k::Endpoint peerEndpoint;
+  peerEndpoint.host = "127.0.0.1";
+  peerEndpoint.port = peerSocketEndpoint.port;
 
   DownloadEngine engine(make_unique<SelectEventPoll>());
   engine.setOption(option_.get());
@@ -1055,9 +1115,11 @@ void DownloadHelperTest::testEd2kKadCommandHandlesClientUdpReask()
 
   CPPUNIT_ASSERT(commandPtr->waitLocalUdpReadable(1));
   CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
-  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs->queuedPeers.size());
-  CPPUNIT_ASSERT_EQUAL(std::string("127.0.0.1"), attrs->queuedPeers[0].host);
-  CPPUNIT_ASSERT_EQUAL(peerEndpoint.port, attrs->queuedPeers[0].port);
+  auto peerState = getEd2kPeerState(attrs, peerEndpoint);
+  CPPUNIT_ASSERT(peerState);
+  CPPUNIT_ASSERT(peerState->queued);
+  CPPUNIT_ASSERT(!peerState->dead);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)5, peerState->queueRank);
 
   auto queueFull = ed2k::createPacket(ed2k::PROTO_EMULE, ed2k::OP_QUEUEFULL,
                                       std::string());
@@ -1066,9 +1128,11 @@ void DownloadHelperTest::testEd2kKadCommandHandlesClientUdpReask()
 
   CPPUNIT_ASSERT(commandPtr->waitLocalUdpReadable(1));
   CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
-  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs->deadPeers.size());
-  CPPUNIT_ASSERT_EQUAL(std::string("127.0.0.1"), attrs->deadPeers[0].host);
-  CPPUNIT_ASSERT_EQUAL(peerEndpoint.port, attrs->deadPeers[0].port);
+  peerState = getEd2kPeerState(attrs, peerEndpoint);
+  CPPUNIT_ASSERT(peerState);
+  CPPUNIT_ASSERT(!peerState->queued);
+  CPPUNIT_ASSERT(peerState->dead);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)1, peerState->failCount);
 
   auto reask = ed2k::createPacket(ed2k::PROTO_EMULE, ed2k::OP_REASKFILEPING,
                                   ed2k::createUdpReaskFilePingPayload(

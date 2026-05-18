@@ -395,3 +395,20 @@ failed out of 1`.
 Remaining: Continue CP7 with request lifecycle ownership, disconnect handling,
 and corrupt-piece retry through PeerState.
 Blocked: none.
+
+2026-05-18 CP7 partial
+Changed: Added a focused local-socket regression proving that a peer which
+sends a full corrupt one-piece ED2K part is marked dead and placed into
+PeerState retry backoff through the existing `DlRetryEx` peer failure path.
+No production code change was needed after the corrected failing check showed
+the current state path already handles the corrupt-piece transition.
+Verified: The first test draft failed before it reached piece verification
+because the corrupt payload was shorter than the file. After correcting the
+payload to preserve the requested range and corrupt only the content,
+`cmake --build --preset default --target aria2_tests` passed and `ctest
+--preset default --output-on-failure -R aria2_tests` passed with `100% tests
+passed, 0 tests failed out of 1`.
+Remaining: Continue CP7 with remaining request lifecycle ownership,
+disconnect handling, and peer download state separation where it reduces the
+overloaded command path.
+Blocked: none.

@@ -55,7 +55,9 @@
 #include "OptionHandler.h"
 #include "SHA1IOFile.h"
 #include "Ed2kAttribute.h"
-#include "ed2k_helper.h"
+#include "ed2k_kad.h"
+#include "ed2k_link.h"
+#include "ed2k_server.h"
 
 #if HAVE_ZLIB
 #  include "GZipFile.h"

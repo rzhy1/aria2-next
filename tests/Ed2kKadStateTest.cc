@@ -2,6 +2,7 @@
 
 #include <cppunit/extensions/HelperMacros.h>
 
+#include "ed2k_constants.h"
 #include "util.h"
 
 namespace aria2 {

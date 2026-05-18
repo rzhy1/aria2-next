@@ -15,7 +15,9 @@
 
 #include "ContextAttribute.h"
 #include "Ed2kKadState.h"
-#include "ed2k_helper.h"
+#include "ed2k_link.h"
+#include "ed2k_search.h"
+#include "ed2k_server.h"
 
 #include <memory>
 #include <vector>

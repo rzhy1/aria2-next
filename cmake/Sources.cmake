@@ -156,6 +156,7 @@ set(ARIA2_SOURCES_BASE
   src/ed2k_aich.h
   src/ed2k_compression.cc
   src/ed2k_compression.h
+  src/ed2k_constants.h
   src/ed2k_endpoint.cc
   src/ed2k_endpoint.h
   src/ed2k_hash.cc

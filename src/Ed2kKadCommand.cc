@@ -24,6 +24,13 @@
 #include "RequestGroupMan.h"
 #include "SimpleRandomizer.h"
 #include "SocketCore.h"
+#include "ed2k_constants.h"
+#include "ed2k_hash.h"
+#include "ed2k_kad.h"
+#include "ed2k_kad_search.h"
+#include "ed2k_packet.h"
+#include "ed2k_search.h"
+#include "ed2k_server.h"
 #include "fmt.h"
 #include "wallclock.h"
 

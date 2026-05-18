@@ -64,7 +64,11 @@
 #include "OptionParser.h"
 #include "SegList.h"
 #include "download_handlers.h"
-#include "ed2k_helper.h"
+#include "ed2k_hash.h"
+#include "ed2k_kad.h"
+#include "ed2k_link.h"
+#include "ed2k_search.h"
+#include "ed2k_server.h"
 #include "SimpleRandomizer.h"
 #ifdef ENABLE_BITTORRENT
 #  include "bittorrent_helper.h"

@@ -20,7 +20,8 @@
 #include <string>
 #include <vector>
 
-#include "ed2k_helper.h"
+#include "ed2k_hash.h"
+#include "ed2k_kad.h"
 
 namespace aria2 {
 

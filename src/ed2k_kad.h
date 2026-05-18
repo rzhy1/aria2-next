@@ -14,7 +14,7 @@
 #define D_ED2K_KAD_H
 
 #include "common.h"
-#include "ed2k_endpoint.h"
+#include "ed2k_link.h"
 #include "ed2k_packet.h"
 
 #include <cstdint>

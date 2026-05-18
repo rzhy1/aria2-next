@@ -91,32 +91,18 @@ Repository: `/Users/sekiro/Projects/personal/aria2-next`.
 
 Current branch: `main`.
 
-Current HEAD observed during audit: `57650b79`.
+Current HEAD observed during audit: `70eb5ee8`.
 
-The ED2K work is uncommitted. Modified tracked files include
-`cmake/Sources.cmake`, `cmake/TestSources.cmake`,
-`docs/completion/aria2-next`, `docs/manual/en/aria2-next.rst`,
-`src/ContextAttribute.cc`, `src/ContextAttribute.h`,
-`src/OptionHandlerFactory.cc`, `src/ProtocolDetector.cc`,
-`src/ProtocolDetector.h`, `src/RequestGroup.cc`,
-`src/RpcMethodFactory.cc`, `src/RpcMethodImpl.cc`,
-`src/RpcMethodImpl.h`, `src/SessionSerializer.cc`,
-`src/download_helper.cc`, `src/download_helper.h`, `src/prefs.cc`,
-`src/prefs.h`, `src/usage_text.h`, `tests/DownloadHelperTest.cc`,
-`tests/ProtocolDetectorTest.cc`, and `tests/SessionSerializerTest.cc`.
+The ED2K draft has been committed through the first protocol module split.
+`src/ed2k_helper.cc` has been deleted. `src/ed2k_helper.h` remains only as an
+aggregation header for broad helper tests. CP3 also moved production callers to
+narrow ED2K headers and moved protocol opcodes into `src/ed2k_constants.h`.
 
-Untracked ED2K files include `src/Ed2kAttribute.cc`,
-`src/Ed2kAttribute.h`, `src/Ed2kCommand.cc`, `src/Ed2kCommand.h`,
-`src/Ed2kKadCommand.cc`, `src/Ed2kKadCommand.h`,
-`src/Ed2kKadState.cc`, `src/Ed2kKadState.h`, `src/ed2k_helper.cc`,
-`src/ed2k_helper.h`, `tests/Ed2kHelperTest.cc`, and
-`tests/Ed2kKadStateTest.cc`.
-
-Observed size of the ED2K draft is already large: `src/ed2k_helper.cc` is
-2666 lines, `src/Ed2kCommand.cc` is 966 lines, `src/Ed2kKadCommand.cc` is
-390 lines, and the new or expanded ED2K-related tests are over 2300 lines.
-This is enough code to justify a stabilization checkpoint before adding more
-protocol behavior.
+Remaining large draft surfaces are the active state-machine files, especially
+`src/Ed2kCommand.cc` and `src/Ed2kKadCommand.cc`. They should be reduced only
+when later checkpoints need server, peer, Kad, scheduling, sharing, or upload
+ownership boundaries. Mechanical splitting without a checkpoint need is not a
+goal.
 
 ## Local Verification Snapshot
 
@@ -192,12 +178,11 @@ subsystem. The next design should keep `Ed2kAttribute` as the RequestGroup-owned
 coordination object and move protocol-specific state into smaller owned
 components.
 
-`src/ed2k_helper.*` is doing too much. It combines MD4, AICH hashing, link
-parsing, endpoint parsing, tag parsing, packet framing, server.met parsing,
-server state persistence, server search parsing, Kad packet parsing, nodes.dat
-parsing, Source Exchange, compressed part parsing, eMule info, and AICH packets.
-The file should be split by protocol responsibility before more behavior is
-added.
+`src/ed2k_helper.cc` has been removed. Focused modules now own hash, AICH,
+compression, endpoint packing, Kad, Kad search, link parsing, packet/tag
+framing, peer packets, search conversion, and server packets/state. The
+remaining `src/ed2k_helper.h` aggregation header should stay limited to broad
+test compatibility. Production code should include the narrow headers it uses.
 
 `src/Ed2kCommand.*` is also overloaded. One command currently handles server
 TCP and peer TCP, outbound connection setup, handshake, source discovery,
@@ -333,7 +318,7 @@ architecture decision.
 | CP0 | partial | Baseline audit and tracking | This document records current diff, known failures, reference map, parity ledger, pruning policy, and target checkpoints. | This file is committed or kept updated with every checkpoint. Current red tests are either fixed or documented with root cause. | `git status --short`; targeted `ctest` result recorded in progress log. |
 | CP1 | verified | Stabilize current ED2K tests | The two known ED2K failures were traced and fixed. Source Exchange now serializes unknown source servers as `0.0.0.0:0`; the UDP server status test waits for the command socket to become readable before executing the receive path. | Root cause is traced for Source Exchange answer serialization and UDP server status test scheduling. Fixes are minimal and do not hide failures. | `cmake --build --preset default --target aria2_tests`; `ctest --preset default --output-on-failure -R aria2_tests`. |
 | CP2 | verified | Reference parity audit | The parity ledger now classifies the meaningful reference subsystems as port, adapt, replace, or prune. The pruning ledger records daemon/UI/runtime/deprecated surfaces that must not be ported. | Audit all reference areas in the parity ledger. Record a decision for each meaningful subsystem. Add pruned items only with evidence and reason. | Reference inspection with `rg`/`sed`; documentation review; `git diff --check docs/maintenance/ed2k-implementation-checkpoints.md`. |
-| CP3 | partial | Protocol module boundaries | `ed2k_helper.*` contains link, packet, tag, hash, server, Kad, SX, compression, state, and AICH logic. | Split only the necessary helpers into focused modules with no behavior drift. CMake source inventory remains accurate. | ED2K helper tests pass before and after split. |
+| CP3 | verified | Protocol module boundaries | `ed2k_helper.cc` has been deleted, `ed2k_helper.h` is an aggregation header only, constants live in `ed2k_constants.h`, and production callers include narrow ED2K protocol headers. | Split only the necessary helpers into focused modules with no behavior drift. CMake source inventory remains accurate. | ED2K helper tests pass before and after split. |
 | CP4 | partial | Link support | File links, options, part hashes, AICH hash, source hash, crypt options, server links, serverlist links, and nodeslist links have parser coverage in draft helpers. | Parsing and serialization are complete for file/server/serverlist/nodeslist links, part hashes, AICH hashes, inline sources, source hashes, crypt options, safe output filenames, and all reference link variants that are not pruned. | Focused link parser tests plus `ProtocolDetectorTest`. |
 | CP5 | partial | RequestGroup, disk, and resume spine | ED2K request groups use `DownloadContext`, `DefaultPieceStorage`, `SegmentMan`, disk adaptor, and control file paths. Session writes file link plus limited server/Kad state. | ED2K downloads and searches start through existing request group paths. Resume is restart-safe for file metadata, piece state, hashset state, AICH state, sources, server state, Kad state, shared files, and credits where implemented. | `SessionSerializerTest`; focused ED2K resume test; no regression in normal downloads. |
 | CP6 | partial | Server TCP and UDP support | Login, IDChange, GetSources, FoundSources, callback request, server status, server message, server list, and UDP global status are partially present. | Direct servers and server.met load correctly. Server login, HighID/LowID, status/messages, GetSources/FoundSources, callback, server list, UDP global status, retry/backoff, and persisted server state are correct and scheduled. | Focused server packet tests and local command simulation. |
@@ -507,4 +492,17 @@ with `100% tests passed, 0 tests failed out of 1`. `git diff --check` passed.
 Remaining: CP3 still needs a later include-surface audit so callers can move
 from the aggregation header to the narrow protocol headers where practical.
 Avoid adding test volume for mechanical include cleanup.
+Blocked: none.
+
+2026-05-18 CP3 verified
+Changed: Moved ED2K protocol constants into `ed2k_constants.h`, reduced
+`ed2k_helper.h` to a pure aggregation header, and moved production callers to
+narrow ED2K headers for link, hash, packet, server, Kad, search, peer,
+compression, and AICH surfaces. Kept only `tests/Ed2kHelperTest.cc` on the
+aggregation header because it intentionally covers the broad helper surface.
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`. `git diff --check` passed.
+Remaining: CP4 should finish the ED2K link support audit and only add compact
+parser coverage for real missing link variants.
 Blocked: none.

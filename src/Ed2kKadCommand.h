@@ -19,7 +19,7 @@
 #include <memory>
 #include <string>
 
-#include "ed2k_helper.h"
+#include "ed2k_link.h"
 
 namespace aria2 {
 

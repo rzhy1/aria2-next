@@ -16,6 +16,7 @@
 
 #include "DlAbortEx.h"
 #include "Ed2kKadState.h"
+#include "ed2k_endpoint.h"
 #include "ed2k_hash.h"
 
 namespace aria2 {

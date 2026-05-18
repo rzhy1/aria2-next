@@ -43,7 +43,7 @@
 #include "RecoverableException.h"
 #include "uri.h"
 #include "BufferedFile.h"
-#include "ed2k_helper.h"
+#include "ed2k_link.h"
 #ifdef ENABLE_BITTORRENT
 #  include "bittorrent_helper.h"
 #endif // ENABLE_BITTORRENT

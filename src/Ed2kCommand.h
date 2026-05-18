@@ -14,7 +14,9 @@
 #define D_ED2K_COMMAND_H
 
 #include "AbstractCommand.h"
-#include "ed2k_helper.h"
+#include "ed2k_link.h"
+#include "ed2k_packet.h"
+#include "ed2k_peer.h"
 
 #include <array>
 #include <deque>

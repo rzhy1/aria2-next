@@ -428,3 +428,18 @@ passed, 0 tests failed out of 1`, and `git diff --check` passed.
 Remaining: Continue CP7 with disconnect behavior audit and decide whether a
 small peer download-session boundary should be split from `Ed2kCommand`.
 Blocked: none.
+
+2026-05-18 CP7 partial
+Changed: Tightened ED2K peer disconnect handling during packet reads. EOF while
+reading a partial header or body now raises the existing retry path instead of
+silently rescheduling a peer command with no readable socket. The path records
+PeerState failure, clears connecting and accepted state, clears requested
+parts, and applies reconnect backoff.
+Verified: The focused half-packet disconnect regression failed before the fix
+because PeerState stayed live. After the fix, `cmake --build --preset default
+--target aria2_tests` passed and `ctest --preset default --output-on-failure
+-R aria2_tests` passed with `100% tests passed, 0 tests failed out of 1`.
+Remaining: Continue CP7 by auditing bad part range and segment release
+behavior, then decide whether a small peer download-session boundary should be
+split from `Ed2kCommand`.
+Blocked: none.

@@ -459,6 +459,9 @@ bool Ed2kCommand::readHeader()
     size_t len = headerBuf_.size() - headerRead_;
     getSocket()->readData(headerBuf_.data() + headerRead_, len);
     if (len == 0) {
+      if (!getSocket()->wantRead() && !getSocket()->wantWrite()) {
+        throw DL_RETRY_EX("ED2K connection closed.");
+      }
       setReadCheckSocketIf(getSocket(), getSocket()->wantRead());
       setWriteCheckSocketIf(getSocket(), getSocket()->wantWrite());
       addCommandSelf();
@@ -490,6 +493,9 @@ bool Ed2kCommand::readBody()
     size_t len = body_.size() - bodyRead_;
     getSocket()->readData(&body_[bodyRead_], len);
     if (len == 0) {
+      if (!getSocket()->wantRead() && !getSocket()->wantWrite()) {
+        throw DL_RETRY_EX("ED2K connection closed.");
+      }
       setReadCheckSocketIf(getSocket(), getSocket()->wantRead());
       setWriteCheckSocketIf(getSocket(), getSocket()->wantWrite());
       addCommandSelf();

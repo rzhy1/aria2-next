@@ -176,6 +176,8 @@ set(ARIA2_SOURCES_BASE
   src/ed2k_packet.h
   src/ed2k_peer.cc
   src/ed2k_peer.h
+  src/ed2k_policy.cc
+  src/ed2k_policy.h
   src/ed2k_search.cc
   src/ed2k_search.h
   src/ed2k_server.cc

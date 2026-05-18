@@ -44,7 +44,6 @@ struct Ed2kAttribute : public ContextAttribute {
   std::shared_ptr<ed2k::KadRoutingTable> kadRoutingTable;
   ed2k::KadTransactionTable kadTransactions;
   size_t nextServerIndex = 0;
-  size_t nextPeerIndex = 0;
   bool searchActive = false;
   bool searchMoreResults = false;
 };

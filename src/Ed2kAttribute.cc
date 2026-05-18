@@ -20,6 +20,7 @@
 #include "Ed2kCommand.h"
 #include "RequestGroup.h"
 #include "a2functional.h"
+#include "ed2k_policy.h"
 #include "util.h"
 #include "wallclock.h"
 
@@ -510,21 +511,15 @@ void schedulePendingEd2kPeers(RequestGroup* requestGroup, DownloadEngine* e)
   const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                        global::wallclock().getTime().time_since_epoch())
                        .count();
-  while (attrs->nextPeerIndex < attrs->peers.size() &&
-         requestGroup->getNumStreamCommand() <
-             requestGroup->getNumConcurrentCommand()) {
-    auto peer = attrs->peers[attrs->nextPeerIndex++];
-    auto state = getEd2kPeerState(attrs, peer);
-    if (state && state->dead && state->nextRetryTime > now) {
-      continue;
+  while (requestGroup->getNumStreamCommand() <
+         requestGroup->getNumConcurrentCommand()) {
+    auto state = ed2k::selectConnectPeer(attrs->peerStates, now);
+    if (!state) {
+      return;
     }
-    if (state && state->connecting) {
-      continue;
-    }
-    if (state) {
-      state->dead = false;
-      state->connecting = true;
-    }
+    auto peer = state->endpoint;
+    state->dead = false;
+    state->connecting = true;
     e->addCommand(make_unique<Ed2kCommand>(e->newCUID(), requestGroup, e,
                                            peer, false));
   }

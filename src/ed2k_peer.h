@@ -30,6 +30,7 @@ constexpr uint32_t PEER_SOURCE_SERVER = 1u << 1;
 constexpr uint32_t PEER_SOURCE_KAD = 1u << 2;
 constexpr uint32_t PEER_SOURCE_RESUME = 1u << 3;
 constexpr uint32_t PEER_SOURCE_EXCHANGE = 1u << 4;
+constexpr uint32_t PEER_SOURCE_INLINE = 1u << 5;
 
 struct PartRange {
   int64_t begin = 0;

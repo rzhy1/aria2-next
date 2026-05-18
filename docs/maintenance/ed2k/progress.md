@@ -523,3 +523,20 @@ rerun and a second `ctest --preset default --output-on-failure -R aria2_tests`
 both passed with `100% tests passed, 0 tests failed out of 1`.
 Remaining: Move to CP10 ED2K source and piece policy.
 Blocked: none.
+
+2026-05-18 CP10 verified
+Changed: Added a focused ED2K source and piece policy module. Peer scheduling
+no longer depends on a simple cursor; it skips ineligible peers, preserves
+retry backoff, ranks lower failure counts first, then ED2K source ownership,
+queue state, and queue rank. Part requests now use peer part availability,
+preserve suitable in-flight segments, and reclaim clean idle-owner segments
+through SegmentMan instead of adding a separate ED2K block manager. Inline
+file-link sources now keep a distinct source label instead of being recorded
+as resume sources.
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+`ctest --preset default --output-on-failure -R aria2_tests` passed with
+`100% tests passed, 0 tests failed out of 1`. `git diff --check` passed.
+Remaining: Move to CP11 integrity and compressed transfer completion. AICH tree
+verification and recovery remain incomplete, and sharing/upload behavior
+remains CP13/CP14 scope.
+Blocked: none.

@@ -30,6 +30,7 @@
 #include "Logger.h"
 #include "message.h"
 #include "Option.h"
+#include "PeerStat.h"
 #include "PieceStorage.h"
 #include "Request.h"
 #include "RequestGroup.h"
@@ -40,6 +41,7 @@
 #include "ed2k_compression.h"
 #include "ed2k_constants.h"
 #include "ed2k_hash.h"
+#include "ed2k_policy.h"
 #include "ed2k_search.h"
 #include "ed2k_server.h"
 #include "fmt.h"
@@ -121,6 +123,11 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       localPeerInfo_(createLocalPeerInfo())
 {
   setTimeout(std::chrono::seconds(getOption()->getAsInt(PREF_CONNECT_TIMEOUT)));
+  if (getSegmentMan()) {
+    auto peerStat = getRequest()->initPeerStat();
+    peerStat->downloadStart();
+    getSegmentMan()->registerPeerStat(peerStat);
+  }
   disableReadCheckSocket();
   disableWriteCheckSocket();
   if (mode_ == Mode::PEER) {
@@ -151,6 +158,11 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       localPeerInfo_(createLocalPeerInfo())
 {
   setTimeout(std::chrono::seconds(getOption()->getAsInt(PREF_CONNECT_TIMEOUT)));
+  if (getSegmentMan()) {
+    auto peerStat = getRequest()->initPeerStat();
+    peerStat->downloadStart();
+    getSegmentMan()->registerPeerStat(peerStat);
+  }
   markEd2kPeerConnecting(getEd2kAttrs(getDownloadContext()), endpoint_);
 }
 
@@ -377,13 +389,16 @@ void Ed2kCommand::queuePeerPartRequest()
     return;
   }
   std::vector<ed2k::PartRange> ranges;
-  std::vector<std::shared_ptr<Segment>> inFlight;
-  getSegmentMan()->getInFlightSegment(inFlight, getCuid());
-  for (const auto& segment : inFlight) {
+  const auto attrs = getEd2kAttrs(getDownloadContext());
+  auto state = getEd2kPeerState(attrs, endpoint_);
+  const auto segments = ed2k::selectRequestSegments(
+      getSegmentMan().get(), getCuid(),
+      state ? state->partStatus : std::vector<bool>(), 3);
+  for (const auto& segment : segments) {
     if (ranges.size() >= 3) {
       break;
     }
-    if (segment->complete()) {
+    if (!segment || segment->complete()) {
       continue;
     }
     const int64_t begin = segment->getPositionToWrite();
@@ -392,24 +407,6 @@ void Ed2kCommand::queuePeerPartRequest()
                  segment->getPosition() + segment->getLength());
     if (end <= begin) {
       continue;
-    }
-    ed2k::PartRange range;
-    range.begin = begin;
-    range.end = end;
-    ranges.push_back(range);
-  }
-  while (ranges.size() < 3) {
-    auto segment = getSegmentMan()->getSegment(getCuid(), ed2k::BLOCK_LENGTH);
-    if (!segment) {
-      break;
-    }
-    const int64_t begin = segment->getPositionToWrite();
-    const int64_t end =
-        std::min(begin + static_cast<int64_t>(ed2k::BLOCK_LENGTH),
-                 segment->getPosition() + segment->getLength());
-    if (end <= begin) {
-      getSegmentMan()->cancelSegment(getCuid(), segment);
-      break;
     }
     ed2k::PartRange range;
     range.begin = begin;
@@ -419,7 +416,6 @@ void Ed2kCommand::queuePeerPartRequest()
   if (ranges.empty()) {
     return;
   }
-  const auto attrs = getEd2kAttrs(getDownloadContext());
   updateEd2kPeerRequestedParts(attrs, endpoint_, ranges);
   queuePacket(ed2k::PROTO_EDONKEY,
               use64BitOffsets_ ? ed2k::OP_REQUESTPARTS_I64

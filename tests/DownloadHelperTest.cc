@@ -14,12 +14,15 @@
 #include "RequestGroup.h"
 #include "DownloadEngine.h"
 #include "DownloadContext.h"
+#include "DefaultPieceStorage.h"
 #include "Ed2kAttribute.h"
 #include "Ed2kCommand.h"
 #include "Ed2kKadCommand.h"
 #include "Option.h"
 #include "RequestGroupMan.h"
 #include "SelectEventPoll.h"
+#include "Segment.h"
+#include "SegmentMan.h"
 #include "SocketCore.h"
 #include "DefaultBtProgressInfoFile.h"
 #include "array_fun.h"
@@ -29,6 +32,7 @@
 #include "ed2k_link.h"
 #include "ed2k_packet.h"
 #include "ed2k_peer.h"
+#include "ed2k_policy.h"
 #include "ed2k_search.h"
 #include "ed2k_server.h"
 #include "prefs.h"
@@ -54,6 +58,10 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KMultipleServerStates);
   CPPUNIT_TEST(testEd2kPeerDeduplication);
   CPPUNIT_TEST(testEd2kSourceExchangeMergePolicy);
+  CPPUNIT_TEST(testEd2kSourcePolicyRanksSources);
+  CPPUNIT_TEST(testEd2kPiecePolicyUsesPeerAvailability);
+  CPPUNIT_TEST(testEd2kPiecePolicyReclaimsIdlePeerSegment);
+  CPPUNIT_TEST(testEd2kSchedulingKeepsInlineSourceLabel);
   CPPUNIT_TEST(testEd2kPeerSchedulingSkipsBackoff);
   CPPUNIT_TEST(testEd2kPeerCommandRecordsFailure);
   CPPUNIT_TEST(testEd2kPeerCommandBacksOffOnDisconnect);
@@ -106,6 +114,10 @@ public:
   void testCreateRequestGroupForUri_ED2KMultipleServerStates();
   void testEd2kPeerDeduplication();
   void testEd2kSourceExchangeMergePolicy();
+  void testEd2kSourcePolicyRanksSources();
+  void testEd2kPiecePolicyUsesPeerAvailability();
+  void testEd2kPiecePolicyReclaimsIdlePeerSegment();
+  void testEd2kSchedulingKeepsInlineSourceLabel();
   void testEd2kPeerSchedulingSkipsBackoff();
   void testEd2kPeerCommandRecordsFailure();
   void testEd2kPeerCommandBacksOffOnDisconnect();
@@ -545,6 +557,123 @@ void DownloadHelperTest::testEd2kSourceExchangeMergePolicy()
   CPPUNIT_ASSERT_EQUAL(userHash, state->endpoint.userHash);
   CPPUNIT_ASSERT_EQUAL((uint16_t)0x83, state->endpoint.cryptOptions);
   CPPUNIT_ASSERT((state->sourceFlags & ed2k::PEER_SOURCE_EXCHANGE) != 0);
+}
+
+void DownloadHelperTest::testEd2kSourcePolicyRanksSources()
+{
+  Ed2kAttribute attrs;
+  ed2k::Endpoint sx;
+  sx.host = "203.0.113.10";
+  sx.port = 4662;
+  ed2k::Endpoint kad;
+  kad.host = "203.0.113.11";
+  kad.port = 4662;
+  ed2k::Endpoint server;
+  server.host = "203.0.113.12";
+  server.port = 4662;
+  addEd2kPeer(&attrs, sx, ed2k::PEER_SOURCE_EXCHANGE);
+  addEd2kPeer(&attrs, kad, ed2k::PEER_SOURCE_KAD);
+  addEd2kPeer(&attrs, server, ed2k::PEER_SOURCE_SERVER);
+  auto serverState = getEd2kPeerState(&attrs, server);
+  serverState->failCount = 2;
+
+  auto selected = ed2k::selectConnectPeer(attrs.peerStates, 0);
+
+  CPPUNIT_ASSERT(selected);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.11"), selected->endpoint.host);
+
+  auto kadState = getEd2kPeerState(&attrs, kad);
+  CPPUNIT_ASSERT(markEd2kPeerDead(&attrs, kad, 10, 30));
+  selected = ed2k::selectConnectPeer(attrs.peerStates, 20);
+
+  CPPUNIT_ASSERT(selected);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.10"), selected->endpoint.host);
+}
+
+void DownloadHelperTest::testEd2kPiecePolicyUsesPeerAvailability()
+{
+  auto dctx = std::make_shared<DownloadContext>(
+      ed2k::PIECE_LENGTH, static_cast<int64_t>(ed2k::PIECE_LENGTH) * 3,
+      "aria2-next-ed2k.bin");
+  auto attrs = std::make_shared<Ed2kAttribute>();
+  dctx->setAttribute(CTX_ATTR_ED2K, attrs);
+  auto pieceStorage = std::make_shared<DefaultPieceStorage>(dctx, option_.get());
+  auto segmentMan = std::make_shared<SegmentMan>(dctx, pieceStorage);
+
+  std::vector<bool> peerAvailability;
+  peerAvailability.push_back(false);
+  peerAvailability.push_back(true);
+  peerAvailability.push_back(false);
+
+  auto selected = ed2k::selectRequestSegments(segmentMan.get(), 1,
+                                              peerAvailability, 3);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, selected.size());
+  CPPUNIT_ASSERT_EQUAL((size_t)1, selected[0]->getIndex());
+  std::vector<std::shared_ptr<Segment>> inFlight;
+  segmentMan->getInFlightSegment(inFlight, 1);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, inFlight.size());
+  CPPUNIT_ASSERT_EQUAL((size_t)1, inFlight[0]->getIndex());
+}
+
+void DownloadHelperTest::testEd2kPiecePolicyReclaimsIdlePeerSegment()
+{
+  auto dctx = std::make_shared<DownloadContext>(
+      ed2k::PIECE_LENGTH, static_cast<int64_t>(ed2k::PIECE_LENGTH) * 2,
+      "aria2-next-ed2k.bin");
+  auto attrs = std::make_shared<Ed2kAttribute>();
+  dctx->setAttribute(CTX_ATTR_ED2K, attrs);
+  auto pieceStorage = std::make_shared<DefaultPieceStorage>(dctx, option_.get());
+  auto segmentMan = std::make_shared<SegmentMan>(dctx, pieceStorage);
+  CPPUNIT_ASSERT(segmentMan->getSegmentWithIndex(1, 0));
+
+  std::vector<bool> peerAvailability;
+  peerAvailability.push_back(true);
+  peerAvailability.push_back(false);
+  auto selected = ed2k::selectRequestSegments(segmentMan.get(), 2,
+                                              peerAvailability, 1);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, selected.size());
+  CPPUNIT_ASSERT_EQUAL((size_t)0, selected[0]->getIndex());
+  std::vector<std::shared_ptr<Segment>> oldOwner;
+  segmentMan->getInFlightSegment(oldOwner, 1);
+  CPPUNIT_ASSERT(oldOwner.empty());
+}
+
+void DownloadHelperTest::testEd2kSchedulingKeepsInlineSourceLabel()
+{
+  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-inline-source-label";
+  const std::string outfile = outdir + "/aria2 next.bin";
+  File(outfile).remove();
+  File(outfile + DefaultBtProgressInfoFile::getSuffix()).remove();
+  File(outdir).mkdirs();
+
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|sources,203.0.113.20:4662|/"};
+  option_->put(PREF_DIR, outdir);
+  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
+  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_DRY_RUN, A2_V_FALSE);
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+  auto group = result[0];
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
+  std::vector<std::unique_ptr<Command>> commands;
+  group->createInitialCommand(commands, &engine);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs->peerStates.size());
+  auto state = getEd2kPeerState(attrs, attrs->link.sources[0]);
+  CPPUNIT_ASSERT(state);
+  CPPUNIT_ASSERT((state->sourceFlags & ed2k::PEER_SOURCE_RESUME) == 0);
+  CPPUNIT_ASSERT((state->sourceFlags & ed2k::PEER_SOURCE_INLINE) != 0);
 }
 
 void DownloadHelperTest::testEd2kPeerSchedulingSkipsBackoff()

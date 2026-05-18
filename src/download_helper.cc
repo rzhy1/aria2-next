@@ -245,9 +245,9 @@ createEd2kServerStates(const std::shared_ptr<Option>& option)
   return states;
 }
 
-std::shared_ptr<ed2k::KadRoutingTable>
-createEd2kKadRoutingTable(const std::shared_ptr<Option>& option,
-                          const std::string& selfId)
+std::shared_ptr<ed2k::KadRoutingTable> createEd2kKadRoutingTable(
+    const std::shared_ptr<Option>& option, const std::string& selfId,
+    ed2k::KadRoutingSnapshot* restoredSnapshot = nullptr)
 {
   if (!option->blank(PREF_ED2K_KAD_ROUTING_STATE)) {
     ed2k::KadRoutingSnapshot snapshot;
@@ -259,6 +259,9 @@ createEd2kKadRoutingTable(const std::shared_ptr<Option>& option,
     }
     auto table = std::make_shared<ed2k::KadRoutingTable>(selfId);
     table->restore(snapshot);
+    if (restoredSnapshot) {
+      *restoredSnapshot = snapshot;
+    }
     return table;
   }
   if (option->blank(PREF_ED2K_NODE_LIST)) {
@@ -307,8 +310,12 @@ createEd2kRequestGroup(const std::string& ed2kUri,
   attrs->serverStates = createEd2kServerStates(option);
   addOptionEd2kServers(attrs->servers, attrs->serverStates, option);
   addEd2kServerStateEndpoints(attrs->servers, attrs->serverStates);
+  ed2k::KadRoutingSnapshot kadSnapshot;
   attrs->kadRoutingTable =
-      createEd2kKadRoutingTable(option, attrs->link.hash);
+      createEd2kKadRoutingTable(option, attrs->link.hash, &kadSnapshot);
+  if (attrs->kadRoutingTable) {
+    restoreEd2kKadOperationalState(attrs.get(), kadSnapshot);
+  }
   dctx->setAttribute(CTX_ATTR_ED2K, std::move(attrs));
   dctx->setAcceptMetalink(false);
   rg->setDownloadContext(dctx);
@@ -379,10 +386,14 @@ createEd2kSearchRequestGroup(const ed2k::SearchQuery& query,
   attrs->serverStates = createEd2kServerStates(option);
   addOptionEd2kServers(attrs->servers, attrs->serverStates, option);
   addEd2kServerStateEndpoints(attrs->servers, attrs->serverStates);
-  if (!option->blank(PREF_ED2K_NODE_LIST)) {
-    attrs->kadRoutingTable =
-        createEd2kKadRoutingTable(option,
-                                  ed2k::createKadKeywordTarget(query.keyword));
+  if (!option->blank(PREF_ED2K_NODE_LIST) ||
+      !option->blank(PREF_ED2K_KAD_ROUTING_STATE)) {
+    ed2k::KadRoutingSnapshot kadSnapshot;
+    attrs->kadRoutingTable = createEd2kKadRoutingTable(
+        option, ed2k::createKadKeywordTarget(query.keyword), &kadSnapshot);
+    if (attrs->kadRoutingTable) {
+      restoreEd2kKadOperationalState(attrs.get(), kadSnapshot);
+    }
   }
   if (attrs->servers.empty()) {
     if (!attrs->kadRoutingTable ||

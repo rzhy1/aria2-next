@@ -26,7 +26,7 @@ namespace ed2k {
 namespace {
 
 constexpr char KAD_ROUTING_STATE_MAGIC[] = "A2ED2KKAD";
-constexpr uint32_t KAD_ROUTING_STATE_VERSION = 1;
+constexpr uint32_t KAD_ROUTING_STATE_VERSION = 2;
 
 void validateHashLength(const std::string& hash)
 {
@@ -377,7 +377,9 @@ std::string createKadRoutingStatePayload(const KadRoutingSnapshot& snapshot)
 {
   validateHashLength(snapshot.selfId);
   if (snapshot.buckets.size() > std::numeric_limits<uint16_t>::max() ||
-      snapshot.routerNodes.size() > std::numeric_limits<uint16_t>::max()) {
+      snapshot.routerNodes.size() > std::numeric_limits<uint16_t>::max() ||
+      snapshot.observedAddresses.size() >
+          std::numeric_limits<uint16_t>::max()) {
     throw DL_ABORT_EX("ED2K Kad routing state is too large.");
   }
   std::string payload;
@@ -387,6 +389,14 @@ std::string createKadRoutingStatePayload(const KadRoutingSnapshot& snapshot)
   appendInt64(payload, snapshot.lastBootstrap);
   appendInt64(payload, snapshot.lastRefresh);
   appendInt64(payload, snapshot.lastSelfRefresh);
+  appendInt64(payload, snapshot.lastFirewalledCheck);
+  appendInt64(payload, snapshot.lastSourcePublish);
+  appendByte(payload, snapshot.firewalled ? 1 : 0);
+  payload += packUInt16(
+      static_cast<uint16_t>(snapshot.observedAddresses.size()));
+  for (const auto& address : snapshot.observedAddresses) {
+    appendString(payload, address);
+  }
   payload += packUInt16(static_cast<uint16_t>(snapshot.routerNodes.size()));
   for (const auto& endpoint : snapshot.routerNodes) {
     appendEndpoint(payload, endpoint);
@@ -412,7 +422,7 @@ bool parseKadRoutingStatePayload(KadRoutingSnapshot& snapshot,
       return false;
     }
     const auto version = readUInt32(readBytes(payload, offset, 4).data());
-    if (version != KAD_ROUTING_STATE_VERSION) {
+    if (version != 1 && version != KAD_ROUTING_STATE_VERSION) {
       return false;
     }
     KadRoutingSnapshot parsed;
@@ -420,6 +430,17 @@ bool parseKadRoutingStatePayload(KadRoutingSnapshot& snapshot,
     parsed.lastBootstrap = readInt64(payload, offset);
     parsed.lastRefresh = readInt64(payload, offset);
     parsed.lastSelfRefresh = readInt64(payload, offset);
+    if (version >= 2) {
+      parsed.lastFirewalledCheck = readInt64(payload, offset);
+      parsed.lastSourcePublish = readInt64(payload, offset);
+      parsed.firewalled = readByte(payload, offset) != 0;
+      const auto observedCount =
+          readUInt16(readBytes(payload, offset, 2).data());
+      parsed.observedAddresses.reserve(observedCount);
+      for (uint16_t i = 0; i < observedCount; ++i) {
+        parsed.observedAddresses.push_back(readString(payload, offset));
+      }
+    }
     const auto routerCount = readUInt16(readBytes(payload, offset, 2).data());
     parsed.routerNodes.reserve(routerCount);
     for (uint16_t i = 0; i < routerCount; ++i) {

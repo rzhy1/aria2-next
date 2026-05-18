@@ -184,6 +184,10 @@ void SessionSerializerTest::testSaveEd2kDownload()
   attrs->peers.push_back(learnedPeer);
   attrs->kadRoutingTable =
       std::make_shared<ed2k::KadRoutingTable>(attrs->link.hash);
+  attrs->lastKadFirewalledCheck = 500;
+  attrs->lastKadSourcePublish = 600;
+  attrs->kadFirewalled = false;
+  attrs->kadObservedAddresses.push_back("203.0.113.55");
   ed2k::ServerState serverState;
   serverState.endpoint.host = "203.0.113.10";
   serverState.endpoint.port = 4661;
@@ -230,6 +234,17 @@ void SessionSerializerTest::testSaveEd2kDownload()
       fmt(" gid=%s", GroupId::toHex(result[0]->getGID()).c_str()), line);
   std::getline(in, line);
   CPPUNIT_ASSERT(util::startsWith(line, " ed2k-kad-routing-state="));
+  ed2k::KadRoutingSnapshot restoredKad;
+  auto kadValue = line.substr(
+      std::string(" ed2k-kad-routing-state=").size());
+  CPPUNIT_ASSERT(ed2k::parseKadRoutingStatePayload(
+      restoredKad, util::fromHex(kadValue.begin(), kadValue.end())));
+  CPPUNIT_ASSERT_EQUAL((int64_t)500, restoredKad.lastFirewalledCheck);
+  CPPUNIT_ASSERT_EQUAL((int64_t)600, restoredKad.lastSourcePublish);
+  CPPUNIT_ASSERT(!restoredKad.firewalled);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, restoredKad.observedAddresses.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.55"),
+                       restoredKad.observedAddresses[0]);
   std::getline(in, line);
   CPPUNIT_ASSERT(util::startsWith(line, " ed2k-server-state="));
   ed2k::ServerState restored;

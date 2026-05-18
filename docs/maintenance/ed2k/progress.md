@@ -684,3 +684,19 @@ failed out of 1`. `git diff --check` passed.
 Remaining: CP12 still needs durable operational state before it can be marked
 verified.
 Blocked: none.
+
+
+2026-05-18 CP12 verified
+Changed: Extended the existing Kad routing-state payload to persist operational
+state: last firewalled probe time, last source publish time, observed external
+addresses, and firewalled status. Save-session now writes routing plus
+operational Kad state through the existing hidden `ed2k-kad-routing-state`
+option, and RequestGroup creation restores that state for ED2K downloads and
+Kad-backed search tasks. The parser accepts the previous version 1 routing
+payload for restart compatibility.
+Verified: `cmake --build --preset default --target aria2_tests` passed with
+the existing local Tcl/Tk search-path linker warning. `ctest --preset default
+--output-on-failure -R aria2_tests` passed with `100% tests passed, 0 tests
+failed out of 1`. `git diff --check` passed.
+Remaining: Move to CP13 sharing and shared store.
+Blocked: none.

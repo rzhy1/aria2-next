@@ -1059,6 +1059,10 @@ void Ed2kHelperTest::testKadRoutingStatePayload()
   snapshot.lastBootstrap = 100;
   snapshot.lastRefresh = 200;
   snapshot.lastSelfRefresh = 300;
+  snapshot.lastFirewalledCheck = 500;
+  snapshot.lastSourcePublish = 600;
+  snapshot.firewalled = false;
+  snapshot.observedAddresses.push_back("203.0.113.55");
   Endpoint router;
   router.host = "203.0.113.1";
   router.port = 4672;
@@ -1090,6 +1094,12 @@ void Ed2kHelperTest::testKadRoutingStatePayload()
   CPPUNIT_ASSERT_EQUAL((int64_t)100, parsed.lastBootstrap);
   CPPUNIT_ASSERT_EQUAL((int64_t)200, parsed.lastRefresh);
   CPPUNIT_ASSERT_EQUAL((int64_t)300, parsed.lastSelfRefresh);
+  CPPUNIT_ASSERT_EQUAL((int64_t)500, parsed.lastFirewalledCheck);
+  CPPUNIT_ASSERT_EQUAL((int64_t)600, parsed.lastSourcePublish);
+  CPPUNIT_ASSERT(!parsed.firewalled);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, parsed.observedAddresses.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.55"),
+                       parsed.observedAddresses[0]);
   CPPUNIT_ASSERT_EQUAL((size_t)1, parsed.routerNodes.size());
   CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.1"), parsed.routerNodes[0].host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4672, parsed.routerNodes[0].port);

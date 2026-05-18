@@ -121,6 +121,9 @@ void schedulePendingEd2kServers(std::vector<std::unique_ptr<Command>>& commands,
                                 RequestGroup* requestGroup,
                                 DownloadEngine* e);
 void schedulePendingEd2kPeers(RequestGroup* requestGroup, DownloadEngine* e);
+ed2k::KadRoutingSnapshot createEd2kKadSnapshot(const Ed2kAttribute* attrs);
+void restoreEd2kKadOperationalState(Ed2kAttribute* attrs,
+                                    const ed2k::KadRoutingSnapshot& snapshot);
 
 } // namespace aria2
 

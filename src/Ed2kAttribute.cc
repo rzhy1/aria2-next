@@ -525,4 +525,23 @@ void schedulePendingEd2kPeers(RequestGroup* requestGroup, DownloadEngine* e)
   }
 }
 
+ed2k::KadRoutingSnapshot createEd2kKadSnapshot(const Ed2kAttribute* attrs)
+{
+  ed2k::KadRoutingSnapshot snapshot = attrs->kadRoutingTable->snapshot();
+  snapshot.lastFirewalledCheck = attrs->lastKadFirewalledCheck;
+  snapshot.lastSourcePublish = attrs->lastKadSourcePublish;
+  snapshot.observedAddresses = attrs->kadObservedAddresses;
+  snapshot.firewalled = attrs->kadFirewalled;
+  return snapshot;
+}
+
+void restoreEd2kKadOperationalState(Ed2kAttribute* attrs,
+                                    const ed2k::KadRoutingSnapshot& snapshot)
+{
+  attrs->lastKadFirewalledCheck = snapshot.lastFirewalledCheck;
+  attrs->lastKadSourcePublish = snapshot.lastSourcePublish;
+  attrs->kadObservedAddresses = snapshot.observedAddresses;
+  attrs->kadFirewalled = snapshot.firewalled;
+}
+
 } // namespace aria2

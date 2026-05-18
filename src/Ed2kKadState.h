@@ -50,6 +50,10 @@ struct KadRoutingSnapshot {
   int64_t lastBootstrap = 0;
   int64_t lastRefresh = 0;
   int64_t lastSelfRefresh = 0;
+  int64_t lastFirewalledCheck = 0;
+  int64_t lastSourcePublish = 0;
+  std::vector<std::string> observedAddresses;
+  bool firewalled = true;
 };
 
 enum class KadTransactionPurpose {

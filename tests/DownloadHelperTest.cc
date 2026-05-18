@@ -393,6 +393,7 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KKadRoutingState()
   std::string selfHex("0123456789abcdef0123456789abcdef");
   auto self = util::fromHex(selfHex.begin(), selfHex.end());
   ed2k::KadRoutingTable table(self);
+  ed2k::KadRoutingSnapshot snapshot;
   ed2k::KadContact contact;
   std::string nodeIdHex("23a8ceff57a7a32d562d649ed7893796");
   contact.id = util::fromHex(nodeIdHex.begin(), nodeIdHex.end());
@@ -405,6 +406,11 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KKadRoutingState()
   router.host = "203.0.113.9";
   router.port = 4672;
   table.addRouterNode(router);
+  snapshot = table.snapshot();
+  snapshot.lastFirewalledCheck = 500;
+  snapshot.lastSourcePublish = 600;
+  snapshot.firewalled = false;
+  snapshot.observedAddresses.push_back("203.0.113.55");
 
   std::vector<std::string> uris{
       "ed2k://|file|aria2%20next.bin|9728001|"
@@ -412,8 +418,7 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KKadRoutingState()
   option_->put(PREF_DIR, A2_TEST_OUT_DIR "/ed2k-command-state");
   File(A2_TEST_OUT_DIR "/ed2k-command-state").mkdirs();
   option_->put(PREF_ED2K_KAD_ROUTING_STATE,
-               util::toHex(ed2k::createKadRoutingStatePayload(
-                   table.snapshot())));
+               util::toHex(ed2k::createKadRoutingStatePayload(snapshot)));
 
   std::vector<std::shared_ptr<RequestGroup>> result;
 
@@ -427,6 +432,12 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KKadRoutingState()
   auto closest = attrs->kadRoutingTable->findClosest(self, 1, false);
   CPPUNIT_ASSERT_EQUAL((size_t)1, closest.size());
   CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.8"), closest[0].host);
+  CPPUNIT_ASSERT_EQUAL((int64_t)500, attrs->lastKadFirewalledCheck);
+  CPPUNIT_ASSERT_EQUAL((int64_t)600, attrs->lastKadSourcePublish);
+  CPPUNIT_ASSERT(!attrs->kadFirewalled);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs->kadObservedAddresses.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.55"),
+                       attrs->kadObservedAddresses[0]);
 }
 
 void DownloadHelperTest::testCreateRequestGroupForUri_ED2KServerState()

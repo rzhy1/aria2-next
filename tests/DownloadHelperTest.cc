@@ -101,6 +101,8 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kKadCommandProbesFirewalledState);
   CPPUNIT_TEST(testEd2kKadCommandRefreshesRoutingTable);
   CPPUNIT_TEST(testEd2kSearchResultDeduplication);
+  CPPUNIT_TEST(testEd2kSearchResultMergesNetworks);
+  CPPUNIT_TEST(testEd2kSearchResultAppliesLocalFilters);
   CPPUNIT_TEST(testCreateRequestGroupForUri_parameterized);
   CPPUNIT_TEST(testCreateRequestGroupForUriList);
 
@@ -168,6 +170,8 @@ public:
   void testEd2kKadCommandProbesFirewalledState();
   void testEd2kKadCommandRefreshesRoutingTable();
   void testEd2kSearchResultDeduplication();
+  void testEd2kSearchResultMergesNetworks();
+  void testEd2kSearchResultAppliesLocalFilters();
   void testCreateRequestGroupForUri_parameterized();
   void testCreateRequestGroupForUriList();
 
@@ -3030,6 +3034,68 @@ void DownloadHelperTest::testEd2kSearchResultDeduplication()
                        addEd2kSearchResults(&attrs, {entry}, true));
   CPPUNIT_ASSERT_EQUAL((size_t)2, attrs.searchResults.size());
   CPPUNIT_ASSERT(attrs.searchMoreResults);
+}
+
+void DownloadHelperTest::testEd2kSearchResultMergesNetworks()
+{
+  Ed2kAttribute attrs;
+  ed2k::SearchResultEntry server;
+  server.hash = std::string(ed2k::HASH_LENGTH, '\x31');
+  server.name = "movie.mkv";
+  server.size = 42;
+  server.sourceCount = 3;
+  server.completeSourceCount = 1;
+  server.sourceNetwork = "server";
+  server.ed2kLink = "ed2k://|file|movie.mkv|42|31313131313131313131313131313131|/";
+
+  ed2k::SearchResultEntry kad = server;
+  kad.sourceCount = 7;
+  kad.completeSourceCount = 4;
+  kad.sourceNetwork = "kad";
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1,
+                       addEd2kSearchResults(&attrs, {server}, false));
+  CPPUNIT_ASSERT_EQUAL((size_t)0,
+                       addEd2kSearchResults(&attrs, {kad}, false));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs.searchResults.size());
+  CPPUNIT_ASSERT_EQUAL((uint32_t)7, attrs.searchResults[0].sourceCount);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)4,
+                       attrs.searchResults[0].completeSourceCount);
+  CPPUNIT_ASSERT_EQUAL(std::string("server|kad"),
+                       attrs.searchResults[0].sourceNetwork);
+}
+
+void DownloadHelperTest::testEd2kSearchResultAppliesLocalFilters()
+{
+  Ed2kAttribute attrs;
+  attrs.searchQuery.minSize = 100;
+  attrs.searchQuery.maxSize = 200;
+  attrs.searchQuery.minSourceCount = 3;
+  attrs.searchQuery.minCompleteSourceCount = 2;
+
+  ed2k::SearchResultEntry rejected;
+  rejected.hash = std::string(ed2k::HASH_LENGTH, '\x31');
+  rejected.name = "small.iso";
+  rejected.size = 50;
+  rejected.sourceCount = 10;
+  rejected.completeSourceCount = 5;
+  rejected.sourceNetwork = "kad";
+  rejected.ed2kLink =
+      "ed2k://|file|small.iso|50|31313131313131313131313131313131|/";
+
+  ed2k::SearchResultEntry accepted = rejected;
+  accepted.hash = std::string(ed2k::HASH_LENGTH, '\x32');
+  accepted.name = "movie.iso";
+  accepted.size = 150;
+  accepted.sourceCount = 3;
+  accepted.completeSourceCount = 2;
+  accepted.ed2kLink =
+      "ed2k://|file|movie.iso|150|32323232323232323232323232323232|/";
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, addEd2kSearchResults(
+                                     &attrs, {rejected, accepted}, false));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs.searchResults.size());
+  CPPUNIT_ASSERT_EQUAL(accepted.hash, attrs.searchResults[0].hash);
 }
 
 void DownloadHelperTest::testCreateRequestGroupForUri_parameterized()

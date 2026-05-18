@@ -76,6 +76,25 @@ bool isFilteredSourceExchangePeer(const ed2k::Endpoint& peer,
   return false;
 }
 
+bool matchesSearchQuery(const ed2k::SearchResultEntry& entry,
+                        const ed2k::SearchQuery& query)
+{
+  if (query.minSize > 0 && entry.size > 0 && entry.size < query.minSize) {
+    return false;
+  }
+  if (query.maxSize > 0 && entry.size > query.maxSize) {
+    return false;
+  }
+  if (query.minSourceCount > 0 && entry.sourceCount < query.minSourceCount) {
+    return false;
+  }
+  if (query.minCompleteSourceCount > 0 &&
+      entry.completeSourceCount < query.minCompleteSourceCount) {
+    return false;
+  }
+  return true;
+}
+
 bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
 {
   return addEd2kPeer(attrs, peer, 0);
@@ -441,6 +460,9 @@ size_t addEd2kSearchResults(Ed2kAttribute* attrs,
   }
   size_t added = 0;
   for (const auto& entry : entries) {
+    if (!matchesSearchQuery(entry, attrs->searchQuery)) {
+      continue;
+    }
     auto i = std::find_if(attrs->searchResults.begin(),
                           attrs->searchResults.end(),
                           [&](const ed2k::SearchResultEntry& item) {
@@ -450,6 +472,49 @@ size_t addEd2kSearchResults(Ed2kAttribute* attrs,
     if (i == attrs->searchResults.end()) {
       attrs->searchResults.push_back(entry);
       ++added;
+    }
+    else {
+      if (i->name.empty()) {
+        i->name = entry.name;
+      }
+      i->sourceCount = std::max(i->sourceCount, entry.sourceCount);
+      i->completeSourceCount =
+          std::max(i->completeSourceCount, entry.completeSourceCount);
+      if (i->fileType.empty()) {
+        i->fileType = entry.fileType;
+      }
+      if (i->extension.empty()) {
+        i->extension = entry.extension;
+      }
+      if (i->mediaArtist.empty()) {
+        i->mediaArtist = entry.mediaArtist;
+      }
+      if (i->mediaAlbum.empty()) {
+        i->mediaAlbum = entry.mediaAlbum;
+      }
+      if (i->mediaTitle.empty()) {
+        i->mediaTitle = entry.mediaTitle;
+      }
+      if (i->mediaLength.empty()) {
+        i->mediaLength = entry.mediaLength;
+      }
+      if (i->mediaBitrate == 0) {
+        i->mediaBitrate = entry.mediaBitrate;
+      }
+      if (i->mediaCodec.empty()) {
+        i->mediaCodec = entry.mediaCodec;
+      }
+      if (i->ed2kLink.empty()) {
+        i->ed2kLink = entry.ed2kLink;
+      }
+      if (i->sourceNetwork.empty()) {
+        i->sourceNetwork = entry.sourceNetwork;
+      }
+      else if (!entry.sourceNetwork.empty() &&
+               i->sourceNetwork.find(entry.sourceNetwork) ==
+                   std::string::npos) {
+        i->sourceNetwork += "|" + entry.sourceNetwork;
+      }
     }
   }
   attrs->searchMoreResults = moreResults;

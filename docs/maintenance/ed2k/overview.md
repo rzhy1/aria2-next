@@ -48,9 +48,9 @@ Current branch: `main`.
 
 Current HEAD observed during the tracker split: `d2fc1f53`.
 
-Operational status: ED2K/eMule support is still incomplete. CP0 through CP14
-are verified. CP15 through CP18 remain partial or open. The current
-implementation is roughly 79 percent of the complete target and must not be
+Operational status: ED2K/eMule support is still incomplete. CP0 through CP15
+are verified. CP16 through CP18 remain partial or open. The current
+implementation is roughly 83 percent of the complete target and must not be
 presented as full ED2K/eMule support.
 
 The draft has been committed through the first protocol module split.

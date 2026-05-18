@@ -789,3 +789,21 @@ aria2_tests` passed with `100% tests passed, 0 tests failed out of 1`.
 `git diff --check` passed.
 Remaining: Move to CP14 upload queue and credits.
 Blocked: none.
+
+2026-05-18 CP15 verified
+Changed: Stabilized ED2K search result ingestion and RPC output. Server and Kad
+results now pass through local size and source-count filters after protocol
+responses, duplicate entries merge by hash plus size, merged entries preserve
+larger source counts, complete source counts, missing metadata, generated ED2K
+links, and combined `sourceNetwork` labels such as `server|kad`. RPC search
+results now return `moreResults` as a JSON boolean instead of a string, keep
+the documented stable Motrix-facing fields, and expose `ed2kLink` values that
+can be passed directly to `aria2.addUri` to create normal ED2K downloads.
+Verified: The new local filter test failed before implementation because both
+entries were accepted. After the change, `cmake --build --preset default
+--target aria2_tests` passed with the existing local Tcl/Tk search-path linker
+warning, `build/default/aria2_tests` passed with `OK (1112)`, `ctest --preset
+default --output-on-failure -R aria2_tests` passed with `100% tests passed, 0
+tests failed out of 1`, and `git diff --check` passed.
+Remaining: Move to CP16 Motrix Next status surfaces.
+Blocked: none.

@@ -368,7 +368,7 @@ GetEd2kSearchResultsRpcMethod::process(const RpcRequest& req,
   auto result = Dict::g();
   result->put(KEY_GID, GroupId::toHex(gid));
   result->put(KEY_MORE_RESULTS,
-              attrs->searchMoreResults ? VLB_TRUE : VLB_FALSE);
+              attrs->searchMoreResults ? Bool::gTrue() : Bool::gFalse());
   auto entries = List::g();
   for (const auto& entry : attrs->searchResults) {
     entries->append(createEd2kSearchResultEntry(entry));

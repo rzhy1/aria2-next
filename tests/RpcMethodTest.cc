@@ -21,6 +21,10 @@
 #include "download_helper.h"
 #include "FileEntry.h"
 #include "RpcMethodFactory.h"
+#include "Ed2kAttribute.h"
+#include "ed2k_hash.h"
+#include "ed2k_link.h"
+#include "ed2k_search.h"
 #ifdef ENABLE_BITTORRENT
 #  include "BtRegistry.h"
 #  include "BtRuntime.h"
@@ -67,6 +71,8 @@ class RpcMethodTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testTellWaiting_fail);
   CPPUNIT_TEST(testGetVersion);
   CPPUNIT_TEST(testNoSuchMethod);
+  CPPUNIT_TEST(testEd2kSearchResults);
+  CPPUNIT_TEST(testEd2kSearchResultLinkCreatesDownload);
   CPPUNIT_TEST(testGatherStoppedDownload);
 #ifdef ENABLE_BITTORRENT
   CPPUNIT_TEST(testGatherStoppedDownload_bt);
@@ -138,6 +144,8 @@ public:
   void testTellWaiting_fail();
   void testGetVersion();
   void testNoSuchMethod();
+  void testEd2kSearchResults();
+  void testEd2kSearchResultLinkCreatesDownload();
   void testGatherStoppedDownload();
 #ifdef ENABLE_BITTORRENT
   void testGatherStoppedDownload_bt();
@@ -766,6 +774,95 @@ void RpcMethodTest::testNoSuchMethod()
   CPPUNIT_ASSERT_EQUAL(1, res.code);
   CPPUNIT_ASSERT_EQUAL(std::string("No such method: make.hamburger"),
                        getString(downcast<Dict>(res.param), "faultString"));
+}
+
+void RpcMethodTest::testEd2kSearchResults()
+{
+  auto dctx = std::make_shared<DownloadContext>(
+      ed2k::PIECE_LENGTH, 0, A2_TEST_OUT_DIR "/ed2k-rpc-search");
+  auto attrs = std::make_shared<Ed2kAttribute>();
+  attrs->searchActive = true;
+  attrs->searchMoreResults = true;
+  attrs->searchQuery.keyword = "movie";
+  ed2k::SearchResultEntry entry;
+  entry.hash = std::string(ed2k::HASH_LENGTH, '\x42');
+  entry.name = "movie.mkv";
+  entry.size = 123456789;
+  entry.sourceCount = 8;
+  entry.completeSourceCount = 5;
+  entry.fileType = "Video";
+  entry.extension = "mkv";
+  entry.mediaTitle = "Movie";
+  entry.mediaBitrate = 320;
+  entry.sourceNetwork = "server|kad";
+  ed2k::Link link;
+  link.type = ed2k::LinkType::FILE;
+  link.name = entry.name;
+  link.size = entry.size;
+  link.hash = entry.hash;
+  entry.ed2kLink = ed2k::toFileLink(link);
+  attrs->searchResults.push_back(entry);
+  dctx->setAttribute(CTX_ATTR_ED2K, attrs);
+
+  auto group = std::make_shared<RequestGroup>(GroupId::create(), option_);
+  group->setDownloadContext(dctx);
+  const auto gid = group->getGID();
+  e_->getRequestGroupMan()->addReservedGroup(group);
+
+  GetEd2kSearchResultsRpcMethod m;
+  auto req = createReq(GetEd2kSearchResultsRpcMethod::getMethodName());
+  req.params->append(GroupId::toHex(gid));
+  auto res = m.execute(std::move(req), e_.get());
+
+  CPPUNIT_ASSERT_EQUAL(0, res.code);
+  const auto body = downcast<Dict>(res.param);
+  CPPUNIT_ASSERT(body);
+  CPPUNIT_ASSERT_EQUAL(GroupId::toHex(gid), getString(body, "gid"));
+  const auto moreResults = downcast<Bool>(body->get("moreResults"));
+  CPPUNIT_ASSERT(moreResults);
+  CPPUNIT_ASSERT(moreResults->val());
+  const auto results = downcast<List>(body->get("results"));
+  CPPUNIT_ASSERT(results);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, results->size());
+  const auto result = downcast<Dict>(results->get(0));
+  CPPUNIT_ASSERT(result);
+  CPPUNIT_ASSERT_EQUAL(std::string("42424242424242424242424242424242"),
+                       getString(result, "hash"));
+  CPPUNIT_ASSERT_EQUAL(std::string("movie.mkv"), getString(result, "name"));
+  CPPUNIT_ASSERT_EQUAL(std::string("123456789"),
+                       getString(result, "length"));
+  CPPUNIT_ASSERT_EQUAL(std::string("8"), getString(result, "sourceCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("5"),
+                       getString(result, "completeSourceCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("server|kad"),
+                       getString(result, "sourceNetwork"));
+  CPPUNIT_ASSERT_EQUAL(entry.ed2kLink, getString(result, "ed2kLink"));
+}
+
+void RpcMethodTest::testEd2kSearchResultLinkCreatesDownload()
+{
+  ed2k::Link link;
+  link.type = ed2k::LinkType::FILE;
+  link.name = "movie.mkv";
+  link.size = 123456789;
+  link.hash = std::string(ed2k::HASH_LENGTH, '\x42');
+
+  AddUriRpcMethod m;
+  auto req = createReq(AddUriRpcMethod::getMethodName());
+  auto urisParam = List::g();
+  urisParam->append(ed2k::toFileLink(link));
+  req.params->append(std::move(urisParam));
+  auto res = m.execute(std::move(req), e_.get());
+
+  CPPUNIT_ASSERT_EQUAL(0, res.code);
+  const auto& groups = e_->getRequestGroupMan()->getReservedGroups();
+  CPPUNIT_ASSERT_EQUAL((size_t)1, groups.size());
+  auto attrs =
+      getEd2kAttrs((*groups.begin())->getDownloadContext());
+  CPPUNIT_ASSERT(attrs);
+  CPPUNIT_ASSERT_EQUAL(link.hash, attrs->link.hash);
+  CPPUNIT_ASSERT_EQUAL(link.name, attrs->link.name);
+  CPPUNIT_ASSERT_EQUAL(link.size, attrs->link.size);
 }
 
 void RpcMethodTest::testTellStatus_withoutGid()

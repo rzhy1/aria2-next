@@ -844,3 +844,17 @@ directory with generated `conf.py` and `libaria2api`. `git diff --check`
 passed.
 Remaining: Move to CP18 full local verification.
 Blocked: none.
+
+2026-05-18 CP18 verified
+Changed: Ran the final local verification gate after CP0 through CP17 were
+marked verified. No packaging or release-facing script files changed in the
+ED2K CP16-CP18 work, so the packaging shell syntax checks were not part of this
+gate.
+Verified: `cmake --preset default` passed and generated the default build
+tree. It reported that OpenSSL 4.0 was unavailable locally and selected the
+GnuTLS backend for this preset. `cmake --build --preset default` passed with
+`ninja: no work to do.` `ctest --preset default` passed with `100% tests
+passed, 0 tests failed out of 1`. `build/default/aria2-next --version` passed
+and reported `Aria2 Next version 2.0.6`.
+Remaining: Complete the final goal audit.
+Blocked: none.

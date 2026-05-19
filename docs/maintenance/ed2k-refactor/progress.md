@@ -229,3 +229,19 @@ After the fix, `cmake --build --preset default --target aria2_tests` passed and
 `build/default/aria2_tests` passed with `OK (1097)`.
 Remaining: Start RA71 documentation and final local audit.
 Blocked: none.
+
+2026-05-19 RA71 verified
+Changed: Closed the documentation and final local audit checkpoint. Manual,
+RPC, completion, and maintenance tracker wording was checked against the
+implemented ED2K behavior and pruned limitations. The overview now records the
+verified final refactor state instead of RA1-era pending wording.
+Verified: Under `conda activate global`, regenerated bash completion from the
+current `build/default/aria2-next --help=#all` output matched
+`docs/completion/aria2-next`, `bash -n docs/completion/aria2-next` passed, and
+the public ED2K options were present in help output. `cmake --preset default`
+passed. `cmake --build --preset default` passed with the local Tcl/Tk search
+path linker warning. `ctest --preset default` passed with `100% tests passed, 0
+tests failed out of 1`. `build/default/aria2-next --version` passed and
+reported `Aria2 Next version 2.0.6` with `OpenSSL/3.6.2`.
+Remaining: none.
+Blocked: none.

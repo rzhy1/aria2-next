@@ -58,9 +58,9 @@ RA2 maps the authoritative references to the tracker as follows:
 | `protocol-docs` | `eMule-protocol_guide.txt`, `pDonkey-eDonkey-protocol-0.6.2.txt`, `aMule-Ed2k_link.html`, `aMule-Corruption_Handling.html`, `aMule-FAQ-eD2k-Kademlia.html`, `aMule-Kademlia.html`, `kademlia-paper-maymounkov-lncs.txt`, and `wireshark-edonkey-display-filter-reference.html` | Textual protocol reference for links, server and peer flow, HighID/LowID, callbacks, corruption handling, AICH, Kad concepts, file-size limits, and public-network operational boundaries |
 
 The reference audit confirms that every meaningful ED2K/eMule subsystem is
-represented in `reference-ledger.csv`. Rows remain pending until their
-implementation checkpoints prove alignment. RA2 only proves that the reference
-subsystems are mapped and that known non-core surfaces are either replaced or
+represented in `reference-ledger.csv`. The rows are verified after the matching
+implementation checkpoints prove alignment. RA2 proves that the reference
+subsystems were mapped and that known non-core surfaces were either replaced or
 pruned.
 
 ## Scope
@@ -79,16 +79,16 @@ safer or clearer native owner. Existing aria2-next disk, session, RPC, transfer,
 and event-loop ownership should replace legacy client databases, GUI prompts,
 daemon APIs, and platform-specific helper stacks.
 
-## Current Baseline
+## Final Refactor State
 
-The current codebase already contains native ED2K modules for links, hashes,
-packet helpers, server parsing, peer helpers, Kad state, source policy, AICH,
-compression, shared files, upload queue, request-group integration, session
-serialization, RPC status, and documentation.
+The codebase contains native ED2K modules for links, hashes, packet helpers,
+server parsing, peer helpers, Kad state, source policy, AICH, compression,
+shared files, upload queue, request-group integration, session serialization,
+RPC status, and documentation.
 
-The current draft can parse ED2K links, create tasks, connect to servers,
-discover sources, and reach some public peer handshake paths. It has not proven
-deterministic public-network peer transfer. Public ED2K downloads are therefore
+RA0 through RA71 are verified. The refactor aligns the native implementation
+with the authoritative local references through local parser, packet, state,
+integrity, persistence, RPC, and build verification. Public ED2K downloads stay
 manual smoke evidence, not a checkpoint gate for this tracker.
 
 Current source inventory after the RA1 audit:
@@ -99,20 +99,17 @@ Current source inventory after the RA1 audit:
 | Request state | `src/Ed2kAttribute.*` | RequestGroup-owned coordinator for link metadata, server state, peer state, hashsets, AICH, search, Kad, and scheduling cursors |
 | Server TCP and peer TCP | `src/Ed2kCommand.*` | Correct integration point for aria2-next TCP commands, but currently mixes server session, peer session, packet dispatch, request flow, AICH, Source Exchange, transfer, and partial upload response behavior |
 | Server UDP and Kad | `src/Ed2kKadCommand.*`, `src/Ed2kKadState.*`, `src/ed2k_kad.*`, `src/ed2k_kad_search.*` | Correct single UDP event-loop owner, but ED2K server UDP and Kad traversal are interleaved in one command |
-| Source policy | `src/ed2k_policy.*` | Focused source selection and piece-selection helpers exist; reference alignment must prove retry, queue, availability, and endgame behavior |
-| Transfer and disk safety | `src/Ed2kPeerTransfer.*`, `src/ed2k_compression.*` | Existing disk path is used through `PieceStorage` and `DiskAdaptor`; RA40 must verify all range and corruption paths |
-| Sharing and upload | `src/Ed2kSharedFile.*`, `src/Ed2kSharedStore.*`, `src/Ed2kSharedResponder.*`, `src/Ed2kSharedPeerCommand.*`, `src/Ed2kUploadQueue.*` | Native sharing, upload queue, responder, and credit surfaces exist; RA60 must align them with non-pruned reference behavior |
-| CLI/RPC/session | `src/download_helper.cc`, `src/SessionSerializer.cc`, `src/RpcMethodImpl.cc`, `src/OptionHandlerFactory.cc`, `docs/completion/aria2-next` | Existing aria2-next integration points are present and should be preserved; RA70 and RA71 must verify field and documentation truth |
+| Source policy | `src/ed2k_policy.*` | Focused source selection and piece-selection helpers preserve retry, queue, availability, and endgame behavior |
+| Transfer and disk safety | `src/Ed2kPeerTransfer.*`, `src/ed2k_compression.*` | Existing disk path is used through `PieceStorage` and `DiskAdaptor`; RA40 verified range and corruption paths |
+| Sharing and upload | `src/Ed2kSharedFile.*`, `src/Ed2kSharedStore.*`, `src/Ed2kSharedResponder.*`, `src/Ed2kSharedPeerCommand.*`, `src/Ed2kUploadQueue.*` | Native sharing, upload queue, responder, and credit surfaces align with non-pruned reference behavior |
+| CLI/RPC/session | `src/download_helper.cc`, `src/SessionSerializer.cc`, `src/RpcMethodImpl.cc`, `src/OptionHandlerFactory.cc`, `docs/completion/aria2-next` | Existing aria2-next integration points are preserved; RA70 and RA71 verified field and documentation truth |
 | Tests | `tests/Ed2kHelperTest.cc`, `tests/Ed2kKadStateTest.cc`, `tests/Ed2kSharedStoreTest.cc`, `tests/ProtocolDetectorTest.cc` | Coverage is local and parser/state focused; `tests/Ed2kHelperTest.cc` is broad and should be split only when future changes need clearer ownership |
 
-Capability truth risks found in RA1 are concentrated around
-`createLocalPeerInfo()` in `src/Ed2kCommand.cc`. The current local peer info
-advertises AICH, Unicode, compression, Source Exchange 1, extended requests,
-large files, and Source Exchange 2. It does not advertise multipacket,
-extended multipacket, secure identification, crypt, or Kad in the parsed eMule
-peer-info structure. RA30 must prove that every advertised bit has complete
-send, receive, state, error, and fallback behavior before it remains
-advertised.
+Capability truth was aligned in RA30. Local peer info advertises implemented
+AICH, Unicode, compression, Source Exchange 1, extended requests, large files,
+and Source Exchange 2. Multipacket, extended multipacket, secure
+identification, crypt, Kad peer capability, and file identifier envelopes stay
+unadvertised until complete packet and state ownership exists.
 
 The largest current maintainability risk is overloaded command ownership:
 `src/Ed2kCommand.cc` still mixes server session work, peer download session
@@ -167,6 +164,11 @@ build/default/aria2-next --version
 Public ED2K smoke testing is manual final evidence. If public peers reset,
 sources disappear, or LowID/firewall state blocks transfer, record the boundary
 as operational evidence rather than blocking reference-alignment completion.
+
+Final RA71 local verification passed with `cmake --preset default`,
+`cmake --build --preset default`, `ctest --preset default`, and
+`build/default/aria2-next --version`. Completion generation and shell syntax
+checks for `docs/completion/aria2-next` also passed against the current binary.
 
 ## Update Rules
 

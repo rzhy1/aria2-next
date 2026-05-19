@@ -188,3 +188,17 @@ because no source or generated files changed.
 Remaining: Run tracker validation, then decide whether RF2 can be marked
 verified or whether any final subsystem remains unclassified.
 Blocked: none.
+
+2026-05-19 RF2 verified
+Changed: Marked the authoritative reference audit checkpoint verified. The
+active audit now classifies all goal-scope ED2K/eMule subsystems across links,
+server TCP/UDP, metadata files, OBFU, HighID/LowID, callback, peer handshake,
+capability bits, multipacket, file identifiers, secure identification,
+crypt/obfuscation, file requests, hashsets, Source Exchange, AICH, compressed
+transfer, Kad, search, scheduling, resume, sharing, upload queue, credits,
+CLI/RPC/Motrix fields, persistence, and prune/replace-only legacy surfaces.
+Verified: Documentation-only checkpoint closure. Coverage keyword check
+against the goal scope found no missing top-level subsystem. Tracker CSV width
+checks and `git diff --check docs/maintenance/ed2k-refactor` passed.
+Remaining: Start RF3 server source compatibility.
+Blocked: none.

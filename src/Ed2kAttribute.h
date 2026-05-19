@@ -113,6 +113,9 @@ void updateEd2kServerUdpStatus(Ed2kAttribute* attrs,
 void updateEd2kServerMessage(Ed2kAttribute* attrs,
                              const ed2k::Endpoint& server,
                              const std::string& message);
+void updateEd2kServerIdent(Ed2kAttribute* attrs,
+                           const ed2k::Endpoint& server,
+                           const ed2k::ServerIdent& ident);
 void updateEd2kServerSourceRequestTime(Ed2kAttribute* attrs,
                                        const ed2k::Endpoint& server,
                                        int64_t nextTime);

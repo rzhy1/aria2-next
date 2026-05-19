@@ -83,3 +83,16 @@ Verified: `cmake --build --preset default --target aria2_tests` passed.
 `build/default/aria2_tests` passed with `OK (1093)`.
 Remaining: Start RA20 server TCP alignment.
 Blocked: none.
+
+2026-05-19 RA20 verified
+Changed: Aligned ED2K server TCP handling with the authoritative references.
+Classic `OP_GETSOURCES` keeps hash-plus-size payloads, TCP status no longer
+clears UDP-only server metadata, IDChange accepts extension tails, server ident
+updates name and description, server-list and server-ident parsers tolerate
+trailing data, and malformed FoundSources or search result packets finish the
+current request without marking the server failed.
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+`build/default/aria2_tests` passed with `OK (1093)`. `git diff --check`
+passed.
+Remaining: Start RA21 server UDP alignment.
+Blocked: none.

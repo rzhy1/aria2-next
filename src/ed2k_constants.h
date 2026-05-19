@@ -39,6 +39,7 @@ constexpr uint8_t OP_CALLBACKREQUESTED = 0x35;
 constexpr uint8_t OP_CALLBACK_FAIL = 0x36;
 constexpr uint8_t OP_SERVERMESSAGE = 0x38;
 constexpr uint8_t OP_IDCHANGE = 0x40;
+constexpr uint8_t OP_SERVERIDENT = 0x41;
 constexpr uint8_t OP_FOUNDSOURCES = 0x42;
 constexpr uint8_t OP_FOUNDSOURCES_OBFU = 0x44;
 constexpr uint8_t OP_GLOBGETSOURCES2 = 0x94;

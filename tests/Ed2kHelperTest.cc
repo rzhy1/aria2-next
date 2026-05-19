@@ -475,6 +475,19 @@ void Ed2kHelperTest::testServerPayloadParsers()
                     packUInt32(4661) + packUInt32(0x04030201) +
                     packUInt32(4666)));
   CPPUNIT_ASSERT_EQUAL((uint16_t)4666, idChange.tcpObfuscationPort);
+  CPPUNIT_ASSERT(parseServerIdChangePayload(
+      idChange, packUInt32(0x04030201) + packUInt32(0x55aa) +
+                    packUInt32(4661) + packUInt32(0x04030201)));
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x04030201, idChange.clientId);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x55aa, idChange.tcpFlags);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)4661, idChange.auxPort);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)0, idChange.tcpObfuscationPort);
+
+  CPPUNIT_ASSERT(parseServerIdChangePayload(
+      idChange, packUInt32(0x04030201) + packUInt32(0x55aa) +
+                    packUInt32(4661) + packUInt32(0x04030201) +
+                    packUInt32(4666) + packUInt32(0xdeadbeef)));
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4666, idChange.tcpObfuscationPort);
 
   ServerStatus status;
   CPPUNIT_ASSERT(parseServerStatusPayload(status,
@@ -484,6 +497,19 @@ void Ed2kHelperTest::testServerPayloadParsers()
   CPPUNIT_ASSERT_EQUAL((uint32_t)0, status.challenge);
 
   CPPUNIT_ASSERT(parseServerStatusPayload(
+      status, packUInt32(1234) + packUInt32(5678) + packUInt32(9000)));
+  CPPUNIT_ASSERT_EQUAL((uint32_t)1234, status.users);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)5678, status.files);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0, status.challenge);
+
+  CPPUNIT_ASSERT(parseServerStatusPayload(
+      status, packUInt32(0x55aa0011) + packUInt32(1234) +
+                  packUInt32(5678) + packUInt32(9000)));
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x55aa0011, status.users);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)1234, status.files);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0, status.challenge);
+
+  CPPUNIT_ASSERT(parseServerUdpStatusPayload(
       status, packUInt32(0x55aa0011) + packUInt32(1234) +
                   packUInt32(5678) + packUInt32(9000) + packUInt32(100) +
                   packUInt32(200) + packUInt32(0x01020304) +
@@ -506,6 +532,20 @@ void Ed2kHelperTest::testServerPayloadParsers()
   CPPUNIT_ASSERT(parseServerMessagePayload(message, messagePayload));
   CPPUNIT_ASSERT_EQUAL(std::string("hello"), message);
 
+  std::string identPayload(16, '\x11');
+  identPayload += packUInt32(0x04030201);
+  identPayload += packUInt16(4661);
+  identPayload += packUInt32(2);
+  identPayload += createStringTag(0x01, "server name");
+  identPayload += createStringTag(0x0b, "server description");
+  identPayload += packUInt16(0);
+  ServerIdent ident;
+  CPPUNIT_ASSERT(parseServerIdentPayload(ident, identPayload));
+  CPPUNIT_ASSERT_EQUAL(std::string("1.2.3.4"), ident.endpoint.host);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4661, ident.endpoint.port);
+  CPPUNIT_ASSERT_EQUAL(std::string("server name"), ident.name);
+  CPPUNIT_ASSERT_EQUAL(std::string("server description"), ident.description);
+
   std::vector<Endpoint> servers;
   std::string serverList;
   serverList.push_back('\x02');
@@ -513,6 +553,7 @@ void Ed2kHelperTest::testServerPayloadParsers()
   serverList += packUInt16(4661);
   serverList += packUInt32(0x08070605);
   serverList += packUInt16(4662);
+  serverList += packUInt16(0);
   CPPUNIT_ASSERT(parseServerListPayload(servers, serverList));
   CPPUNIT_ASSERT_EQUAL((size_t)2, servers.size());
   CPPUNIT_ASSERT_EQUAL(std::string("1.2.3.4"), servers[0].host);

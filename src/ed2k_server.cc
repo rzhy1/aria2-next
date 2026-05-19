@@ -436,10 +436,6 @@ bool parseServerIdChangePayload(ServerIdChange& idChange,
   if (payload.size() < 4) {
     return false;
   }
-  if (payload.size() != 4 && payload.size() != 8 && payload.size() != 12 &&
-      payload.size() != 16 && payload.size() != 20) {
-    return false;
-  }
   ServerIdChange parsed;
   size_t offset = 0;
   parsed.clientId = readUInt32(readBytes(payload, offset, 4).data());
@@ -449,13 +445,11 @@ bool parseServerIdChangePayload(ServerIdChange& idChange,
   if (payload.size() >= 12) {
     parsed.auxPort = readUInt32(readBytes(payload, offset, 4).data());
   }
-  if (payload.size() >= 16) {
+  if (payload.size() >= 20) {
     const auto reportedIp = readUInt32(readBytes(payload, offset, 4).data());
     if (reportedIp > 0x00ffffffu) {
       parsed.ipAddress = ipv4FromEndpoint(reportedIp);
     }
-  }
-  if (payload.size() >= 20) {
     const auto obfuscationPort =
         readUInt32(readBytes(payload, offset, 4).data());
     if (obfuscationPort <= std::numeric_limits<uint16_t>::max()) {
@@ -473,16 +467,28 @@ bool parseServerIdChangePayload(ServerIdChange& idChange,
 bool parseServerStatusPayload(ServerStatus& status,
                               const std::string& payload)
 {
-  if (payload.size() != 8 && payload.size() != 12 && payload.size() != 16 &&
+  if (payload.size() < 8) {
+    return false;
+  }
+  size_t offset = 0;
+  ServerStatus parsed;
+  parsed.users = readUInt32(readBytes(payload, offset, 4).data());
+  parsed.files = readUInt32(readBytes(payload, offset, 4).data());
+  status = parsed;
+  return true;
+}
+
+bool parseServerUdpStatusPayload(ServerStatus& status,
+                                 const std::string& payload)
+{
+  if (payload.size() != 12 && payload.size() != 16 &&
       payload.size() != 24 && payload.size() != 28 && payload.size() != 32 &&
       payload.size() != 40) {
     return false;
   }
   size_t offset = 0;
   ServerStatus parsed;
-  if (payload.size() != 8) {
-    parsed.challenge = readUInt32(readBytes(payload, offset, 4).data());
-  }
+  parsed.challenge = readUInt32(readBytes(payload, offset, 4).data());
   parsed.users = readUInt32(readBytes(payload, offset, 4).data());
   parsed.files = readUInt32(readBytes(payload, offset, 4).data());
   if (payload.size() >= 16) {
@@ -523,6 +529,41 @@ bool parseServerMessagePayload(std::string& message,
   return true;
 }
 
+bool parseServerIdentPayload(ServerIdent& ident, const std::string& payload)
+{
+  if (payload.size() < HASH_LENGTH + 6 + 4) {
+    return false;
+  }
+  size_t offset = HASH_LENGTH;
+  ServerIdent parsed;
+  parsed.endpoint = readEndpoint(payload, offset);
+  const uint32_t tagCount = readUInt32(readBytes(payload, offset, 4).data());
+  std::string tagPayload;
+  tagPayload += packUInt32(tagCount);
+  for (uint32_t i = 0; i < tagCount; ++i) {
+    const auto before = offset;
+    readTag(payload, offset);
+    tagPayload.append(payload.begin() + before, payload.begin() + offset);
+  }
+  std::vector<Tag> tags;
+  if (!parseTagList(tags, tagPayload)) {
+    return false;
+  }
+  for (const auto& tag : tags) {
+    if (tag.valueType != TagValueType::STRING) {
+      continue;
+    }
+    if (tagMatches(tag, SERVER_TAG_NAME, "name")) {
+      parsed.name = tag.stringValue;
+    }
+    else if (tagMatches(tag, SERVER_TAG_DESCRIPTION, "description")) {
+      parsed.description = tag.stringValue;
+    }
+  }
+  ident = std::move(parsed);
+  return true;
+}
+
 std::string createServerListPayload(const std::vector<Endpoint>& servers)
 {
   if (servers.size() > 255) {
@@ -544,7 +585,7 @@ bool parseServerListPayload(std::vector<Endpoint>& servers,
   }
   size_t offset = 0;
   const auto count = readByte(payload, offset);
-  if (payload.size() - offset != static_cast<size_t>(count) * 6) {
+  if (payload.size() - offset < static_cast<size_t>(count) * 6) {
     return false;
   }
   servers.clear();

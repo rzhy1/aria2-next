@@ -589,7 +589,7 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
     return;
   }
   ed2k::ServerStatus status;
-  if (!ed2k::parseServerStatusPayload(status, payload) ||
+  if (!ed2k::parseServerUdpStatusPayload(status, payload) ||
       status.challenge == 0 ||
       status.challenge != state->udpStatusChallenge) {
     return;

@@ -470,15 +470,6 @@ void updateEd2kServerStatus(Ed2kAttribute* attrs,
   }
   state->users = status.users;
   state->files = status.files;
-  state->maxUsers = status.maxUsers;
-  state->softFiles = status.softFiles;
-  state->hardFiles = status.hardFiles;
-  state->udpFlags = status.udpFlags;
-  state->lowIdUsers = status.lowIdUsers;
-  state->udpObfuscationPort = status.udpObfuscationPort;
-  state->tcpObfuscationPort = status.tcpObfuscationPort;
-  state->udpKey = status.udpKey;
-  state->udpStatusChallenge = status.challenge;
 }
 
 void updateEd2kServerUdpStatus(Ed2kAttribute* attrs,
@@ -512,6 +503,22 @@ void updateEd2kServerMessage(Ed2kAttribute* attrs,
     return;
   }
   state->lastMessage = message;
+}
+
+void updateEd2kServerIdent(Ed2kAttribute* attrs,
+                           const ed2k::Endpoint& server,
+                           const ed2k::ServerIdent& ident)
+{
+  auto state = getEd2kServerState(attrs, server);
+  if (!state) {
+    return;
+  }
+  if (!ident.name.empty()) {
+    state->name = ident.name;
+  }
+  if (!ident.description.empty()) {
+    state->description = ident.description;
+  }
 }
 
 void updateEd2kServerSourceRequestTime(Ed2kAttribute* attrs,

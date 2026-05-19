@@ -93,6 +93,12 @@ struct ServerMetEntry {
   uint32_t udpKey = 0;
 };
 
+struct ServerIdent {
+  Endpoint endpoint;
+  std::string name;
+  std::string description;
+};
+
 std::vector<ServerMetEntry> parseServerMetEntries(const std::string& data);
 std::vector<Endpoint> parseServerMet(const std::string& data);
 std::string createLoginRequestPayload(const std::string& clientHash,
@@ -129,8 +135,11 @@ bool parseServerIdChangePayload(ServerIdChange& idChange,
                                 const std::string& payload);
 bool parseServerStatusPayload(ServerStatus& status,
                               const std::string& payload);
+bool parseServerUdpStatusPayload(ServerStatus& status,
+                                 const std::string& payload);
 bool parseServerMessagePayload(std::string& message,
                                const std::string& payload);
+bool parseServerIdentPayload(ServerIdent& ident, const std::string& payload);
 std::string createServerListPayload(const std::vector<Endpoint>& servers);
 bool parseServerListPayload(std::vector<Endpoint>& servers,
                             const std::string& payload);

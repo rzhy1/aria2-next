@@ -854,7 +854,12 @@ void Ed2kCommand::handleServerPacket()
     if (!ed2k::parseFoundSourcesPayload(
             sources, body_, attrs->link.hash,
             currentHeader_.opcode == ed2k::OP_FOUNDSOURCES_OBFU)) {
-      throw DL_RETRY_EX("ED2K found sources hash mismatch.");
+      A2_LOG_INFO(fmt("CUID#%" PRId64
+                      " - ED2K server %s:%u returned unusable sources.",
+                      getCuid(), endpoint_.host.c_str(), endpoint_.port));
+      markEd2kServerSourceRequestFinished(attrs, endpoint_);
+      state_ = State::DONE;
+      return;
     }
     auto serverState = getEd2kServerState(attrs, endpoint_);
     const bool canRequestCallback =
@@ -918,7 +923,11 @@ void Ed2kCommand::handleServerPacket()
   if (currentHeader_.opcode == ed2k::OP_SEARCHRESULT) {
     ed2k::SearchResult result;
     if (!ed2k::parseSearchResultPayload(result, body_, "server")) {
-      throw DL_RETRY_EX("Bad ED2K search result.");
+      A2_LOG_INFO(fmt("CUID#%" PRId64
+                      " - ED2K server %s:%u returned an unusable search result.",
+                      getCuid(), endpoint_.host.c_str(), endpoint_.port));
+      state_ = State::DONE;
+      return;
     }
     addEd2kSearchResults(getEd2kAttrs(getDownloadContext()), result.entries,
                          result.moreResults);
@@ -940,6 +949,13 @@ void Ed2kCommand::handleServerPacket()
                     getCuid(), endpoint_.host.c_str(), endpoint_.port,
                     message.c_str()));
     updateEd2kServerMessage(attrs, endpoint_, message);
+  }
+  if (currentHeader_.opcode == ed2k::OP_SERVERIDENT) {
+    ed2k::ServerIdent ident;
+    if (!ed2k::parseServerIdentPayload(ident, body_)) {
+      throw DL_RETRY_EX("Bad ED2K server ident.");
+    }
+    updateEd2kServerIdent(attrs, endpoint_, ident);
   }
   if (currentHeader_.opcode == ed2k::OP_SERVERLIST) {
     std::vector<ed2k::Endpoint> servers;

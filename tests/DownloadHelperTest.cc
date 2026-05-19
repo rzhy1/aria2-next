@@ -919,6 +919,7 @@ void DownloadHelperTest::testEd2kServerStateUpdate()
   updateEd2kServerStatus(&attrs, server, status);
   CPPUNIT_ASSERT_EQUAL((uint32_t)1234, state->users);
   CPPUNIT_ASSERT_EQUAL((uint32_t)5678, state->files);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4666, state->tcpObfuscationPort);
 
   status.challenge = 0x55aa0011;
   status.users = 2234;
@@ -947,6 +948,13 @@ void DownloadHelperTest::testEd2kServerStateUpdate()
 
   updateEd2kServerMessage(&attrs, server, "hello");
   CPPUNIT_ASSERT_EQUAL(std::string("hello"), state->lastMessage);
+
+  ed2k::ServerIdent ident;
+  ident.name = "server name";
+  ident.description = "server description";
+  updateEd2kServerIdent(&attrs, server, ident);
+  CPPUNIT_ASSERT_EQUAL(std::string("server name"), state->name);
+  CPPUNIT_ASSERT_EQUAL(std::string("server description"), state->description);
 
   updateEd2kServerSourceRequestTime(&attrs, server, 90);
   CPPUNIT_ASSERT(state->connected);

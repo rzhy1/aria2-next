@@ -2199,6 +2199,41 @@ void DownloadHelperTest::testEd2kPeerHelloUsesServerClientId()
   CPPUNIT_ASSERT_EQUAL((uint16_t)0,
                        ed2k::readUInt16(requestFilename.data() +
                                         ed2k::HASH_LENGTH + 3));
+
+  peerSocket->writeData(ed2k::createPacket(
+      ed2k::PROTO_EDONKEY, ed2k::OP_REQFILENAMEANSWER, attrs->link.hash));
+
+  std::vector<uint8_t> opcodes;
+  std::string afterFileName;
+  for (int i = 0; i < 8 && opcodes.empty(); ++i) {
+    if (!peerSocket->isReadable(0)) {
+      engine.run(true);
+    }
+    if (!peerSocket->isReadable(0)) {
+      continue;
+    }
+    char data[512];
+    size_t len = sizeof(data);
+    peerSocket->readData(data, len);
+    afterFileName.append(data, len);
+    size_t offset = 0;
+    while (afterFileName.size() - offset >= 6) {
+      CPPUNIT_ASSERT(ed2k::readPacketHeader(header,
+                                            afterFileName.data() + offset,
+                                            afterFileName.size() - offset));
+      const auto packetSize = 5 + header.size;
+      if (afterFileName.size() - offset < packetSize) {
+        break;
+      }
+      opcodes.push_back(header.opcode);
+      offset += packetSize;
+    }
+    afterFileName.erase(0, offset);
+  }
+  CPPUNIT_ASSERT(std::find(opcodes.begin(), opcodes.end(),
+                           ed2k::OP_SETREQFILEID) == opcodes.end());
+  CPPUNIT_ASSERT(std::find(opcodes.begin(), opcodes.end(),
+                           ed2k::OP_STARTUPLOADREQ) != opcodes.end());
 }
 
 void DownloadHelperTest::testEd2kInitialServerCommandRecordsFailure()

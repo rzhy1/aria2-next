@@ -1084,8 +1084,14 @@ void Ed2kCommand::handlePeerPacket()
         body_.substr(0, ed2k::HASH_LENGTH) != attrs->link.hash) {
       throw DL_RETRY_EX("ED2K file answer hash mismatch.");
     }
-    if (!peerFileStatusReceived_) {
+    if (!peerFileStatusReceived_ &&
+        getDownloadContext()->getTotalLength() > ed2k::PIECE_LENGTH) {
       queuePeerFileStatusRequest();
+      state_ = State::WRITE;
+    }
+    else {
+      queueSourceExchangeRequest();
+      queuePeerStartUpload();
       state_ = State::WRITE;
     }
     break;

@@ -112,3 +112,19 @@ Remaining: Continue RF5 request-flow work with file status, hashset, queue,
 start-upload, accept-upload, and part request sequencing under controlled peer
 fixtures before relying on public network runs.
 Blocked: none.
+
+2026-05-19 RF5 partial
+Changed: Aligned the plain non-multipacket post-filename path with aMule and
+eMule behavior for single-part files. After `OP_REQFILENAMEANSWER`, aria2-next
+now skips `OP_SETREQFILEID` when the file is no larger than one ED2K part and
+continues to source exchange plus `OP_STARTUPLOADREQ`. This avoids sending the
+file-status request that the reference clients deliberately removed for
+single-part files for better eDonkeyHybrid compatibility. The existing
+outgoing peer test now asserts that a single-part request does not emit
+`OP_SETREQFILEID` after a valid filename answer.
+Verified: `PATH=/opt/homebrew/bin:$PATH cmake --build --preset default
+--target aria2-next aria2_tests` passed.
+Remaining: Continue RF5 for multi-part status/hashset sequencing,
+multi-packet variants, file identifiers, and controlled queue/transfer state
+verification.
+Blocked: none.

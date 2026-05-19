@@ -16,9 +16,10 @@ maintenance task owns its own subdirectory.
 | `ed2k/checkpoints.csv` | Historical checkpoint matrix for the first ED2K/eMule draft |
 | `ed2k/reference-parity.csv` | Historical parity ledger for the first ED2K/eMule draft |
 | `ed2k/progress.md` | Historical chronological ED2K/eMule draft log |
-| `ed2k-refactor/overview.md` | Active tracker entry point for the ED2K/eMule interoperability refactor |
-| `ed2k-refactor/checkpoints.csv` | Active checkpoint matrix for the ED2K/eMule refactor |
-| `ed2k-refactor/reference-audit.csv` | Active authoritative reference audit and pruning ledger |
+| `ed2k-refactor/overview.md` | Active tracker entry point for the ED2K/eMule reference-alignment refactor |
+| `ed2k-refactor/checkpoint-index.csv` | Active checkpoint index for the ED2K/eMule refactor |
+| `ed2k-refactor/reference-ledger.csv` | Active authoritative reference alignment and pruning ledger |
+| `ed2k-refactor/checkpoints/` | Active domain-specific ED2K/eMule checkpoint matrices |
 | `ed2k-refactor/progress.md` | Active chronological ED2K/eMule refactor progress log |
 
 Maintenance records should be durable and compact. Temporary API payloads,

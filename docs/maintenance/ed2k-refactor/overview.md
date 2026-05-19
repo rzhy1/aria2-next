@@ -1,108 +1,143 @@
-# Native ED2K/eMule Refactor Overview
+# ED2K/eMule Reference Alignment Refactor
 
-This directory is the active tracker for the ED2K/eMule refactor in
-aria2-next. It supersedes `docs/maintenance/ed2k` as the source of truth for
-future ED2K work.
+This directory is the active tracker for the ED2K/eMule reference-alignment
+refactor in aria2-next. It replaces the previous `ed2k-refactor` tracker.
 
-The old tracker records a completed draft implementation. It is useful
-history, but it is no longer authoritative because the reference set changed
-and live interoperability testing showed that public ED2K downloads can still
-stall after server source discovery.
+The earlier tracker mixed public-network download evidence, draft completion
+claims, and implementation checkpoints. This tracker narrows the goal to
+protocol alignment, maintainability, and local verification against the current
+authoritative local references.
 
 ## Tracker Files
 
-| Path | Role | Update rule |
-| --- | --- | --- |
-| `overview.md` | Refactor scope, current evidence, architecture rules, and verification policy | Update when durable scope, reference authority, or architectural direction changes |
-| `reference-audit.csv` | Authoritative reference subsystem audit and port, adapt, replace, or prune decisions | Update before implementing or pruning each subsystem |
-| `checkpoints.csv` | Main checkpoint matrix for the refactor | Update after every checkpoint with status, evidence, remaining work, and blockers |
-| `progress.md` | Compact chronological evidence trail | Append one entry after each checkpoint, root-cause finding, or material cleanup |
+| Path | Role |
+| --- | --- |
+| `overview.md` | Scope, reference authority, architecture rules, verification policy, and update rules |
+| `checkpoint-index.csv` | Main checkpoint index and current progress source |
+| `reference-ledger.csv` | Reference subsystem decisions: port, adapt, replace, or prune |
+| `progress.md` | Compact chronological evidence trail |
+| `checkpoints/00-foundation.csv` | Tracker, baseline, and current-code audit checkpoints |
+| `checkpoints/10-links-metadata.csv` | ED2K links, server.met, nodes.dat, file identity, and persisted metadata checkpoints |
+| `checkpoints/20-server.csv` | ED2K server TCP/UDP, source discovery, HighID/LowID, callback, and server search checkpoints |
+| `checkpoints/30-peer.csv` | Peer hello, capability truth, request flow, multipacket, file identifier, and transfer-control checkpoints |
+| `checkpoints/40-transfer-integrity.csv` | Part transfer, compression, MD4, AICH, disk safety, and resume checkpoints |
+| `checkpoints/50-discovery-policy.csv` | Source policy, Source Exchange, Kad, callback constraints, and retry checkpoints |
+| `checkpoints/60-sharing-upload.csv` | Shared files, upload queue, credits, and cooperative peer behavior checkpoints |
+| `checkpoints/70-search-rpc-docs.csv` | Search, RPC, Motrix Next fields, CLI/manual/completion docs, and final audit checkpoints |
 
-Use `checkpoints.csv` as the primary progress source. Use
-`reference-audit.csv` to prevent scope loss. Use `progress.md` to survive goal
-context compaction without inflating the repository with scratch logs.
+Use `checkpoint-index.csv` as the single progress entry point. Use the
+domain-specific checkpoint files for acceptance criteria and evidence. Use
+`reference-ledger.csv` to prevent scope loss and to record every prune
+decision.
 
-## Scope
-
-The target is practical, native ED2K/eMule interoperability inside aria2-next.
-The feature must support real file downloads through ED2K servers, peer
-connections, source discovery, Source Exchange, Kad, integrity checks, resume,
-sharing, upload behavior, search, CLI/RPC status, Motrix Next integration
-fields, and documented persistence formats.
-
-The implementation must stay in native C++11 and reuse the existing
-aria2-next architecture: CMake, Command/EventPoll, DownloadEngine,
-RequestGroup, DownloadContext, PieceStorage, DiskAdaptor, CLI, RPC, session,
-and documentation patterns. Do not add Go, Java, sidecar daemons, Boost, Asio,
-a second event loop, or unrelated architecture changes.
+## Reference Authority
 
 The authoritative local reference set is:
 
 | Reference | Role |
 | --- | --- |
-| `/Users/sekiro/Projects/oss/ed2k-references/amule-official` | Modern open eMule-compatible client behavior, server/peer/Kad/sharing/upload flows |
-| `/Users/sekiro/Projects/oss/ed2k-references/emule-official-0.50a` | Canonical eMule behavior, packet flow, file identifiers, crypt/secure-ident capability surfaces |
-| `/Users/sekiro/Projects/oss/ed2k-references/mldonkey-official` | Independent ED2K implementation for server, source, file, share, and Kad cross-checks |
-| `/Users/sekiro/Projects/oss/ed2k-references/wireshark-official` | Packet dissector authority for wire framing, opcodes, tags, and packet variants |
+| `/Users/sekiro/Projects/oss/ed2k-references/amule-official` | Modern open eMule-compatible behavior for server, peer, Kad, sharing, upload, and search |
+| `/Users/sekiro/Projects/oss/ed2k-references/emule-official-0.50a` | Canonical eMule packet flow, capability surfaces, file identifiers, secure identification, crypt, and UI-pruned behavior |
+| `/Users/sekiro/Projects/oss/ed2k-references/mldonkey-official` | Independent implementation used to cross-check server, source, file, share, search, and Kad behavior |
+| `/Users/sekiro/Projects/oss/ed2k-references/wireshark-official` | Packet framing, opcode, tag, and dissector cross-checks |
 | `/Users/sekiro/Projects/oss/ed2k-references/protocol-docs` | Protocol text for ED2K, eMule extensions, Kad, links, corruption handling, HighID/LowID, and callback behavior |
 
-Do not use deleted or disallowed references as implementation authority. Do
-not copy reference code directly.
+Do not use deleted or disallowed references as implementation authority. Do not
+copy reference code directly.
 
-## Current Evidence
+## Scope
 
-The existing draft can parse ED2K links, create tasks, connect to servers, get
-LowID state, request sources, and receive source lists. Live public testing
-with the Windows XP ED2K link still stalled at zero downloaded bytes after peer
-connection attempts. That failure means the current code has not proven
-peer-level interoperability.
+The target is a practical native C++11 ED2K/eMule implementation aligned with
+the authoritative references, integrated into aria2-next's existing CMake,
+Command/EventPoll, DownloadEngine, RequestGroup, DownloadContext, PieceStorage,
+DiskAdaptor, CLI, RPC, session, and documentation patterns.
 
-The strongest current risk areas are protocol capability mismatch and missing
-modern peer request paths. The code advertises eMule capabilities such as
-multi-packet and Source Exchange 2 while not fully implementing all related
-wire paths. The authoritative references show important behavior around
-`OP_FOUNDSOURCES_OBFU`, `OP_GETSOURCES_OBFU`, `OP_MULTIPACKET`,
-`OP_MULTIPACKET_EXT`, `OP_MULTIPACKET_EXT2`, file identifiers, secure
-identification, crypt/obfuscation options, callback routing, Source Exchange
-v4 crypt options, AICH, and Kad state.
+The refactor must keep aria2-next as one native process. It must not introduce
+Go, Java, sidecars, Boost, Asio, another daemon, another event loop, unrelated
+architecture changes, or legacy GUI/daemon compatibility layers.
 
-The refactor must start by proving the failure boundary with focused logs and
-packet-level evidence. Do not continue adding broad ED2K features until the
-server-source-to-peer-request path is understood.
+The implementation may improve on reference designs when aria2-next has a
+safer or clearer native owner. Existing aria2-next disk, session, RPC, transfer,
+and event-loop ownership should replace legacy client databases, GUI prompts,
+daemon APIs, and platform-specific helper stacks.
 
-## Architecture Direction
+## Current Baseline
 
-Keep the existing aria2-next event loop. The refactor should split behavior by
-ownership only where it improves correctness and maintainability.
+The current codebase already contains native ED2K modules for links, hashes,
+packet helpers, server parsing, peer helpers, Kad state, source policy, AICH,
+compression, shared files, upload queue, request-group integration, session
+serialization, RPC status, and documentation.
 
-| Area | Target ownership |
+The current draft can parse ED2K links, create tasks, connect to servers,
+discover sources, and reach some public peer handshake paths. It has not proven
+deterministic public-network peer transfer. Public ED2K downloads are therefore
+manual smoke evidence, not a checkpoint gate for this tracker.
+
+Current source inventory after the RA1 audit:
+
+| Area | Current files | Audit finding |
+| --- | --- | --- |
+| Link and file identity | `src/ed2k_link.*`, `src/ed2k_hash.*`, `src/ed2k_aich.*`, `src/ed2k_packet.*` | Focused parser, hash, AICH, and packet helpers exist and should remain stable unless reference comparison finds a wire-format bug |
+| Request state | `src/Ed2kAttribute.*` | RequestGroup-owned coordinator for link metadata, server state, peer state, hashsets, AICH, search, Kad, and scheduling cursors |
+| Server TCP and peer TCP | `src/Ed2kCommand.*` | Correct integration point for aria2-next TCP commands, but currently mixes server session, peer session, packet dispatch, request flow, AICH, Source Exchange, transfer, and partial upload response behavior |
+| Server UDP and Kad | `src/Ed2kKadCommand.*`, `src/Ed2kKadState.*`, `src/ed2k_kad.*`, `src/ed2k_kad_search.*` | Correct single UDP event-loop owner, but ED2K server UDP and Kad traversal are interleaved in one command |
+| Source policy | `src/ed2k_policy.*` | Focused source selection and piece-selection helpers exist; reference alignment must prove retry, queue, availability, and endgame behavior |
+| Transfer and disk safety | `src/Ed2kPeerTransfer.*`, `src/ed2k_compression.*` | Existing disk path is used through `PieceStorage` and `DiskAdaptor`; RA40 must verify all range and corruption paths |
+| Sharing and upload | `src/Ed2kSharedFile.*`, `src/Ed2kSharedStore.*`, `src/Ed2kSharedResponder.*`, `src/Ed2kSharedPeerCommand.*`, `src/Ed2kUploadQueue.*` | Native sharing, upload queue, responder, and credit surfaces exist; RA60 must align them with non-pruned reference behavior |
+| CLI/RPC/session | `src/download_helper.cc`, `src/SessionSerializer.cc`, `src/RpcMethodImpl.cc`, `src/OptionHandlerFactory.cc`, `docs/completion/aria2-next` | Existing aria2-next integration points are present and should be preserved; RA70 and RA71 must verify field and documentation truth |
+| Tests | `tests/Ed2kHelperTest.cc`, `tests/Ed2kKadStateTest.cc`, `tests/Ed2kSharedStoreTest.cc`, `tests/ProtocolDetectorTest.cc` | Coverage is local and parser/state focused; `tests/Ed2kHelperTest.cc` is broad and should be split only when future changes need clearer ownership |
+
+Capability truth risks found in RA1 are concentrated around
+`createLocalPeerInfo()` in `src/Ed2kCommand.cc`. The current local peer info
+advertises AICH, Unicode, compression, Source Exchange 1, extended requests,
+large files, and Source Exchange 2. It does not advertise multipacket,
+extended multipacket, secure identification, crypt, or Kad in the parsed eMule
+peer-info structure. RA30 must prove that every advertised bit has complete
+send, receive, state, error, and fallback behavior before it remains
+advertised.
+
+The largest current maintainability risk is overloaded command ownership:
+`src/Ed2kCommand.cc` still mixes server session work, peer download session
+work, packet dispatch, request sequencing, Source Exchange, AICH, upload
+responses, and transfer handling. `src/Ed2kKadCommand.cc` mixes Kad traversal
+and ED2K server UDP behavior. Split only when it improves correctness,
+capability truth, or future maintenance.
+
+## Architecture Rules
+
+Keep the implementation native and local to aria2-next. Prefer focused modules
+with explicit state ownership:
+
+| Area | Preferred owner |
 | --- | --- |
-| Link and metadata | `ed2k_link.*` plus RequestGroup-owned ED2K metadata |
-| Packet framing and tags | `ed2k_packet.*` and focused packet helpers with bounded parsing |
-| Server session | Focused server state machine for login, IDChange, source requests, OBFU sources, callback, status, server list, retry, and persistence |
-| Peer download session | Focused peer state machine for hello, eMule info, truthful capabilities, request flow, queue state, parts, compression, AICH, and failure handling |
-| Peer upload and sharing | Shared-file responder, upload queue, credits, and incoming shared-peer routing |
-| Source policy | ED2K-aware source selection, queue/backoff, availability, duplicate prevention, and resume source handling |
-| Kad | UDP command integration plus routing, traversal, source search, keyword search, publish, firewalled checks, and durable state |
-| CLI/RPC/docs | Existing aria2-next option, manual, completion, RPC, and Motrix Next documentation paths |
+| Link and metadata | `ed2k_link.*`, `Ed2kAttribute`, `DownloadContext` |
+| Packet framing and tags | `ed2k_packet.*` and narrow protocol helper modules |
+| Server TCP | A focused server-session path for login, IDChange, source requests, callback, status, search, server list, retry, and persistence |
+| Server UDP | Existing UDP command path with clear ED2K server UDP ownership and bounded packet parsing |
+| Peer download | A focused peer-download session path for hello, capability truth, request flow, queue state, parts, compression, AICH, and failure handling |
+| Peer upload and sharing | `Ed2kSharedStore`, `Ed2kSharedResponder`, `Ed2kSharedPeerCommand`, and `Ed2kUploadQueue` |
+| Source policy | `ed2k_policy.*`, `PeerState`, and request-level scheduling state |
+| Kad | `Ed2kKadCommand`, `Ed2kKadState`, and focused Kad packet/traversal helpers |
+| Persistence | Existing aria2-next session/control-file mechanisms plus documented hidden ED2K state |
+| CLI/RPC/docs | Existing aria2-next option, status, RPC, manual, completion, and Motrix Next documentation paths |
 
-Large files such as `src/Ed2kCommand.cc` and `src/Ed2kKadCommand.cc` should be
-reduced through functional ownership boundaries, not mechanical churn. Delete
-duplicated draft code when evidence shows that it is the wrong shape.
+Refactor overloaded files by ownership, not by mechanical line-count churn.
+Delete duplicated or wrong draft code when the reference audit shows it is the
+wrong shape.
 
 ## Verification Policy
 
-Verification must stay meaningful and compact. Add tests only for parser
-contracts, packet framing, protocol state transitions, persistence formats,
-disk/integrity safety, RPC field contracts, and confirmed regressions. Avoid
-broad scaffolding, fake tests, placeholder files, and tests that simply mirror
-implementation details.
+Use compact local verification. Add tests only for parser contracts, packet
+framing, state transitions, persistence formats, disk and integrity safety, RPC
+field contracts, and confirmed regressions.
 
-Batch related changes and verify once at the end of the batch. Run
-intermediate tests only when a failing boundary is needed to prove a root cause
-or when a risky edit needs immediate feedback. Routine checkpoints should use
-the smallest commands that prove the changed surface. Final completion
-requires:
+Avoid socket-heavy fake integration tests, broad scaffolding, placeholder
+tests, public-network tests as automated gates, tests for incidental logging,
+and tests that simply mirror implementation details.
+
+Run intermediate verification only when it closes a checkpoint or protects a
+risky protocol boundary. Batch ordinary parser edits, small cleanup, and module
+splits. Final local verification requires:
 
 ```bash
 cmake --preset default
@@ -111,16 +146,16 @@ ctest --preset default
 build/default/aria2-next --version
 ```
 
-Final completion also requires a short live ED2K smoke check. The smoke check
-must prove server discovery, peer interoperability, and nonzero data transfer
-on a known valid fixture. If the public ED2K network prevents deterministic
-verification, record the exact packet-level external blocker instead of
-claiming completion.
+Public ED2K smoke testing is manual final evidence. If public peers reset,
+sources disappear, or LowID/firewall state blocks transfer, record the boundary
+as operational evidence rather than blocking reference-alignment completion.
 
 ## Update Rules
 
-Every checkpoint update must record changed files, final verification evidence,
-remaining work, blockers, and relevant reference-audit decisions. Keep
-`progress.md` checkpoint-sized. Do not record every investigation step, every
-ordinary local build, or every small test run. Scratch logs, packet captures,
-generated reports, and local caches must stay outside the repository.
+After each checkpoint, update `checkpoint-index.csv`, the matching
+`checkpoints/*.csv` row, `reference-ledger.csv` when a reference decision
+changes, and `progress.md` with one compact entry.
+
+Keep maintenance records durable and compact. Do not commit raw logs, packet
+captures, generated reports, caches, temporary API payloads, local public
+network fixtures, or conversation text.

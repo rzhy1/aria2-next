@@ -57,6 +57,9 @@ project(
 
 Use `./scripts/bump-version.sh <major.minor.patch>` to change the CMake project version. The script only accepts plain numeric versions.
 
+Use standard semantic-version bump semantics. A minor release bump from
+`2.0.6` is `2.1.0`, not `2.1.6`; a patch bump from `2.0.6` is `2.0.7`.
+
 Release tags use `v{PROJECT_VERSION}`. The tag version and CMake project version must match exactly after removing the leading `v`. Pre-release, beta, RC, channel, build-metadata, or date-based release suffixes are not supported.
 
 Treat published release tags as immutable. If a failed release has not been consumed, delete the failed GitHub Release and tag, fix the commit, then recreate the same release deliberately. If a release has been publicly consumed, stop and report the situation. Do not choose, bump, or publish a replacement version unless the maintainer explicitly specifies the new version.

@@ -93,6 +93,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kPeerCommandAnswersSourceExchange2);
   CPPUNIT_TEST(testEd2kKadCommandUpdatesServerUdpStatus);
   CPPUNIT_TEST(testEd2kKadCommandRequestsServerUdpSources);
+  CPPUNIT_TEST(testEd2kKadCommandHandlesPackedServerUdpSources);
   CPPUNIT_TEST(testEd2kKadCommandHandlesClientUdpReask);
   CPPUNIT_TEST(testEd2kKadCommandTraversesSourceSearch);
   CPPUNIT_TEST(testEd2kKadCommandIndexesPublishedSource);
@@ -161,6 +162,7 @@ public:
   void testEd2kPeerCommandAnswersSourceExchange2();
   void testEd2kKadCommandUpdatesServerUdpStatus();
   void testEd2kKadCommandRequestsServerUdpSources();
+  void testEd2kKadCommandHandlesPackedServerUdpSources();
   void testEd2kKadCommandHandlesClientUdpReask();
   void testEd2kKadCommandTraversesSourceSearch();
   void testEd2kKadCommandIndexesPublishedSource();
@@ -2452,6 +2454,78 @@ void DownloadHelperTest::testEd2kKadCommandRequestsServerUdpSources()
       ed2k::createFoundSourcesPayload(fileHash, std::vector<ed2k::Endpoint>{
                                                     source}));
   udpServer.writeData(response.data(), response.size(), "127.0.0.1",
+                      commandPtr->getLocalUdpPort());
+
+  CPPUNIT_ASSERT(commandPtr->waitLocalUdpReadable(1));
+  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs->peers.size());
+  CPPUNIT_ASSERT_EQUAL(source.host, attrs->peers[0].host);
+  CPPUNIT_ASSERT_EQUAL(source.port, attrs->peers[0].port);
+}
+
+void DownloadHelperTest::testEd2kKadCommandHandlesPackedServerUdpSources()
+{
+  const std::string fileHashHex = "0123456789abcdef0123456789abcdef";
+  const auto fileHash = util::fromHex(fileHashHex.begin(), fileHashHex.end());
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|/"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_ED2K_SERVER, "127.0.0.1:1");
+  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
+  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_DRY_RUN, A2_V_TRUE);
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+  auto group = result[0];
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+
+  SocketCore udpServer(SOCK_DGRAM);
+  udpServer.bind(0);
+  udpServer.setNonBlockingMode();
+  auto serverEndpoint = udpServer.getAddrInfo();
+  attrs->servers[0].host = "127.0.0.1";
+  attrs->servers[0].port = serverEndpoint.port - 4;
+  auto state = getEd2kServerState(attrs, attrs->servers[0]);
+  state->handshakeCompleted = true;
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
+  auto command = make_unique<Ed2kKadCommand>(engine.newCUID(), group.get(),
+                                             &engine);
+  auto commandPtr = command.get();
+  engine.addRoutineCommand(std::move(command));
+
+  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
+
+  ed2k::Endpoint source;
+  source.host = "127.0.0.1";
+  source.port = serverEndpoint.port + 20;
+  const auto inner =
+      ed2k::createFoundSourcesPayload(fileHash, std::vector<ed2k::Endpoint>{
+                                                    source});
+
+  z_stream strm;
+  std::memset(&strm, 0, sizeof(strm));
+  CPPUNIT_ASSERT_EQUAL(Z_OK, deflateInit(&strm, Z_DEFAULT_COMPRESSION));
+  std::string compressed(compressBound(inner.size()), '\0');
+  strm.avail_in = inner.size();
+  strm.next_in =
+      reinterpret_cast<unsigned char*>(const_cast<char*>(inner.data()));
+  strm.avail_out = compressed.size();
+  strm.next_out = reinterpret_cast<unsigned char*>(&compressed[0]);
+  CPPUNIT_ASSERT_EQUAL(Z_STREAM_END, deflate(&strm, Z_FINISH));
+  compressed.resize(compressed.size() - strm.avail_out);
+  CPPUNIT_ASSERT_EQUAL(Z_OK, deflateEnd(&strm));
+
+  const auto packed =
+      ed2k::createDatagram(ed2k::PROTO_PACKED, ed2k::OP_GLOBFOUNDSOURCES,
+                           compressed);
+  udpServer.writeData(packed.data(), packed.size(), "127.0.0.1",
                       commandPtr->getLocalUdpPort());
 
   CPPUNIT_ASSERT(commandPtr->waitLocalUdpReadable(1));

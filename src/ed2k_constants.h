@@ -25,6 +25,7 @@ constexpr uint8_t PROTO_EDONKEY = 0xe3;
 constexpr uint8_t PROTO_PACKED = 0xd4;
 constexpr uint8_t PROTO_EMULE = 0xc5;
 constexpr uint8_t OP_LOGINREQUEST = 0x01;
+constexpr uint8_t OP_REJECT = 0x05;
 constexpr uint8_t OP_GETSERVERLIST = 0x14;
 constexpr uint8_t OP_SEARCHREQUEST = 0x16;
 constexpr uint8_t OP_GETSOURCES = 0x19;

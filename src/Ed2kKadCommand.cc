@@ -29,6 +29,7 @@
 #include "SimpleRandomizer.h"
 #include "SocketCore.h"
 #include "ed2k_constants.h"
+#include "ed2k_compression.h"
 #include "ed2k_hash.h"
 #include "ed2k_kad.h"
 #include "ed2k_kad_search.h"
@@ -481,11 +482,13 @@ void Ed2kKadCommand::receivePackets()
       continue;
     }
     ed2k::PacketHeader header;
-    if (!ed2k::readDatagramHeader(header, reinterpret_cast<const char*>(data.data()),
-                                  static_cast<size_t>(length)) ||
+    if (!ed2k::readDatagramHeader(
+            header, reinterpret_cast<const char*>(data.data()),
+            static_cast<size_t>(length)) ||
         (header.protocol != ed2k::KAD_PROTOCOL &&
          header.protocol != ed2k::PROTO_EDONKEY &&
-         header.protocol != ed2k::PROTO_EMULE) ||
+         header.protocol != ed2k::PROTO_EMULE &&
+         header.protocol != ed2k::PROTO_PACKED) ||
         header.payloadSize() + 2 != static_cast<size_t>(length)) {
       continue;
     }
@@ -494,6 +497,14 @@ void Ed2kKadCommand::receivePackets()
     endpoint.port = sender.port;
     std::string payload(reinterpret_cast<const char*>(data.data()) + 2,
                         reinterpret_cast<const char*>(data.data()) + length);
+    if (header.protocol == ed2k::PROTO_PACKED) {
+      std::string inflated;
+      if (!ed2k::inflatePackedPacketPayload(inflated, payload, 64_k)) {
+        continue;
+      }
+      header.protocol = ed2k::PROTO_EMULE;
+      payload.swap(inflated);
+    }
     if (header.protocol == ed2k::PROTO_EDONKEY ||
         header.protocol == ed2k::PROTO_EMULE) {
       handleEd2kUdpPacket(endpoint, header.opcode, payload);

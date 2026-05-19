@@ -91,3 +91,19 @@ closure, and final server-source evidence. RF5 still needs multipart
 status/hashset sequencing, multipacket variants, file identifiers, controlled
 queue/transfer state verification, and later live evidence.
 Blocked: none.
+
+2026-05-19 RF3 partial
+Changed: Added server `OP_REJECT` handling and changed server
+`OP_CALLBACK_FAIL` handling to log and continue reading the server session,
+matching the authoritative clients' discard behavior instead of ending the
+connection immediately. Added ED2K UDP packed datagram support for compressed
+server source replies using the reference `OP_PACKEDPROT` shape where the
+outer opcode is preserved and only the payload is compressed.
+Verified: `cmake --build --preset default --target aria2_tests -j 1` passed
+with the existing local `/opt/homebrew/opt/tcl-tk/lib` linker warning.
+`build/default/aria2_tests` passed with `OK (1115)`. `git diff --check
+src/ed2k_constants.h src/Ed2kCommand.cc src/Ed2kKadCommand.cc
+tests/DownloadHelperTest.cc` passed.
+Remaining: RF3 still needs final callback/source-state review and a final
+server-source evidence run before marking the checkpoint verified.
+Blocked: none.

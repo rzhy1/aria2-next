@@ -887,7 +887,17 @@ void Ed2kCommand::handleServerPacket()
     return;
   }
   if (currentHeader_.opcode == ed2k::OP_CALLBACK_FAIL) {
-    state_ = State::DONE;
+    A2_LOG_INFO(fmt("CUID#%" PRId64
+                    " - ED2K server %s:%u reported callback failure.",
+                    getCuid(), endpoint_.host.c_str(), endpoint_.port));
+    state_ = State::READ_HEADER;
+    return;
+  }
+  if (currentHeader_.opcode == ed2k::OP_REJECT) {
+    A2_LOG_INFO(fmt("CUID#%" PRId64
+                    " - ED2K server %s:%u rejected the last command.",
+                    getCuid(), endpoint_.host.c_str(), endpoint_.port));
+    state_ = State::READ_HEADER;
     return;
   }
   if (currentHeader_.opcode == ed2k::OP_SEARCHRESULT) {

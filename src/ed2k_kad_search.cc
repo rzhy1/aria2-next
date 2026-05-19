@@ -203,7 +203,8 @@ std::string createKadPublishSourceRequestPayload(const std::string& fileId,
   Tag sourceType;
   sourceType.id = 0xff;
   sourceType.valueType = TagValueType::UINT;
-  sourceType.intValue = 1;
+  sourceType.intValue =
+      size > std::numeric_limits<uint32_t>::max() ? 4 : 1;
   entry.tags.push_back(sourceType);
 
   Tag sourceIp;

@@ -183,3 +183,19 @@ Verified: `cmake --build --preset default --target aria2_tests` passed.
 passed.
 Remaining: Start RA51 Kad alignment.
 Blocked: none.
+
+2026-05-19 RA51 verified
+Changed: Aligned Kad routing and publish behavior with the authoritative
+aMule/eMule/Wireshark references. Kad now answers bootstrap requests with
+filtered closest contacts, excludes the requester when possible, uses the
+configured ED2K TCP port in Kad hello, bootstrap, firewalled-check, and publish
+paths, completes bootstrap transactions, answers targeted `KAD_REQ` lookups,
+responds to `KAD_PING`, rejects unusable Kad routing contacts, and publishes
+large-file HighID sources with source type 4. Kad1 and UI-only Kad behavior
+remain pruned.
+Verified: The large-file publish assertion failed before the source-type fix
+with expected 4 and actual 1. After the fix, `git diff --check` passed,
+`cmake --build --preset default --target aria2_tests` passed, and
+`build/default/aria2_tests` passed with `OK (1096)`.
+Remaining: Start RA60 sharing upload and credits alignment.
+Blocked: none.

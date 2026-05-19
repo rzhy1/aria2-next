@@ -1321,6 +1321,13 @@ void Ed2kHelperTest::testKadSearchPublishAndFirewallPayloads()
                               [](const Tag& tag) { return tag.id == 0xd3; });
   CPPUNIT_ASSERT(sizeTag != parsedPublish.source.tags.end());
   CPPUNIT_ASSERT_EQUAL((uint64_t)0x100000001ULL, sizeTag->intValue);
+  auto sourceTypeTag = std::find_if(parsedPublish.source.tags.begin(),
+                                    parsedPublish.source.tags.end(),
+                                    [](const Tag& tag) {
+                                      return tag.id == 0xff;
+                                    });
+  CPPUNIT_ASSERT(sourceTypeTag != parsedPublish.source.tags.end());
+  CPPUNIT_ASSERT_EQUAL((uint64_t)4, sourceTypeTag->intValue);
 
   auto searchRes = createKadSearchResultPayload(
       sourceId, fileId,

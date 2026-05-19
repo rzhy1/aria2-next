@@ -51,6 +51,16 @@ bool sameEndpoint(const KadContact& lhs, const KadContact& rhs)
 
 bool validId(const std::string& id) { return id.size() == HASH_LENGTH; }
 
+bool validRoutingContact(const KadContact& contact)
+{
+  if (!validId(contact.id) || contact.host.empty() ||
+      contact.host == "0.0.0.0" || contact.udpPort == 0 ||
+      contact.version <= 1) {
+    return false;
+  }
+  return contact.udpPort != 53 || contact.version > 5;
+}
+
 void validateId(const std::string& id)
 {
   if (!validId(id)) {
@@ -134,8 +144,7 @@ void KadRoutingTable::nodeSeen(const KadContact& contact, int64_t now)
 void KadRoutingTable::addNode(const KadContact& contact, bool confirmed,
                               int64_t now)
 {
-  if (!validId(contact.id) || contact.host.empty() || contact.udpPort == 0 ||
-      contact.id == selfId_) {
+  if (!validRoutingContact(contact) || contact.id == selfId_) {
     return;
   }
   auto& bucket = buckets_[bucketIndex(contact.id)];
@@ -208,11 +217,23 @@ void KadRoutingTable::nodeFailed(const KadContact& contact)
 std::vector<KadContact> KadRoutingTable::findClosest(
     const std::string& targetId, size_t limit, bool includeUnconfirmed) const
 {
+  return findClosestExcluding(targetId, std::string(), limit,
+                              includeUnconfirmed);
+}
+
+std::vector<KadContact> KadRoutingTable::findClosestExcluding(
+    const std::string& targetId, const std::string& excludedId, size_t limit,
+    bool includeUnconfirmed) const
+{
   validateId(targetId);
+  if (!excludedId.empty()) {
+    validateId(excludedId);
+  }
   std::vector<KadRoutingNode> nodes;
   for (const auto& bucket : buckets_) {
     for (const auto& node : bucket.live) {
-      if (includeUnconfirmed || node.confirmed) {
+      if ((includeUnconfirmed || node.confirmed) &&
+          node.contact.id != excludedId) {
         nodes.push_back(node);
       }
     }

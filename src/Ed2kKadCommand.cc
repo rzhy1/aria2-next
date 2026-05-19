@@ -82,6 +82,16 @@ uint32_t createChallenge()
   return challenge == 0 ? 1 : challenge;
 }
 
+uint16_t localEd2kTcpPort(const DownloadEngine* e)
+{
+  const auto configured = e->getOption()->getAsInt(PREF_ED2K_LISTEN_PORT);
+  if (configured > 0 &&
+      configured <= static_cast<int>(std::numeric_limits<uint16_t>::max())) {
+    return static_cast<uint16_t>(configured);
+  }
+  return 0;
+}
+
 ed2k::Endpoint serverUdpEndpoint(const ed2k::Endpoint& server)
 {
   ed2k::Endpoint endpoint;
@@ -287,8 +297,7 @@ void Ed2kKadCommand::queueFirewalledCheck()
   if (!attrs->kadRoutingTable || attrs->kadRoutingTable->liveSize() == 0) {
     return;
   }
-  const auto tcpPort =
-      static_cast<uint16_t>(e_->getOption()->getAsInt(PREF_ED2K_LISTEN_PORT));
+  const auto tcpPort = localEd2kTcpPort(e_);
   if (tcpPort == 0) {
     return;
   }
@@ -327,8 +336,7 @@ void Ed2kKadCommand::queueSourcePublish()
       attrs->link.hash.empty()) {
     return;
   }
-  const auto tcpPort =
-      static_cast<uint16_t>(e_->getOption()->getAsInt(PREF_ED2K_LISTEN_PORT));
+  const auto tcpPort = localEd2kTcpPort(e_);
   if (tcpPort == 0) {
     return;
   }
@@ -605,11 +613,28 @@ void Ed2kKadCommand::handlePacket(const ed2k::Endpoint& endpoint,
   if (!attrs->kadRoutingTable) {
     return;
   }
+  if (opcode == ed2k::KAD_BOOTSTRAP_REQ) {
+    std::string requesterId;
+    if (payload.size() >= ed2k::HASH_LENGTH + 3) {
+      requesterId.assign(payload.begin(), payload.begin() + ed2k::HASH_LENGTH);
+    }
+    const auto contacts =
+        requesterId.empty()
+            ? attrs->kadRoutingTable->findClosest(clientKadId(e_), 20, false)
+            : attrs->kadRoutingTable->findClosestExcluding(
+                  clientKadId(e_), requesterId, 20, false);
+    queuePacket(endpoint, ed2k::KAD_BOOTSTRAP_RES,
+                ed2k::createKadBootstrapResponsePayload(
+                    clientKadId(e_), localEd2kTcpPort(e_), 8, contacts));
+    return;
+  }
   if (opcode == ed2k::KAD_BOOTSTRAP_RES) {
     ed2k::KadBootstrapResponse response;
     if (!ed2k::parseKadBootstrapResponsePayload(response, payload)) {
       return;
     }
+    ed2k::KadTransaction tx;
+    attrs->kadTransactions.complete(endpoint, opcode, tx);
     ed2k::KadContact sender;
     sender.id = response.id;
     sender.host = endpoint.host;
@@ -620,7 +645,8 @@ void Ed2kKadCommand::handlePacket(const ed2k::Endpoint& endpoint,
     for (const auto& contact : response.contacts) {
       attrs->kadRoutingTable->heardAbout(contact, nowSeconds());
       queuePacket(toEndpoint(contact), ed2k::KAD_HELLO_REQ,
-                  ed2k::createKadHelloPayload(clientKadId(e_), 0, 8));
+                  ed2k::createKadHelloPayload(clientKadId(e_),
+                                              localEd2kTcpPort(e_), 8));
     }
     return;
   }
@@ -637,8 +663,26 @@ void Ed2kKadCommand::handlePacket(const ed2k::Endpoint& endpoint,
     }
     if (opcode == ed2k::KAD_HELLO_REQ) {
       queuePacket(endpoint, ed2k::KAD_HELLO_RES,
-                  ed2k::createKadHelloPayload(clientKadId(e_), 0, 8));
+                  ed2k::createKadHelloPayload(clientKadId(e_),
+                                              localEd2kTcpPort(e_), 8));
     }
+    return;
+  }
+  if (opcode == ed2k::KAD_REQ) {
+    ed2k::KadRequest request;
+    if (!ed2k::parseKadRequestPayload(request, payload) ||
+        request.receiverId != clientKadId(e_)) {
+      return;
+    }
+    const auto searchType = request.searchType & 0x1f;
+    if (searchType == 0) {
+      return;
+    }
+    queuePacket(endpoint, ed2k::KAD_RES,
+                ed2k::createKadResponsePayload(
+                    request.targetId,
+                    attrs->kadRoutingTable->findClosest(request.targetId, 32,
+                                                        false)));
     return;
   }
   if (opcode == ed2k::KAD_RES) {
@@ -739,6 +783,10 @@ void Ed2kKadCommand::handlePacket(const ed2k::Endpoint& endpoint,
     }
     queuePacket(endpoint, ed2k::KAD_FIREWALLED_RES,
                 ed2k::createKadFirewalledResponsePayload(endpoint.host));
+    return;
+  }
+  if (opcode == ed2k::KAD_PING) {
+    queuePacket(endpoint, ed2k::KAD_PONG, std::string());
     return;
   }
 }

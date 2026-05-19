@@ -89,6 +89,9 @@ public:
   std::vector<KadContact> findClosest(const std::string& targetId,
                                       size_t limit,
                                       bool includeUnconfirmed) const;
+  std::vector<KadContact> findClosestExcluding(
+      const std::string& targetId, const std::string& excludedId,
+      size_t limit, bool includeUnconfirmed) const;
   bool needBootstrap(int64_t now);
   bool needRefresh(std::string& targetId, int64_t now);
   void addRouterNode(const Endpoint& endpoint);

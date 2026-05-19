@@ -13,6 +13,7 @@ class Ed2kKadStateTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(Ed2kKadStateTest);
   CPPUNIT_TEST(testRoutingPromotesReplacementOnFailure);
   CPPUNIT_TEST(testRoutingFindClosestAndSnapshot);
+  CPPUNIT_TEST(testRoutingFindClosestExcludesRequester);
   CPPUNIT_TEST(testRoutingBootstrapAndRefresh);
   CPPUNIT_TEST(testTraversalContinuesBeforeSearch);
   CPPUNIT_TEST(testExpiredTransactionCarriesContactForFailure);
@@ -23,6 +24,7 @@ class Ed2kKadStateTest : public CppUnit::TestFixture {
 public:
   void testRoutingPromotesReplacementOnFailure();
   void testRoutingFindClosestAndSnapshot();
+  void testRoutingFindClosestExcludesRequester();
   void testRoutingBootstrapAndRefresh();
   void testTraversalContinuesBeforeSearch();
   void testExpiredTransactionCarriesContactForFailure();
@@ -110,6 +112,40 @@ void Ed2kKadStateTest::testRoutingFindClosestAndSnapshot()
   restored.restore(table.snapshot());
   CPPUNIT_ASSERT_EQUAL((size_t)3, restored.liveSize());
   CPPUNIT_ASSERT_EQUAL((size_t)1, restored.getRouterNodes().size());
+}
+
+void Ed2kKadStateTest::testRoutingFindClosestExcludesRequester()
+{
+  auto self = hashFromHex("00000000000000000000000000000000");
+  KadRoutingTable table(self, 10);
+  auto requester = contactFromHex("00000000000000000000000000000001",
+                                  "203.0.113.1", 4672);
+  auto other = contactFromHex("00000000000000000000000000000002",
+                              "203.0.113.2", 4672);
+  table.nodeSeen(requester, 10);
+  table.nodeSeen(other, 11);
+
+  auto closest =
+      table.findClosestExcluding(self, requester.id, 8, false);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, closest.size());
+  CPPUNIT_ASSERT_EQUAL(other.id, closest[0].id);
+
+  auto kad1 = contactFromHex("00000000000000000000000000000003",
+                             "203.0.113.3", 4672);
+  kad1.version = 1;
+  table.nodeSeen(kad1, 12);
+  auto dnsPort = contactFromHex("00000000000000000000000000000004",
+                                "203.0.113.4", 53);
+  dnsPort.version = 5;
+  table.nodeSeen(dnsPort, 13);
+  auto acceptedDnsPort = dnsPort;
+  acceptedDnsPort.id = hashFromHex("00000000000000000000000000000005");
+  acceptedDnsPort.version = 6;
+  table.nodeSeen(acceptedDnsPort, 14);
+
+  auto all = table.findClosest(self, 8, false);
+  CPPUNIT_ASSERT_EQUAL((size_t)3, all.size());
 }
 
 void Ed2kKadStateTest::testRoutingBootstrapAndRefresh()

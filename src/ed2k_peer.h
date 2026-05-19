@@ -146,6 +146,8 @@ std::string createPeerHelloPayload(const std::string& clientHash,
                                    const std::string& clientName,
                                    const EmulePeerInfo& info,
                                    bool helloPacket);
+bool parsePeerHelloPayload(EmulePeerInfo& info, const std::string& payload,
+                           bool helloPacket);
 bool parsePeerHelloUserHash(std::string& userHash,
                             const std::string& payload,
                             bool helloPacket);

@@ -26,6 +26,36 @@ Remaining: Update the maintenance index and mark the previous ED2K tracker as
 historical.
 Blocked: none.
 
+2026-05-19 RF3/RF4/RF5 partial
+Changed: Advanced the server-source compatibility path without claiming RF3
+completion. Server IDChange parsing now preserves the TCP obfuscation port
+advertised by modern servers. Server status updates now keep the extended
+status fields used for UDP and obfuscation decisions. Server and UDP
+FoundSources handling now uses the richer source model so LowID sources and
+crypt-required sources are not treated as ordinary direct TCP peers. Packed UDP
+FoundSources parsing now keeps client ID and LowID classification. Large-file
+TCP GetSources requests are gated by the connected server's advertised large
+file capability, matching the aMule/eMule behavior that skips unsupported
+large-file source requests instead of sending a request older servers cannot
+handle. Peer hello parsing now reads eMule misc option tags from Hello and
+HelloAnswer packets, which supports the RF4 capability truth work already in
+progress. ED2K command-level tests were then narrowed to bounded loopback
+protocol checks so the full `aria2_tests` entry point no longer performs
+public ED2K network work or waits on real remote peers.
+Verified: `cmake --preset default` passed after the build directory was
+recreated. `cmake --build --preset default --target aria2_tests -j 1` passed.
+`cmake --build --preset default --target aria2-next -j 1` passed with the
+existing non-fatal local linker warning about `/opt/homebrew/opt/tcl-tk/lib`.
+`build/default/aria2_tests` passed with `OK (1114)` after the test cleanup, and
+`build/default/aria2_tests 2>&1 | awk '/Connecting to ED2K/ { print; if ($0 !~
+/127[.]0[.]0[.]1/) bad = 1 } END { exit bad ? 1 : 0 }'` printed only loopback
+ED2K peer/server connections and exited 0. `git diff --check` passed.
+Remaining: RF3 still needs ordinary and OBFU GetSources selection to be fully
+audited, callback requested/fail routing to be completed, UDP global sources
+and status behavior to be closed, and server-state persistence to be verified
+before the checkpoint can become verified.
+Blocked: none.
+
 2026-05-19 RF0 verified
 Changed: Updated the maintenance index so `ed2k-refactor` is the active ED2K
 tracker, and marked the previous `ed2k` tracker as historical.

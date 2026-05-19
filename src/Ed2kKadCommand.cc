@@ -541,15 +541,14 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
   }
   if (opcode == ed2k::OP_GLOBFOUNDSOURCES) {
     auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
-    std::vector<ed2k::Endpoint> sources;
+    std::vector<ed2k::FoundSource> sources;
     if (!ed2k::parsePackedFoundSourcesPayloads(sources, payload,
                                                attrs->link.hash)) {
       return;
     }
-    for (const auto& source : sources) {
-      addEd2kPeer(attrs, source, ed2k::PEER_SOURCE_SERVER);
-    }
-    if (!sources.empty()) {
+    const auto added =
+        mergeEd2kServerSources(attrs, sources, ed2k::PEER_SOURCE_SERVER);
+    if (added != 0) {
       A2_LOG_INFO(fmt("ED2K UDP server %s:%u returned %lu source(s).",
                       endpoint.host.c_str(), endpoint.port,
                       static_cast<unsigned long>(sources.size())));

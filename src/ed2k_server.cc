@@ -264,6 +264,45 @@ bool parsePackedFoundSourcesPayloads(std::vector<Endpoint>& sources,
   return true;
 }
 
+bool parsePackedFoundSourcesPayloads(std::vector<FoundSource>& sources,
+                                     const std::string& payload,
+                                     const std::string& expectedFileHash)
+{
+  validateHashLength(expectedFileHash);
+  sources.clear();
+  size_t offset = 0;
+  while (offset < payload.size()) {
+    if (payload.size() - offset < HASH_LENGTH + 1) {
+      return false;
+    }
+    auto hash = readBytes(payload, offset, HASH_LENGTH);
+    auto count = readByte(payload, offset);
+    if (payload.size() - offset < static_cast<size_t>(count) * 6) {
+      return false;
+    }
+    for (uint8_t i = 0; i < count; ++i) {
+      FoundSource source;
+      source.endpoint = readEndpoint(payload, offset);
+      source.clientId = ipv4ToEndpointValue(source.endpoint.host);
+      source.lowId = source.clientId <= 0x00ffffffu;
+      if (hash == expectedFileHash) {
+        sources.push_back(source);
+      }
+    }
+    if (offset == payload.size()) {
+      break;
+    }
+    if (payload.size() - offset < 2 ||
+        static_cast<unsigned char>(payload[offset]) != PROTO_EDONKEY ||
+        static_cast<unsigned char>(payload[offset + 1]) !=
+            OP_GLOBFOUNDSOURCES) {
+      return false;
+    }
+    offset += 2;
+  }
+  return true;
+}
+
 bool parseFoundSourcesPayload(std::vector<FoundSource>& sources,
                               const std::string& payload,
                               const std::string& expectedFileHash)
@@ -290,7 +329,7 @@ bool parseFoundSourcesPayload(std::vector<FoundSource>& sources,
     source.endpoint = readEndpoint(payload, offset);
     if (obfuscated) {
       source.endpoint.cryptOptions = readByte(payload, offset);
-      if ((source.endpoint.cryptOptions & 0x80u) != 0) {
+      if ((source.endpoint.cryptOptions & SOURCE_CRYPT_HAS_USER_HASH) != 0) {
         source.endpoint.userHash = readBytes(payload, offset, HASH_LENGTH);
       }
     }
@@ -314,6 +353,10 @@ bool parseCallbackRequestIncomingPayload(Endpoint& endpoint,
   }
   size_t offset = 0;
   endpoint = readEndpoint(payload, offset);
+  if (payload.size() == 23) {
+    endpoint.cryptOptions = readByte(payload, offset);
+    endpoint.userHash = readBytes(payload, offset, HASH_LENGTH);
+  }
   return true;
 }
 
@@ -343,7 +386,11 @@ bool parseServerIdChangePayload(ServerIdChange& idChange,
     }
   }
   if (payload.size() >= 20) {
-    readBytes(payload, offset, 4);
+    const auto obfuscationPort =
+        readUInt32(readBytes(payload, offset, 4).data());
+    if (obfuscationPort <= std::numeric_limits<uint16_t>::max()) {
+      parsed.tcpObfuscationPort = static_cast<uint16_t>(obfuscationPort);
+    }
   }
   parsed.highId = parsed.clientId > 0x00ffffffu;
   if (parsed.ipAddress.empty() && parsed.highId) {

@@ -33,6 +33,9 @@ constexpr uint8_t ET_COMMENTS = 0x24;
 constexpr uint8_t ET_EXTENDEDREQUEST = 0x25;
 constexpr uint8_t ET_COMPATIBLECLIENT = 0x26;
 constexpr uint8_t ET_FEATURES = 0x27;
+constexpr uint8_t CT_EMULE_MISCOPTIONS1 = 0xfa;
+constexpr uint8_t CT_EMULE_VERSION = 0xfb;
+constexpr uint8_t CT_EMULE_MISCOPTIONS2 = 0xfe;
 constexpr uint8_t SO_AMULE = 0x03;
 constexpr uint32_t ARIA2_NEXT_EMULE_VERSION = (3u << 17);
 
@@ -398,7 +401,7 @@ std::string createEmuleInfoPayload(const EmulePeerInfo& info)
   std::string payload;
   payload.push_back(static_cast<char>(info.version));
   payload.push_back(static_cast<char>(info.protocolVersion));
-  payload += packUInt32(7);
+  payload += packUInt32(8);
   payload += createUInt32Tag(ET_COMPRESSION,
                              info.miscOptions.dataCompressionVersion);
   payload += createUInt32Tag(ET_UDPPORT, 0);
@@ -448,10 +451,10 @@ bool parseEmuleInfoPayload(EmulePeerInfo& info, const std::string& payload)
       info.miscOptions.secureIdentVersion =
           static_cast<uint8_t>(tag.intValue & 0x03u);
     }
-    else if (tag.id == 0xfb) {
+    else if (tag.id == CT_EMULE_MISCOPTIONS1) {
       info.miscOptions = parseEmuleMiscOptions(tag.intValue);
     }
-    else if (tag.id == 0xf6) {
+    else if (tag.id == CT_EMULE_MISCOPTIONS2) {
       info.miscOptions2 = parseEmuleMiscOptions2(tag.intValue);
     }
   }
@@ -478,11 +481,13 @@ std::string createPeerHelloPayload(const std::string& clientHash,
   payload += createStringTag(0x01, clientName);
   payload += createUInt32Tag(0x11, 0x3c);
   payload += createUInt32Tag(0xf9, 0);
-  payload += createUInt32Tag(0xfb,
+  payload += createUInt32Tag(CT_EMULE_VERSION,
                              (static_cast<uint32_t>(SO_AMULE) << 24) |
                                  ARIA2_NEXT_EMULE_VERSION);
-  payload += createUInt32Tag(0xfa, emuleMiscOptionsValue(info.miscOptions));
-  payload += createUInt32Tag(0xfe, emuleMiscOptions2Value(info.miscOptions2));
+  payload += createUInt32Tag(CT_EMULE_MISCOPTIONS1,
+                             emuleMiscOptionsValue(info.miscOptions));
+  payload += createUInt32Tag(CT_EMULE_MISCOPTIONS2,
+                             emuleMiscOptions2Value(info.miscOptions2));
   payload += createUInt32Tag(0xef, 0);
   if (server.host.empty() || server.port == 0) {
     payload += std::string(6, '\0');
@@ -491,6 +496,40 @@ std::string createPeerHelloPayload(const std::string& clientHash,
     payload += packEndpoint(server);
   }
   return payload;
+}
+
+bool parsePeerHelloPayload(EmulePeerInfo& info, const std::string& payload,
+                           bool helloPacket)
+{
+  const auto prefixSize = helloPacket ? 1 : 0;
+  const auto fixedSize = prefixSize + HASH_LENGTH + 4 + 2 + 6;
+  if (payload.size() < fixedSize) {
+    return false;
+  }
+
+  size_t offset = prefixSize;
+  info.userHash = readBytes(payload, offset, HASH_LENGTH);
+  offset += 4 + 2;
+  const auto serverOffset = payload.size() - 6;
+  if (offset > serverOffset) {
+    return false;
+  }
+  std::vector<Tag> tags;
+  if (!parseTagList(tags, payload.substr(offset, serverOffset - offset))) {
+    return false;
+  }
+  for (const auto& tag : tags) {
+    if (tag.valueType != TagValueType::UINT) {
+      continue;
+    }
+    if (tag.id == CT_EMULE_MISCOPTIONS1) {
+      info.miscOptions = parseEmuleMiscOptions(tag.intValue);
+    }
+    else if (tag.id == CT_EMULE_MISCOPTIONS2) {
+      info.miscOptions2 = parseEmuleMiscOptions2(tag.intValue);
+    }
+  }
+  return true;
 }
 
 bool parsePeerHelloUserHash(std::string& userHash, const std::string& payload,

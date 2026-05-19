@@ -311,12 +311,12 @@ void Ed2kSharedPeerCommand::handleEdonkeyPacket()
 {
   switch (currentHeader_.opcode) {
   case ed2k::OP_HELLO:
-    ed2k::parsePeerHelloUserHash(remotePeerInfo_.userHash, body_, true);
+    ed2k::parsePeerHelloPayload(remotePeerInfo_, body_, true);
     queuePeerHelloAnswer();
     queueEmuleInfo(true);
     break;
   case ed2k::OP_HELLOANSWER:
-    ed2k::parsePeerHelloUserHash(remotePeerInfo_.userHash, body_, false);
+    ed2k::parsePeerHelloPayload(remotePeerInfo_, body_, false);
     queueEmuleInfo(false);
     break;
   case ed2k::OP_STARTUPLOADREQ:

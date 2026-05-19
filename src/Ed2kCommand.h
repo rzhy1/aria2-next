@@ -79,7 +79,7 @@ private:
   void handlePeerPacket();
   void queuePacket(uint8_t protocol, uint8_t opcode, const std::string& payload);
   void queueServerLogin();
-  void queueGetSources();
+  bool queueGetSources();
   void queueSearchRequest();
   void queueCallbackRequest(uint32_t clientId);
   uint32_t localEd2kClientId() const;

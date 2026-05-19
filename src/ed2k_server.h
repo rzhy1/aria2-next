@@ -28,6 +28,7 @@ struct ServerIdChange {
   uint32_t clientId = 0;
   uint32_t tcpFlags = 0;
   uint32_t auxPort = 0;
+  uint16_t tcpObfuscationPort = 0;
   bool highId = false;
   std::string ipAddress;
 };
@@ -99,6 +100,9 @@ bool parseFoundSourcesPayload(std::vector<Endpoint>& sources,
                               const std::string& payload,
                               const std::string& expectedFileHash);
 bool parsePackedFoundSourcesPayloads(std::vector<Endpoint>& sources,
+                                     const std::string& payload,
+                                     const std::string& expectedFileHash);
+bool parsePackedFoundSourcesPayloads(std::vector<FoundSource>& sources,
                                      const std::string& payload,
                                      const std::string& expectedFileHash);
 bool parseFoundSourcesPayload(std::vector<FoundSource>& sources,

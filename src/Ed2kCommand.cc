@@ -332,13 +332,24 @@ void Ed2kCommand::queueServerLogin()
                                               "aria2-next"));
 }
 
-void Ed2kCommand::queueGetSources()
+bool Ed2kCommand::queueGetSources()
 {
   const auto attrs = getEd2kAttrs(getDownloadContext());
+  const auto state = getEd2kServerState(attrs, endpoint_);
+  if (attrs->link.size > std::numeric_limits<uint32_t>::max() &&
+      state && (state->tcpFlags & ed2k::SRV_TCPFLG_LARGEFILES) == 0) {
+    A2_LOG_INFO(fmt("CUID#%" PRId64
+                    " - ED2K server %s:%u does not advertise large-file "
+                    "source requests for %s.",
+                    getCuid(), endpoint_.host.c_str(), endpoint_.port,
+                    util::toHex(attrs->link.hash).c_str()));
+    return false;
+  }
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_GETSOURCES,
               ed2k::createGetSourcesPayload(attrs->link.hash,
                                             attrs->link.size));
   serverRequestSent_ = true;
+  return true;
 }
 
 void Ed2kCommand::queueSearchRequest()
@@ -820,7 +831,12 @@ void Ed2kCommand::handleServerPacket()
                       " - ED2K server %s:%u requesting sources for %s.",
                       getCuid(), endpoint_.host.c_str(), endpoint_.port,
                       util::toHex(attrs->link.hash).c_str()));
-      queueGetSources();
+      if (!queueGetSources()) {
+        updateEd2kServerSourceRequestTime(attrs, endpoint_,
+                                          nextServerSourceRequestTime());
+        state_ = State::DONE;
+        return;
+      }
       updateEd2kServerSourceRequestTime(attrs, endpoint_,
                                         nextServerSourceRequestTime());
     }
@@ -844,10 +860,8 @@ void Ed2kCommand::handleServerPacket()
           queueCallbackRequest(source.clientId);
         }
       }
-      else {
-        addPeer(source.endpoint);
-      }
     }
+    mergeEd2kServerSources(attrs, sources, ed2k::PEER_SOURCE_SERVER);
     A2_LOG_INFO(fmt("CUID#%" PRId64
                     " - ED2K server %s:%u returned %lu source(s).",
                     getCuid(), endpoint_.host.c_str(), endpoint_.port,
@@ -1064,7 +1078,7 @@ void Ed2kCommand::handlePeerPacket()
     if (!updatePeerEndpointFromHello(true)) {
       break;
     }
-    ed2k::parsePeerHelloUserHash(remotePeerInfo_.userHash, body_, true);
+    ed2k::parsePeerHelloPayload(remotePeerInfo_, body_, true);
     queuePeerHelloAnswer();
     queueEmuleInfo(true);
     queuePeerFileRequest();
@@ -1074,7 +1088,7 @@ void Ed2kCommand::handlePeerPacket()
     if (!updatePeerEndpointFromHello(false)) {
       break;
     }
-    ed2k::parsePeerHelloUserHash(remotePeerInfo_.userHash, body_, false);
+    ed2k::parsePeerHelloPayload(remotePeerInfo_, body_, false);
     queueEmuleInfo(false);
     queuePeerFileRequest();
     state_ = State::WRITE;
@@ -1096,7 +1110,7 @@ void Ed2kCommand::handlePeerPacket()
     }
     break;
   case ed2k::OP_REQUESTFILENAME:
-    if (!isFileRequestPayloadForHash(body_, attrs->link.hash)) {
+    if (body_.size() < ed2k::HASH_LENGTH) {
       throw DL_RETRY_EX("Bad ED2K file request.");
     }
     createSharedResponder().queueFileNameAnswer(

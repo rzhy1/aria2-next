@@ -361,6 +361,13 @@ void Ed2kHelperTest::testProtocolPayloads()
   CPPUNIT_ASSERT_EQUAL((size_t)1, packedSources.size());
   CPPUNIT_ASSERT_EQUAL(std::string("5.6.7.8"), packedSources[0].host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4662, packedSources[0].port);
+  std::vector<FoundSource> packedFoundSources;
+  CPPUNIT_ASSERT(parsePackedFoundSourcesPayloads(packedFoundSources,
+                                                 packedFound, fileHash));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, packedFoundSources.size());
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x08070605,
+                       packedFoundSources[0].clientId);
+  CPPUNIT_ASSERT(!packedFoundSources[0].lowId);
 
   auto callbackRequest = createCallbackRequestPayload(120);
   CPPUNIT_ASSERT_EQUAL(std::string("78000000"),
@@ -372,9 +379,11 @@ void Ed2kHelperTest::testProtocolPayloads()
   CPPUNIT_ASSERT_EQUAL((uint16_t)4662, callbackEndpoint.port);
   CPPUNIT_ASSERT(parseCallbackRequestIncomingPayload(
       callbackEndpoint, packUInt32(0x04030201) + packUInt16(4662) +
-                            std::string(17, '\0')));
+                            std::string(1, '\x83') + clientHash));
   CPPUNIT_ASSERT_EQUAL(std::string("1.2.3.4"), callbackEndpoint.host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4662, callbackEndpoint.port);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)0x83, callbackEndpoint.cryptOptions);
+  CPPUNIT_ASSERT_EQUAL(clientHash, callbackEndpoint.userHash);
 
   std::vector<bool> bitfield;
   bitfield.push_back(true);
@@ -434,6 +443,11 @@ void Ed2kHelperTest::testServerPayloadParsers()
   CPPUNIT_ASSERT_EQUAL((uint32_t)120, idChange.clientId);
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x55aa, idChange.tcpFlags);
   CPPUNIT_ASSERT_EQUAL((uint32_t)4661, idChange.auxPort);
+  CPPUNIT_ASSERT(parseServerIdChangePayload(
+      idChange, packUInt32(0x04030201) + packUInt32(SRV_TCPFLG_TCPOBFUSCATION) +
+                    packUInt32(4661) + packUInt32(0x04030201) +
+                    packUInt32(4666)));
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4666, idChange.tcpObfuscationPort);
 
   ServerStatus status;
   CPPUNIT_ASSERT(parseServerStatusPayload(status,
@@ -853,14 +867,15 @@ void Ed2kHelperTest::testEmuleInfoPayload()
   CPPUNIT_ASSERT(hasUintTag(0x26));
   CPPUNIT_ASSERT(hasUintTag(0x27));
   CPPUNIT_ASSERT(!hasUintTag(0xfb));
-  CPPUNIT_ASSERT(!hasUintTag(0xf6));
+  CPPUNIT_ASSERT(!hasUintTag(0xfa));
+  CPPUNIT_ASSERT(!hasUintTag(0xfe));
 
   EmulePeerInfo parsed;
   CPPUNIT_ASSERT(parseEmuleInfoPayload(parsed, payload));
   CPPUNIT_ASSERT_EQUAL((uint8_t)0x3c, parsed.version);
   CPPUNIT_ASSERT_EQUAL((uint8_t)0x01, parsed.protocolVersion);
-  CPPUNIT_ASSERT_EQUAL((uint8_t)2, parsed.miscOptions.aichVersion);
-  CPPUNIT_ASSERT(parsed.miscOptions.unicode);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)0, parsed.miscOptions.aichVersion);
+  CPPUNIT_ASSERT(!parsed.miscOptions.unicode);
   CPPUNIT_ASSERT_EQUAL((uint8_t)1, parsed.miscOptions.dataCompressionVersion);
   CPPUNIT_ASSERT_EQUAL((uint8_t)3, parsed.miscOptions.sourceExchange1Version);
   CPPUNIT_ASSERT_EQUAL((uint8_t)2, parsed.miscOptions.extendedRequestsVersion);
@@ -915,6 +930,18 @@ void Ed2kHelperTest::testPeerHelloPayload()
   CPPUNIT_ASSERT(hasUintTag(0xfe));
   CPPUNIT_ASSERT_EQUAL(std::string("010203043512"),
                        util::toHex(payload.substr(payload.size() - 6)));
+
+  EmulePeerInfo parsed;
+  CPPUNIT_ASSERT(parsePeerHelloPayload(parsed, payload, true));
+  CPPUNIT_ASSERT_EQUAL(clientHash, parsed.userHash);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)1, parsed.miscOptions.aichVersion);
+  CPPUNIT_ASSERT(parsed.miscOptions.unicode);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)1, parsed.miscOptions.dataCompressionVersion);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)3, parsed.miscOptions.sourceExchange1Version);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)2, parsed.miscOptions.extendedRequestsVersion);
+  CPPUNIT_ASSERT(parsed.miscOptions.multiPacket);
+  CPPUNIT_ASSERT(parsed.miscOptions2.supportsLargeFiles);
+  CPPUNIT_ASSERT(parsed.miscOptions2.supportsSourceExchange2);
 }
 
 void Ed2kHelperTest::testUdpReaskPayloads()

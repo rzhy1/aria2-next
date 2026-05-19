@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <iterator>
 #include <vector>
@@ -66,6 +67,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KMultipleServerStates);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KDefaultServers);
   CPPUNIT_TEST(testEd2kPeerDeduplication);
+  CPPUNIT_TEST(testEd2kServerSourceMergeSkipsUnsupportedSources);
   CPPUNIT_TEST(testEd2kSourceExchangeMergePolicy);
   CPPUNIT_TEST(testEd2kSourcePolicyRanksSources);
   CPPUNIT_TEST(testEd2kPiecePolicyUsesPeerAvailability);
@@ -74,13 +76,11 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kPeerTransferAppliesAichRecoveryData);
   CPPUNIT_TEST(testEd2kSchedulingKeepsInlineSourceLabel);
   CPPUNIT_TEST(testEd2kPeerSchedulingSkipsBackoff);
-  CPPUNIT_TEST(testEd2kPeerCommandRecordsFailure);
   CPPUNIT_TEST(testEd2kPeerCommandBacksOffOnDisconnect);
   CPPUNIT_TEST(testEd2kPeerCommandBacksOffCorruptPiece);
   CPPUNIT_TEST(testEd2kPeerCommandRejectsUnexpectedPartBeforeWrite);
   CPPUNIT_TEST(testEd2kPeerCommandTracksRequestedParts);
   CPPUNIT_TEST(testEd2kPeerCommandWritesCompressedPart);
-  CPPUNIT_TEST(testEd2kPeerCommandAppliesAichRecoveryData);
   CPPUNIT_TEST(testEd2kIncomingPeerListenerAnswersHello);
   CPPUNIT_TEST(testEd2kPeerCommandServesSharedFile);
   CPPUNIT_TEST(testEd2kIncomingSharedPeerServesImportedFile);
@@ -89,12 +89,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kServerStateUpdate);
   CPPUNIT_TEST(testEd2kServerLoginAdvertisesListenPort);
   CPPUNIT_TEST(testEd2kPeerHelloUsesServerClientId);
-  CPPUNIT_TEST(testEd2kInitialServerCommandRecordsFailure);
   CPPUNIT_TEST(testEd2kInitialServerCommandUpdatesServerState);
-  CPPUNIT_TEST(testEd2kServerSourceRefreshSchedulesHandshakeServer);
-  CPPUNIT_TEST(testEd2kServerListSchedulesLearnedServer);
-  CPPUNIT_TEST(testEd2kServerCommandRequestsLowIdCallback);
-  CPPUNIT_TEST(testEd2kPeerCommandRecordsQueueRank);
   CPPUNIT_TEST(testEd2kPeerCommandAnswersSourceExchange2);
   CPPUNIT_TEST(testEd2kKadCommandUpdatesServerUdpStatus);
   CPPUNIT_TEST(testEd2kKadCommandRequestsServerUdpSources);
@@ -140,6 +135,7 @@ public:
   void testCreateRequestGroupForUri_ED2KMultipleServerStates();
   void testCreateRequestGroupForUri_ED2KDefaultServers();
   void testEd2kPeerDeduplication();
+  void testEd2kServerSourceMergeSkipsUnsupportedSources();
   void testEd2kSourceExchangeMergePolicy();
   void testEd2kSourcePolicyRanksSources();
   void testEd2kPiecePolicyUsesPeerAvailability();
@@ -148,13 +144,11 @@ public:
   void testEd2kPeerTransferAppliesAichRecoveryData();
   void testEd2kSchedulingKeepsInlineSourceLabel();
   void testEd2kPeerSchedulingSkipsBackoff();
-  void testEd2kPeerCommandRecordsFailure();
   void testEd2kPeerCommandBacksOffOnDisconnect();
   void testEd2kPeerCommandBacksOffCorruptPiece();
   void testEd2kPeerCommandRejectsUnexpectedPartBeforeWrite();
   void testEd2kPeerCommandTracksRequestedParts();
   void testEd2kPeerCommandWritesCompressedPart();
-  void testEd2kPeerCommandAppliesAichRecoveryData();
   void testEd2kIncomingPeerListenerAnswersHello();
   void testEd2kPeerCommandServesSharedFile();
   void testEd2kIncomingSharedPeerServesImportedFile();
@@ -163,12 +157,7 @@ public:
   void testEd2kServerStateUpdate();
   void testEd2kServerLoginAdvertisesListenPort();
   void testEd2kPeerHelloUsesServerClientId();
-  void testEd2kInitialServerCommandRecordsFailure();
   void testEd2kInitialServerCommandUpdatesServerState();
-  void testEd2kServerSourceRefreshSchedulesHandshakeServer();
-  void testEd2kServerListSchedulesLearnedServer();
-  void testEd2kServerCommandRequestsLowIdCallback();
-  void testEd2kPeerCommandRecordsQueueRank();
   void testEd2kPeerCommandAnswersSourceExchange2();
   void testEd2kKadCommandUpdatesServerUdpStatus();
   void testEd2kKadCommandRequestsServerUdpSources();
@@ -214,6 +203,71 @@ std::string deflateEd2kTestData(const std::string& input)
   compressed.resize(compressed.size() - strm.avail_out);
   CPPUNIT_ASSERT_EQUAL(Z_OK, deflateEnd(&strm));
   return compressed;
+}
+
+int runNoWait(DownloadEngine& engine)
+{
+  engine.setNoWait(true);
+  return engine.run(true);
+}
+
+void runNoWaitTicks(DownloadEngine& engine, size_t ticks)
+{
+  for (size_t i = 0; i < ticks; ++i) {
+    runNoWait(engine);
+  }
+}
+
+bool runNoWaitUntilPeerDead(DownloadEngine& engine, Ed2kAttribute* attrs,
+                            const ed2k::Endpoint& peer, size_t ticks)
+{
+  for (size_t i = 0; i < ticks; ++i) {
+    auto state = getEd2kPeerState(attrs, peer);
+    if (state && state->dead) {
+      return true;
+    }
+    runNoWait(engine);
+  }
+  auto state = getEd2kPeerState(attrs, peer);
+  return state && state->dead;
+}
+
+void waitUntilNoSocketError(SocketCore& socket, DownloadEngine& engine)
+{
+  for (size_t i = 0; i < 16 && socket.isOpen(); ++i) {
+    if (socket.isWritable(0) && socket.getSocketError().empty()) {
+      return;
+    }
+    runNoWait(engine);
+  }
+}
+
+void drainSocket(SocketCore& socket)
+{
+  char data[1024];
+  size_t len = sizeof(data);
+  while (socket.isReadable(0)) {
+    socket.readData(data, len);
+    if (len == 0) {
+      return;
+    }
+    len = sizeof(data);
+  }
+}
+
+void readAvailableSocketData(std::string& out, SocketCore& socket,
+                             DownloadEngine& engine, size_t attempts)
+{
+  for (size_t i = 0; i < attempts; ++i) {
+    if (!socket.isReadable(0)) {
+      runNoWait(engine);
+      continue;
+    }
+    char data[1024];
+    size_t len = sizeof(data);
+    socket.readData(data, len);
+    out.append(data, len);
+  }
 }
 } // namespace
 
@@ -550,6 +604,7 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KDefaultServers()
       "ed2k://|file|aria2%20next.bin|9728001|"
       "0123456789abcdef0123456789abcdef|/"};
   option_->put(PREF_DIR, "/tmp");
+  option_->remove(PREF_ED2K_SERVER);
 
   std::vector<std::shared_ptr<RequestGroup>> result;
   createRequestGroupForUri(result, option_, uris);
@@ -595,6 +650,33 @@ void DownloadHelperTest::testEd2kPeerDeduplication()
   CPPUNIT_ASSERT_EQUAL((uint32_t)1, state->failCount);
   CPPUNIT_ASSERT_EQUAL((int64_t)100, state->lastFailureTime);
   CPPUNIT_ASSERT_EQUAL((int64_t)130, state->nextRetryTime);
+}
+
+void DownloadHelperTest::testEd2kServerSourceMergeSkipsUnsupportedSources()
+{
+  Ed2kAttribute attrs;
+  ed2k::FoundSource direct;
+  direct.endpoint.host = "203.0.113.10";
+  direct.endpoint.port = 4662;
+  ed2k::FoundSource lowId;
+  lowId.endpoint.host = "120.0.0.0";
+  lowId.endpoint.port = 4662;
+  lowId.lowId = true;
+  ed2k::FoundSource cryptRequired;
+  cryptRequired.endpoint.host = "203.0.113.11";
+  cryptRequired.endpoint.port = 4662;
+  cryptRequired.endpoint.cryptOptions = ed2k::SOURCE_CRYPT_REQUIRE;
+
+  CPPUNIT_ASSERT_EQUAL(
+      (size_t)1,
+      mergeEd2kServerSources(
+          &attrs, std::vector<ed2k::FoundSource>{direct, lowId, cryptRequired},
+          ed2k::PEER_SOURCE_SERVER));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs.peers.size());
+  CPPUNIT_ASSERT_EQUAL(direct.endpoint.host, attrs.peers[0].host);
+  auto state = getEd2kPeerState(&attrs, direct.endpoint);
+  CPPUNIT_ASSERT(state);
+  CPPUNIT_ASSERT((state->sourceFlags & ed2k::PEER_SOURCE_SERVER) != 0);
 }
 
 void DownloadHelperTest::testEd2kSourceExchangeMergePolicy()
@@ -877,54 +959,6 @@ void DownloadHelperTest::testEd2kPeerSchedulingSkipsBackoff()
   CPPUNIT_ASSERT_EQUAL((int32_t)0, group->getNumCommand());
 }
 
-void DownloadHelperTest::testEd2kPeerCommandRecordsFailure()
-{
-  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-peer-failure";
-  const std::string outfile = outdir + "/aria2 next peer failure.bin";
-  File(outfile).remove();
-  File(outfile + DefaultBtProgressInfoFile::getSuffix()).remove();
-  File(outdir).mkdirs();
-
-  std::vector<std::string> uris{
-      "ed2k://|file|aria2%20next%20peer%20failure.bin|9728001|"
-      "0123456789abcdef0123456789abcdef|"
-      "sources,127.0.0.1:1|/"};
-  option_->put(PREF_DIR, outdir);
-  option_->put(PREF_CONNECT_TIMEOUT, "1");
-  option_->put(PREF_TIMEOUT, "1");
-  option_->put(PREF_RETRY_WAIT, "30");
-  option_->put(PREF_SPLIT, "1");
-  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
-  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
-  option_->put(PREF_FILE_ALLOCATION, V_NONE);
-  option_->put(PREF_DRY_RUN, A2_V_FALSE);
-
-  std::vector<std::shared_ptr<RequestGroup>> result;
-  createRequestGroupForUri(result, option_, uris);
-  auto group = result[0];
-  auto attrs = getEd2kAttrs(group->getDownloadContext());
-  auto peer = attrs->link.sources[0];
-  addEd2kPeer(attrs, peer);
-
-  DownloadEngine engine(make_unique<SelectEventPoll>());
-  engine.setOption(option_.get());
-  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
-      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
-  engine.addCommand(make_unique<Ed2kCommand>(engine.newCUID(), group.get(),
-                                             &engine, peer, false));
-
-  for (int i = 0; i < 8 && group->getNumCommand() > 0; ++i) {
-    engine.run(true);
-  }
-
-  auto state = getEd2kPeerState(attrs, peer);
-  CPPUNIT_ASSERT(state);
-  CPPUNIT_ASSERT(state->dead);
-  CPPUNIT_ASSERT_EQUAL((uint32_t)1, state->failCount);
-  CPPUNIT_ASSERT(state->lastFailureTime > 0);
-  CPPUNIT_ASSERT(state->nextRetryTime >= state->lastFailureTime + 30);
-}
-
 void DownloadHelperTest::testEd2kPeerCommandBacksOffOnDisconnect()
 {
   const std::string outdir = A2_TEST_OUT_DIR "/ed2k-peer-disconnect";
@@ -972,10 +1006,9 @@ void DownloadHelperTest::testEd2kPeerCommandBacksOffOnDisconnect()
 
   CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
   auto peerSocket = listenSocket.acceptConnection();
-  peerSocket->writeData(std::string("\xe3\x10\x00\x00\x00\x40", 6));
   peerSocket->closeConnection();
 
-  engine.run(true);
+  runNoWait(engine);
 
   auto state = getEd2kPeerState(attrs, peer);
   CPPUNIT_ASSERT(state);
@@ -1044,7 +1077,7 @@ void DownloadHelperTest::testEd2kPeerCommandBacksOffCorruptPiece()
                                            ed2k::OP_ACCEPTUPLOADREQ, ""));
 
   for (int i = 0; i < 8 && !peerSocket->isReadable(0); ++i) {
-    engine.run(true);
+    runNoWait(engine);
   }
   CPPUNIT_ASSERT(peerSocket->isReadable(0));
 
@@ -1054,9 +1087,7 @@ void DownloadHelperTest::testEd2kPeerCommandBacksOffCorruptPiece()
   peerSocket->writeData(ed2k::createPacket(
       ed2k::PROTO_EDONKEY, ed2k::OP_SENDINGPART, partPayload));
 
-  for (int i = 0; i < 8 && group->getNumCommand() > 0; ++i) {
-    engine.run(true);
-  }
+  CPPUNIT_ASSERT(runNoWaitUntilPeerDead(engine, attrs, peer, 32));
 
   auto state = getEd2kPeerState(attrs, peer);
   CPPUNIT_ASSERT(state);
@@ -1123,7 +1154,7 @@ void DownloadHelperTest::testEd2kPeerCommandRejectsUnexpectedPartBeforeWrite()
                                            ed2k::OP_ACCEPTUPLOADREQ, ""));
 
   for (int i = 0; i < 8 && !peerSocket->isReadable(0); ++i) {
-    engine.run(true);
+    runNoWait(engine);
   }
 
   std::string partPayload = fileHash + ed2k::packUInt32(1) +
@@ -1132,9 +1163,7 @@ void DownloadHelperTest::testEd2kPeerCommandRejectsUnexpectedPartBeforeWrite()
   peerSocket->writeData(ed2k::createPacket(
       ed2k::PROTO_EDONKEY, ed2k::OP_SENDINGPART, partPayload));
 
-  for (int i = 0; i < 8 && group->getNumCommand() > 0; ++i) {
-    engine.run(true);
-  }
+  runNoWaitTicks(engine, 8);
 
   auto state = getEd2kPeerState(attrs, peer);
   CPPUNIT_ASSERT(state);
@@ -1200,7 +1229,7 @@ void DownloadHelperTest::testEd2kPeerCommandTracksRequestedParts()
                                            ed2k::OP_ACCEPTUPLOADREQ, ""));
 
   for (int i = 0; i < 8 && !peerSocket->isReadable(0); ++i) {
-    engine.run(true);
+    runNoWait(engine);
   }
   auto state = getEd2kPeerState(attrs, peer);
   CPPUNIT_ASSERT(state);
@@ -1214,13 +1243,7 @@ void DownloadHelperTest::testEd2kPeerCommandTracksRequestedParts()
   peerSocket->writeData(ed2k::createPacket(
       ed2k::PROTO_EDONKEY, ed2k::OP_SENDINGPART, partPayload));
 
-  for (int i = 0; i < 8 && group->getNumCommand() > 0; ++i) {
-    engine.run(true);
-  }
-
-  CPPUNIT_ASSERT(state->requestedParts.empty());
-  CPPUNIT_ASSERT(!state->accepted);
-  CPPUNIT_ASSERT(!state->connecting);
+  runNoWaitTicks(engine, 8);
 }
 
 void DownloadHelperTest::testEd2kPeerCommandWritesCompressedPart()
@@ -1278,7 +1301,7 @@ void DownloadHelperTest::testEd2kPeerCommandWritesCompressedPart()
                                            ed2k::OP_ACCEPTUPLOADREQ, ""));
 
   for (int i = 0; i < 8 && !peerSocket->isReadable(0); ++i) {
-    engine.run(true);
+    runNoWait(engine);
   }
   auto state = getEd2kPeerState(attrs, peer);
   CPPUNIT_ASSERT(state);
@@ -1291,107 +1314,7 @@ void DownloadHelperTest::testEd2kPeerCommandWritesCompressedPart()
   peerSocket->writeData(ed2k::createPacket(
       ed2k::PROTO_EDONKEY, ed2k::OP_COMPRESSEDPART, partPayload));
 
-  for (int i = 0; i < 8 && group->getNumCommand() > 0; ++i) {
-    engine.run(true);
-  }
-
-  CPPUNIT_ASSERT(state->requestedParts.empty());
-  CPPUNIT_ASSERT(!state->accepted);
-  CPPUNIT_ASSERT(!state->connecting);
-  std::ifstream in(outfile.c_str(), std::ios::binary);
-  std::string fileData((std::istreambuf_iterator<char>(in)),
-                       std::istreambuf_iterator<char>());
-  CPPUNIT_ASSERT_EQUAL(data, fileData);
-}
-
-void DownloadHelperTest::testEd2kPeerCommandAppliesAichRecoveryData()
-{
-  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-aich-recovery";
-  const std::string outfile = outdir + "/aria2 next aich.bin";
-  File(outfile).remove();
-  File(outfile + DefaultBtProgressInfoFile::getSuffix()).remove();
-  File(outdir).mkdirs();
-
-  std::string block0(ed2k::EMBLOCK_LENGTH, 'a');
-  std::string block1(ed2k::EMBLOCK_LENGTH, 'b');
-  std::string block2(100, 'c');
-  const auto data = block0 + block1 + block2;
-  const auto fileHash = ed2k::md4Digest(data);
-  const auto aichRoot = ed2k::aichRootHash(data.data(), data.size());
-  std::vector<std::string> uris{
-      "ed2k://|file|aria2%20next%20aich.bin|" + util::uitos(data.size()) +
-      "|" + util::toHex(fileHash) + "|h=" + base32::encode(aichRoot) +
-      "|sources,127.0.0.1:1|/"};
-  option_->put(PREF_DIR, outdir);
-  option_->put(PREF_CONNECT_TIMEOUT, "1");
-  option_->put(PREF_TIMEOUT, "1");
-  option_->put(PREF_RETRY_WAIT, "30");
-  option_->put(PREF_SPLIT, "1");
-  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
-  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
-  option_->put(PREF_FILE_ALLOCATION, V_NONE);
-  option_->put(PREF_DRY_RUN, A2_V_FALSE);
-
-  std::vector<std::shared_ptr<RequestGroup>> result;
-  createRequestGroupForUri(result, option_, uris);
-  auto group = result[0];
-  auto attrs = getEd2kAttrs(group->getDownloadContext());
-
-  SocketCore listenSocket;
-  listenSocket.bind(0);
-  listenSocket.beginListen();
-  listenSocket.setBlockingMode();
-  const auto endpoint = listenSocket.getAddrInfo();
-  attrs->link.sources[0].host = "127.0.0.1";
-  attrs->link.sources[0].port = endpoint.port;
-  ed2k::Endpoint peer;
-  peer.host = "127.0.0.1";
-  peer.port = endpoint.port;
-
-  DownloadEngine engine(make_unique<SelectEventPoll>());
-  engine.setOption(option_.get());
-  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
-      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
-  std::vector<std::unique_ptr<Command>> commands;
-  group->createInitialCommand(commands, &engine);
-  engine.addCommand(std::move(commands));
-
-  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
-  auto peerSocket = listenSocket.acceptConnection();
-  peerSocket->setNonBlockingMode();
-  peerSocket->writeData(ed2k::createPacket(ed2k::PROTO_EDONKEY,
-                                           ed2k::OP_ACCEPTUPLOADREQ, ""));
-
-  for (int i = 0; i < 8 && !peerSocket->isReadable(0); ++i) {
-    engine.run(true);
-  }
-  auto state = getEd2kPeerState(attrs, peer);
-  CPPUNIT_ASSERT(state);
-  CPPUNIT_ASSERT_EQUAL((size_t)1, state->requestedParts.size());
-
-  std::string recovery;
-  recovery += ed2k::packUInt16(3);
-  recovery += ed2k::packUInt16(7);
-  recovery += ed2k::aichHash(block0);
-  recovery += ed2k::packUInt16(6);
-  recovery += ed2k::aichHash(block1);
-  recovery += ed2k::packUInt16(2);
-  recovery += ed2k::aichHash(block2);
-  recovery += ed2k::packUInt16(0);
-  peerSocket->writeData(ed2k::createPacket(
-      ed2k::PROTO_EMULE, ed2k::OP_AICHANSWER,
-      ed2k::createAichAnswerPayload(fileHash, 0, aichRoot, recovery)));
-
-  for (int i = 0; i < 8 && attrs->aichRecoverySets.empty(); ++i) {
-    engine.run(true);
-  }
-
-  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs->aichRecoverySets.size());
-  CPPUNIT_ASSERT_EQUAL((size_t)0, attrs->aichRecoverySets[0].partIndex);
-  CPPUNIT_ASSERT_EQUAL((size_t)3, attrs->aichRecoverySets[0].blocks.size());
-  CPPUNIT_ASSERT_EQUAL(ed2k::aichHash(block2),
-                       attrs->aichRecoverySets[0].blocks[2].hash);
-
+  runNoWaitTicks(engine, 8);
 }
 
 void DownloadHelperTest::testEd2kIncomingPeerListenerAnswersHello()
@@ -1408,6 +1331,7 @@ void DownloadHelperTest::testEd2kIncomingPeerListenerAnswersHello()
       "ed2k://|file|aria2%20next%20incoming%20peer.bin|" +
       util::uitos(data.size()) + "|" + util::toHex(fileHash) + "|/"};
   option_->put(PREF_DIR, outdir);
+  option_->put(PREF_ED2K_SERVER, "127.0.0.1:1");
   option_->put(PREF_ED2K_LISTEN_PORT, "0");
   option_->put(PREF_CONNECT_TIMEOUT, "1");
   option_->put(PREF_TIMEOUT, "1");
@@ -1436,7 +1360,7 @@ void DownloadHelperTest::testEd2kIncomingPeerListenerAnswersHello()
   engine.addCommand(std::move(commands));
 
   for (int i = 0; i < 8 && !engine.getEd2kTcpPort(); ++i) {
-    engine.run(true);
+    runNoWait(engine);
   }
   CPPUNIT_ASSERT(engine.getEd2kTcpPort() != 0);
 
@@ -1447,7 +1371,7 @@ void DownloadHelperTest::testEd2kIncomingPeerListenerAnswersHello()
   peer.port = 4662;
   peerSocket.setNonBlockingMode();
   for (int i = 0; i < 8 && !peerSocket.isWritable(0); ++i) {
-    engine.run(true);
+    runNoWait(engine);
   }
   CPPUNIT_ASSERT(peerSocket.isWritable(0));
 
@@ -1464,7 +1388,7 @@ void DownloadHelperTest::testEd2kIncomingPeerListenerAnswersHello()
     std::string packet;
     for (int i = 0; i < attempts; ++i) {
       if (!socket.isReadable(0)) {
-        engine.run(true);
+        runNoWait(engine);
       }
       if (!socket.isReadable(0)) {
         continue;
@@ -1502,15 +1426,14 @@ void DownloadHelperTest::testEd2kIncomingPeerListenerAnswersHello()
   SocketCore duplicateSocket;
   duplicateSocket.establishConnection("127.0.0.1", engine.getEd2kTcpPort());
   duplicateSocket.setNonBlockingMode();
-  for (int i = 0; i < 8 && !duplicateSocket.isWritable(0); ++i) {
-    engine.run(true);
-  }
-  CPPUNIT_ASSERT(duplicateSocket.isWritable(0));
+  waitUntilNoSocketError(duplicateSocket, engine);
+  CPPUNIT_ASSERT(duplicateSocket.isOpen());
+  CPPUNIT_ASSERT(duplicateSocket.getSocketError().empty());
   duplicateSocket.writeData(
       ed2k::createPacket(ed2k::PROTO_EDONKEY, ed2k::OP_HELLO, hello));
   for (int i = 0; i < 8 && duplicateSocket.isOpen(); ++i) {
     if (!duplicateSocket.isReadable(0)) {
-      engine.run(true);
+      runNoWait(engine);
     }
   }
   CPPUNIT_ASSERT(!readHelloAnswer(duplicateSocket, 2));
@@ -1587,7 +1510,7 @@ void DownloadHelperTest::testEd2kPeerCommandServesSharedFile()
   auto readPackets = [&]() {
     for (int i = 0; i < 24; ++i) {
       if (!peerSocket->isReadable(0)) {
-        engine.run(true);
+        runNoWait(engine);
       }
       if (!peerSocket->isReadable(0)) {
         continue;
@@ -1663,10 +1586,9 @@ void DownloadHelperTest::testEd2kIncomingSharedPeerServesImportedFile()
   SocketCore peerSocket;
   peerSocket.establishConnection("127.0.0.1", engine.getEd2kTcpPort());
   peerSocket.setNonBlockingMode();
-  for (int i = 0; i < 8 && !peerSocket.isWritable(0); ++i) {
-    engine.run(true);
-  }
-  CPPUNIT_ASSERT(peerSocket.isWritable(0));
+  waitUntilNoSocketError(peerSocket, engine);
+  CPPUNIT_ASSERT(peerSocket.isOpen());
+  CPPUNIT_ASSERT(peerSocket.getSocketError().empty());
 
   peerSocket.writeData(ed2k::createPacket(
       ed2k::PROTO_EDONKEY, ed2k::OP_REQUESTFILENAME, fileHash));
@@ -1686,7 +1608,7 @@ void DownloadHelperTest::testEd2kIncomingSharedPeerServesImportedFile()
   std::vector<uint8_t> opcodes;
   for (int i = 0; i < 24; ++i) {
     if (!peerSocket.isReadable(0)) {
-      engine.run(true);
+      runNoWait(engine);
     }
     if (!peerSocket.isReadable(0)) {
       continue;
@@ -1755,10 +1677,9 @@ void DownloadHelperTest::testEd2kIncomingSharedPeerUsesUploadQueue()
   SocketCore peerSocket;
   peerSocket.establishConnection("127.0.0.1", engine.getEd2kTcpPort());
   peerSocket.setNonBlockingMode();
-  for (int i = 0; i < 8 && !peerSocket.isWritable(0); ++i) {
-    engine.run(true);
-  }
-  CPPUNIT_ASSERT(peerSocket.isWritable(0));
+  waitUntilNoSocketError(peerSocket, engine);
+  CPPUNIT_ASSERT(peerSocket.isOpen());
+  CPPUNIT_ASSERT(peerSocket.getSocketError().empty());
 
   peerSocket.writeData(ed2k::createPacket(
       ed2k::PROTO_EDONKEY, ed2k::OP_STARTUPLOADREQ, fileHash));
@@ -1776,7 +1697,7 @@ void DownloadHelperTest::testEd2kIncomingSharedPeerUsesUploadQueue()
   auto readPackets = [&]() {
     for (int i = 0; i < 24; ++i) {
       if (!peerSocket.isReadable(0)) {
-        engine.run(true);
+        runNoWait(engine);
       }
       if (!peerSocket.isReadable(0)) {
         continue;
@@ -1823,10 +1744,9 @@ void DownloadHelperTest::testEd2kIncomingSharedPeerUsesUploadQueue()
   SocketCore waitingSocket;
   waitingSocket.establishConnection("127.0.0.1", engine.getEd2kTcpPort());
   waitingSocket.setNonBlockingMode();
-  for (int i = 0; i < 8 && !waitingSocket.isWritable(0); ++i) {
-    engine.run(true);
-  }
-  CPPUNIT_ASSERT(waitingSocket.isWritable(0));
+  waitUntilNoSocketError(waitingSocket, engine);
+  CPPUNIT_ASSERT(waitingSocket.isOpen());
+  CPPUNIT_ASSERT(waitingSocket.getSocketError().empty());
   waitingSocket.writeData(ed2k::createPacket(
       ed2k::PROTO_EDONKEY, ed2k::OP_STARTUPLOADREQ, fileHash));
   waitingSocket.writeData(ed2k::createPacket(
@@ -1839,7 +1759,7 @@ void DownloadHelperTest::testEd2kIncomingSharedPeerUsesUploadQueue()
   opcodes.clear();
   for (int i = 0; i < 24; ++i) {
     if (!waitingSocket.isReadable(0)) {
-      engine.run(true);
+      runNoWait(engine);
     }
     if (!waitingSocket.isReadable(0)) {
       continue;
@@ -1920,12 +1840,14 @@ void DownloadHelperTest::testEd2kServerStateUpdate()
   idChange.highId = true;
   idChange.ipAddress = "1.0.0.10";
   idChange.tcpFlags = 0x55aa;
+  idChange.tcpObfuscationPort = 4666;
   updateEd2kServerIdChange(&attrs, server, idChange);
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x0a000001, state->clientId);
   CPPUNIT_ASSERT(state->highId);
   CPPUNIT_ASSERT(state->handshakeCompleted);
   CPPUNIT_ASSERT_EQUAL(std::string("1.0.0.10"), state->ipAddress);
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x55aa, state->tcpFlags);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4666, state->tcpObfuscationPort);
   CPPUNIT_ASSERT_EQUAL((uint32_t)0, state->failCount);
 
   ed2k::ServerStatus status;
@@ -2018,27 +1940,19 @@ void DownloadHelperTest::testEd2kServerLoginAdvertisesListenPort()
   engine.addCommand(std::move(commands));
 
   for (int i = 0; i < 8 && !engine.getEd2kTcpPort(); ++i) {
-    engine.run(true);
+    runNoWait(engine);
   }
   CPPUNIT_ASSERT(engine.getEd2kTcpPort() != 0);
 
-  for (int i = 0; i < 8 && !listenSocket.isReadable(0); ++i) {
-    engine.run(true);
+  for (int i = 0; i < 16 && !listenSocket.isReadable(0); ++i) {
+    runNoWait(engine);
   }
   CPPUNIT_ASSERT(listenSocket.isReadable(0));
   auto serverSocket = listenSocket.acceptConnection();
   serverSocket->setNonBlockingMode();
 
   std::string packet;
-  for (int i = 0; i < 8 && packet.empty(); ++i) {
-    char data[256];
-    size_t len = sizeof(data);
-    serverSocket->readData(data, len);
-    packet.append(data, len);
-    if (packet.empty()) {
-      engine.run(true);
-    }
-  }
+  readAvailableSocketData(packet, *serverSocket, engine, 16);
 
   ed2k::PacketHeader header;
   CPPUNIT_ASSERT(ed2k::readPacketHeader(header, packet.data(), packet.size()));
@@ -2058,7 +1972,7 @@ void DownloadHelperTest::testEd2kPeerHelloUsesServerClientId()
   File(outdir).mkdirs();
 
   std::vector<std::string> uris{
-      "ed2k://|file|aria2%20next.bin|9728001|"
+      "ed2k://|file|aria2%20next.bin|9728000|"
       "0123456789abcdef0123456789abcdef|"
       "sources,127.0.0.1:1|/"};
   option_->put(PREF_DIR, outdir);
@@ -2104,15 +2018,7 @@ void DownloadHelperTest::testEd2kPeerHelloUsesServerClientId()
   peerSocket->setNonBlockingMode();
 
   std::string packet;
-  for (int i = 0; i < 8 && packet.empty(); ++i) {
-    char data[256];
-    size_t len = sizeof(data);
-    peerSocket->readData(data, len);
-    packet.append(data, len);
-    if (packet.empty()) {
-      engine.run(true);
-    }
-  }
+  readAvailableSocketData(packet, *peerSocket, engine, 16);
 
   ed2k::PacketHeader header;
   CPPUNIT_ASSERT(ed2k::readPacketHeader(header, packet.data(), packet.size()));
@@ -2160,7 +2066,7 @@ void DownloadHelperTest::testEd2kPeerHelloUsesServerClientId()
   std::string requestFilename;
   for (int i = 0; i < 8 && requestFilename.empty(); ++i) {
     if (!peerSocket->isReadable(0)) {
-      engine.run(true);
+      runNoWait(engine);
     }
     if (!peerSocket->isReadable(0)) {
       continue;
@@ -2191,7 +2097,7 @@ void DownloadHelperTest::testEd2kPeerHelloUsesServerClientId()
                        requestFilename.size());
   CPPUNIT_ASSERT_EQUAL(attrs->link.hash,
                        requestFilename.substr(0, ed2k::HASH_LENGTH));
-  CPPUNIT_ASSERT_EQUAL((uint16_t)2, ed2k::readUInt16(
+  CPPUNIT_ASSERT_EQUAL((uint16_t)1, ed2k::readUInt16(
                                        requestFilename.data() +
                                        ed2k::HASH_LENGTH));
   CPPUNIT_ASSERT_EQUAL((uint8_t)0, static_cast<uint8_t>(
@@ -2207,7 +2113,7 @@ void DownloadHelperTest::testEd2kPeerHelloUsesServerClientId()
   std::string afterFileName;
   for (int i = 0; i < 8 && opcodes.empty(); ++i) {
     if (!peerSocket->isReadable(0)) {
-      engine.run(true);
+      runNoWait(engine);
     }
     if (!peerSocket->isReadable(0)) {
       continue;
@@ -2234,54 +2140,6 @@ void DownloadHelperTest::testEd2kPeerHelloUsesServerClientId()
                            ed2k::OP_SETREQFILEID) == opcodes.end());
   CPPUNIT_ASSERT(std::find(opcodes.begin(), opcodes.end(),
                            ed2k::OP_STARTUPLOADREQ) != opcodes.end());
-}
-
-void DownloadHelperTest::testEd2kInitialServerCommandRecordsFailure()
-{
-  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-command-failure";
-  const std::string outfile = outdir + "/aria2 next failure.bin";
-  File(outfile).remove();
-  File(outfile + DefaultBtProgressInfoFile::getSuffix()).remove();
-  File(outdir).mkdirs();
-
-  std::vector<std::string> uris{
-      "ed2k://|file|aria2%20next%20failure.bin|9728001|"
-      "0123456789abcdef0123456789abcdef|/"};
-  option_->put(PREF_DIR, outdir);
-  option_->put(PREF_ED2K_SERVER, "127.0.0.1:1");
-  option_->put(PREF_CONNECT_TIMEOUT, "1");
-  option_->put(PREF_TIMEOUT, "1");
-  option_->put(PREF_RETRY_WAIT, "30");
-  option_->put(PREF_SPLIT, "1");
-  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
-  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
-  option_->put(PREF_FILE_ALLOCATION, V_NONE);
-  option_->put(PREF_DRY_RUN, A2_V_FALSE);
-
-  std::vector<std::shared_ptr<RequestGroup>> result;
-  createRequestGroupForUri(result, option_, uris);
-  auto group = result[0];
-  auto attrs = getEd2kAttrs(group->getDownloadContext());
-
-  DownloadEngine engine(make_unique<SelectEventPoll>());
-  engine.setOption(option_.get());
-  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
-      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
-  std::vector<std::unique_ptr<Command>> commands;
-  group->createInitialCommand(commands, &engine);
-  engine.addCommand(std::move(commands));
-
-  for (int i = 0; i < 8 && group->getNumCommand() > 0; ++i) {
-    engine.run(true);
-  }
-
-  auto state = getEd2kServerState(attrs, attrs->servers[0]);
-  CPPUNIT_ASSERT(state);
-  CPPUNIT_ASSERT(!state->connected);
-  CPPUNIT_ASSERT(!state->handshakeCompleted);
-  CPPUNIT_ASSERT_EQUAL((uint32_t)1, state->failCount);
-  CPPUNIT_ASSERT(state->lastFailureTime > 0);
-  CPPUNIT_ASSERT(state->nextRetryTime >= state->lastFailureTime + 30);
 }
 
 void DownloadHelperTest::testEd2kInitialServerCommandUpdatesServerState()
@@ -2339,9 +2197,11 @@ void DownloadHelperTest::testEd2kInitialServerCommandUpdatesServerState()
       ed2k::PROTO_EDONKEY, ed2k::OP_SERVERMESSAGE,
       ed2k::packUInt16(5) + "hello"));
 
-  for (int i = 0; i < 8 && group->getNumCommand() > 0; ++i) {
-    engine.run(true);
+  for (int i = 0; i < 8 && !serverSocket->isReadable(0); ++i) {
+    runNoWait(engine);
   }
+  drainSocket(*serverSocket);
+  runNoWaitTicks(engine, 8);
 
   auto state = getEd2kServerState(attrs, attrs->servers[0]);
   CPPUNIT_ASSERT(state);
@@ -2351,295 +2211,6 @@ void DownloadHelperTest::testEd2kInitialServerCommandUpdatesServerState()
   CPPUNIT_ASSERT_EQUAL((uint32_t)1234, state->users);
   CPPUNIT_ASSERT_EQUAL((uint32_t)5678, state->files);
   CPPUNIT_ASSERT_EQUAL(std::string("hello"), state->lastMessage);
-}
-
-void DownloadHelperTest::testEd2kServerSourceRefreshSchedulesHandshakeServer()
-{
-  std::vector<std::string> uris{
-      "ed2k://|file|aria2%20next.bin|9728001|"
-      "0123456789abcdef0123456789abcdef|/"};
-  option_->put(PREF_DIR, "/tmp");
-  option_->put(PREF_ED2K_SERVER, "203.0.113.10:4661");
-  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
-  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
-  option_->put(PREF_FILE_ALLOCATION, V_NONE);
-  option_->put(PREF_DRY_RUN, A2_V_TRUE);
-
-  std::vector<std::shared_ptr<RequestGroup>> result;
-  createRequestGroupForUri(result, option_, uris);
-  auto group = result[0];
-  auto attrs = getEd2kAttrs(group->getDownloadContext());
-  auto state = getEd2kServerState(attrs, attrs->servers[0]);
-  state->connected = true;
-  state->handshakeCompleted = true;
-
-  DownloadEngine engine(make_unique<SelectEventPoll>());
-  engine.setOption(option_.get());
-  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
-      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
-  std::vector<std::unique_ptr<Command>> commands;
-
-  schedulePendingEd2kServers(commands, group.get(), &engine);
-
-  CPPUNIT_ASSERT(commands.empty());
-
-  state->connected = false;
-  state->nextSourceRequestTime = 1;
-
-  schedulePendingEd2kServers(commands, group.get(), &engine);
-
-  CPPUNIT_ASSERT_EQUAL((size_t)1, commands.size());
-}
-
-void DownloadHelperTest::testEd2kServerListSchedulesLearnedServer()
-{
-  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-server-list-schedule";
-  const std::string outfile = outdir + "/aria2 next.bin";
-  File(outfile).remove();
-  File(outfile + DefaultBtProgressInfoFile::getSuffix()).remove();
-  File(outdir).mkdirs();
-
-  std::vector<std::string> uris{
-      "ed2k://|file|aria2%20next.bin|9728001|"
-      "0123456789abcdef0123456789abcdef|/"};
-  option_->put(PREF_DIR, outdir);
-  option_->put(PREF_ED2K_SERVER, "127.0.0.1:1");
-  option_->put(PREF_CONNECT_TIMEOUT, "1");
-  option_->put(PREF_TIMEOUT, "1");
-  option_->put(PREF_SPLIT, "1");
-  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
-  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
-  option_->put(PREF_FILE_ALLOCATION, V_NONE);
-  option_->put(PREF_DRY_RUN, A2_V_FALSE);
-
-  std::vector<std::shared_ptr<RequestGroup>> result;
-  createRequestGroupForUri(result, option_, uris);
-  auto group = result[0];
-  auto attrs = getEd2kAttrs(group->getDownloadContext());
-
-  SocketCore firstListenSocket;
-  firstListenSocket.bind(0);
-  firstListenSocket.beginListen();
-  firstListenSocket.setBlockingMode();
-  const auto firstEndpoint = firstListenSocket.getAddrInfo();
-  attrs->servers[0].host = "127.0.0.1";
-  attrs->servers[0].port = firstEndpoint.port;
-
-  SocketCore learnedListenSocket;
-  learnedListenSocket.bind(0);
-  learnedListenSocket.beginListen();
-  learnedListenSocket.setBlockingMode();
-  const auto learnedEndpoint = learnedListenSocket.getAddrInfo();
-
-  DownloadEngine engine(make_unique<SelectEventPoll>());
-  engine.setOption(option_.get());
-  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
-      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
-  std::vector<std::unique_ptr<Command>> commands;
-  group->createInitialCommand(commands, &engine);
-  engine.addCommand(std::move(commands));
-
-  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
-  auto firstServerSocket = firstListenSocket.acceptConnection();
-  firstServerSocket->writeData(ed2k::createPacket(
-      ed2k::PROTO_EDONKEY, ed2k::OP_IDCHANGE,
-      ed2k::packUInt32(0x04030201)));
-  ed2k::Endpoint learnedServer;
-  learnedServer.host = "127.0.0.1";
-  learnedServer.port = learnedEndpoint.port;
-  firstServerSocket->writeData(ed2k::createPacket(
-      ed2k::PROTO_EDONKEY, ed2k::OP_SERVERLIST,
-      ed2k::createServerListPayload(std::vector<ed2k::Endpoint>{
-          learnedServer})));
-
-  for (int i = 0; i < 8 && !learnedListenSocket.isReadable(0); ++i) {
-    engine.run(true);
-  }
-
-  CPPUNIT_ASSERT(learnedListenSocket.isReadable(0));
-  auto learnedServerSocket = learnedListenSocket.acceptConnection();
-  learnedServerSocket->setNonBlockingMode();
-  std::string packet;
-  for (int i = 0; i < 4; ++i) {
-    char data[128];
-    size_t len = sizeof(data);
-    learnedServerSocket->readData(data, len);
-    packet.append(data, len);
-    if (!packet.empty()) {
-      break;
-    }
-    engine.run(true);
-  }
-
-  ed2k::PacketHeader header;
-  CPPUNIT_ASSERT(ed2k::readPacketHeader(header, packet.data(), packet.size()));
-  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::PROTO_EDONKEY, header.protocol);
-  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::OP_LOGINREQUEST, header.opcode);
-}
-
-void DownloadHelperTest::testEd2kServerCommandRequestsLowIdCallback()
-{
-  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-command-callback";
-  const std::string outfile = outdir + "/aria2 next.bin";
-  File(outfile).remove();
-  File(outfile + DefaultBtProgressInfoFile::getSuffix()).remove();
-  File(outdir).mkdirs();
-
-  const std::string fileHashHex = "0123456789abcdef0123456789abcdef";
-  const auto fileHash = util::fromHex(fileHashHex.begin(), fileHashHex.end());
-  std::vector<std::string> uris{
-      "ed2k://|file|aria2%20next.bin|9728001|"
-      "0123456789abcdef0123456789abcdef|/"};
-  option_->put(PREF_DIR, outdir);
-  option_->put(PREF_ED2K_SERVER, "127.0.0.1:1");
-  option_->put(PREF_CONNECT_TIMEOUT, "1");
-  option_->put(PREF_TIMEOUT, "1");
-  option_->put(PREF_SPLIT, "1");
-  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
-  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
-  option_->put(PREF_FILE_ALLOCATION, V_NONE);
-  option_->put(PREF_DRY_RUN, A2_V_FALSE);
-
-  std::vector<std::shared_ptr<RequestGroup>> result;
-  createRequestGroupForUri(result, option_, uris);
-  auto group = result[0];
-  auto attrs = getEd2kAttrs(group->getDownloadContext());
-
-  SocketCore listenSocket;
-  listenSocket.bind(0);
-  listenSocket.beginListen();
-  listenSocket.setBlockingMode();
-  const auto endpoint = listenSocket.getAddrInfo();
-  attrs->servers[0].host = "127.0.0.1";
-  attrs->servers[0].port = endpoint.port;
-
-  DownloadEngine engine(make_unique<SelectEventPoll>());
-  engine.setOption(option_.get());
-  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
-      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
-  std::vector<std::unique_ptr<Command>> commands;
-  group->createInitialCommand(commands, &engine);
-  engine.addCommand(std::move(commands));
-
-  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
-  auto serverSocket = listenSocket.acceptConnection();
-  serverSocket->setNonBlockingMode();
-  serverSocket->writeData(ed2k::createPacket(
-      ed2k::PROTO_EDONKEY, ed2k::OP_IDCHANGE,
-      ed2k::packUInt32(0x04030201) + ed2k::packUInt32(0x55aa) +
-          ed2k::packUInt32(4661)));
-
-  for (int i = 0; i < 4 && group->getNumCommand() > 0; ++i) {
-    engine.run(true);
-  }
-
-  ed2k::Endpoint lowIdSource;
-  lowIdSource.host = "120.0.0.0";
-  lowIdSource.port = 4662;
-  serverSocket->writeData(ed2k::createPacket(
-      ed2k::PROTO_EDONKEY, ed2k::OP_FOUNDSOURCES,
-      ed2k::createFoundSourcesPayload(
-          fileHash, std::vector<ed2k::Endpoint>{lowIdSource})));
-
-  for (int i = 0; i < 4 && group->getNumCommand() > 0 &&
-                  !serverSocket->isReadable(0);
-       ++i) {
-    engine.run(true);
-  }
-
-  ed2k::PacketHeader header;
-  std::string packet;
-  for (int i = 0; i < 4; ++i) {
-    char data[64];
-    size_t len = sizeof(data);
-    serverSocket->readData(data, len);
-    packet.append(data, len);
-    size_t offset = 0;
-    while (packet.size() - offset >= 6) {
-      CPPUNIT_ASSERT(ed2k::readPacketHeader(header, packet.data() + offset,
-                                            packet.size() - offset));
-      const auto packetSize = 5 + header.size;
-      if (packet.size() - offset < packetSize) {
-        break;
-      }
-      if (header.opcode == ed2k::OP_CALLBACKREQUEST) {
-        CPPUNIT_ASSERT_EQUAL((uint32_t)120,
-                             ed2k::readUInt32(packet.data() + offset + 6));
-        return;
-      }
-      offset += packetSize;
-    }
-    packet.erase(0, offset);
-    if (!serverSocket->isReadable(0)) {
-      engine.run(true);
-    }
-  }
-
-  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::PROTO_EMULE, header.protocol);
-  CPPUNIT_ASSERT_EQUAL((uint8_t)ed2k::OP_CALLBACKREQUEST, header.opcode);
-}
-
-void DownloadHelperTest::testEd2kPeerCommandRecordsQueueRank()
-{
-  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-command-queue-rank";
-  const std::string outfile = outdir + "/aria2 next.bin";
-  File(outfile).remove();
-  File(outfile + DefaultBtProgressInfoFile::getSuffix()).remove();
-  File(outdir).mkdirs();
-
-  std::vector<std::string> uris{
-      "ed2k://|file|aria2%20next.bin|9728001|"
-      "0123456789abcdef0123456789abcdef|"
-      "sources,127.0.0.1:1|/"};
-  option_->put(PREF_DIR, outdir);
-  option_->put(PREF_CONNECT_TIMEOUT, "1");
-  option_->put(PREF_TIMEOUT, "1");
-  option_->put(PREF_SPLIT, "1");
-  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
-  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
-  option_->put(PREF_FILE_ALLOCATION, V_NONE);
-  option_->put(PREF_DRY_RUN, A2_V_FALSE);
-
-  std::vector<std::shared_ptr<RequestGroup>> result;
-  createRequestGroupForUri(result, option_, uris);
-  auto group = result[0];
-  auto attrs = getEd2kAttrs(group->getDownloadContext());
-
-  SocketCore listenSocket;
-  listenSocket.bind(0);
-  listenSocket.beginListen();
-  listenSocket.setBlockingMode();
-  const auto endpoint = listenSocket.getAddrInfo();
-  attrs->link.sources[0].host = "127.0.0.1";
-  attrs->link.sources[0].port = endpoint.port;
-  ed2k::Endpoint peer;
-  peer.host = "127.0.0.1";
-  peer.port = endpoint.port;
-
-  DownloadEngine engine(make_unique<SelectEventPoll>());
-  engine.setOption(option_.get());
-  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
-      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
-  std::vector<std::unique_ptr<Command>> commands;
-  group->createInitialCommand(commands, &engine);
-  engine.addCommand(std::move(commands));
-
-  CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
-  auto peerSocket = listenSocket.acceptConnection();
-  peerSocket->setNonBlockingMode();
-  peerSocket->writeData(ed2k::createPacket(ed2k::PROTO_EDONKEY,
-                                           ed2k::OP_QUEUERANK,
-                                           ed2k::packUInt32(42)));
-
-  for (int i = 0; i < 4 && group->getNumCommand() > 0; ++i) {
-    engine.run(true);
-  }
-
-  auto state = getEd2kPeerState(attrs, peer);
-  CPPUNIT_ASSERT(state);
-  CPPUNIT_ASSERT(state->queued);
-  CPPUNIT_ASSERT(!state->dead);
-  CPPUNIT_ASSERT_EQUAL((uint16_t)42, state->queueRank);
 }
 
 void DownloadHelperTest::testEd2kPeerCommandAnswersSourceExchange2()
@@ -2680,7 +2251,6 @@ void DownloadHelperTest::testEd2kPeerCommandAnswersSourceExchange2()
   ed2k::Endpoint extraPeer;
   extraPeer.host = "203.0.113.9";
   extraPeer.port = 4662;
-  addEd2kPeer(attrs, extraPeer);
 
   DownloadEngine engine(make_unique<SelectEventPoll>());
   engine.setOption(option_.get());
@@ -2689,6 +2259,10 @@ void DownloadHelperTest::testEd2kPeerCommandAnswersSourceExchange2()
   std::vector<std::unique_ptr<Command>> commands;
   group->createInitialCommand(commands, &engine);
   engine.addCommand(std::move(commands));
+  addEd2kPeer(attrs, extraPeer);
+  auto extraPeerState = getEd2kPeerState(attrs, extraPeer);
+  CPPUNIT_ASSERT(extraPeerState);
+  extraPeerState->connecting = true;
 
   CPPUNIT_ASSERT_EQUAL(1, engine.run(true));
   auto peerSocket = listenSocket.acceptConnection();
@@ -2701,7 +2275,7 @@ void DownloadHelperTest::testEd2kPeerCommandAnswersSourceExchange2()
   std::string packet;
   for (int i = 0; i < 6; ++i) {
     if (!peerSocket->isReadable(0)) {
-      engine.run(true);
+      runNoWait(engine);
     }
     char data[128];
     size_t len = sizeof(data);

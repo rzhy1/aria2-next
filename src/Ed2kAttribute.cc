@@ -123,6 +123,28 @@ bool addEd2kPeer(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
   return true;
 }
 
+size_t mergeEd2kServerSources(Ed2kAttribute* attrs,
+                              const std::vector<ed2k::FoundSource>& sources,
+                              uint32_t sourceFlag)
+{
+  if (!attrs) {
+    return 0;
+  }
+  size_t added = 0;
+  for (const auto& source : sources) {
+    if (source.lowId) {
+      continue;
+    }
+    if ((source.endpoint.cryptOptions & ed2k::SOURCE_CRYPT_REQUIRE) != 0) {
+      continue;
+    }
+    if (addEd2kPeer(attrs, source.endpoint, sourceFlag)) {
+      ++added;
+    }
+  }
+  return added;
+}
+
 size_t mergeEd2kSourceExchangePeers(
     Ed2kAttribute* attrs, const std::vector<ed2k::SourceExchangeEntry>& entries,
     const ed2k::Endpoint& remotePeer)
@@ -371,6 +393,9 @@ void updateEd2kServerIdChange(Ed2kAttribute* attrs,
   state->highId = idChange.highId;
   state->ipAddress = idChange.ipAddress;
   state->tcpFlags = idChange.tcpFlags;
+  if (idChange.tcpObfuscationPort != 0) {
+    state->tcpObfuscationPort = idChange.tcpObfuscationPort;
+  }
   state->failCount = 0;
   state->lastFailureTime = 0;
   state->nextRetryTime = 0;
@@ -386,6 +411,15 @@ void updateEd2kServerStatus(Ed2kAttribute* attrs,
   }
   state->users = status.users;
   state->files = status.files;
+  state->maxUsers = status.maxUsers;
+  state->softFiles = status.softFiles;
+  state->hardFiles = status.hardFiles;
+  state->udpFlags = status.udpFlags;
+  state->lowIdUsers = status.lowIdUsers;
+  state->udpObfuscationPort = status.udpObfuscationPort;
+  state->tcpObfuscationPort = status.tcpObfuscationPort;
+  state->udpKey = status.udpKey;
+  state->udpStatusChallenge = status.challenge;
 }
 
 void updateEd2kServerUdpStatus(Ed2kAttribute* attrs,

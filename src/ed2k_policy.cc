@@ -17,6 +17,7 @@
 #include "Segment.h"
 #include "SegmentMan.h"
 #include "ed2k_hash.h"
+#include "ed2k_link.h"
 
 namespace aria2 {
 
@@ -49,6 +50,9 @@ int sourcePriority(uint32_t sourceFlags)
 namespace {
 bool canConnect(const PeerState& peer, int64_t now)
 {
+  if ((peer.endpoint.cryptOptions & SOURCE_CRYPT_REQUIRE) != 0) {
+    return false;
+  }
   if (peer.lowId && (peer.callbackRequested || peer.callbackImpossible)) {
     return false;
   }

@@ -49,6 +49,11 @@ struct SourceExchangeAnswer {
   std::vector<SourceExchangeEntry> entries;
 };
 
+struct SourceExchangeRequest {
+  uint8_t opcode = 0;
+  std::string payload;
+};
+
 struct EmuleMiscOptions {
   uint8_t aichVersion = 0;
   bool unicode = false;
@@ -122,6 +127,8 @@ std::string createRequestPartsPayload(const std::string& fileHash,
                                       bool use64BitOffsets);
 std::string createQueueRankPayload(uint32_t rank);
 bool parseQueueRankPayload(uint16_t& rank, const std::string& payload);
+SourceExchangeRequest createRequestSourcesPayload(const std::string& fileHash,
+                                                  const EmulePeerInfo& peerInfo);
 std::string createRequestSources2Payload(const std::string& fileHash);
 bool parseRequestSources2Payload(uint8_t& version, const std::string& payload,
                                  const std::string& expectedFileHash);

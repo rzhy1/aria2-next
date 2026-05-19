@@ -634,6 +634,18 @@ void DownloadHelperTest::testEd2kSourcePolicyRanksSources()
 
   CPPUNIT_ASSERT(selected);
   CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.10"), selected->endpoint.host);
+
+  ed2k::Endpoint cryptRequired;
+  cryptRequired.host = "203.0.113.13";
+  cryptRequired.port = 4662;
+  cryptRequired.cryptOptions = ed2k::SOURCE_CRYPT_REQUIRE;
+  addEd2kPeer(&attrs, cryptRequired, ed2k::PEER_SOURCE_SERVER);
+  auto cryptState = getEd2kPeerState(&attrs, cryptRequired);
+  cryptState->failCount = 0;
+  selected = ed2k::selectConnectPeer(attrs.peerStates, 40);
+
+  CPPUNIT_ASSERT(selected);
+  CPPUNIT_ASSERT(selected->endpoint.host != cryptRequired.host);
 }
 
 void DownloadHelperTest::testEd2kPiecePolicyUsesPeerAvailability()

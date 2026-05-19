@@ -814,6 +814,27 @@ void Ed2kHelperTest::testSourceExchange2Payloads()
                                             fileHash));
   CPPUNIT_ASSERT_EQUAL((uint8_t)4, requestVersion);
 
+  EmulePeerInfo sx2Peer;
+  sx2Peer.miscOptions2.supportsSourceExchange2 = true;
+  auto selectedRequest = createRequestSourcesPayload(fileHash, sx2Peer);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)OP_REQUESTSOURCES2, selectedRequest.opcode);
+  CPPUNIT_ASSERT_EQUAL(request, selectedRequest.payload);
+
+  EmulePeerInfo sx1Peer;
+  sx1Peer.miscOptions.sourceExchange1Version = 3;
+  selectedRequest = createRequestSourcesPayload(fileHash, sx1Peer);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)OP_REQUESTSOURCES, selectedRequest.opcode);
+  CPPUNIT_ASSERT_EQUAL(fileHash, selectedRequest.payload);
+
+  sx1Peer.miscOptions.sourceExchange1Version = 1;
+  selectedRequest = createRequestSourcesPayload(fileHash, sx1Peer);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)0, selectedRequest.opcode);
+  CPPUNIT_ASSERT(selectedRequest.payload.empty());
+
+  selectedRequest = createRequestSourcesPayload(fileHash, EmulePeerInfo());
+  CPPUNIT_ASSERT_EQUAL((uint8_t)0, selectedRequest.opcode);
+  CPPUNIT_ASSERT(selectedRequest.payload.empty());
+
   SourceExchangeEntry entry;
   entry.endpoint.host = "203.0.113.9";
   entry.endpoint.port = 4662;

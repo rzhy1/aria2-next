@@ -474,9 +474,11 @@ void Ed2kCommand::queueSourceExchangeRequest()
     return;
   }
   sourceExchangeRequested_ = true;
-  queuePacket(ed2k::PROTO_EMULE, ed2k::OP_REQUESTSOURCES2,
-              ed2k::createRequestSources2Payload(
-                  getEd2kAttrs(getDownloadContext())->link.hash));
+  const auto request = ed2k::createRequestSourcesPayload(
+      getEd2kAttrs(getDownloadContext())->link.hash, remotePeerInfo_);
+  if (request.opcode != 0) {
+    queuePacket(ed2k::PROTO_EMULE, request.opcode, request.payload);
+  }
 }
 
 void Ed2kCommand::queueSourceExchangeAnswer(uint8_t version)

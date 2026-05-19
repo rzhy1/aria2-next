@@ -170,3 +170,16 @@ Verified: `cmake --build --preset default --target aria2_tests` passed.
 passed.
 Remaining: Start RA50 source policy and Source Exchange alignment.
 Blocked: none.
+
+2026-05-19 RA50 verified
+Changed: Aligned source policy and Source Exchange capability truth. Source
+Exchange requests now choose `OP_REQUESTSOURCES2` only for SX2 peers, choose
+hash-only `OP_REQUESTSOURCES` only for SX1 peers with version greater than 1,
+and skip unsupported peers. Require-crypt source endpoints remain preserved as
+metadata but no longer enter normal peer connect scheduling while encrypted
+transport is unimplemented.
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+`build/default/aria2_tests` passed with `OK (1095)`. `git diff --check`
+passed.
+Remaining: Start RA51 Kad alignment.
+Blocked: none.

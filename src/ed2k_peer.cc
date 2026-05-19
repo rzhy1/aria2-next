@@ -15,6 +15,7 @@
 #include <limits>
 
 #include "DlAbortEx.h"
+#include "ed2k_constants.h"
 #include "ed2k_endpoint.h"
 #include "ed2k_hash.h"
 #include "ed2k_packet.h"
@@ -224,6 +225,21 @@ std::string createRequestSources2Payload(const std::string& fileHash)
   payload += packUInt16(0);
   payload += fileHash;
   return payload;
+}
+
+SourceExchangeRequest createRequestSourcesPayload(
+    const std::string& fileHash, const EmulePeerInfo& peerInfo)
+{
+  SourceExchangeRequest request;
+  if (peerInfo.miscOptions2.supportsSourceExchange2) {
+    request.opcode = OP_REQUESTSOURCES2;
+    request.payload = createRequestSources2Payload(fileHash);
+  }
+  else if (peerInfo.miscOptions.sourceExchange1Version > 1) {
+    request.opcode = OP_REQUESTSOURCES;
+    request.payload = fileHash;
+  }
+  return request;
 }
 
 bool parseRequestSources2Payload(uint8_t& version, const std::string& payload,

@@ -174,3 +174,17 @@ Remaining: Validate the tracker shape, then continue RF2 by checking whether
 any remaining reference subsystem is still hidden inside broad rows before
 marking RF2 verified.
 Blocked: none.
+
+2026-05-19 RF2 partial
+Changed: Completed another reference-audit pass over the remaining broad
+surfaces. Server shared-file publishing, file status and hashset tolerance,
+client UDP reask and queue state, server and UDP search wire formats,
+remote-control APIs, and NAT auto-mapping helpers now have separate decisions
+instead of being folded into sharing, request flow, search, GUI, or networking
+rows.
+Verified: Documentation-only audit refinement based on focused inspection of
+local authoritative references and the active tracker. No build was required
+because no source or generated files changed.
+Remaining: Run tracker validation, then decide whether RF2 can be marked
+verified or whether any final subsystem remains unclassified.
+Blocked: none.

@@ -202,3 +202,27 @@ against the goal scope found no missing top-level subsystem. Tracker CSV width
 checks and `git diff --check docs/maintenance/ed2k-refactor` passed.
 Remaining: Start RF3 server source compatibility.
 Blocked: none.
+
+2026-05-19 RF1 verified
+Changed: Closed the live failure baseline checkpoint using the existing
+controlled public runs under `/Users/sekiro/Desktop/aria2-next-ed2k-debug`.
+The baseline records the XP fixture and Windows 11 fixture behavior without
+claiming public transfer success. XP runs consistently parsed the link,
+created the task, connected to ED2K servers, received LowID warnings, received
+one or two server sources, sent local peer `OP_HELLO`, then saw the peer reset
+before any peer packet. A Windows 11 x64 run reached `OP_HELLOANSWER`, sent
+`OP_EMULEINFO` and `OP_REQUESTFILENAME`, received `OP_EMULEINFOANSWER`, and
+closed before a file answer; later runs against the same public source reset
+after local `OP_HELLO`.
+Verified: Documentation-only checkpoint closure based on existing controlled
+logs:
+`/Users/sekiro/Desktop/aria2-next-ed2k-debug/rf1-hello-version-20260519-113122/aria2-ed2k-test.log`,
+`/Users/sekiro/Desktop/aria2-next-ed2k-debug/rf1-win11-x64-20260519-113528/aria2-ed2k-test.log`,
+and
+`/Users/sekiro/Desktop/aria2-next-ed2k-debug/rf1-win11-x64-extreq-20260519-114314/aria2-ed2k-extreq.log`.
+The packet boundary is server source discovery succeeded, public peer progress
+is nondeterministic under LowID, and RF3 must classify source and callback
+paths before direct peer failures can be treated as pure peer-handshake bugs.
+Remaining: Start RF3 by auditing and correcting server source classification,
+HighID/LowID state, OBFU metadata, and callback routing.
+Blocked: none.

@@ -1,5 +1,10 @@
 # Native ED2K/eMule Implementation Overview
 
+> This tracker is historical. The active ED2K/eMule work now lives under
+> `docs/maintenance/ed2k-refactor` because the authoritative reference set
+> changed and live interoperability testing showed that the first draft can
+> still stall after server source discovery.
+
 This directory is the persistent tracker for native ED2K/eMule support in
 aria2-next. It exists to survive long goal runs and context compaction. Future
 agents must read this file, `checkpoints.csv`, `reference-parity.csv`, and

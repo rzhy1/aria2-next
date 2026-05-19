@@ -12,10 +12,14 @@ maintenance task owns its own subdirectory.
 | `cmake-migration/progress.md` | Completed checkpoint log for the CMake migration |
 | `upstream-issue-review/summary.md` | Completed human-readable summary of the upstream issue review |
 | `upstream-issue-review/matrix.csv` | Completed issue-by-issue review matrix |
-| `ed2k/overview.md` | Active tracker entry point for native ED2K/eMule implementation work |
-| `ed2k/checkpoints.csv` | Active checkpoint matrix for ED2K/eMule implementation |
-| `ed2k/reference-parity.csv` | Active reference parity and pruning ledger for ED2K/eMule work |
-| `ed2k/progress.md` | Active chronological ED2K/eMule progress log |
+| `ed2k/overview.md` | Historical tracker for the first native ED2K/eMule draft |
+| `ed2k/checkpoints.csv` | Historical checkpoint matrix for the first ED2K/eMule draft |
+| `ed2k/reference-parity.csv` | Historical parity ledger for the first ED2K/eMule draft |
+| `ed2k/progress.md` | Historical chronological ED2K/eMule draft log |
+| `ed2k-refactor/overview.md` | Active tracker entry point for the ED2K/eMule interoperability refactor |
+| `ed2k-refactor/checkpoints.csv` | Active checkpoint matrix for the ED2K/eMule refactor |
+| `ed2k-refactor/reference-audit.csv` | Active authoritative reference audit and pruning ledger |
+| `ed2k-refactor/progress.md` | Active chronological ED2K/eMule refactor progress log |
 
 Maintenance records should be durable and compact. Temporary API payloads,
 scratch research files, generated reports, local caches, and conversation logs

@@ -248,7 +248,7 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KNodesDat()
   auto nodeId = util::fromHex(nodeIdHex.begin(), nodeIdHex.end());
   ed2k::KadContact contact;
   contact.id = nodeId;
-  contact.host = "127.0.0.1";
+  contact.host = "203.0.113.1";
   contact.udpPort = 4672;
   contact.tcpPort = 4662;
   contact.version = 8;
@@ -282,7 +282,7 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KNodesDat()
   CPPUNIT_ASSERT(attrs->kadRoutingTable);
   CPPUNIT_ASSERT_EQUAL((size_t)1,
                        attrs->kadRoutingTable->getRouterNodes().size());
-  CPPUNIT_ASSERT_EQUAL(std::string("127.0.0.1"),
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.1"),
                        attrs->kadRoutingTable->getRouterNodes()[0].host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4672,
                        attrs->kadRoutingTable->getRouterNodes()[0].port);
@@ -295,9 +295,12 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KServerMetMetadata()
   serverMet += ed2k::packUInt32(1);
   serverMet += ed2k::packUInt32(0x04030201);
   serverMet += ed2k::packUInt16(4661);
-  serverMet += ed2k::packUInt32(2);
+  serverMet += ed2k::packUInt32(5);
   serverMet += ed2k::createStringTag(0x01, "Peer Server");
   serverMet += ed2k::createStringTag(0x0b, "Primary ED2K server");
+  serverMet += ed2k::createUInt32Tag(0x87, 9000);
+  serverMet += ed2k::createUInt32Tag(0x92, 0x01020304);
+  serverMet += ed2k::createUInt32Tag(0x97, 4666);
   const std::string path = A2_TEST_OUT_DIR "/ed2k-server.met";
   createFile(path, serverMet.size());
   {
@@ -324,6 +327,11 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KServerMetMetadata()
                        attrs->serverStates[0].name);
   CPPUNIT_ASSERT_EQUAL(std::string("Primary ED2K server"),
                        attrs->serverStates[0].description);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)9000, attrs->serverStates[0].maxUsers);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x01020304,
+                       attrs->serverStates[0].udpFlags);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4666,
+                       attrs->serverStates[0].tcpObfuscationPort);
 }
 
 void DownloadHelperTest::testCreateRequestGroupForUri_ED2KKadRoutingState()

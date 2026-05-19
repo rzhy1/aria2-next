@@ -195,6 +195,16 @@ void mergeServerMetFile(std::vector<ed2k::Endpoint>& endpoints,
       state.endpoint = entry.endpoint;
       state.name = entry.name;
       state.description = entry.description;
+      state.users = entry.users;
+      state.files = entry.files;
+      state.maxUsers = entry.maxUsers;
+      state.softFiles = entry.softFiles;
+      state.hardFiles = entry.hardFiles;
+      state.udpFlags = entry.udpFlags;
+      state.lowIdUsers = entry.lowIdUsers;
+      state.udpObfuscationPort = entry.udpObfuscationPort;
+      state.tcpObfuscationPort = entry.tcpObfuscationPort;
+      state.udpKey = entry.udpKey;
       states.push_back(state);
       continue;
     }
@@ -203,6 +213,36 @@ void mergeServerMetFile(std::vector<ed2k::Endpoint>& endpoints,
     }
     if (!entry.description.empty()) {
       i->description = entry.description;
+    }
+    if (entry.users) {
+      i->users = entry.users;
+    }
+    if (entry.files) {
+      i->files = entry.files;
+    }
+    if (entry.maxUsers) {
+      i->maxUsers = entry.maxUsers;
+    }
+    if (entry.softFiles) {
+      i->softFiles = entry.softFiles;
+    }
+    if (entry.hardFiles) {
+      i->hardFiles = entry.hardFiles;
+    }
+    if (entry.udpFlags) {
+      i->udpFlags = entry.udpFlags;
+    }
+    if (entry.lowIdUsers) {
+      i->lowIdUsers = entry.lowIdUsers;
+    }
+    if (entry.udpObfuscationPort) {
+      i->udpObfuscationPort = entry.udpObfuscationPort;
+    }
+    if (entry.tcpObfuscationPort) {
+      i->tcpObfuscationPort = entry.tcpObfuscationPort;
+    }
+    if (entry.udpKey) {
+      i->udpKey = entry.udpKey;
     }
   }
 }

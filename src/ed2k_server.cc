@@ -31,7 +31,15 @@ constexpr uint32_t SERVER_STATE_VERSION = 3;
 
 constexpr uint8_t SERVER_TAG_NAME = 0x01;
 constexpr uint8_t SERVER_TAG_DESCRIPTION = 0x0b;
-constexpr uint8_t SERVER_TAG_PREFERENCE = 0x0e;
+constexpr uint8_t SERVER_TAG_DYNIP = 0x85;
+constexpr uint8_t SERVER_TAG_MAX_USERS = 0x87;
+constexpr uint8_t SERVER_TAG_SOFT_FILES = 0x88;
+constexpr uint8_t SERVER_TAG_HARD_FILES = 0x89;
+constexpr uint8_t SERVER_TAG_UDP_FLAGS = 0x92;
+constexpr uint8_t SERVER_TAG_LOW_ID_USERS = 0x94;
+constexpr uint8_t SERVER_TAG_UDP_KEY = 0x95;
+constexpr uint8_t SERVER_TAG_TCP_OBFUSCATION_PORT = 0x97;
+constexpr uint8_t SERVER_TAG_UDP_OBFUSCATION_PORT = 0x98;
 
 void validateHashLength(const std::string& hash)
 {
@@ -84,6 +92,36 @@ Endpoint readServerStateEndpoint(const std::string& payload, size_t& offset)
   return endpoint;
 }
 
+bool tagMatches(const Tag& tag, uint8_t id, const char* name)
+{
+  return tag.id == id || tag.name == name;
+}
+
+bool tagMatchesName(const Tag& tag, const char* name)
+{
+  return tag.name == name;
+}
+
+bool readTagUInt(uint32_t& value, const Tag& tag)
+{
+  if (tag.valueType != TagValueType::UINT ||
+      tag.intValue > std::numeric_limits<uint32_t>::max()) {
+    return false;
+  }
+  value = static_cast<uint32_t>(tag.intValue);
+  return true;
+}
+
+bool readTagUInt16(uint16_t& value, const Tag& tag)
+{
+  if (tag.valueType != TagValueType::UINT ||
+      tag.intValue > std::numeric_limits<uint16_t>::max()) {
+    return false;
+  }
+  value = static_cast<uint16_t>(tag.intValue);
+  return true;
+}
+
 } // namespace
 
 std::vector<ServerMetEntry> parseServerMetEntries(const std::string& data)
@@ -103,16 +141,48 @@ std::vector<ServerMetEntry> parseServerMetEntries(const std::string& data)
     for (uint32_t j = 0; j < tagCount; ++j) {
       const auto tag = readTag(data, offset);
       if (tag.valueType == TagValueType::STRING) {
-        if (tag.id == SERVER_TAG_NAME) {
+        if (tagMatches(tag, SERVER_TAG_NAME, "name")) {
           entry.name = tag.stringValue;
         }
-        else if (tag.id == SERVER_TAG_DESCRIPTION) {
+        else if (tagMatches(tag, SERVER_TAG_DESCRIPTION, "description")) {
           entry.description = tag.stringValue;
         }
-        else if (tag.id == SERVER_TAG_PREFERENCE &&
+        else if (tagMatches(tag, SERVER_TAG_DYNIP, "dynip") &&
                  entry.endpoint.host == "0.0.0.0") {
           entry.endpoint.host = tag.stringValue;
         }
+      }
+      else if (tagMatchesName(tag, "users")) {
+        readTagUInt(entry.users, tag);
+      }
+      else if (tagMatchesName(tag, "files")) {
+        readTagUInt(entry.files, tag);
+      }
+      else if (tagMatches(tag, SERVER_TAG_MAX_USERS, "maxusers")) {
+        readTagUInt(entry.maxUsers, tag);
+      }
+      else if (tagMatches(tag, SERVER_TAG_SOFT_FILES, "softfiles")) {
+        readTagUInt(entry.softFiles, tag);
+      }
+      else if (tagMatches(tag, SERVER_TAG_HARD_FILES, "hardfiles")) {
+        readTagUInt(entry.hardFiles, tag);
+      }
+      else if (tagMatches(tag, SERVER_TAG_UDP_FLAGS, "udpflags")) {
+        readTagUInt(entry.udpFlags, tag);
+      }
+      else if (tagMatches(tag, SERVER_TAG_LOW_ID_USERS, "lowusers")) {
+        readTagUInt(entry.lowIdUsers, tag);
+      }
+      else if (tagMatches(tag, SERVER_TAG_UDP_KEY, "udpkey")) {
+        readTagUInt(entry.udpKey, tag);
+      }
+      else if (tagMatches(tag, SERVER_TAG_TCP_OBFUSCATION_PORT,
+                          "tcpportobfuscation")) {
+        readTagUInt16(entry.tcpObfuscationPort, tag);
+      }
+      else if (tagMatches(tag, SERVER_TAG_UDP_OBFUSCATION_PORT,
+                          "udpportobfuscation")) {
+        readTagUInt16(entry.udpObfuscationPort, tag);
       }
     }
     if (!entry.endpoint.host.empty() && entry.endpoint.port) {

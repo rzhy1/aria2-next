@@ -69,3 +69,17 @@ Verified: `cmake --build --preset default --target aria2_tests` passed.
 `build/default/aria2_tests` passed with `OK (1093)`.
 Remaining: Start RA11 metadata file and persistence alignment.
 Blocked: none.
+
+2026-05-19 RA11 verified
+Changed: Aligned metadata file import and persistence ownership. `server.met`
+parsing now preserves operational tags for users, files, limits, UDP flags,
+LowID users, UDP key, obfuscation ports, and dynip hostnames into native
+ServerState. `nodes.dat` parsing now filters unusable and Kad1-only contacts
+and applies the aMule/eMule verified-contact fallback for bootstrap files.
+Legacy part.met, known.met, known2.met, and clients.met remain replaced by
+aria2-next control files, hidden session state, SharedStore, and UploadQueue
+ownership.
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+`build/default/aria2_tests` passed with `OK (1093)`.
+Remaining: Start RA20 server TCP alignment.
+Blocked: none.

@@ -81,6 +81,16 @@ struct ServerMetEntry {
   Endpoint endpoint;
   std::string name;
   std::string description;
+  uint32_t users = 0;
+  uint32_t files = 0;
+  uint32_t maxUsers = 0;
+  uint32_t softFiles = 0;
+  uint32_t hardFiles = 0;
+  uint32_t udpFlags = 0;
+  uint32_t lowIdUsers = 0;
+  uint16_t udpObfuscationPort = 0;
+  uint16_t tcpObfuscationPort = 0;
+  uint32_t udpKey = 0;
 };
 
 std::vector<ServerMetEntry> parseServerMetEntries(const std::string& data);

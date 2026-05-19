@@ -12,6 +12,7 @@
 /* copyright --> */
 #include "ed2k_kad.h"
 
+#include <algorithm>
 #include <limits>
 
 #include "DlAbortEx.h"
@@ -77,6 +78,16 @@ Endpoint readStateEndpoint(const std::string& payload, size_t& offset)
   endpoint.host = readString(payload, offset);
   endpoint.port = readUInt16(readBytes(payload, offset, 2).data());
   return endpoint;
+}
+
+bool validNodesDatContact(const KadContact& contact)
+{
+  if (contact.id.size() != HASH_LENGTH || contact.host.empty() ||
+      contact.host == "0.0.0.0" || contact.udpPort == 0 ||
+      contact.version <= 1) {
+    return false;
+  }
+  return contact.udpPort != 53 || contact.version > 5;
 }
 
 void appendKadRoutingNode(std::string& payload, const KadRoutingNode& node)
@@ -510,15 +521,24 @@ bool parseNodesDat(NodesDat& nodes, const std::string& payload)
     }
 
     nodes.contacts.reserve(count);
-    if (hasVerifiedData) {
-      nodes.verified.reserve(count);
-    }
+    nodes.verified.reserve(count);
+    bool anyVerified = false;
     for (uint32_t i = 0; i < count; ++i) {
-      nodes.contacts.push_back(readKadContact(payload, offset));
+      auto contact = readKadContact(payload, offset);
+      bool verified = true;
       if (hasVerifiedData) {
         readBytes(payload, offset, 8);
-        nodes.verified.push_back(readByte(payload, offset) != 0);
+        verified = readByte(payload, offset) != 0;
       }
+      if (!validNodesDatContact(contact)) {
+        continue;
+      }
+      nodes.contacts.push_back(std::move(contact));
+      nodes.verified.push_back(verified);
+      anyVerified = anyVerified || verified;
+    }
+    if (!hasVerifiedData || !anyVerified) {
+      std::fill(nodes.verified.begin(), nodes.verified.end(), true);
     }
     return offset == payload.size();
   }

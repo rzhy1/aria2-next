@@ -1405,10 +1405,12 @@ void Ed2kHelperTest::testNodesDatParser()
   auto nodeId = util::fromHex(nodeIdHex.begin(), nodeIdHex.end());
   KadContact contact;
   contact.id = nodeId;
-  contact.host = "127.0.0.1";
+  contact.host = "203.0.113.1";
   contact.udpPort = 4672;
   contact.tcpPort = 4661;
   contact.version = 8;
+  KadContact invalid = contact;
+  invalid.host = "0.0.0.0";
 
   std::string payload;
   payload += packUInt32(0);
@@ -1423,16 +1425,20 @@ void Ed2kHelperTest::testNodesDatParser()
   CPPUNIT_ASSERT_EQUAL((uint32_t)3, nodes.version);
   CPPUNIT_ASSERT_EQUAL((uint32_t)1, nodes.bootstrapEdition);
   CPPUNIT_ASSERT_EQUAL((size_t)1, nodes.contacts.size());
-  CPPUNIT_ASSERT_EQUAL(std::string("127.0.0.1"), nodes.contacts[0].host);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.1"), nodes.contacts[0].host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4672, nodes.contacts[0].udpPort);
-  CPPUNIT_ASSERT(nodes.verified.empty());
+  CPPUNIT_ASSERT_EQUAL((size_t)1, nodes.verified.size());
+  CPPUNIT_ASSERT(nodes.verified[0]);
 
   std::string normal;
   normal += packUInt32(0);
   normal += packUInt32(2);
-  normal += packUInt32(1);
-  normal += createKadResponsePayload(nodeId, std::vector<KadContact>{contact})
+  normal += packUInt32(2);
+  normal += createKadResponsePayload(nodeId,
+                                     std::vector<KadContact>{contact, invalid})
                 .substr(HASH_LENGTH + 1);
+  normal += packUInt64(0);
+  normal.push_back('\0');
   normal += packUInt64(0);
   normal.push_back('\x01');
   CPPUNIT_ASSERT(parseNodesDat(nodes, normal));
@@ -1451,7 +1457,7 @@ void Ed2kHelperTest::testServerMetParser()
   data += packUInt32(1);
   data += packUInt32(0x04030201);
   data += packUInt16(4661);
-  data += packUInt32(2);
+  data += packUInt32(8);
   data.push_back('\x82');
   data.push_back('\x01');
   data += packUInt16(11);
@@ -1460,6 +1466,12 @@ void Ed2kHelperTest::testServerMetParser()
   data.push_back('\x0b');
   data += packUInt16(19);
   data += "Primary ED2K server";
+  data += createUInt32Tag(0x87, 9000);
+  data += createUInt32Tag(0x88, 100);
+  data += createUInt32Tag(0x89, 200);
+  data += createUInt32Tag(0x92, 0x01020304);
+  data += createUInt32Tag(0x94, 77);
+  data += createUInt32Tag(0x95, 0x11223344);
 
   auto servers = parseServerMet(data);
 
@@ -1475,6 +1487,12 @@ void Ed2kHelperTest::testServerMetParser()
   CPPUNIT_ASSERT_EQUAL(std::string("Peer Server"), entries[0].name);
   CPPUNIT_ASSERT_EQUAL(std::string("Primary ED2K server"),
                        entries[0].description);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)9000, entries[0].maxUsers);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)100, entries[0].softFiles);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)200, entries[0].hardFiles);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x01020304, entries[0].udpFlags);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)77, entries[0].lowIdUsers);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x11223344, entries[0].udpKey);
 
   data[0] = static_cast<char>(0xe0);
   entries = parseServerMetEntries(data);
@@ -1490,7 +1508,7 @@ void Ed2kHelperTest::testServerMetParser()
   hostnameEntry += packUInt32(0);
   hostnameEntry += packUInt16(4661);
   hostnameEntry += packUInt32(2);
-  hostnameEntry += createStringTag(0x0e, "peer.example.org");
+  hostnameEntry += createStringTag(0x85, "peer.example.org");
   hostnameEntry += createStringTag(0x01, "Hostname Server");
 
   entries = parseServerMetEntries(hostnameEntry);

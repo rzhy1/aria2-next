@@ -336,6 +336,17 @@ void Ed2kHelperTest::testProtocolPayloads()
   CPPUNIT_ASSERT_EQUAL((uint32_t)120, foundSources[0].clientId);
   CPPUNIT_ASSERT(foundSources[0].lowId);
 
+  auto obfuPayload = found;
+  obfuPayload.push_back(static_cast<char>(0x81));
+  obfuPayload += clientHash;
+  CPPUNIT_ASSERT(parseFoundSourcesPayload(foundSources, obfuPayload, fileHash,
+                                          true));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, foundSources.size());
+  CPPUNIT_ASSERT_EQUAL((uint16_t)0x81,
+                       foundSources[0].endpoint.cryptOptions);
+  CPPUNIT_ASSERT_EQUAL(clientHash, foundSources[0].endpoint.userHash);
+  CPPUNIT_ASSERT(!parseFoundSourcesPayload(foundSources, obfuPayload, fileHash));
+
   Endpoint source2;
   source2.host = "5.6.7.8";
   source2.port = 4662;
@@ -823,6 +834,26 @@ void Ed2kHelperTest::testEmuleInfoPayload()
   info.miscOptions2.supportsLargeFiles = true;
 
   auto payload = createEmuleInfoPayload(info);
+  std::vector<Tag> muleTags;
+  CPPUNIT_ASSERT(parseTagList(muleTags, payload.substr(2)));
+  auto hasUintTag = [&](uint8_t id) {
+    return std::find_if(muleTags.begin(), muleTags.end(),
+                        [&](const Tag& tag) {
+                          return tag.id == id &&
+                                 tag.valueType == TagValueType::UINT;
+                        }) != muleTags.end();
+  };
+  CPPUNIT_ASSERT(hasUintTag(0x20));
+  CPPUNIT_ASSERT(hasUintTag(0x21));
+  CPPUNIT_ASSERT(hasUintTag(0x22));
+  CPPUNIT_ASSERT(hasUintTag(0x23));
+  CPPUNIT_ASSERT(hasUintTag(0x24));
+  CPPUNIT_ASSERT(hasUintTag(0x25));
+  CPPUNIT_ASSERT(hasUintTag(0x26));
+  CPPUNIT_ASSERT(hasUintTag(0x27));
+  CPPUNIT_ASSERT(!hasUintTag(0xfb));
+  CPPUNIT_ASSERT(!hasUintTag(0xf6));
+
   EmulePeerInfo parsed;
   CPPUNIT_ASSERT(parseEmuleInfoPayload(parsed, payload));
   CPPUNIT_ASSERT_EQUAL((uint8_t)0x3c, parsed.version);
@@ -832,9 +863,9 @@ void Ed2kHelperTest::testEmuleInfoPayload()
   CPPUNIT_ASSERT_EQUAL((uint8_t)1, parsed.miscOptions.dataCompressionVersion);
   CPPUNIT_ASSERT_EQUAL((uint8_t)3, parsed.miscOptions.sourceExchange1Version);
   CPPUNIT_ASSERT_EQUAL((uint8_t)2, parsed.miscOptions.extendedRequestsVersion);
-  CPPUNIT_ASSERT(parsed.miscOptions.multiPacket);
-  CPPUNIT_ASSERT(parsed.miscOptions2.supportsSourceExchange2);
-  CPPUNIT_ASSERT(parsed.miscOptions2.supportsLargeFiles);
+  CPPUNIT_ASSERT(!parsed.miscOptions.multiPacket);
+  CPPUNIT_ASSERT(!parsed.miscOptions2.supportsSourceExchange2);
+  CPPUNIT_ASSERT(!parsed.miscOptions2.supportsLargeFiles);
 }
 
 void Ed2kHelperTest::testPeerHelloPayload()
@@ -876,6 +907,7 @@ void Ed2kHelperTest::testPeerHelloPayload()
            }) != tags.end();
   };
   CPPUNIT_ASSERT(hasUintTag(0x11));
+  CPPUNIT_ASSERT(hasUintTag(0xef));
   CPPUNIT_ASSERT(hasUintTag(0xf9));
   CPPUNIT_ASSERT(hasUintTag(0xfa));
   CPPUNIT_ASSERT(hasUintTag(0xfb));

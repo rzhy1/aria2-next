@@ -104,6 +104,10 @@ bool parsePackedFoundSourcesPayloads(std::vector<Endpoint>& sources,
 bool parseFoundSourcesPayload(std::vector<FoundSource>& sources,
                               const std::string& payload,
                               const std::string& expectedFileHash);
+bool parseFoundSourcesPayload(std::vector<FoundSource>& sources,
+                              const std::string& payload,
+                              const std::string& expectedFileHash,
+                              bool obfuscated);
 std::string createCallbackRequestPayload(uint32_t clientId);
 bool parseCallbackRequestIncomingPayload(Endpoint& endpoint,
                                          const std::string& payload);

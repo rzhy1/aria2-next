@@ -72,9 +72,13 @@ std::string clientHash(const DownloadEngine* e)
 {
   auto id = e->getSessionId();
   if (id.size() >= ed2k::HASH_LENGTH) {
-    return id.substr(0, ed2k::HASH_LENGTH);
+    id = id.substr(0, ed2k::HASH_LENGTH);
   }
-  id.append(ed2k::HASH_LENGTH - id.size(), '\0');
+  else {
+    id.append(ed2k::HASH_LENGTH - id.size(), '\0');
+  }
+  id[5] = 14;
+  id[14] = 111;
   return id;
 }
 
@@ -102,7 +106,6 @@ ed2k::EmulePeerInfo createLocalPeerInfo()
   info.miscOptions.dataCompressionVersion = 1;
   info.miscOptions.sourceExchange1Version = 3;
   info.miscOptions.extendedRequestsVersion = 2;
-  info.miscOptions.multiPacket = true;
   info.miscOptions2.supportsLargeFiles = true;
   info.miscOptions2.supportsSourceExchange2 = true;
   return info;
@@ -272,6 +275,12 @@ bool Ed2kCommand::execute()
 void Ed2kCommand::queuePacket(uint8_t protocol, uint8_t opcode,
                               const std::string& payload)
 {
+  A2_LOG_DEBUG(fmt("CUID#%" PRId64
+                   " - Queue ED2K %s packet protocol=0x%02x opcode=0x%02x "
+                   "payload=%lu.",
+                   getCuid(), mode_ == Mode::SERVER ? "server" : "peer",
+                   protocol, opcode,
+                   static_cast<unsigned long>(payload.size())));
   outbox_.push_back(ed2k::createPacket(protocol, opcode, payload));
 }
 
@@ -663,6 +672,12 @@ bool Ed2kCommand::readHeader()
   if (currentHeader_.payloadSize() > 8_m) {
     throw DL_RETRY_EX("ED2K packet is too large.");
   }
+  A2_LOG_DEBUG(fmt("CUID#%" PRId64
+                   " - Read ED2K %s packet protocol=0x%02x opcode=0x%02x "
+                   "payload=%lu.",
+                   getCuid(), mode_ == Mode::SERVER ? "server" : "peer",
+                   currentHeader_.protocol, currentHeader_.opcode,
+                   static_cast<unsigned long>(currentHeader_.payloadSize())));
   body_.assign(currentHeader_.payloadSize(), '\0');
   bodyRead_ = 0;
   headerRead_ = 0;
@@ -769,10 +784,12 @@ void Ed2kCommand::handleServerPacket()
     state_ = State::WRITE;
     return;
   }
-  if (currentHeader_.opcode == ed2k::OP_FOUNDSOURCES) {
+  if (currentHeader_.opcode == ed2k::OP_FOUNDSOURCES ||
+      currentHeader_.opcode == ed2k::OP_FOUNDSOURCES_OBFU) {
     std::vector<ed2k::FoundSource> sources;
     if (!ed2k::parseFoundSourcesPayload(
-            sources, body_, attrs->link.hash)) {
+            sources, body_, attrs->link.hash,
+            currentHeader_.opcode == ed2k::OP_FOUNDSOURCES_OBFU)) {
       throw DL_RETRY_EX("ED2K found sources hash mismatch.");
     }
     auto serverState = getEd2kServerState(attrs, endpoint_);

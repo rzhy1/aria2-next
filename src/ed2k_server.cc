@@ -268,6 +268,14 @@ bool parseFoundSourcesPayload(std::vector<FoundSource>& sources,
                               const std::string& payload,
                               const std::string& expectedFileHash)
 {
+  return parseFoundSourcesPayload(sources, payload, expectedFileHash, false);
+}
+
+bool parseFoundSourcesPayload(std::vector<FoundSource>& sources,
+                              const std::string& payload,
+                              const std::string& expectedFileHash,
+                              bool obfuscated)
+{
   validateHashLength(expectedFileHash);
   size_t offset = 0;
   auto hash = readBytes(payload, offset, HASH_LENGTH);
@@ -280,11 +288,17 @@ bool parseFoundSourcesPayload(std::vector<FoundSource>& sources,
   for (uint8_t i = 0; i < count; ++i) {
     FoundSource source;
     source.endpoint = readEndpoint(payload, offset);
+    if (obfuscated) {
+      source.endpoint.cryptOptions = readByte(payload, offset);
+      if ((source.endpoint.cryptOptions & 0x80u) != 0) {
+        source.endpoint.userHash = readBytes(payload, offset, HASH_LENGTH);
+      }
+    }
     source.clientId = ipv4ToEndpointValue(source.endpoint.host);
     source.lowId = source.clientId <= 0x00ffffffu;
     sources.push_back(source);
   }
-  return true;
+  return offset == payload.size();
 }
 
 std::string createCallbackRequestPayload(uint32_t clientId)

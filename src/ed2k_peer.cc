@@ -25,6 +25,17 @@ namespace ed2k {
 
 namespace {
 
+constexpr uint8_t ET_COMPRESSION = 0x20;
+constexpr uint8_t ET_UDPPORT = 0x21;
+constexpr uint8_t ET_UDPVER = 0x22;
+constexpr uint8_t ET_SOURCEEXCHANGE = 0x23;
+constexpr uint8_t ET_COMMENTS = 0x24;
+constexpr uint8_t ET_EXTENDEDREQUEST = 0x25;
+constexpr uint8_t ET_COMPATIBLECLIENT = 0x26;
+constexpr uint8_t ET_FEATURES = 0x27;
+constexpr uint8_t SO_AMULE = 0x03;
+constexpr uint32_t ARIA2_NEXT_EMULE_VERSION = (3u << 17);
+
 void validateHashLength(const std::string& hash)
 {
   if (hash.size() != HASH_LENGTH) {
@@ -387,9 +398,19 @@ std::string createEmuleInfoPayload(const EmulePeerInfo& info)
   std::string payload;
   payload.push_back(static_cast<char>(info.version));
   payload.push_back(static_cast<char>(info.protocolVersion));
-  payload += packUInt32(2);
-  payload += createUInt32Tag(0xfb, emuleMiscOptionsValue(info.miscOptions));
-  payload += createUInt32Tag(0xf6, emuleMiscOptions2Value(info.miscOptions2));
+  payload += packUInt32(7);
+  payload += createUInt32Tag(ET_COMPRESSION,
+                             info.miscOptions.dataCompressionVersion);
+  payload += createUInt32Tag(ET_UDPPORT, 0);
+  payload += createUInt32Tag(ET_UDPVER, info.miscOptions.udpVersion);
+  payload += createUInt32Tag(ET_SOURCEEXCHANGE,
+                             info.miscOptions.sourceExchange1Version);
+  payload += createUInt32Tag(ET_COMMENTS, 0);
+  payload += createUInt32Tag(ET_EXTENDEDREQUEST,
+                             info.miscOptions.extendedRequestsVersion);
+  payload += createUInt32Tag(ET_COMPATIBLECLIENT, SO_AMULE);
+  payload += createUInt32Tag(ET_FEATURES,
+                             info.miscOptions.secureIdentVersion & 0x03u);
   return payload;
 }
 
@@ -408,7 +429,26 @@ bool parseEmuleInfoPayload(EmulePeerInfo& info, const std::string& payload)
     if (tag.valueType != TagValueType::UINT) {
       continue;
     }
-    if (tag.id == 0xfb) {
+    if (tag.id == ET_COMPRESSION) {
+      info.miscOptions.dataCompressionVersion =
+          static_cast<uint8_t>(tag.intValue & 0xffu);
+    }
+    else if (tag.id == ET_UDPVER) {
+      info.miscOptions.udpVersion = static_cast<uint8_t>(tag.intValue & 0xffu);
+    }
+    else if (tag.id == ET_SOURCEEXCHANGE) {
+      info.miscOptions.sourceExchange1Version =
+          static_cast<uint8_t>(tag.intValue & 0xffu);
+    }
+    else if (tag.id == ET_EXTENDEDREQUEST) {
+      info.miscOptions.extendedRequestsVersion =
+          static_cast<uint8_t>(tag.intValue & 0xffu);
+    }
+    else if (tag.id == ET_FEATURES) {
+      info.miscOptions.secureIdentVersion =
+          static_cast<uint8_t>(tag.intValue & 0x03u);
+    }
+    else if (tag.id == 0xfb) {
       info.miscOptions = parseEmuleMiscOptions(tag.intValue);
     }
     else if (tag.id == 0xf6) {
@@ -434,13 +474,16 @@ std::string createPeerHelloPayload(const std::string& clientHash,
   payload += clientHash;
   payload += packUInt32(clientId);
   payload += packUInt16(listenPort);
-  payload += packUInt32(6);
+  payload += packUInt32(7);
   payload += createStringTag(0x01, clientName);
   payload += createUInt32Tag(0x11, 0x3c);
   payload += createUInt32Tag(0xf9, 0);
-  payload += createUInt32Tag(0xfb, (3u << 24) | info.version);
+  payload += createUInt32Tag(0xfb,
+                             (static_cast<uint32_t>(SO_AMULE) << 24) |
+                                 ARIA2_NEXT_EMULE_VERSION);
   payload += createUInt32Tag(0xfa, emuleMiscOptionsValue(info.miscOptions));
   payload += createUInt32Tag(0xfe, emuleMiscOptions2Value(info.miscOptions2));
+  payload += createUInt32Tag(0xef, 0);
   if (server.host.empty() || server.port == 0) {
     payload += std::string(6, '\0');
   }

@@ -305,6 +305,7 @@ bool parsePackedFoundSourcesPayloads(std::vector<Endpoint>& sources,
   validateHashLength(expectedFileHash);
   sources.clear();
   size_t offset = 0;
+  bool parsedPacket = false;
   while (offset < payload.size()) {
     if (payload.size() - offset < HASH_LENGTH + 1) {
       return false;
@@ -320,6 +321,7 @@ bool parsePackedFoundSourcesPayloads(std::vector<Endpoint>& sources,
         sources.push_back(source);
       }
     }
+    parsedPacket = true;
     if (offset == payload.size()) {
       break;
     }
@@ -327,7 +329,7 @@ bool parsePackedFoundSourcesPayloads(std::vector<Endpoint>& sources,
         static_cast<unsigned char>(payload[offset]) != PROTO_EDONKEY ||
         static_cast<unsigned char>(payload[offset + 1]) !=
             OP_GLOBFOUNDSOURCES) {
-      return false;
+      return parsedPacket;
     }
     offset += 2;
   }
@@ -341,6 +343,7 @@ bool parsePackedFoundSourcesPayloads(std::vector<FoundSource>& sources,
   validateHashLength(expectedFileHash);
   sources.clear();
   size_t offset = 0;
+  bool parsedPacket = false;
   while (offset < payload.size()) {
     if (payload.size() - offset < HASH_LENGTH + 1) {
       return false;
@@ -359,6 +362,7 @@ bool parsePackedFoundSourcesPayloads(std::vector<FoundSource>& sources,
         sources.push_back(source);
       }
     }
+    parsedPacket = true;
     if (offset == payload.size()) {
       break;
     }
@@ -366,7 +370,7 @@ bool parsePackedFoundSourcesPayloads(std::vector<FoundSource>& sources,
         static_cast<unsigned char>(payload[offset]) != PROTO_EDONKEY ||
         static_cast<unsigned char>(payload[offset + 1]) !=
             OP_GLOBFOUNDSOURCES) {
-      return false;
+      return parsedPacket;
     }
     offset += 2;
   }
@@ -481,9 +485,7 @@ bool parseServerStatusPayload(ServerStatus& status,
 bool parseServerUdpStatusPayload(ServerStatus& status,
                                  const std::string& payload)
 {
-  if (payload.size() != 12 && payload.size() != 16 &&
-      payload.size() != 24 && payload.size() != 28 && payload.size() != 32 &&
-      payload.size() != 40) {
+  if (payload.size() < 12) {
     return false;
   }
   size_t offset = 0;

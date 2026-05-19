@@ -943,7 +943,7 @@ void DownloadHelperTest::testEd2kServerStateUpdate()
   CPPUNIT_ASSERT_EQUAL((uint16_t)4665, state->udpObfuscationPort);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4666, state->tcpObfuscationPort);
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x11223344, state->udpKey);
-  CPPUNIT_ASSERT_EQUAL((uint32_t)0x55aa0011, state->udpStatusChallenge);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0, state->udpStatusChallenge);
   CPPUNIT_ASSERT_EQUAL((int64_t)120, state->lastUdpStatusTime);
 
   updateEd2kServerMessage(&attrs, server, "hello");

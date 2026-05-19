@@ -490,7 +490,7 @@ void updateEd2kServerUdpStatus(Ed2kAttribute* attrs,
   state->udpObfuscationPort = status.udpObfuscationPort;
   state->tcpObfuscationPort = status.tcpObfuscationPort;
   state->udpKey = status.udpKey;
-  state->udpStatusChallenge = status.challenge;
+  state->udpStatusChallenge = 0;
   state->lastUdpStatusTime = now;
 }
 

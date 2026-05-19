@@ -96,3 +96,15 @@ Verified: `cmake --build --preset default --target aria2_tests` passed.
 passed.
 Remaining: Start RA21 server UDP alignment.
 Blocked: none.
+
+2026-05-19 RA21 verified
+Changed: Aligned ED2K server UDP and callback state. UDP status replies now
+clear matched challenges and accept reference-style extension tails. Packed UDP
+source replies preserve valid sources when later packets are unrelated or have
+bogus trailing bytes. Server-mediated LowID callback remains supported while
+buddy-only and direct UDP callback ownership stay pruned until a later
+checkpoint proves they are required.
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+`build/default/aria2_tests` passed with `OK (1093)`.
+Remaining: Start RA30 peer hello and capability truth.
+Blocked: none.

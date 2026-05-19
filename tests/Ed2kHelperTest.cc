@@ -391,6 +391,17 @@ void Ed2kHelperTest::testProtocolPayloads()
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x08070605,
                        packedFoundSources[0].clientId);
   CPPUNIT_ASSERT(!packedFoundSources[0].lowId);
+  auto packedWithBadTail =
+      createFoundSourcesPayload(fileHash, std::vector<Endpoint>{source}) +
+      createDatagram(PROTO_EDONKEY, OP_GLOBFOUNDSOURCES,
+                     createFoundSourcesPayload(clientHash,
+                                               std::vector<Endpoint>{source2})) +
+      std::string("\xe3\x90", 2);
+  CPPUNIT_ASSERT(parsePackedFoundSourcesPayloads(
+      packedFoundSources, packedWithBadTail, fileHash));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, packedFoundSources.size());
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x04030201,
+                       packedFoundSources[0].clientId);
 
   auto callbackRequest = createCallbackRequestPayload(120);
   CPPUNIT_ASSERT_EQUAL(std::string("78000000"),
@@ -523,6 +534,16 @@ void Ed2kHelperTest::testServerPayloadParsers()
   CPPUNIT_ASSERT_EQUAL((uint32_t)200, status.hardFiles);
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x01020304, status.udpFlags);
   CPPUNIT_ASSERT_EQUAL((uint32_t)77, status.lowIdUsers);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4665, status.udpObfuscationPort);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4666, status.tcpObfuscationPort);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x11223344, status.udpKey);
+  CPPUNIT_ASSERT(parseServerUdpStatusPayload(
+      status, packUInt32(0x55aa0011) + packUInt32(1234) +
+                  packUInt32(5678) + packUInt32(9000) + packUInt32(100) +
+                  packUInt32(200) + packUInt32(0x01020304) +
+                  packUInt32(77) + packUInt16(4665) + packUInt16(4666) +
+                  packUInt32(0x11223344) + packUInt16(0)));
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x55aa0011, status.challenge);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4665, status.udpObfuscationPort);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4666, status.tcpObfuscationPort);
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x11223344, status.udpKey);

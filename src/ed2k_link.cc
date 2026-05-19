@@ -12,6 +12,7 @@
 /* copyright --> */
 #include "ed2k_link.h"
 
+#include <algorithm>
 #include <limits>
 
 #include "DlAbortEx.h"
@@ -25,6 +26,8 @@ namespace aria2 {
 namespace ed2k {
 
 namespace {
+
+constexpr int64_t MAX_ED2K_FILE_SIZE = 0x4000000000LL;
 
 std::vector<std::string> splitFields(const std::string& uri)
 {
@@ -62,10 +65,19 @@ uint16_t parsePort(const std::string& value)
 int64_t parseSize(const std::string& value)
 {
   int64_t size = 0;
-  if (!util::parseLLIntNoThrow(size, value) || size <= 0) {
+  if (!util::parseLLIntNoThrow(size, value) || size <= 0 ||
+      size >= MAX_ED2K_FILE_SIZE) {
     throw DL_ABORT_EX(fmt("Bad ED2K file size: %s", value.c_str()));
   }
   return size;
+}
+
+std::string sanitizeFileName(const std::string& name)
+{
+  auto result = name;
+  std::replace(result.begin(), result.end(), '/', '_');
+  std::replace(result.begin(), result.end(), '\\', '_');
+  return result;
 }
 
 std::string parseHash(const std::string& value)
@@ -145,6 +157,9 @@ std::string endpointToLinkSource(const Endpoint& endpoint)
 void parseFileOption(Link& link, const std::string& option)
 {
   if (util::startsWith(option, "p=")) {
+    if (option.size() == 2) {
+      throw DL_ABORT_EX("Bad ED2K part hash list.");
+    }
     std::vector<Scip> hashes;
     util::splitIter(option.begin() + 2, option.end(), std::back_inserter(hashes),
                     ':');
@@ -174,7 +189,7 @@ Link parseFileLink(const std::vector<std::string>& fields)
   }
   Link link;
   link.type = LinkType::FILE;
-  link.name = percentDecode(fields[2]);
+  link.name = sanitizeFileName(percentDecode(fields[2]));
   link.size = parseSize(fields[3]);
   link.hash = parseHash(fields[4]);
   if (link.name.empty()) {
@@ -221,6 +236,21 @@ Link parseUrlLink(const std::vector<std::string>& fields, LinkType type,
   return link;
 }
 
+Link parseSearchLink(const std::vector<std::string>& fields)
+{
+  if (fields.size() != 4 || fields.front() != "ed2k://" ||
+      fields[1] != "search" || fields.back() != "/") {
+    throw DL_ABORT_EX("Malformed ED2K search link.");
+  }
+  Link link;
+  link.type = LinkType::SEARCH;
+  link.name = percentDecode(fields[2]);
+  if (link.name.empty()) {
+    throw DL_ABORT_EX("ED2K search link has empty keyword.");
+  }
+  return link;
+}
+
 } // namespace
 
 Endpoint parseEndpoint(const std::string& value)
@@ -254,6 +284,9 @@ Link parseLink(const std::string& uri)
   }
   if (fields[1] == "nodeslist") {
     return parseUrlLink(fields, LinkType::NODES_LIST, "nodeslist");
+  }
+  if (fields[1] == "search") {
+    return parseSearchLink(fields);
   }
   throw DL_ABORT_EX(fmt("Unsupported ED2K link type: %s", fields[1].c_str()));
 }

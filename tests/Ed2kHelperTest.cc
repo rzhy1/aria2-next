@@ -21,6 +21,7 @@ class Ed2kHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testParseFileLinkWithOptions);
   CPPUNIT_TEST(testParseFileLinkWithSourceCryptOptions);
   CPPUNIT_TEST(testParseServerLink);
+  CPPUNIT_TEST(testParseSearchLink);
   CPPUNIT_TEST(testParseRejectsMalformedLinks);
   CPPUNIT_TEST(testSerializeFileLink);
   CPPUNIT_TEST(testPacketHelpers);
@@ -57,6 +58,7 @@ public:
   void testParseFileLinkWithOptions();
   void testParseFileLinkWithSourceCryptOptions();
   void testParseServerLink();
+  void testParseSearchLink();
   void testParseRejectsMalformedLinks();
   void testSerializeFileLink();
   void testPacketHelpers();
@@ -102,6 +104,11 @@ void Ed2kHelperTest::testParseFileLink()
   CPPUNIT_ASSERT_EQUAL(
       std::string("0123456789abcdef0123456789abcdef"),
       util::toHex(link.hash));
+
+  auto unsafeName = parseLink(
+      "ed2k://|file|aria2%2Fnext%5Ctest.bin|12345|"
+      "0123456789ABCDEF0123456789ABCDEF|/");
+  CPPUNIT_ASSERT_EQUAL(std::string("aria2_next_test.bin"), unsafeName.name);
 
   auto encodedSeparators = parseLink(
       "ed2k://%7Cfile%7Caria2%20next.bin%7C12345%7C"
@@ -179,6 +186,14 @@ void Ed2kHelperTest::testParseServerLink()
                        nodes.url);
 }
 
+void Ed2kHelperTest::testParseSearchLink()
+{
+  auto search = parseLink("ed2k://|search|linux%20iso|/");
+
+  CPPUNIT_ASSERT_EQUAL(LinkType::SEARCH, search.type);
+  CPPUNIT_ASSERT_EQUAL(std::string("linux iso"), search.name);
+}
+
 void Ed2kHelperTest::testParseRejectsMalformedLinks()
 {
   CPPUNIT_ASSERT_THROW(parseLink("http://example.test/file"),
@@ -190,6 +205,14 @@ void Ed2kHelperTest::testParseRejectsMalformedLinks()
                        RecoverableException);
   CPPUNIT_ASSERT_THROW(
       parseLink("ed2k://|file|empty.bin|0|0123456789abcdef0123456789abcdef|/"),
+      RecoverableException);
+  CPPUNIT_ASSERT_THROW(
+      parseLink("ed2k://|file|huge.bin|274877906944|"
+                "0123456789abcdef0123456789abcdef|/"),
+      RecoverableException);
+  CPPUNIT_ASSERT_THROW(
+      parseLink("ed2k://|file|bad-parts.bin|1|"
+                "0123456789abcdef0123456789abcdef|p=|/"),
       RecoverableException);
   CPPUNIT_ASSERT_THROW(
       parseLink("ed2k://|file|bad-aich.bin|1|"

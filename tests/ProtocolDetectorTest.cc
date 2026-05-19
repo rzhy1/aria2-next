@@ -49,6 +49,7 @@ void ProtocolDetectorTest::testGuessEd2kLink()
   CPPUNIT_ASSERT(detector.guessEd2kLink(
       "ed2k://|file|aria2-next.bin|1|0123456789abcdef0123456789abcdef|/"));
   CPPUNIT_ASSERT(detector.guessEd2kLink("ed2k://|server|127.0.0.1|4661|/"));
+  CPPUNIT_ASSERT(detector.guessEd2kLink("ed2k://|search|linux%20iso|/"));
   CPPUNIT_ASSERT(!detector.guessEd2kLink("ed2k://|file|bad.bin|x|bad|/"));
   CPPUNIT_ASSERT(!detector.guessEd2kLink("magnet:?xt=urn:btih:abc"));
 }

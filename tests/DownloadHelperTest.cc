@@ -222,7 +222,7 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2K()
   CPPUNIT_ASSERT(ctx->hasAttribute(CTX_ATTR_ED2K));
   CPPUNIT_ASSERT_EQUAL(ed2k::PIECE_LENGTH, ctx->getPieceLength());
   CPPUNIT_ASSERT_EQUAL((int64_t)9728001, ctx->getTotalLength());
-  CPPUNIT_ASSERT_EQUAL(std::string("/tmp/aria2%2Fnext.bin"),
+  CPPUNIT_ASSERT_EQUAL(std::string("/tmp/aria2_next.bin"),
                        ctx->getBasePath());
   CPPUNIT_ASSERT(ctx->getFirstFileEntry()->isRequested());
   CPPUNIT_ASSERT_EQUAL((size_t)0,
@@ -232,7 +232,7 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2K()
   CPPUNIT_ASSERT_EQUAL(4, group->getNumConcurrentCommand());
 
   auto attrs = getEd2kAttrs(ctx);
-  CPPUNIT_ASSERT_EQUAL(std::string("aria2/next.bin"), attrs->link.name);
+  CPPUNIT_ASSERT_EQUAL(std::string("aria2_next.bin"), attrs->link.name);
   CPPUNIT_ASSERT_EQUAL(
       std::string("0123456789abcdef0123456789abcdef"),
       util::toHex(attrs->link.hash));
@@ -523,6 +523,7 @@ void DownloadHelperTest::testEd2kServerSourceMergeSkipsUnsupportedSources()
   ed2k::FoundSource lowId;
   lowId.endpoint.host = "120.0.0.0";
   lowId.endpoint.port = 4662;
+  lowId.clientId = 0x01020304;
   lowId.lowId = true;
   ed2k::FoundSource cryptRequired;
   cryptRequired.endpoint.host = "203.0.113.11";

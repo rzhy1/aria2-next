@@ -33,6 +33,7 @@ enum class LinkType {
   SERVER,
   SERVER_LIST,
   NODES_LIST,
+  SEARCH,
 };
 
 struct Endpoint {

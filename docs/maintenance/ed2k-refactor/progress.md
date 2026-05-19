@@ -57,3 +57,15 @@ reference set; `git diff --check docs/maintenance`; CSV consistency check for
 all `docs/maintenance/ed2k-refactor` CSV files.
 Remaining: Start RA10 link and metadata alignment.
 Blocked: none.
+
+2026-05-19 RA10 verified
+Changed: Aligned ED2K link and file identity parsing with the authoritative
+aMule/eMule link behavior. File names now normalize path separators before
+output path selection, file sizes reject values at or above the eMule/aMule
+2^38 byte limit, empty part-hash lists are rejected, and `search` links parse
+as metadata without becoming normal downloads. Updated the RA10 checkpoint and
+reference ledger.
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+`build/default/aria2_tests` passed with `OK (1093)`.
+Remaining: Start RA11 metadata file and persistence alignment.
+Blocked: none.

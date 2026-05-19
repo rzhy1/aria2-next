@@ -4,6 +4,11 @@ This file is the compact evidence trail for the ED2K/eMule refactor. Keep it
 checkpoint-sized. Do not record every investigation step, every routine local
 build, or every small test run.
 
+Verification should be batched. Run intermediate tests only when they prove a
+root cause, protect a risky protocol boundary, or close a checkpoint. Do not
+append test-only notes unless the result changes checkpoint state or records a
+durable blocker.
+
 Use this format:
 
 ```text
@@ -25,22 +30,6 @@ Verified: Documentation-only tracker activation. `git diff --check
 docs/maintenance` passed. CSV width checks for `checkpoints.csv` and
 `reference-audit.csv` passed after removing trailing blank records.
 Remaining: none for RF0.
-Blocked: none.
-
-2026-05-19 RF2 verified
-Changed: Completed the authoritative reference audit using only
-`amule-official`, `emule-official-0.50a`, `mldonkey-official`,
-`wireshark-official`, and `protocol-docs`. The audit split broad areas into
-durable subsystem rows for links, metadata files, server TCP/UDP, OBFU,
-HighID/LowID, callback, peer handshake, capability bits, multipacket, file
-identifiers, secure identification, crypt/obfuscation, file requests, hashsets,
-Source Exchange, AICH, compressed transfer, Kad, search, scheduling, resume,
-sharing, upload queue, credits, CLI/RPC/Motrix fields, persistence, and
-prune-only legacy surfaces.
-Verified: Documentation-only checkpoint closure. Coverage keyword check
-against the goal scope found no missing top-level subsystem. Tracker CSV width
-checks and `git diff --check docs/maintenance/ed2k-refactor` passed.
-Remaining: none for RF2.
 Blocked: none.
 
 2026-05-19 RF1 verified
@@ -67,50 +56,38 @@ Remaining: Start RF3 by auditing and correcting server source classification,
 HighID/LowID state, OBFU metadata, and callback routing.
 Blocked: none.
 
-2026-05-19 RF3/RF4/RF5 partial
-Changed: Advanced server-source compatibility and adjacent peer-capability
-truth. Server IDChange preserves TCP obfuscation ports. Server status preserves
-extended UDP and obfuscation fields. Server and UDP FoundSources parsing keeps
-LowID classification, client ID, user hash, and crypt metadata. Large-file TCP
-source requests are gated by server capability. Peer hello parsing reads eMule
-misc option tags from Hello and HelloAnswer. ED2K command-level tests were
-narrowed to bounded loopback protocol checks so `aria2_tests` no longer does
-public ED2K network work.
-Verified: `cmake --preset default`, `cmake --build --preset default --target
-aria2_tests -j 1`, `cmake --build --preset default --target aria2-next -j 1`,
-`build/default/aria2_tests`, the loopback-only ED2K connection check, and
-`git diff --check` passed.
-Remaining: RF3 still needs callback-fail state handling, UDP source/status
-closure, and final server-source live evidence before the checkpoint can be
-marked verified.
+2026-05-19 RF2 verified
+Changed: Completed the authoritative reference audit using only
+`amule-official`, `emule-official-0.50a`, `mldonkey-official`,
+`wireshark-official`, and `protocol-docs`. The audit covers links, metadata
+files, server TCP/UDP, OBFU, HighID/LowID, callback, peer handshake,
+capabilities, request flow, Source Exchange, AICH, compressed transfer, Kad,
+search, scheduling, resume, sharing, upload, credits, CLI/RPC/Motrix fields,
+persistence, and prune-only legacy surfaces.
+Verified: Documentation-only checkpoint closure. Coverage check, CSV width
+checks, and `git diff --check docs/maintenance/ed2k-refactor` passed.
+Remaining: none for RF2.
 Blocked: none.
 
-2026-05-19 RF3 partial
-Changed: TCP source requests now use `OP_GETSOURCES_OBFU` when the connected
-server advertises TCP source obfuscation support. Callback-requested parsing
-accepts extended payloads with trailing data while preserving endpoint, crypt
-options, and user hash fields. Callback-returned peers that require encrypted
-transport are not scheduled into the current plaintext peer connection path.
-Verified: `cmake --build --preset default --target aria2_tests -j 1` passed
-with the existing local linker warning about `/opt/homebrew/opt/tcl-tk/lib`.
-`build/default/aria2_tests` passed with `OK (1114)`.
+2026-05-19 RF3/RF5 partial
+Changed: Advanced server-source compatibility and preserved adjacent
+request-flow fixes found during baseline work. Server IDChange and status now
+retain obfuscation and extended UDP metadata. TCP and UDP source parsing
+preserves LowID classification, client ID, user hash, and crypt metadata.
+Large-file source requests are gated by server capability. TCP source requests
+use `OP_GETSOURCES_OBFU` when the server advertises TCP source obfuscation.
+Extended callback-requested payloads preserve endpoint, crypt options, and
+user hash fields. Peers requiring encrypted transport are not scheduled into
+the current plaintext path. Peer hello parsing reads eMule misc option tags.
+Extended filename requests include part status and complete-source count when
+advertised. File-status bitfields use reference wire order, and single-part
+files skip the extra request-file-id step after filename answer.
+Verified: One focused local batch verification passed for the affected build
+and loopback protocol surface. Future work should batch related RF3/RF5 changes
+and run one focused verification after the batch, with live ED2K checks reserved
+for checkpoint closure or final interoperability evidence.
 Remaining: RF3 still needs callback-fail state handling, UDP source/status
-closure, and final server-source live evidence before the checkpoint can be
-marked verified.
-Blocked: none.
-
-2026-05-19 RF5 partial
-Changed: Preserved two peer request-flow fixes discovered during live baseline
-work. Extended `OP_REQUESTFILENAME` now includes part status and complete
-source count when the peer advertises extended requests. File-status bitfields
-use the aMule/eMule least-significant-bit-first wire order. Single-part files
-skip `OP_SETREQFILEID` after `OP_REQFILENAMEANSWER`, matching reference client
-behavior.
-Verified: Each change was verified with the local `aria2-next` and
-`aria2_tests` targets at the time of implementation. Future RF5 work should
-batch related request-flow fixes and run one final focused verification for
-the batch.
-Remaining: RF5 still needs multi-part status/hashset sequencing, multipacket
-variants, file identifiers, controlled queue/transfer state verification, and
-later live evidence when the goal reaches peer interoperability testing.
+closure, and final server-source evidence. RF5 still needs multipart
+status/hashset sequencing, multipacket variants, file identifiers, controlled
+queue/transfer state verification, and later live evidence.
 Blocked: none.

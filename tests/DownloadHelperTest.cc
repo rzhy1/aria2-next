@@ -2200,8 +2200,25 @@ void DownloadHelperTest::testEd2kInitialServerCommandUpdatesServerState()
   for (int i = 0; i < 8 && !serverSocket->isReadable(0); ++i) {
     runNoWait(engine);
   }
-  drainSocket(*serverSocket);
   runNoWaitTicks(engine, 8);
+  std::string outgoing;
+  readAvailableSocketData(outgoing, *serverSocket, engine, 8);
+
+  std::vector<uint8_t> opcodes;
+  size_t offset = 0;
+  while (outgoing.size() - offset >= 6) {
+    ed2k::PacketHeader header;
+    CPPUNIT_ASSERT(ed2k::readPacketHeader(header, outgoing.data() + offset,
+                                          outgoing.size() - offset));
+    const auto packetSize = 5 + header.size;
+    if (outgoing.size() - offset < packetSize) {
+      break;
+    }
+    opcodes.push_back(header.opcode);
+    offset += packetSize;
+  }
+  CPPUNIT_ASSERT(std::find(opcodes.begin(), opcodes.end(),
+                           ed2k::OP_GETSOURCES_OBFU) != opcodes.end());
 
   auto state = getEd2kServerState(attrs, attrs->servers[0]);
   CPPUNIT_ASSERT(state);

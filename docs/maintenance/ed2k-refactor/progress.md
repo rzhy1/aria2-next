@@ -256,3 +256,21 @@ paths before direct peer failures can be treated as pure peer-handshake bugs.
 Remaining: Start RF3 by auditing and correcting server source classification,
 HighID/LowID state, OBFU metadata, and callback routing.
 Blocked: none.
+
+2026-05-19 RF3 partial
+Changed: Aligned two server-source paths with the authoritative aMule/eMule
+behavior without running a live ED2K transfer. TCP source requests now use
+`OP_GETSOURCES_OBFU` when the connected server advertises TCP source
+obfuscation support, so compatible servers can return OBFU source metadata
+instead of plain endpoint-only sources. Callback-requested parsing now accepts
+extended payloads with trailing data while preserving the endpoint, crypt
+options, and user hash fields used by modern clients. Callback-returned peers
+that require encrypted transport are not scheduled into the current plaintext
+peer connection path.
+Verified: `cmake --build --preset default --target aria2_tests -j 1` passed
+with the existing local linker warning about `/opt/homebrew/opt/tcl-tk/lib`.
+`build/default/aria2_tests` passed with `OK (1114)`.
+Remaining: RF3 still needs callback-fail state handling, UDP source/status
+closure, and final server-source live evidence before the checkpoint can be
+marked verified.
+Blocked: none.

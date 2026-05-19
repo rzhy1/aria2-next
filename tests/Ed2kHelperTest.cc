@@ -384,6 +384,10 @@ void Ed2kHelperTest::testProtocolPayloads()
   CPPUNIT_ASSERT_EQUAL((uint16_t)4662, callbackEndpoint.port);
   CPPUNIT_ASSERT_EQUAL((uint16_t)0x83, callbackEndpoint.cryptOptions);
   CPPUNIT_ASSERT_EQUAL(clientHash, callbackEndpoint.userHash);
+  CPPUNIT_ASSERT(parseCallbackRequestIncomingPayload(
+      callbackEndpoint, packUInt32(0x04030201) + packUInt16(4662) +
+                            std::string(1, '\x83') + clientHash +
+                            std::string("ignored")));
 
   std::vector<bool> bitfield;
   bitfield.push_back(true);

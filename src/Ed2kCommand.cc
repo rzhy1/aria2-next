@@ -345,7 +345,11 @@ bool Ed2kCommand::queueGetSources()
                     util::toHex(attrs->link.hash).c_str()));
     return false;
   }
-  queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_GETSOURCES,
+  const bool requestObfuSources =
+      state && (state->tcpFlags & ed2k::SRV_TCPFLG_TCPOBFUSCATION) != 0;
+  queuePacket(ed2k::PROTO_EDONKEY,
+              requestObfuSources ? ed2k::OP_GETSOURCES_OBFU
+                                 : ed2k::OP_GETSOURCES,
               ed2k::createGetSourcesPayload(attrs->link.hash,
                                             attrs->link.size));
   serverRequestSent_ = true;
@@ -875,7 +879,9 @@ void Ed2kCommand::handleServerPacket()
     if (!ed2k::parseCallbackRequestIncomingPayload(peer, body_)) {
       throw DL_RETRY_EX("Bad ED2K callback request.");
     }
-    addPeer(peer);
+    if ((peer.cryptOptions & ed2k::SOURCE_CRYPT_REQUIRE) == 0) {
+      addEd2kPeer(attrs, peer, ed2k::PEER_SOURCE_SERVER);
+    }
     schedulePendingPeers();
     state_ = State::DONE;
     return;

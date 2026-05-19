@@ -45,6 +45,24 @@ The authoritative local reference set is:
 Do not use deleted or disallowed references as implementation authority. Do not
 copy reference code directly.
 
+## Reference Map
+
+RA2 maps the authoritative references to the tracker as follows:
+
+| Reference | Protocol material used for alignment | Tracker ownership |
+| --- | --- | --- |
+| `amule-official` | `src/ED2KLink.*`, `Server.*`, `ServerList.*`, `ServerSocket.*`, `ServerUDPSocket.*`, `ClientTCPSocket.*`, `ClientUDPSocket.*`, `DownloadClient.*`, `DownloadQueue.*`, `KnownFile.*`, `PartFile.*`, `SharedFileList.*`, `UploadQueue.*`, `ClientCredits.*`, `SearchList.*`, `SearchExpr.h`, and `src/kademlia/` | Primary behavioral reference for links, server, peer, source policy, Kad, sharing, upload, credits, and search |
+| `emule-official-0.50a` | `srchybrid/ED2KLink.*`, `ServerSocket.*`, `ClientUDPSocket.*`, `ListenSocket.*`, `DownloadClient.*`, `UploadClient.*`, `FileIdentifier.*`, `KnownFile.*`, `PartFile.*`, `SharedFileList.*`, `UploadQueue.*`, `ClientCredits.*`, `SearchList.*`, `SearchExpr.h`, `Encrypted*Socket.*`, and `srchybrid/kademlia/` | Canonical packet-flow and capability reference for peer identity, request flow, secure identification, obfuscation metadata, file identifiers, Kad, and UI-pruned behavior |
+| `mldonkey-official` | `src/networks/donkey/donkeyProtoClient.ml`, `donkeyProtoServer.ml`, `donkeyProtoUdp.ml`, `donkeyProtoKademlia.ml`, `donkeyClient.ml`, `donkeyServers.ml`, `donkeyFiles.ml`, `donkeyShare.ml`, `donkeySearch.ml`, `donkeyUdp.ml`, and `donkeyNodesDat.mlp` | Independent cross-check for server and peer packets, Source Exchange, search, source policy, share state, UDP behavior, and nodes.dat handling |
+| `wireshark-official` | `epan/dissectors/packet-edonkey.c` and `packet-edonkey.h` | Wire-format cross-check for packet framing, opcodes, tags, AICH, multipacket, compressed packets, source OBFU fields, server flags, and Kad packets |
+| `protocol-docs` | `eMule-protocol_guide.txt`, `pDonkey-eDonkey-protocol-0.6.2.txt`, `aMule-Ed2k_link.html`, `aMule-Corruption_Handling.html`, `aMule-FAQ-eD2k-Kademlia.html`, `aMule-Kademlia.html`, `kademlia-paper-maymounkov-lncs.txt`, and `wireshark-edonkey-display-filter-reference.html` | Textual protocol reference for links, server and peer flow, HighID/LowID, callbacks, corruption handling, AICH, Kad concepts, file-size limits, and public-network operational boundaries |
+
+The reference audit confirms that every meaningful ED2K/eMule subsystem is
+represented in `reference-ledger.csv`. Rows remain pending until their
+implementation checkpoints prove alignment. RA2 only proves that the reference
+subsystems are mapped and that known non-core surfaces are either replaced or
+pruned.
+
 ## Scope
 
 The target is a practical native C++11 ED2K/eMule implementation aligned with

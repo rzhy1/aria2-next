@@ -45,3 +45,15 @@ test files; `git diff --check docs/maintenance`; CSV consistency check for all
 Remaining: Start RA2 authoritative reference mapping against amule-official,
 emule-official-0.50a, mldonkey-official, wireshark-official, and protocol-docs.
 Blocked: none.
+
+2026-05-19 RA2 verified
+Changed: Completed the authoritative reference map. `overview.md` now records
+the concrete reference entry points for aMule, eMule 0.50a, MLDonkey,
+Wireshark, and protocol-docs. `reference-ledger.csv` remains the scope ledger
+for port, adapt, replace, and prune decisions; domain rows stay pending until
+their implementation checkpoints prove alignment.
+Verified: Focused `find`, `rg`, and `sed` inspection of the authoritative
+reference set; `git diff --check docs/maintenance`; CSV consistency check for
+all `docs/maintenance/ed2k-refactor` CSV files.
+Remaining: Start RA10 link and metadata alignment.
+Blocked: none.

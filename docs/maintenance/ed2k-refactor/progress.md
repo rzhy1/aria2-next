@@ -122,3 +122,22 @@ Verified: `cmake --build --preset default --target aria2_tests` passed.
 `build/default/aria2_tests` passed with `OK (1094)`.
 Remaining: Start RA31 modern peer request flow.
 Blocked: none.
+
+2026-05-19 RA31 verified
+Changed: Closed the modern peer request-flow alignment audit. The current
+plain fallback flow matches the authoritative aMule/eMule request sequence:
+request filename with extended metadata, request file status for multi-part
+files, request and parse hashsets with the reference hash-plus-count payload,
+ask Source Exchange and AICH through separate eMule packets, start upload
+through `OP_STARTUPLOADREQ`, and handle accept, queue-rank, no-file, filename,
+status, hashset, AICH, and Source Exchange responses through the native peer
+and shared-responder paths. Multipacket, extended multipacket, file identifier,
+`OP_HASHSETREQUEST2`, and `OP_HASHSETANSWER2` remain disabled because RA30
+keeps those local capability bits unadvertised.
+Verified: Focused inspection against aMule `DownloadClient.cpp`,
+`ClientTCPSocket.cpp`, `KnownFile.cpp`, eMule `UploadClient.cpp`,
+`FileIdentifier.cpp`, `opcodes.h`, Wireshark ED2K dissector notes, and current
+`Ed2kCommand.cc`, `Ed2kSharedResponder.*`, and `ed2k_peer.*`. No code changed,
+so no C++ test run was needed for this checkpoint.
+Remaining: Start RA32 peer transfer control and failure state.
+Blocked: none.

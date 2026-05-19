@@ -463,6 +463,14 @@ void Ed2kHelperTest::testProtocolPayloads()
   CPPUNIT_ASSERT_EQUAL((uint64_t)10, readUInt64(requestParts64.data() + 40));
   CPPUNIT_ASSERT_EQUAL((uint64_t)30, readUInt64(requestParts64.data() + 48));
   CPPUNIT_ASSERT_EQUAL((uint64_t)0, readUInt64(requestParts64.data() + 56));
+
+  range.begin = 0x100000000LL;
+  range.end = 0x100000100LL;
+  CPPUNIT_ASSERT_THROW(createRequestPartsPayload(
+                           fileHash, std::vector<PartRange>(1, range), false),
+                       DlAbortEx);
+  CPPUNIT_ASSERT_NO_THROW(createRequestPartsPayload(
+      fileHash, std::vector<PartRange>(1, range), true));
 }
 
 void Ed2kHelperTest::testServerPayloadParsers()

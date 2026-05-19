@@ -174,14 +174,19 @@ std::string createRequestPartsPayload(const std::string& fileHash,
   std::string payload = fileHash;
   for (size_t i = 0; i < 3; ++i) {
     auto value = i < ranges.size() ? ranges[i].begin : 0;
-    if (value < 0) {
+    if (value < 0 ||
+        (!use64BitOffsets &&
+         value > std::numeric_limits<uint32_t>::max())) {
       throw DL_ABORT_EX("Bad ED2K part range.");
     }
     payload += use64BitOffsets ? packUInt64(value) : packUInt32(value);
   }
   for (size_t i = 0; i < 3; ++i) {
     auto value = i < ranges.size() ? ranges[i].end : 0;
-    if (value < 0 || (i < ranges.size() && value <= ranges[i].begin)) {
+    if (value < 0 ||
+        (!use64BitOffsets &&
+         value > std::numeric_limits<uint32_t>::max()) ||
+        (i < ranges.size() && value <= ranges[i].begin)) {
       throw DL_ABORT_EX("Bad ED2K part range.");
     }
     payload += use64BitOffsets ? packUInt64(value) : packUInt32(value);

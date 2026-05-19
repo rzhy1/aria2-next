@@ -141,3 +141,19 @@ Verified: Focused inspection against aMule `DownloadClient.cpp`,
 so no C++ test run was needed for this checkpoint.
 Remaining: Start RA32 peer transfer control and failure state.
 Blocked: none.
+
+2026-05-19 RA32 verified
+Changed: Aligned peer transfer-control boundaries and failure state. The
+current peer path validates normal and compressed part packet hash, range, and
+length before disk writes, clears requested ranges on disconnect, cancel,
+out-of-parts, no-file, bad packet, corrupt piece, and duplicate endpoint
+replacement paths, and sends failed peers into PeerState retry/backoff without
+halting unrelated sources. Added a protocol-boundary guard so 32-bit
+`OP_REQUESTPARTS` payloads reject offsets above `UINT32_MAX`; large offsets use
+the existing I64 request path.
+Verified: The new `Ed2kHelperTest::testProtocolPayloads` assertion failed
+before the guard because 32-bit request payloads accepted a 4 GiB offset. After
+the fix, `cmake --build --preset default --target aria2_tests` passed and
+`build/default/aria2_tests` passed with `OK (1094)`.
+Remaining: Start RA40 disk transfer and integrity alignment.
+Blocked: none.

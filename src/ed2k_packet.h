@@ -59,7 +59,10 @@ std::string packUInt32(uint32_t value);
 std::string packUInt64(uint64_t value);
 std::string createPacket(uint8_t protocol, uint8_t opcode,
                          const std::string& payload);
+std::string createDatagram(uint8_t protocol, uint8_t opcode,
+                           const std::string& payload);
 bool readPacketHeader(PacketHeader& header, const char* data, size_t length);
+bool readDatagramHeader(PacketHeader& header, const char* data, size_t length);
 Tag readTag(const std::string& data, size_t& offset);
 void skipTag(const std::string& data, size_t& offset);
 std::string createUInt32Tag(uint8_t id, uint32_t value);

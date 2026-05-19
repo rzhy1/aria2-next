@@ -418,6 +418,38 @@ bool parseEmuleInfoPayload(EmulePeerInfo& info, const std::string& payload)
   return true;
 }
 
+std::string createPeerHelloPayload(const std::string& clientHash,
+                                   uint32_t clientId,
+                                   uint16_t listenPort,
+                                   const Endpoint& server,
+                                   const std::string& clientName,
+                                   const EmulePeerInfo& info,
+                                   bool helloPacket)
+{
+  validateHashLength(clientHash);
+  std::string payload;
+  if (helloPacket) {
+    payload.push_back(static_cast<char>(HASH_LENGTH));
+  }
+  payload += clientHash;
+  payload += packUInt32(clientId);
+  payload += packUInt16(listenPort);
+  payload += packUInt32(6);
+  payload += createStringTag(0x01, clientName);
+  payload += createUInt32Tag(0x11, 0x3c);
+  payload += createUInt32Tag(0xf9, 0);
+  payload += createUInt32Tag(0xfb, (3u << 24) | info.version);
+  payload += createUInt32Tag(0xfa, emuleMiscOptionsValue(info.miscOptions));
+  payload += createUInt32Tag(0xfe, emuleMiscOptions2Value(info.miscOptions2));
+  if (server.host.empty() || server.port == 0) {
+    payload += std::string(6, '\0');
+  }
+  else {
+    payload += packEndpoint(server);
+  }
+  return payload;
+}
+
 bool parsePeerHelloUserHash(std::string& userHash, const std::string& payload,
                             bool helloPacket)
 {

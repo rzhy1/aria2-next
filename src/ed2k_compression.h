@@ -35,6 +35,9 @@ bool parseCompressedPartPayload(CompressedPartHeader& header,
 bool inflateCompressedPartData(std::string& inflatedData,
                                const std::string& compressedData,
                                size_t maxInflatedLength);
+bool inflatePackedPacketPayload(std::string& inflatedData,
+                                const std::string& compressedData,
+                                size_t maxInflatedLength);
 
 } // namespace ed2k
 

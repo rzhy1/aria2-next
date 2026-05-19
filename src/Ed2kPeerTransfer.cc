@@ -13,6 +13,7 @@
 #include "Ed2kPeerTransfer.h"
 
 #include <algorithm>
+#include <limits>
 #include <vector>
 
 #include "DiskAdaptor.h"
@@ -55,21 +56,39 @@ int64_t PeerTransfer::expectedPartLength(int64_t begin) const
 std::shared_ptr<Segment>
 PeerTransfer::writePartData(int64_t begin, const std::string& data)
 {
-  if (begin < 0 || data.empty()) {
+  if (begin < 0 || data.empty() ||
+      static_cast<uint64_t>(data.size()) >
+          static_cast<uint64_t>(std::numeric_limits<int64_t>::max() -
+                                begin)) {
+    throw DL_RETRY_EX("Bad ED2K part range.");
+  }
+  const auto end = begin + static_cast<int64_t>(data.size());
+  if (end > dctx_->getTotalLength()) {
     throw DL_RETRY_EX("Bad ED2K part range.");
   }
 
   std::vector<std::shared_ptr<Segment>> segments;
   segmentMan_->getInFlightSegment(segments, cuid_);
   for (auto& segment : segments) {
-    if (segment->getPositionToWrite() != begin) {
+    const auto segmentBegin = segment->getPosition();
+    const auto segmentEnd = segmentBegin + segment->getLength();
+    if (begin < segmentBegin || end > segmentEnd) {
       continue;
     }
+    const auto writeBegin = segment->getPositionToWrite();
+    if (end <= writeBegin) {
+      return nullptr;
+    }
+    if (begin > writeBegin) {
+      continue;
+    }
+    const auto dataOffset = static_cast<size_t>(writeBegin - begin);
+    const auto writeSize = data.size() - dataOffset;
     pieceStorage_->getDiskAdaptor()->writeData(
-        reinterpret_cast<const unsigned char*>(data.data()), data.size(),
-        begin);
-    dctx_->updateDownload(data.size());
-    segment->updateWrittenLength(data.size());
+        reinterpret_cast<const unsigned char*>(data.data() + dataOffset),
+        writeSize, writeBegin);
+    dctx_->updateDownload(writeSize);
+    segment->updateWrittenLength(writeSize);
     if (!segment->complete()) {
       return nullptr;
     }
@@ -83,6 +102,15 @@ PeerTransfer::writePartData(int64_t begin, const std::string& data)
       throw DL_RETRY_EX("Bad ED2K piece hash.");
     }
     return segment;
+  }
+
+  const auto index = static_cast<size_t>(begin / dctx_->getPieceLength());
+  const auto pieceBegin = static_cast<int64_t>(index) * dctx_->getPieceLength();
+  const auto pieceEnd =
+      std::min(pieceBegin + static_cast<int64_t>(dctx_->getPieceLength()),
+               dctx_->getTotalLength());
+  if (begin >= pieceBegin && end <= pieceEnd && pieceStorage_->hasPiece(index)) {
+    return nullptr;
   }
 
   throw DL_RETRY_EX("Unexpected ED2K part range.");

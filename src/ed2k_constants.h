@@ -22,6 +22,7 @@ namespace aria2 {
 namespace ed2k {
 
 constexpr uint8_t PROTO_EDONKEY = 0xe3;
+constexpr uint8_t PROTO_PACKED = 0xd4;
 constexpr uint8_t PROTO_EMULE = 0xc5;
 constexpr uint8_t OP_LOGINREQUEST = 0x01;
 constexpr uint8_t OP_GETSERVERLIST = 0x14;
@@ -37,8 +38,14 @@ constexpr uint8_t OP_CALLBACK_FAIL = 0x36;
 constexpr uint8_t OP_SERVERMESSAGE = 0x38;
 constexpr uint8_t OP_IDCHANGE = 0x40;
 constexpr uint8_t OP_FOUNDSOURCES = 0x42;
+constexpr uint8_t OP_GLOBGETSOURCES2 = 0x94;
 constexpr uint8_t OP_GLOBSERVSTATREQ = 0x96;
 constexpr uint8_t OP_GLOBSERVSTATRES = 0x97;
+constexpr uint8_t OP_GLOBGETSOURCES = 0x9a;
+constexpr uint8_t OP_GLOBFOUNDSOURCES = 0x9b;
+constexpr uint32_t SRV_UDPFLG_EXT_GETSOURCES = 0x00000001;
+constexpr uint32_t SRV_UDPFLG_EXT_GETSOURCES2 = 0x00000020;
+constexpr uint32_t SRV_UDPFLG_LARGEFILES = 0x00000100;
 constexpr uint8_t OP_HELLO = 0x01;
 constexpr uint8_t OP_HELLOANSWER = 0x4c;
 constexpr uint8_t OP_SETREQFILEID = 0x4f;

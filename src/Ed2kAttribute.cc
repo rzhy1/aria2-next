@@ -556,6 +556,9 @@ void schedulePendingEd2kServers(std::vector<std::unique_ptr<Command>>& commands,
     if (state->connecting) {
       continue;
     }
+    if (state->connected) {
+      continue;
+    }
     if (state->handshakeCompleted &&
         (state->nextSourceRequestTime == 0 ||
          state->nextSourceRequestTime > now)) {

@@ -44,6 +44,7 @@
 #include "ed2k_compression.h"
 #include "ed2k_constants.h"
 #include "ed2k_hash.h"
+#include "ed2k_peer.h"
 #include "ed2k_policy.h"
 #include "ed2k_search.h"
 #include "ed2k_server.h"
@@ -75,6 +76,20 @@ std::string clientHash(const DownloadEngine* e)
   }
   id.append(ed2k::HASH_LENGTH - id.size(), '\0');
   return id;
+}
+
+uint16_t localEd2kTcpPort(const DownloadEngine* e)
+{
+  auto port = e->getEd2kTcpPort();
+  if (port != 0) {
+    return port;
+  }
+  auto configured = e->getOption()->getAsInt(PREF_ED2K_LISTEN_PORT);
+  if (configured > 0 &&
+      configured <= static_cast<int>(std::numeric_limits<uint16_t>::max())) {
+    return static_cast<uint16_t>(configured);
+  }
+  return 0;
 }
 
 ed2k::EmulePeerInfo createLocalPeerInfo()
@@ -137,6 +152,7 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       sourceExchangeRequested_(false),
       aichFileHashRequested_(false),
       incoming_(false),
+      serverRequestSent_(false),
       use64BitOffsets_(requestGroup->getDownloadContext()->getTotalLength() >
                        std::numeric_limits<uint32_t>::max()),
       localPeerInfo_(createLocalPeerInfo())
@@ -171,6 +187,7 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       peerAccepted_(false),
       sourceExchangeRequested_(false),
       aichFileHashRequested_(false),
+      serverRequestSent_(false),
       use64BitOffsets_(requestGroup->getDownloadContext()->getTotalLength() >
                        std::numeric_limits<uint32_t>::max()),
       incoming_(true),
@@ -198,6 +215,16 @@ Ed2kCommand::~Ed2kCommand()
   }
 }
 
+bool Ed2kCommand::isExpectedServerEof() const
+{
+  if (mode_ != Mode::SERVER || !serverRequestSent_) {
+    return false;
+  }
+  auto state = getEd2kServerState(getEd2kAttrs(getDownloadContext()),
+                                  endpoint_);
+  return state && state->handshakeCompleted;
+}
+
 bool Ed2kCommand::execute()
 {
   try {
@@ -219,6 +246,11 @@ bool Ed2kCommand::execute()
     const auto retryWait =
         std::max<int64_t>(1, getOption()->getAsInt(PREF_RETRY_WAIT));
     if (mode_ == Mode::SERVER) {
+      if (isExpectedServerEof()) {
+        disableReadCheckSocket();
+        disableWriteCheckSocket();
+        return true;
+      }
       updateEd2kServerFailure(getEd2kAttrs(getDownloadContext()), endpoint_,
                               now, retryWait);
     }
@@ -247,7 +279,9 @@ void Ed2kCommand::queueServerLogin()
 {
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_LOGINREQUEST,
               ed2k::createLoginRequestPayload(clientHash(getDownloadEngine()),
-                                              0, "aria2-next"));
+                                              0,
+                                              localEd2kTcpPort(getDownloadEngine()),
+                                              "aria2-next"));
 }
 
 void Ed2kCommand::queueGetSources()
@@ -256,6 +290,7 @@ void Ed2kCommand::queueGetSources()
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_GETSOURCES,
               ed2k::createGetSourcesPayload(attrs->link.hash,
                                             attrs->link.size));
+  serverRequestSent_ = true;
 }
 
 void Ed2kCommand::queueSearchRequest()
@@ -269,6 +304,7 @@ void Ed2kCommand::queueSearchRequest()
                   attrs->searchQuery,
                   attrs->link.size >
                       static_cast<int64_t>(std::numeric_limits<uint32_t>::max())));
+  serverRequestSent_ = true;
 }
 
 void Ed2kCommand::queueCallbackRequest(uint32_t clientId)
@@ -277,22 +313,49 @@ void Ed2kCommand::queueCallbackRequest(uint32_t clientId)
               ed2k::createCallbackRequestPayload(clientId));
 }
 
+uint32_t Ed2kCommand::localEd2kClientId() const
+{
+  auto attrs = getEd2kAttrs(getDownloadContext());
+  if (!attrs) {
+    return 0;
+  }
+  for (const auto& state : attrs->serverStates) {
+    if (state.handshakeCompleted && state.clientId != 0) {
+      return state.clientId;
+    }
+  }
+  return 0;
+}
+
+ed2k::Endpoint Ed2kCommand::localEd2kServerEndpoint() const
+{
+  auto attrs = getEd2kAttrs(getDownloadContext());
+  if (!attrs) {
+    return ed2k::Endpoint();
+  }
+  for (const auto& state : attrs->serverStates) {
+    if (state.handshakeCompleted && state.clientId != 0) {
+      return state.endpoint;
+    }
+  }
+  return ed2k::Endpoint();
+}
+
 void Ed2kCommand::queuePeerHello()
 {
-  std::string payload;
-  payload.push_back(static_cast<char>(ed2k::HASH_LENGTH));
-  payload += ed2k::createLoginRequestPayload(clientHash(getDownloadEngine()),
-                                             0, "aria2-next");
-  payload += std::string(6, '\0');
+  auto payload = ed2k::createPeerHelloPayload(
+      clientHash(getDownloadEngine()), localEd2kClientId(),
+      localEd2kTcpPort(getDownloadEngine()), localEd2kServerEndpoint(),
+      "aria2-next", localPeerInfo_, true);
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_HELLO, payload);
 }
 
 void Ed2kCommand::queuePeerHelloAnswer()
 {
-  std::string payload;
-  payload += ed2k::createLoginRequestPayload(clientHash(getDownloadEngine()),
-                                             0, "aria2-next");
-  payload += std::string(6, '\0');
+  auto payload = ed2k::createPeerHelloPayload(
+      clientHash(getDownloadEngine()), localEd2kClientId(),
+      localEd2kTcpPort(getDownloadEngine()), localEd2kServerEndpoint(),
+      "aria2-next", localPeerInfo_, false);
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_HELLOANSWER, payload);
 }
 
@@ -591,8 +654,11 @@ bool Ed2kCommand::readHeader()
     throw DL_RETRY_EX("Bad ED2K packet header.");
   }
   if (currentHeader_.protocol != ed2k::PROTO_EDONKEY &&
+      currentHeader_.protocol != ed2k::PROTO_PACKED &&
       currentHeader_.protocol != ed2k::PROTO_EMULE) {
-    throw DL_RETRY_EX("Unsupported ED2K packet protocol.");
+    throw DL_RETRY_EX(
+        fmt("Unsupported ED2K packet protocol 0x%02x.",
+            currentHeader_.protocol));
   }
   if (currentHeader_.payloadSize() > 8_m) {
     throw DL_RETRY_EX("ED2K packet is too large.");
@@ -619,6 +685,21 @@ bool Ed2kCommand::readBody()
       return false;
     }
     bodyRead_ += len;
+  }
+  if (currentHeader_.protocol == ed2k::PROTO_PACKED) {
+    std::string inflated;
+    if (!ed2k::inflatePackedPacketPayload(inflated, body_, 250_k)) {
+      throw DL_RETRY_EX("Bad packed ED2K packet.");
+    }
+    A2_LOG_DEBUG(fmt("CUID#%" PRId64
+                     " - Unpacked ED2K packet opcode=0x%02x, "
+                     "compressed=%lu, inflated=%lu.",
+                     getCuid(), currentHeader_.opcode, body_.size(),
+                     inflated.size()));
+    body_.swap(inflated);
+    currentHeader_.protocol =
+        mode_ == Mode::SERVER ? ed2k::PROTO_EDONKEY : ed2k::PROTO_EMULE;
+    currentHeader_.size = static_cast<uint32_t>(body_.size() + 1);
   }
   handlePacket();
   body_.clear();
@@ -669,10 +750,18 @@ void Ed2kCommand::handleServerPacket()
       throw DL_RETRY_EX("Bad ED2K server ID change.");
     }
     updateEd2kServerIdChange(attrs, endpoint_, idChange);
+    A2_LOG_INFO(fmt("CUID#%" PRId64
+                    " - ED2K server %s:%u assigned %s ID 0x%08x.",
+                    getCuid(), endpoint_.host.c_str(), endpoint_.port,
+                    idChange.highId ? "High" : "Low", idChange.clientId));
     if (attrs->searchActive) {
       queueSearchRequest();
     }
     else {
+      A2_LOG_INFO(fmt("CUID#%" PRId64
+                      " - ED2K server %s:%u requesting sources for %s.",
+                      getCuid(), endpoint_.host.c_str(), endpoint_.port,
+                      util::toHex(attrs->link.hash).c_str()));
       queueGetSources();
       updateEd2kServerSourceRequestTime(attrs, endpoint_,
                                         nextServerSourceRequestTime());
@@ -699,6 +788,10 @@ void Ed2kCommand::handleServerPacket()
         addPeer(source.endpoint);
       }
     }
+    A2_LOG_INFO(fmt("CUID#%" PRId64
+                    " - ED2K server %s:%u returned %lu source(s).",
+                    getCuid(), endpoint_.host.c_str(), endpoint_.port,
+                    static_cast<unsigned long>(sources.size())));
     schedulePendingPeers();
     state_ = outbox_.empty() ? State::DONE : State::WRITE;
     return;
@@ -738,6 +831,9 @@ void Ed2kCommand::handleServerPacket()
     if (!ed2k::parseServerMessagePayload(message, body_)) {
       throw DL_RETRY_EX("Bad ED2K server message.");
     }
+    A2_LOG_INFO(fmt("CUID#%" PRId64 " - ED2K server %s:%u message: %s",
+                    getCuid(), endpoint_.host.c_str(), endpoint_.port,
+                    message.c_str()));
     updateEd2kServerMessage(attrs, endpoint_, message);
   }
   if (currentHeader_.opcode == ed2k::OP_SERVERLIST) {
@@ -1151,6 +1247,10 @@ bool Ed2kCommand::executeInternal()
       startResolve();
       return false;
     case State::CONNECTING:
+      if (!getSocket()->isWritable(0)) {
+        setWriteCheckSocket(getSocket());
+        return false;
+      }
       if (!checkIfConnectionEstablished(getSocket(), connectedHostname_,
                                          connectedAddr_, connectedPort_)) {
         return true;

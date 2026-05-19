@@ -47,6 +47,7 @@ private:
   bool sourceSearchSent_;
   bool keywordSearchSent_;
   int64_t lastServerStatusPoll_;
+  int64_t lastServerSourcePoll_;
 
   void init();
   void queueBootstrap();
@@ -54,6 +55,7 @@ private:
   void queueFirewalledCheck();
   void queueSourcePublish();
   void queueServerStatusPoll();
+  void queueServerSourcePoll();
   void queueSourceSearch();
   void queueKeywordSearch();
   void queueTraversalActions(

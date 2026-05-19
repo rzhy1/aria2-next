@@ -79,6 +79,11 @@
 namespace aria2 {
 
 namespace {
+constexpr char DEFAULT_ED2K_SERVER_LIST[] =
+    "45.82.80.155:5687,176.123.5.89:4725,85.121.5.137:4232,"
+    "176.123.2.239:4232,145.239.2.134:4661,91.208.162.87:4232,"
+    "37.15.61.236:4232";
+
 void unfoldURI(std::vector<std::string>& result,
                const std::vector<std::string>& args)
 {
@@ -214,6 +219,18 @@ void addOptionEd2kServers(std::vector<ed2k::Endpoint>& endpoints,
   }
 }
 
+void addDefaultEd2kServersIfNeeded(std::vector<ed2k::Endpoint>& endpoints,
+                                   const ed2k::Link& link,
+                                   const std::shared_ptr<Option>& option)
+{
+  if (!endpoints.empty() || !link.sources.empty() ||
+      !option->blank(PREF_ED2K_NODE_LIST) ||
+      !option->blank(PREF_ED2K_KAD_ROUTING_STATE)) {
+    return;
+  }
+  addEndpointList(endpoints, DEFAULT_ED2K_SERVER_LIST);
+}
+
 void addEd2kServerStateEndpoints(std::vector<ed2k::Endpoint>& endpoints,
                                  const std::vector<ed2k::ServerState>& states)
 {
@@ -310,6 +327,7 @@ createEd2kRequestGroup(const std::string& ed2kUri,
   attrs->serverStates = createEd2kServerStates(option);
   addOptionEd2kServers(attrs->servers, attrs->serverStates, option);
   addEd2kServerStateEndpoints(attrs->servers, attrs->serverStates);
+  addDefaultEd2kServersIfNeeded(attrs->servers, attrs->link, option);
   ed2k::KadRoutingSnapshot kadSnapshot;
   attrs->kadRoutingTable =
       createEd2kKadRoutingTable(option, attrs->link.hash, &kadSnapshot);
@@ -386,6 +404,7 @@ createEd2kSearchRequestGroup(const ed2k::SearchQuery& query,
   attrs->serverStates = createEd2kServerStates(option);
   addOptionEd2kServers(attrs->servers, attrs->serverStates, option);
   addEd2kServerStateEndpoints(attrs->servers, attrs->serverStates);
+  addDefaultEd2kServersIfNeeded(attrs->servers, attrs->link, option);
   if (!option->blank(PREF_ED2K_NODE_LIST) ||
       !option->blank(PREF_ED2K_KAD_ROUTING_STATE)) {
     ed2k::KadRoutingSnapshot kadSnapshot;

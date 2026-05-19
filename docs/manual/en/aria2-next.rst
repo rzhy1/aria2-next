@@ -654,8 +654,10 @@ ED2K Specific Options
 
 .. option:: --ed2k-server=<HOST:PORT[,..]>
 
-  Add ED2K servers used to discover file sources for ED2K file links.
-  Multiple servers can be separated with commas.
+  Use ED2K servers to discover file sources for ED2K file links.
+  Multiple servers can be separated with commas. If an ED2K file link or search
+  has no configured server, server list, inline source, Kad node list, or saved
+  Kad routing state, aria2-next uses built-in ED2K bootstrap servers.
 
 .. option:: --ed2k-server-list=<FILE>
 

@@ -51,6 +51,7 @@ struct SearchResultEntry {
   std::string mediaCodec;
   std::string sourceNetwork;
   std::string ed2kLink;
+  std::vector<Endpoint> sources;
   std::vector<Tag> tags;
 };
 

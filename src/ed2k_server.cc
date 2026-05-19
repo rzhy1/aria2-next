@@ -15,6 +15,7 @@
 #include <limits>
 
 #include "DlAbortEx.h"
+#include "ed2k_constants.h"
 #include "ed2k_endpoint.h"
 #include "ed2k_hash.h"
 #include "ed2k_packet.h"
@@ -89,7 +90,7 @@ std::vector<ServerMetEntry> parseServerMetEntries(const std::string& data)
 {
   size_t offset = 0;
   auto header = readByte(data, offset);
-  if (header != 0x0e && header != 0x0f) {
+  if (header != 0x0e && header != 0x0f && header != 0xe0) {
     offset = 0;
   }
   const uint32_t count = readUInt32(readBytes(data, offset, 4).data());
@@ -133,13 +134,14 @@ std::vector<Endpoint> parseServerMet(const std::string& data)
 }
 
 std::string createLoginRequestPayload(const std::string& clientHash,
+                                      uint32_t clientId,
                                       uint16_t listenPort,
                                       const std::string& clientName)
 {
   validateHashLength(clientHash);
   std::string payload;
   payload += clientHash;
-  payload += packUInt32(0);
+  payload += packUInt32(clientId);
   payload += packUInt16(listenPort);
   payload += packUInt32(4);
   payload += createUInt32Tag(0x11, 0x3c);
@@ -167,6 +169,16 @@ std::string createGetSourcesPayload(const std::string& fileHash,
     payload += packUInt32(static_cast<uint32_t>(fileSize));
   }
   return payload;
+}
+
+std::string createGlobGetSourcesPayload(const std::string& fileHash,
+                                        int64_t fileSize, bool extGetSources2)
+{
+  if (!extGetSources2) {
+    validateHashLength(fileHash);
+    return fileHash;
+  }
+  return createGetSourcesPayload(fileHash, fileSize);
 }
 
 std::string createFoundSourcesPayload(const std::string& fileHash,
@@ -212,6 +224,42 @@ bool parseFoundSourcesPayload(std::vector<Endpoint>& sources,
   sources.reserve(count);
   for (uint8_t i = 0; i < count; ++i) {
     sources.push_back(readEndpoint(payload, offset));
+  }
+  return true;
+}
+
+bool parsePackedFoundSourcesPayloads(std::vector<Endpoint>& sources,
+                                     const std::string& payload,
+                                     const std::string& expectedFileHash)
+{
+  validateHashLength(expectedFileHash);
+  sources.clear();
+  size_t offset = 0;
+  while (offset < payload.size()) {
+    if (payload.size() - offset < HASH_LENGTH + 1) {
+      return false;
+    }
+    auto hash = readBytes(payload, offset, HASH_LENGTH);
+    auto count = readByte(payload, offset);
+    if (payload.size() - offset < static_cast<size_t>(count) * 6) {
+      return false;
+    }
+    for (uint8_t i = 0; i < count; ++i) {
+      auto source = readEndpoint(payload, offset);
+      if (hash == expectedFileHash) {
+        sources.push_back(source);
+      }
+    }
+    if (offset == payload.size()) {
+      break;
+    }
+    if (payload.size() - offset < 2 ||
+        static_cast<unsigned char>(payload[offset]) != PROTO_EDONKEY ||
+        static_cast<unsigned char>(payload[offset + 1]) !=
+            OP_GLOBFOUNDSOURCES) {
+      return false;
+    }
+    offset += 2;
   }
   return true;
 }

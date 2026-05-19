@@ -16,6 +16,7 @@
 #include <limits>
 
 #include "DlAbortEx.h"
+#include "ed2k_endpoint.h"
 #include "ed2k_hash.h"
 #include "ed2k_link.h"
 #include "util.h"
@@ -142,6 +143,7 @@ bool finishSearchResultEntry(SearchResultEntry& entry, uint64_t sizeLow,
   link.name = entry.name;
   link.size = entry.size;
   link.hash = entry.hash;
+  link.sources = entry.sources;
   entry.ed2kLink = toFileLink(link);
   return true;
 }
@@ -167,8 +169,16 @@ bool parseSearchResultPayload(SearchResult& result, const std::string& payload,
     }
     SearchResultEntry entry;
     entry.hash = readBytes(payload, offset, HASH_LENGTH);
-    readBytes(payload, offset, 4);
-    readBytes(payload, offset, 2);
+    const auto clientId =
+        readUInt32(readBytes(payload, offset, 4).data());
+    const auto clientPort =
+        readUInt16(readBytes(payload, offset, 2).data());
+    if (clientId > 0x00ffffffu && clientPort != 0) {
+      Endpoint source;
+      source.host = ipv4FromEndpoint(clientId);
+      source.port = clientPort;
+      entry.sources.push_back(source);
+    }
     std::vector<Tag> tags;
     const auto tagCount = readUInt32(readBytes(payload, offset, 4).data());
     std::string tagPayload;

@@ -85,16 +85,22 @@ struct ServerMetEntry {
 std::vector<ServerMetEntry> parseServerMetEntries(const std::string& data);
 std::vector<Endpoint> parseServerMet(const std::string& data);
 std::string createLoginRequestPayload(const std::string& clientHash,
+                                      uint32_t clientId,
                                       uint16_t listenPort,
                                       const std::string& clientName);
 std::string createGetSourcesPayload(const std::string& fileHash,
                                     int64_t fileSize);
+std::string createGlobGetSourcesPayload(const std::string& fileHash,
+                                        int64_t fileSize, bool extGetSources2);
 std::string createFoundSourcesPayload(const std::string& fileHash,
                                       const std::vector<Endpoint>& sources);
 std::vector<Endpoint> parseFoundSourcesPayload(const std::string& payload);
 bool parseFoundSourcesPayload(std::vector<Endpoint>& sources,
                               const std::string& payload,
                               const std::string& expectedFileHash);
+bool parsePackedFoundSourcesPayloads(std::vector<Endpoint>& sources,
+                                     const std::string& payload,
+                                     const std::string& expectedFileHash);
 bool parseFoundSourcesPayload(std::vector<FoundSource>& sources,
                               const std::string& payload,
                               const std::string& expectedFileHash);

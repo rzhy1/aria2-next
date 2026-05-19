@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 
 #include "DlAbortEx.h"
 #include "DownloadContext.h"
@@ -63,6 +64,7 @@ ed2k::Endpoint toEndpoint(const ed2k::KadContact& contact)
 }
 
 constexpr int64_t SERVER_STATUS_POLL_INTERVAL = 45;
+constexpr int64_t SERVER_SOURCE_POLL_INTERVAL = 20;
 constexpr int64_t FIREWALLED_CHECK_INTERVAL = 3600;
 constexpr int64_t SOURCE_PUBLISH_INTERVAL = 1800;
 
@@ -104,7 +106,8 @@ Ed2kKadCommand::Ed2kKadCommand(cuid_t cuid, RequestGroup* requestGroup,
       initialized_(false),
       sourceSearchSent_(false),
       keywordSearchSent_(false),
-      lastServerStatusPoll_(0)
+      lastServerStatusPoll_(0),
+      lastServerSourcePoll_(0)
 {
   setStatusRealtime();
 }
@@ -158,7 +161,7 @@ void Ed2kKadCommand::queuePacket(const ed2k::Endpoint& endpoint, uint8_t opcode,
                                  const std::string& payload)
 {
   outbox_.push_back(std::make_pair(
-      endpoint, ed2k::createPacket(ed2k::KAD_PROTOCOL, opcode, payload)));
+      endpoint, ed2k::createDatagram(ed2k::KAD_PROTOCOL, opcode, payload)));
 }
 
 void Ed2kKadCommand::queueEd2kUdpPacket(const ed2k::Endpoint& endpoint,
@@ -166,7 +169,7 @@ void Ed2kKadCommand::queueEd2kUdpPacket(const ed2k::Endpoint& endpoint,
                                         const std::string& payload)
 {
   outbox_.push_back(std::make_pair(
-      endpoint, ed2k::createPacket(ed2k::PROTO_EDONKEY, opcode, payload)));
+      endpoint, ed2k::createDatagram(ed2k::PROTO_EDONKEY, opcode, payload)));
 }
 
 void Ed2kKadCommand::queueEmuleUdpPacket(const ed2k::Endpoint& endpoint,
@@ -174,7 +177,7 @@ void Ed2kKadCommand::queueEmuleUdpPacket(const ed2k::Endpoint& endpoint,
                                          const std::string& payload)
 {
   outbox_.push_back(std::make_pair(
-      endpoint, ed2k::createPacket(ed2k::PROTO_EMULE, opcode, payload)));
+      endpoint, ed2k::createDatagram(ed2k::PROTO_EMULE, opcode, payload)));
 }
 
 void Ed2kKadCommand::queueServerStatusPoll()
@@ -196,6 +199,41 @@ void Ed2kKadCommand::queueServerStatusPoll()
                        ed2k::packUInt32(state->udpStatusChallenge));
   }
   lastServerStatusPoll_ = now;
+}
+
+void Ed2kKadCommand::queueServerSourcePoll()
+{
+  auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
+  if (attrs->link.hash.empty() || attrs->servers.empty()) {
+    return;
+  }
+  const auto now = nowSeconds();
+  if (lastServerSourcePoll_ != 0 &&
+      now - lastServerSourcePoll_ < SERVER_SOURCE_POLL_INTERVAL) {
+    return;
+  }
+  for (const auto& server : attrs->servers) {
+    auto state = getEd2kServerState(attrs, server);
+    if (!state || !state->handshakeCompleted || server.port > 65531) {
+      continue;
+    }
+    const bool extGetSources2 =
+        (state->udpFlags & ed2k::SRV_UDPFLG_EXT_GETSOURCES2) != 0;
+    if (attrs->link.size > std::numeric_limits<uint32_t>::max() &&
+        (!extGetSources2 ||
+         (state->udpFlags & ed2k::SRV_UDPFLG_LARGEFILES) == 0)) {
+      continue;
+    }
+    queueEd2kUdpPacket(
+        serverUdpEndpoint(server),
+        extGetSources2 ? ed2k::OP_GLOBGETSOURCES2
+                       : ed2k::OP_GLOBGETSOURCES,
+        ed2k::createGlobGetSourcesPayload(attrs->link.hash, attrs->link.size,
+                                          extGetSources2));
+    A2_LOG_DEBUG(fmt("Queued ED2K UDP source request to %s:%u.",
+                     server.host.c_str(), server.port + 4));
+  }
+  lastServerSourcePoll_ = now;
 }
 
 void Ed2kKadCommand::queueBootstrap()
@@ -439,22 +477,22 @@ void Ed2kKadCommand::receivePackets()
     if (length <= 0) {
       break;
     }
-    if (length < 6) {
+    if (length < 2) {
       continue;
     }
     ed2k::PacketHeader header;
-    if (!ed2k::readPacketHeader(header, reinterpret_cast<const char*>(data.data()),
-                                static_cast<size_t>(length)) ||
+    if (!ed2k::readDatagramHeader(header, reinterpret_cast<const char*>(data.data()),
+                                  static_cast<size_t>(length)) ||
         (header.protocol != ed2k::KAD_PROTOCOL &&
          header.protocol != ed2k::PROTO_EDONKEY &&
          header.protocol != ed2k::PROTO_EMULE) ||
-        header.payloadSize() + 6 != static_cast<size_t>(length)) {
+        header.payloadSize() + 2 != static_cast<size_t>(length)) {
       continue;
     }
     ed2k::Endpoint endpoint;
     endpoint.host = sender.addr;
     endpoint.port = sender.port;
-    std::string payload(reinterpret_cast<const char*>(data.data()) + 6,
+    std::string payload(reinterpret_cast<const char*>(data.data()) + 2,
                         reinterpret_cast<const char*>(data.data()) + length);
     if (header.protocol == ed2k::PROTO_EDONKEY ||
         header.protocol == ed2k::PROTO_EMULE) {
@@ -499,6 +537,24 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
     }
     queueEmuleUdpPacket(endpoint, ed2k::OP_REASKACK,
                         ed2k::createUdpReaskAckPayload(rank));
+    return;
+  }
+  if (opcode == ed2k::OP_GLOBFOUNDSOURCES) {
+    auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
+    std::vector<ed2k::Endpoint> sources;
+    if (!ed2k::parsePackedFoundSourcesPayloads(sources, payload,
+                                               attrs->link.hash)) {
+      return;
+    }
+    for (const auto& source : sources) {
+      addEd2kPeer(attrs, source, ed2k::PEER_SOURCE_SERVER);
+    }
+    if (!sources.empty()) {
+      A2_LOG_INFO(fmt("ED2K UDP server %s:%u returned %lu source(s).",
+                      endpoint.host.c_str(), endpoint.port,
+                      static_cast<unsigned long>(sources.size())));
+      schedulePendingEd2kPeers(requestGroup_, e_);
+    }
     return;
   }
   if (opcode != ed2k::OP_GLOBSERVSTATRES || endpoint.port < 4) {
@@ -700,6 +756,7 @@ bool Ed2kKadCommand::execute()
     }
     schedulePendingEd2kServers(requestGroup_, e_);
     queueServerStatusPoll();
+    queueServerSourcePoll();
     queueBootstrap();
     if (!requestGroup_->downloadFinished()) {
       if (attrs->searchActive) {

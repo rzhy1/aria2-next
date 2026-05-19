@@ -34,7 +34,9 @@ class Ed2kHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testSourceExchange2Payloads);
   CPPUNIT_TEST(testCompressedPartPayloads);
   CPPUNIT_TEST(testInflateCompressedPartData);
+  CPPUNIT_TEST(testInflatePackedPacketPayload);
   CPPUNIT_TEST(testEmuleInfoPayload);
+  CPPUNIT_TEST(testPeerHelloPayload);
   CPPUNIT_TEST(testUdpReaskPayloads);
   CPPUNIT_TEST(testAichPayloads);
   CPPUNIT_TEST(testAichRecoveryData);
@@ -68,7 +70,9 @@ public:
   void testSourceExchange2Payloads();
   void testCompressedPartPayloads();
   void testInflateCompressedPartData();
+  void testInflatePackedPacketPayload();
   void testEmuleInfoPayload();
+  void testPeerHelloPayload();
   void testUdpReaskPayloads();
   void testAichPayloads();
   void testAichRecoveryData();
@@ -280,9 +284,11 @@ void Ed2kHelperTest::testProtocolPayloads()
   auto clientHash =
       util::fromHex(clientHashHex.begin(), clientHashHex.end());
 
-  auto login = createLoginRequestPayload(clientHash, 0, "aria2-next");
+  auto login = createLoginRequestPayload(clientHash, 0x04030201, 0,
+                                         "aria2-next");
   CPPUNIT_ASSERT_EQUAL(clientHash, login.substr(0, HASH_LENGTH));
-  CPPUNIT_ASSERT_EQUAL(std::string("000000000000"), util::toHex(login.substr(16, 6)));
+  CPPUNIT_ASSERT_EQUAL(std::string("010203040000"),
+                       util::toHex(login.substr(16, 6)));
   CPPUNIT_ASSERT_EQUAL((uint32_t)4, readUInt32(login.data() + 22));
 
   auto source32 = createGetSourcesPayload(fileHash, 9728001);
@@ -295,6 +301,12 @@ void Ed2kHelperTest::testProtocolPayloads()
   CPPUNIT_ASSERT_EQUAL((uint32_t)0, readUInt32(source64.data() + 16));
   CPPUNIT_ASSERT_EQUAL((uint32_t)1, readUInt32(source64.data() + 20));
   CPPUNIT_ASSERT_EQUAL((uint32_t)1, readUInt32(source64.data() + 24));
+
+  auto globSources = createGlobGetSourcesPayload(fileHash, 9728001, false);
+  CPPUNIT_ASSERT_EQUAL((size_t)16, globSources.size());
+  CPPUNIT_ASSERT_EQUAL(fileHash, globSources);
+  CPPUNIT_ASSERT_EQUAL(source32,
+                       createGlobGetSourcesPayload(fileHash, 9728001, true));
 
   std::vector<Endpoint> sources;
   Endpoint source;
@@ -323,6 +335,21 @@ void Ed2kHelperTest::testProtocolPayloads()
                                           fileHash));
   CPPUNIT_ASSERT_EQUAL((uint32_t)120, foundSources[0].clientId);
   CPPUNIT_ASSERT(foundSources[0].lowId);
+
+  Endpoint source2;
+  source2.host = "5.6.7.8";
+  source2.port = 4662;
+  auto packedFound =
+      createFoundSourcesPayload(clientHash, std::vector<Endpoint>{source}) +
+      createDatagram(PROTO_EDONKEY, OP_GLOBFOUNDSOURCES,
+                     createFoundSourcesPayload(fileHash,
+                                               std::vector<Endpoint>{source2}));
+  std::vector<Endpoint> packedSources;
+  CPPUNIT_ASSERT(parsePackedFoundSourcesPayloads(packedSources, packedFound,
+                                                 fileHash));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, packedSources.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("5.6.7.8"), packedSources[0].host);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4662, packedSources[0].port);
 
   auto callbackRequest = createCallbackRequestPayload(120);
   CPPUNIT_ASSERT_EQUAL(std::string("78000000"),
@@ -488,9 +515,14 @@ void Ed2kHelperTest::testSearchResultPayload()
   CPPUNIT_ASSERT_EQUAL((uint32_t)42, result.entries[0].sourceCount);
   CPPUNIT_ASSERT_EQUAL((uint32_t)7, result.entries[0].completeSourceCount);
   CPPUNIT_ASSERT_EQUAL(std::string("server"), result.entries[0].sourceNetwork);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, result.entries[0].sources.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("1.2.3.4"),
+                       result.entries[0].sources[0].host);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4662, result.entries[0].sources[0].port);
   CPPUNIT_ASSERT_EQUAL(
       std::string("ed2k://|file|video.mkv|4294967301|"
-                  "0123456789abcdef0123456789abcdef|/"),
+                  "0123456789abcdef0123456789abcdef|"
+                  "sources,1.2.3.4:4662|/"),
       result.entries[0].ed2kLink);
 }
 
@@ -747,6 +779,35 @@ void Ed2kHelperTest::testInflateCompressedPartData()
   CPPUNIT_ASSERT(!inflateCompressedPartData(inflated, "not zlib", input.size()));
 }
 
+void Ed2kHelperTest::testInflatePackedPacketPayload()
+{
+  std::string input;
+  for (int i = 0; i < 2048; ++i) {
+    input.push_back(static_cast<char>('a' + (i % 7)));
+  }
+
+  z_stream strm;
+  memset(&strm, 0, sizeof(strm));
+  CPPUNIT_ASSERT_EQUAL(Z_OK, deflateInit(&strm, Z_DEFAULT_COMPRESSION));
+  strm.avail_in = input.size();
+  strm.next_in = reinterpret_cast<unsigned char*>(&input[0]);
+  std::string compressed(compressBound(input.size()), '\0');
+  strm.avail_out = compressed.size();
+  strm.next_out = reinterpret_cast<unsigned char*>(&compressed[0]);
+  CPPUNIT_ASSERT_EQUAL(Z_STREAM_END, deflate(&strm, Z_FINISH));
+  compressed.resize(compressed.size() - strm.avail_out);
+  CPPUNIT_ASSERT_EQUAL(Z_OK, deflateEnd(&strm));
+
+  std::string inflated;
+  CPPUNIT_ASSERT(inflatePackedPacketPayload(inflated, compressed,
+                                            input.size() + 100));
+  CPPUNIT_ASSERT_EQUAL(input, inflated);
+
+  CPPUNIT_ASSERT(!inflatePackedPacketPayload(inflated, compressed,
+                                            input.size() - 1));
+  CPPUNIT_ASSERT(!inflatePackedPacketPayload(inflated, "not zlib", input.size()));
+}
+
 void Ed2kHelperTest::testEmuleInfoPayload()
 {
   EmulePeerInfo info;
@@ -774,6 +835,53 @@ void Ed2kHelperTest::testEmuleInfoPayload()
   CPPUNIT_ASSERT(parsed.miscOptions.multiPacket);
   CPPUNIT_ASSERT(parsed.miscOptions2.supportsSourceExchange2);
   CPPUNIT_ASSERT(parsed.miscOptions2.supportsLargeFiles);
+}
+
+void Ed2kHelperTest::testPeerHelloPayload()
+{
+  std::string clientHashHex("0123456789abcdef0123456789abcdef");
+  auto clientHash = util::fromHex(clientHashHex.begin(), clientHashHex.end());
+  EmulePeerInfo info;
+  info.version = 0x47;
+  info.miscOptions.aichVersion = 1;
+  info.miscOptions.unicode = true;
+  info.miscOptions.dataCompressionVersion = 1;
+  info.miscOptions.sourceExchange1Version = 3;
+  info.miscOptions.extendedRequestsVersion = 2;
+  info.miscOptions.multiPacket = true;
+  info.miscOptions2.supportsLargeFiles = true;
+  info.miscOptions2.supportsSourceExchange2 = true;
+
+  Endpoint server;
+  server.host = "1.2.3.4";
+  server.port = 4661;
+  auto payload = createPeerHelloPayload(clientHash, 0x0a000001, 4662,
+                                        server, "aria2-next", info, true);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)HASH_LENGTH,
+                       static_cast<uint8_t>(payload[0]));
+  CPPUNIT_ASSERT_EQUAL(clientHash, payload.substr(1, HASH_LENGTH));
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x0a000001,
+                       readUInt32(payload.data() + 1 + HASH_LENGTH));
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4662,
+                       readUInt16(payload.data() + 1 + HASH_LENGTH + 4));
+
+  const auto tagOffset = 1 + HASH_LENGTH + 4 + 2;
+  std::vector<Tag> tags;
+  CPPUNIT_ASSERT(parseTagList(tags, payload.substr(
+                                        tagOffset,
+                                        payload.size() - tagOffset - 6)));
+  auto hasUintTag = [&](uint8_t id) {
+    return std::find_if(tags.begin(), tags.end(), [&](const Tag& tag) {
+             return tag.id == id && tag.valueType == TagValueType::UINT;
+           }) != tags.end();
+  };
+  CPPUNIT_ASSERT(hasUintTag(0x11));
+  CPPUNIT_ASSERT(hasUintTag(0xf9));
+  CPPUNIT_ASSERT(hasUintTag(0xfa));
+  CPPUNIT_ASSERT(hasUintTag(0xfb));
+  CPPUNIT_ASSERT(hasUintTag(0xfe));
+  CPPUNIT_ASSERT_EQUAL(std::string("010203043512"),
+                       util::toHex(payload.substr(payload.size() - 6)));
 }
 
 void Ed2kHelperTest::testUdpReaskPayloads()
@@ -1280,6 +1388,14 @@ void Ed2kHelperTest::testServerMetParser()
   CPPUNIT_ASSERT_EQUAL(std::string("Peer Server"), entries[0].name);
   CPPUNIT_ASSERT_EQUAL(std::string("Primary ED2K server"),
                        entries[0].description);
+
+  data[0] = static_cast<char>(0xe0);
+  entries = parseServerMetEntries(data);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, entries.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("1.2.3.4"), entries[0].endpoint.host);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4661, entries[0].endpoint.port);
+  CPPUNIT_ASSERT_EQUAL(std::string("Peer Server"), entries[0].name);
 
   std::string hostnameEntry;
   hostnameEntry.push_back('\x0e');

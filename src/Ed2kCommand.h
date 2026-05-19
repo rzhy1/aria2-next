@@ -64,9 +64,11 @@ private:
   bool aichFileHashRequested_;
   bool use64BitOffsets_;
   bool incoming_;
+  bool serverRequestSent_;
   ed2k::EmulePeerInfo localPeerInfo_;
   ed2k::EmulePeerInfo remotePeerInfo_;
 
+  bool isExpectedServerEof() const;
   void startResolve();
   void startConnect();
   bool flushOutbox();
@@ -80,6 +82,8 @@ private:
   void queueGetSources();
   void queueSearchRequest();
   void queueCallbackRequest(uint32_t clientId);
+  uint32_t localEd2kClientId() const;
+  ed2k::Endpoint localEd2kServerEndpoint() const;
   void queuePeerHello();
   void queuePeerHelloAnswer();
   void queueEmuleInfo(bool answer);

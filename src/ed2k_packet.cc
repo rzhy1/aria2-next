@@ -100,6 +100,17 @@ std::string createPacket(uint8_t protocol, uint8_t opcode,
   return packet;
 }
 
+std::string createDatagram(uint8_t protocol, uint8_t opcode,
+                           const std::string& payload)
+{
+  std::string packet;
+  packet.reserve(2 + payload.size());
+  packet.push_back(static_cast<char>(protocol));
+  packet.push_back(static_cast<char>(opcode));
+  packet += payload;
+  return packet;
+}
+
 bool readPacketHeader(PacketHeader& header, const char* data, size_t length)
 {
   if (length < 6) {
@@ -109,6 +120,17 @@ bool readPacketHeader(PacketHeader& header, const char* data, size_t length)
   header.size = readUInt32(data + 1);
   header.opcode = static_cast<unsigned char>(data[5]);
   return header.size > 0;
+}
+
+bool readDatagramHeader(PacketHeader& header, const char* data, size_t length)
+{
+  if (length < 2) {
+    return false;
+  }
+  header.protocol = static_cast<unsigned char>(data[0]);
+  header.size = static_cast<uint32_t>(length - 1);
+  header.opcode = static_cast<unsigned char>(data[1]);
+  return true;
 }
 
 Tag readTag(const std::string& data, size_t& offset)

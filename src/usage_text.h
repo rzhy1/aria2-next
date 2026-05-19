@@ -510,7 +510,7 @@
     "                              performance profile of the servers since the last\n" \
     "                              contact to them.")
 #define TEXT_ED2K_SERVER                                                \
-  _(" --ed2k-server=HOST:PORT[,..] Add ED2K servers used to discover file sources.")
+  _(" --ed2k-server=HOST:PORT[,..] Use ED2K servers to discover file sources.")
 #define TEXT_ED2K_SERVER_LIST                                           \
   _(" --ed2k-server-list=FILE      Load ED2K servers from a local server.met file.")
 #define TEXT_ED2K_NODE_LIST                                             \

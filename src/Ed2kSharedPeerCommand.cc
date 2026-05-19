@@ -21,13 +21,16 @@
 #include "Ed2kUploadQueue.h"
 #include "LogFactory.h"
 #include "Logger.h"
+#include "Option.h"
 #include "RequestGroupMan.h"
 #include "SocketCore.h"
 #include "ed2k_aich.h"
 #include "ed2k_constants.h"
 #include "ed2k_hash.h"
+#include "ed2k_peer.h"
 #include "ed2k_server.h"
 #include "fmt.h"
+#include "prefs.h"
 #include "wallclock.h"
 
 namespace aria2 {
@@ -42,6 +45,20 @@ std::string clientHash(const DownloadEngine* e)
   }
   id.append(ed2k::HASH_LENGTH - id.size(), '\0');
   return id;
+}
+
+uint16_t localEd2kTcpPort(const DownloadEngine* e)
+{
+  auto port = e->getEd2kTcpPort();
+  if (port != 0) {
+    return port;
+  }
+  auto configured = e->getOption()->getAsInt(PREF_ED2K_LISTEN_PORT);
+  if (configured > 0 &&
+      configured <= static_cast<int>(std::numeric_limits<uint16_t>::max())) {
+    return static_cast<uint16_t>(configured);
+  }
+  return 0;
 }
 
 ed2k::EmulePeerInfo createLocalPeerInfo()
@@ -121,9 +138,9 @@ void Ed2kSharedPeerCommand::queuePacket(uint8_t protocol, uint8_t opcode,
 
 void Ed2kSharedPeerCommand::queuePeerHelloAnswer()
 {
-  std::string payload;
-  payload += ed2k::createLoginRequestPayload(clientHash(e_), 0, "aria2-next");
-  payload += std::string(6, '\0');
+  auto payload = ed2k::createPeerHelloPayload(
+      clientHash(e_), 0, localEd2kTcpPort(e_), ed2k::Endpoint(),
+      "aria2-next", localPeerInfo_, false);
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_HELLOANSWER, payload);
 }
 

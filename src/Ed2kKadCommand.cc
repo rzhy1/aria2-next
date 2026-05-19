@@ -567,6 +567,16 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
     }
     return;
   }
+  if (opcode == ed2k::OP_INVALID_LOWID) {
+    if (payload.size() >= 4) {
+      markEd2kCallbackFailed(getEd2kAttrs(requestGroup_->getDownloadContext()),
+                             ed2k::readUInt32(payload.data()));
+    }
+    return;
+  }
+  if (opcode == ed2k::OP_GLOBCALLBACKREQ) {
+    return;
+  }
   if (opcode != ed2k::OP_GLOBSERVSTATRES || endpoint.port < 4) {
     return;
   }

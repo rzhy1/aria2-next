@@ -121,3 +121,17 @@ Remaining: RF3 still needs the final UDP source/callback audit, tracker status
 updates for the verified RF3 rows, and one short server-source evidence run
 before checkpoint closure.
 Blocked: none.
+
+2026-05-19 RF3 partial
+Changed: Added explicit handling for ED2K server UDP callback opcodes. UDP
+callback failure (`OP_INVALID_LOWID`) now marks the matching LowID callback
+source as failed through the same peer state path as TCP `OP_CALLBACK_FAIL`.
+Incoming global UDP callback requests are recognized and ignored because
+aria2-next does not currently expose a server-side UDP callback owner for that
+path.
+Verified: `git diff --check` passed. `cmake --build --preset default --target
+aria2_tests -j 1` passed with the existing local
+`/opt/homebrew/opt/tcl-tk/lib` linker warning.
+Remaining: RF3 still needs tracker status updates for the audited server rows
+and one short server-source evidence run before checkpoint closure.
+Blocked: none.

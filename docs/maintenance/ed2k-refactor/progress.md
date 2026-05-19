@@ -97,3 +97,18 @@ request state. Public single-source runs cannot prove the request-flow fix
 when the peer closes before answering hello.
 Blocked: Public live verification is nondeterministic while the client is
 LowID and current fixtures provide only one or two reachable-looking sources.
+
+2026-05-19 RF5 partial
+Changed: Corrected ED2K file-status bitfield packing and parsing to use the
+least-significant-bit-first order used by aMule and eMule `WritePartStatus`
+and `ProcessExtendedInfo`. The previous local helper round-tripped its own
+high-bit-first encoding, but that encoding would invert peer part availability
+within each byte when talking to real clients. Added one byte-level assertion
+to the existing protocol payload test so the wire order is pinned to the
+reference behavior without adding new scaffolding.
+Verified: `PATH=/opt/homebrew/bin:$PATH cmake --build --preset default
+--target aria2-next aria2_tests` passed.
+Remaining: Continue RF5 request-flow work with file status, hashset, queue,
+start-upload, accept-upload, and part request sequencing under controlled peer
+fixtures before relying on public network runs.
+Blocked: none.

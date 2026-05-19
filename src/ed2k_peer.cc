@@ -99,7 +99,7 @@ std::string createFileStatusPayload(const std::string& fileHash,
   payload.append((bitfield.size() + 7) / 8, '\0');
   for (size_t i = 0; i < bitfield.size(); ++i) {
     if (bitfield[i]) {
-      payload[HASH_LENGTH + 2 + i / 8] |= static_cast<char>(0x80 >> (i & 7));
+      payload[HASH_LENGTH + 2 + i / 8] |= static_cast<char>(1u << (i & 7));
     }
   }
   return payload;
@@ -120,7 +120,7 @@ bool parseFileStatusPayload(std::vector<bool>& bitfield,
   auto raw = readBytes(payload, offset, byteCount);
   bitfield.assign(bitCount, false);
   for (size_t i = 0; i < bitCount; ++i) {
-    bitfield[i] = raw[i / 8] & static_cast<char>(0x80 >> (i & 7));
+    bitfield[i] = raw[i / 8] & static_cast<char>(1u << (i & 7));
   }
   return true;
 }

@@ -381,6 +381,7 @@ void Ed2kHelperTest::testProtocolPayloads()
   bitfield.push_back(false);
   bitfield.push_back(true);
   auto status = createFileStatusPayload(fileHash, bitfield);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)0x05, static_cast<uint8_t>(status[18]));
   std::vector<bool> parsedBitfield;
   CPPUNIT_ASSERT(parseFileStatusPayload(parsedBitfield, status, fileHash));
   CPPUNIT_ASSERT_EQUAL((size_t)3, parsedBitfield.size());

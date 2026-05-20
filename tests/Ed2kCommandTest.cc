@@ -592,11 +592,13 @@ void Ed2kCommandTest::testForceHaltDrainsIdleKadGroup()
   engine.addCommand(make_unique<Ed2kKadCommand>(engine.newCUID(), group.get(),
                                                 &engine));
   runEngineTicks(engine, 1);
-  CPPUNIT_ASSERT_EQUAL((int32_t)0, group->getNumCommand());
+  CPPUNIT_ASSERT_EQUAL((int32_t)1, group->getNumCommand());
 
   engine.getRequestGroupMan()->clearQueueCheck();
   group->setForceHaltRequested(true, RequestGroup::USER_REQUEST);
-  CPPUNIT_ASSERT(engine.getRequestGroupMan()->queueCheckRequested());
+  CPPUNIT_ASSERT(!engine.getRequestGroupMan()->queueCheckRequested());
+  runEngineTicks(engine, 1);
+  CPPUNIT_ASSERT_EQUAL((int32_t)0, group->getNumCommand());
   engine.getRequestGroupMan()->removeStoppedGroup(&engine);
   CPPUNIT_ASSERT_EQUAL((size_t)0,
                        engine.getRequestGroupMan()->countRequestGroup());

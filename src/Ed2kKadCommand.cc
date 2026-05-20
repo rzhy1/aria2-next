@@ -121,6 +121,7 @@ Ed2kKadCommand::Ed2kKadCommand(cuid_t cuid, RequestGroup* requestGroup,
       lastServerSourcePoll_(0)
 {
   setStatusRealtime();
+  requestGroup_->increaseNumCommand();
 }
 
 Ed2kKadCommand::~Ed2kKadCommand()
@@ -128,6 +129,7 @@ Ed2kKadCommand::~Ed2kKadCommand()
   if (initialized_) {
     e_->deleteSocketForReadCheck(socket_, this);
   }
+  requestGroup_->decreaseNumCommand();
 }
 
 uint16_t Ed2kKadCommand::getLocalUdpPort() const

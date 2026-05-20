@@ -24,6 +24,7 @@ RUN apt-get update && \
 WORKDIR /root/build
 COPY packaging/dependencies.env /root/build/packaging/dependencies.env
 COPY packaging/scripts/common.sh /root/build/packaging/scripts/common.sh
+COPY packaging/scripts/release-size-profile /root/build/packaging/scripts/release-size-profile
 
 RUN . packaging/dependencies.env && \
     . packaging/scripts/common.sh && \
@@ -49,16 +50,19 @@ RUN . packaging/dependencies.env && \
     curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
 
 RUN . packaging/dependencies.env && \
+    . packaging/scripts/release-size-profile android && \
     tar xf "$OPENSSL_ARCHIVE" && \
     cd "openssl-$OPENSSL_VERSION" && \
     ANDROID_NDK_HOME="$NDK" PATH="$TOOLCHAIN/bin:$PATH" \
-    ./Configure no-shared no-module no-tests --prefix="$PREFIX" android-arm64 && \
+    ./Configure no-shared no-module no-tests --prefix="$PREFIX" android-arm64 $RELEASE_CFLAGS && \
     make -j"$(nproc)" && \
     make install_sw
 
 RUN . packaging/dependencies.env && \
+    . packaging/scripts/release-size-profile android && \
     tar xf "$EXPAT_ARCHIVE" && \
     cd "expat-$EXPAT_VERSION" && \
+    CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
     ./configure \
       --host="$HOST" \
       --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" \
@@ -67,8 +71,10 @@ RUN . packaging/dependencies.env && \
     make -j"$(nproc)" install
 
 RUN . packaging/dependencies.env && \
+    . packaging/scripts/release-size-profile android && \
     tar xf "$ZLIB_ARCHIVE" && \
     cd "zlib-$ZLIB_VERSION" && \
+    CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
     ./configure \
       --prefix="$PREFIX" \
       --libdir="$PREFIX/lib" \
@@ -77,8 +83,10 @@ RUN . packaging/dependencies.env && \
     make -j"$(nproc)" install
 
 RUN . packaging/dependencies.env && \
+    . packaging/scripts/release-size-profile android && \
     tar xf "$CARES_ARCHIVE" && \
     cd "c-ares-$CARES_VERSION" && \
+    CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
     ./configure \
       --host="$HOST" \
       --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" \
@@ -87,8 +95,10 @@ RUN . packaging/dependencies.env && \
     make -j"$(nproc)" install
 
 RUN . packaging/dependencies.env && \
+    . packaging/scripts/release-size-profile android && \
     tar xf "$LIBSSH2_ARCHIVE" && \
     cd "libssh2-$LIBSSH2_VERSION" && \
+    CPPFLAGS="-I$PREFIX/include $RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
     ./configure \
       --host="$HOST" \
       --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" \
@@ -99,7 +109,8 @@ RUN . packaging/dependencies.env && \
 COPY . /root/build/aria2
 WORKDIR /root/build/aria2
 
-RUN PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" \
+RUN . packaging/scripts/release-size-profile android && \
+    PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" \
     cmake -S . -B build/release -G Ninja \
       -DCMAKE_SYSTEM_NAME=Android \
       -DCMAKE_ANDROID_NDK="$NDK" \
@@ -117,7 +128,12 @@ RUN PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" \
       -DARIA2_WITH_ZLIB=ON \
       -DARIA2_WITH_SQLITE3=OFF \
       -DARIA2_WITH_LIBSSH2=ON \
+      -DARIA2_RELEASE_SIZE_OPTIMIZED=ON \
+      -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
+      -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
+      -DCMAKE_EXE_LINKER_FLAGS="$RELEASE_LDFLAGS" \
       -DCMAKE_PREFIX_PATH="$PREFIX" && \
     cmake --build build/release -j"$(nproc)" && \
     "$STRIP" build/release/aria2-next && \
-    READELF="$TOOLCHAIN/bin/llvm-readelf" packaging/scripts/check-runtime-deps android-arm64 build/release/aria2-next
+    READELF="$TOOLCHAIN/bin/llvm-readelf" packaging/scripts/check-runtime-deps android-arm64 build/release/aria2-next && \
+    READELF="$TOOLCHAIN/bin/llvm-readelf" SIZE="$TOOLCHAIN/bin/llvm-size" packaging/scripts/size-audit android-arm64 build/release/aria2-next

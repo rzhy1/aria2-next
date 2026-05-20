@@ -229,6 +229,33 @@ endif()
 add_executable(aria2-next src/main.cc)
 target_link_libraries(aria2-next PRIVATE aria2_core)
 
+if(ARIA2_RELEASE_SIZE_OPTIMIZED)
+  foreach(target wslay aria2_core aria2-next)
+    target_compile_options(${target} PRIVATE
+      $<$<COMPILE_LANG_AND_ID:C,GNU,Clang,AppleClang>:-Os>
+      $<$<COMPILE_LANG_AND_ID:C,GNU,Clang,AppleClang>:-ffunction-sections>
+      $<$<COMPILE_LANG_AND_ID:C,GNU,Clang,AppleClang>:-fdata-sections>
+      $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Os>
+      $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-ffunction-sections>
+      $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-fdata-sections>)
+  endforeach()
+
+  if(APPLE)
+    target_link_options(aria2-next PRIVATE -Wl,-dead_strip)
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+    target_link_options(aria2-next PRIVATE -Wl,--gc-sections)
+  endif()
+endif()
+
+if(ARIA2_RELEASE_LTO)
+  check_ipo_supported(RESULT aria2_ipo_supported OUTPUT aria2_ipo_output LANGUAGES C CXX)
+  if(aria2_ipo_supported)
+    set_property(TARGET wslay aria2_core aria2-next PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  else()
+    message(WARNING "ARIA2_RELEASE_LTO requested but IPO is not supported: ${aria2_ipo_output}")
+  endif()
+endif()
+
 if(ARIA2_ENABLE_STATIC)
   if(WIN32)
     target_link_options(aria2-next PRIVATE -static -static-libgcc -static-libstdc++)

@@ -1,0 +1,42 @@
+#!/bin/sh
+set -eu
+
+platform=${1:-}
+
+if [ -z "$platform" ]; then
+  echo "Usage: $0 <linux|macos|windows|android>" >&2
+  exit 2
+fi
+
+section_flags="-Os -ffunction-sections -fdata-sections"
+
+case "$platform" in
+  linux)
+    export RELEASE_CFLAGS="$section_flags"
+    export RELEASE_LDFLAGS="-Wl,--gc-sections"
+    ;;
+  macos)
+    : "${MACOSX_VERSION_MIN:=11.0}"
+    export RELEASE_CFLAGS="-mmacosx-version-min=$MACOSX_VERSION_MIN $section_flags"
+    export RELEASE_LDFLAGS="-L${PREFIX:-/usr/local}/lib -Wl,-dead_strip"
+    ;;
+  windows)
+    export RELEASE_CFLAGS="$section_flags"
+    export RELEASE_LDFLAGS="-L${PREFIX:-/usr/local}/lib -Wl,--gc-sections"
+    ;;
+  android)
+    export RELEASE_CFLAGS="$section_flags"
+    export RELEASE_LDFLAGS="-Wl,--gc-sections"
+    ;;
+  *)
+    echo "Unknown release size profile platform: $platform" >&2
+    exit 2
+    ;;
+esac
+
+export RELEASE_CPPFLAGS="${RELEASE_CPPFLAGS:-}"
+export RELEASE_CXXFLAGS="$RELEASE_CFLAGS"
+export RELEASE_CMAKE_FLAGS="-DCMAKE_C_FLAGS=$RELEASE_CFLAGS -DCMAKE_CXX_FLAGS=$RELEASE_CXXFLAGS -DCMAKE_EXE_LINKER_FLAGS=$RELEASE_LDFLAGS -DARIA2_RELEASE_SIZE_OPTIMIZED=ON"
+
+printf 'RELEASE_CFLAGS=%s\n' "$RELEASE_CFLAGS"
+printf 'RELEASE_LDFLAGS=%s\n' "$RELEASE_LDFLAGS"

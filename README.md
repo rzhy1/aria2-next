@@ -18,7 +18,7 @@ aria2 is remarkable open source software. For over a decade it has been one of t
 
 But upstream development has slowed dramatically in recent years. Dependencies grew stale, builds broke on modern platforms, and a backlog of bugs went unaddressed. We picked up the baton: migrated the codebase to a modern build framework, triaged and fixed a substantial number of upstream issues, and introduced ED2K protocol support for the first time. A full audit trail is preserved in [`docs/maintenance/upstream-issue-review/matrix.csv`](docs/maintenance/upstream-issue-review/matrix.csv).
 
-Aria2 Next is the actively maintained aria2 engine powering Motrix Next and other aria2-compatible consumers. Original interfaces, including options, configuration, sessions, JSON-RPC, and libaria2, remain intact so downstream projects get a seamless upgrade. The focus is straightforward: release reliability, current dependency baselines, and ongoing compatibility fixes. Same engine, renewed foundation.
+Aria2 Next is an actively maintained aria2-compatible engine for everyone, and it is also the embedded engine used by [Motrix Next](https://github.com/AnInsomniacy/motrix-next). Original interfaces, including options, configuration, sessions, JSON-RPC, and libaria2, remain intact so downstream projects get a seamless upgrade. The focus is straightforward: release reliability, current dependency baselines, and ongoing compatibility fixes. Same engine, renewed foundation.
 
 ## Native ED2K/eMule Support
 

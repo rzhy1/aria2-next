@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Expected release version, with or without leading v. Leave empty to use CMakeLists.txt."
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -28,12 +33,32 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REQUESTED_VERSION: ${{ github.event.inputs.version }}
         run: |
           VERSION=$(sed -n 's/^  VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | head -n 1)
 
           if [ -z "$VERSION" ]; then
             echo "Unable to read project version from CMakeLists.txt" >&2
             exit 1
+          fi
+
+          if ! printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid CMake project version: $VERSION" >&2
+            exit 1
+          fi
+
+          if [ -n "$REQUESTED_VERSION" ]; then
+            REQUESTED_VERSION="${REQUESTED_VERSION#v}"
+
+            if ! printf '%s\n' "$REQUESTED_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "Invalid workflow_dispatch version: $REQUESTED_VERSION" >&2
+              exit 1
+            fi
+
+            if [ "$VERSION" != "$REQUESTED_VERSION" ]; then
+              echo "workflow_dispatch version $REQUESTED_VERSION does not match CMake project version $VERSION" >&2
+              exit 1
+            fi
           fi
 
           if [ "$EVENT_NAME" = "release" ]; then
@@ -922,10 +947,10 @@ jobs:
           archive: false
 
   # ---------------------------------------------------------------------------
-  # Create GitHub Release
+  # Publish or archive release assets
   # ---------------------------------------------------------------------------
   upload-release-assets:
-    name: Upload Release Assets
+    name: Publish or Archive Release Assets
     needs:
       - resolve-release
       - build-linux-x64
@@ -936,7 +961,6 @@ jobs:
       - build-windows-arm64
     runs-on: ubuntu-latest
     env:
-      RELEASE_TAG: ${{ github.event.release.tag_name }}
       VERSION: ${{ needs.resolve-release.outputs.version }}
     steps:
       - uses: actions/checkout@v6
@@ -962,6 +986,7 @@ jobs:
         if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$RELEASE_TAG" artifacts/* --clobber
 
       - name: Upload artifacts for manual validation

@@ -128,7 +128,7 @@ The audit separates confirmed fixes, already-fixed reports, documented behavior,
 
 The release workflow runs when a matching GitHub Release is published. It validates the tag against `CMakeLists.txt`, builds all maintained platform binaries, generates SHA-256 checksums, and uploads the standalone executables to the published release. Source code is provided by the GitHub release tag source archives.
 
-Tag pushes alone do not publish release builds. `workflow_dispatch` remains available for release-path validation of the current workflow commit and uploads artifacts only to the workflow run. Published GitHub Releases must use a `v{PROJECT_VERSION}` tag that matches `CMakeLists.txt`.
+Tag pushes alone do not publish release builds. `workflow_dispatch` remains available for release-path validation of the current workflow commit and uploads the final binaries and checksum file only to the workflow run artifact named `aria2-next-<version>-release-assets`. Published GitHub Releases must use a `v{PROJECT_VERSION}` tag that matches `CMakeLists.txt`.
 
 ## Dependency Baseline
 

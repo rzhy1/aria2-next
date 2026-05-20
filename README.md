@@ -6,7 +6,11 @@
 
 Aria2 Next is the maintained [aria2](https://github.com/aria2/aria2) engine for [Motrix Next](https://github.com/AnInsomniacy/motrix-next) and other aria2-compatible consumers. It keeps the original aria2 option, configuration, session, JSON-RPC, and libaria2 interfaces intact while publishing current, reproducible, portable builds.
 
-Maintenance focuses on cross-platform release reliability, dependency baselines, compatibility fixes, and a preserved audit of upstream issue history in [`docs/maintenance/issue-review-matrix.csv`](docs/maintenance/issue-review-matrix.csv).
+Maintenance focuses on cross-platform release reliability, dependency baselines, compatibility fixes, and a preserved audit of upstream issue history in [`docs/maintenance/upstream-issue-review/matrix.csv`](docs/maintenance/upstream-issue-review/matrix.csv).
+
+## Native ED2K/eMule Support
+
+Aria2 Next includes native ED2K/eMule support reimplemented inside aria2's existing engine architecture from authoritative eMule, aMule, MLDonkey, Wireshark, and protocol documentation references. The reference-alignment work is tracked in [`docs/maintenance/ed2k-refactor/`](docs/maintenance/ed2k-refactor/). Core ED2K/eMule behavior has been ported where it fits aria2-next, while obsolete legacy structures were removed or replaced with existing compatible integration surfaces.
 
 ## What This Repository Provides
 

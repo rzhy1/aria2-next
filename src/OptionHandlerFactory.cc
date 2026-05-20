@@ -187,6 +187,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     OptionHandler* op(new DefaultOptionHandler(PREF_ED2K_SERVER,
                                                TEXT_ED2K_SERVER));
     op->addTag(TAG_ADVANCED);
+    op->addTag(TAG_ED2K);
     op->setInitialOption(true);
     op->setChangeOptionForReserved(true);
     handlers.push_back(op);
@@ -195,6 +196,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     OptionHandler* op(new LocalFilePathOptionHandler(
         PREF_ED2K_SERVER_LIST, TEXT_ED2K_SERVER_LIST, NO_DEFAULT_VALUE));
     op->addTag(TAG_ADVANCED);
+    op->addTag(TAG_ED2K);
     op->setInitialOption(true);
     op->setChangeOptionForReserved(true);
     handlers.push_back(op);
@@ -203,6 +205,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     OptionHandler* op(new LocalFilePathOptionHandler(
         PREF_ED2K_NODE_LIST, TEXT_ED2K_NODE_LIST, NO_DEFAULT_VALUE));
     op->addTag(TAG_ADVANCED);
+    op->addTag(TAG_ED2K);
     op->setInitialOption(true);
     op->setChangeOptionForReserved(true);
     handlers.push_back(op);
@@ -212,6 +215,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
         PREF_ED2K_LISTEN_PORT, TEXT_ED2K_LISTEN_PORT, "4662", 0,
         UINT16_MAX));
     op->addTag(TAG_ADVANCED);
+    op->addTag(TAG_ED2K);
     op->setInitialOption(true);
     handlers.push_back(op);
   }
@@ -219,6 +223,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     OptionHandler* op(new NumberOptionHandler(
         PREF_ED2K_UPLOAD_SLOTS, TEXT_ED2K_UPLOAD_SLOTS, "3", 1));
     op->addTag(TAG_ADVANCED);
+    op->addTag(TAG_ED2K);
     op->setInitialOption(true);
     handlers.push_back(op);
   }
@@ -227,6 +232,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
         PREF_ED2K_SHARE_FILE, TEXT_ED2K_SHARE_FILE, NO_DEFAULT_VALUE, "\n",
         PATH_TO_FILE));
     op->addTag(TAG_ADVANCED);
+    op->addTag(TAG_ED2K);
     op->setInitialOption(true);
     op->setCumulative(true);
     handlers.push_back(op);

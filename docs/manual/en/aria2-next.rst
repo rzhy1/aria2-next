@@ -3,7 +3,7 @@ aria2-next(1)
 
 SYNOPSIS
 --------
-**aria2-next** [<OPTIONS>] [<URI>|<MAGNET>|<TORRENT_FILE>|<METALINK_FILE>] ...
+**aria2-next** [<OPTIONS>] [<URI>|<MAGNET>|<ED2K_LINK>|<TORRENT_FILE>|<METALINK_FILE>] ...
 
 DESCRIPTION
 -----------
@@ -16,6 +16,12 @@ download bandwidth. It supports downloading a file from HTTP(S)/FTP
 HTTP(S)/FTP/SFTP is uploaded to the BitTorrent swarm. Using Metalink
 chunk checksums, aria2 automatically validates chunks of data while
 downloading a file.
+
+Aria2 Next includes native ED2K/eMule support reimplemented inside aria2's
+existing engine architecture from authoritative eMule, aMule, MLDonkey,
+Wireshark, and protocol documentation references. Core ED2K/eMule behavior has
+been ported where it fits aria2-next, while obsolete legacy structures were
+removed or replaced with existing compatible integration surfaces.
 
 OPTIONS
 -------
@@ -104,8 +110,9 @@ Basic Options
    options tagged with ``#http``. If non-tag word is given, print the
    usage for the options whose name includes that word.  Available
    Values: ``#basic``, ``#advanced``, ``#http``, ``#https``, ``#ftp``,
-   ``#metalink``, ``#bittorrent``, ``#cookie``, ``#hook``, ``#file``, ``#rpc``,
-   ``#checksum``, ``#experimental``, ``#deprecated``, ``#help``, ``#all``
+   ``#metalink``, ``#bittorrent``, ``#ed2k``, ``#cookie``, ``#hook``, ``#file``,
+   ``#rpc``, ``#checksum``, ``#experimental``, ``#deprecated``, ``#help``,
+   ``#all``
    Default: ``#basic``
 
 HTTP/FTP/SFTP Options
@@ -683,12 +690,8 @@ ED2K Specific Options
 
   .. note::
 
-    ED2K support includes native file links, server source discovery, Source
-    Exchange, Kad bootstrap/source/search discovery, compressed part decoding,
-    MD4 part verification, AICH metadata exchange and recovery data, local
-    sharing, upload queues, and peer credits. Save-session preserves ED2K link
-    metadata, learned sources, learned hashsets, server state, Kad routing
-    state, shared-file state, and peer credit state.
+    ED2K support is native to aria2-next and uses existing compatible
+    integration surfaces for downloads, search, sharing, and saved sessions.
 
 BitTorrent Specific Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3649,6 +3652,7 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
      'jsonrpc': '2.0',
      'result': {'enabledFeatures': ['Async DNS',
                                       'BitTorrent',
+                                      'ED2K',
                                       'Firefox3 Cookie',
                                       'GZip',
                                       'HTTPS',
@@ -3667,6 +3671,7 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
     >>> pprint(r)
     {'enabledFeatures': ['Async DNS',
                          'BitTorrent',
+                         'ED2K',
                          'Firefox3 Cookie',
                          'GZip',
                          'HTTPS',

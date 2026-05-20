@@ -131,6 +131,10 @@ const char* strSupportedFeature(int feature)
 #endif // !ENABLE_BITTORRENT
     break;
 
+  case (FEATURE_ED2K):
+    return "ED2K";
+    break;
+
   case (FEATURE_FF3_COOKIE):
 #ifdef HAVE_SQLITE3
     return "Firefox3 Cookie";

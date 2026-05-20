@@ -64,6 +64,8 @@ void FeatureConfigTest::testFeatureSummary()
       "BitTorrent",
 #endif // ENABLE_BITTORRENT
 
+      "ED2K",
+
 #ifdef HAVE_SQLITE3
       "Firefox3 Cookie",
 #endif // HAVE_SQLITE3

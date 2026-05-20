@@ -47,6 +47,7 @@ uint16_t getDefaultPort(const std::string& protocol);
 enum FeatureType {
   FEATURE_ASYNC_DNS,
   FEATURE_BITTORRENT,
+  FEATURE_ED2K,
   FEATURE_FF3_COOKIE,
   FEATURE_GZIP,
   FEATURE_HTTPS,

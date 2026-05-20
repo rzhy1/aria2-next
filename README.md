@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/media/aria2-next-icon.png" alt="Aria2 Next icon" width="144" height="144" />
   <h1>Aria2 Next</h1>
-  <p>Maintained aria2 fork with extensive bug fixes, modernized architecture, full compatibility, and reliable cross-platform releases.</p>
+  <p>Maintained aria2 fork with extensive bug fixes and modernized architecture.</p>
 
 [![CI](https://github.com/AnInsomniacy/aria2-next/actions/workflows/ci.yml/badge.svg)](https://github.com/AnInsomniacy/aria2-next/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AnInsomniacy/aria2-next.svg)](https://github.com/AnInsomniacy/aria2-next/releases)
@@ -18,7 +18,7 @@ aria2 is remarkable open source software. For over a decade it has been one of t
 
 But upstream development has slowed dramatically in recent years. Dependencies grew stale, builds broke on modern platforms, and a backlog of bugs went unaddressed. We picked up the baton: migrated the codebase to a modern build framework, triaged and fixed a substantial number of upstream issues, and introduced ED2K protocol support for the first time. A full audit trail is preserved in [`docs/maintenance/upstream-issue-review/matrix.csv`](docs/maintenance/upstream-issue-review/matrix.csv).
 
-Aria2 Next is the actively maintained aria2 engine powering Motrix Next and other aria2-compatible consumers. All original interfaces, including options, configuration, sessions, JSON-RPC, and libaria2, remain intact so downstream projects get a seamless upgrade. We ship current, reproducible, portable builds that work across platforms out of the box. The focus is straightforward: release reliability, current dependency baselines, and ongoing compatibility fixes. Same engine, renewed foundation.
+Aria2 Next is the actively maintained aria2 engine powering Motrix Next and other aria2-compatible consumers. Original interfaces, including options, configuration, sessions, JSON-RPC, and libaria2, remain intact so downstream projects get a seamless upgrade. The focus is straightforward: release reliability, current dependency baselines, and ongoing compatibility fixes. Same engine, renewed foundation.
 
 ## Native ED2K/eMule Support
 

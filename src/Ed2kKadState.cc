@@ -371,6 +371,11 @@ size_t KadRoutingTable::replacementSize() const
   return size;
 }
 
+size_t KadRoutingTable::usefulSize() const
+{
+  return liveSize() + replacementSize();
+}
+
 size_t KadRoutingTable::bucketIndex(const std::string& id) const
 {
   validateId(id);

@@ -806,6 +806,8 @@ ed2k::KadRoutingSnapshot createEd2kKadSnapshot(const Ed2kAttribute* attrs)
   ed2k::KadRoutingSnapshot snapshot = attrs->kadRoutingTable->snapshot();
   snapshot.lastFirewalledCheck = attrs->lastKadFirewalledCheck;
   snapshot.lastSourcePublish = attrs->lastKadSourcePublish;
+  snapshot.lastSourceSearch = attrs->lastKadSourceSearch;
+  snapshot.sourceSearchCount = attrs->kadSourceSearchCount;
   snapshot.observedAddresses = attrs->kadObservedAddresses;
   snapshot.firewalled = attrs->kadFirewalled;
   return snapshot;
@@ -816,8 +818,41 @@ void restoreEd2kKadOperationalState(Ed2kAttribute* attrs,
 {
   attrs->lastKadFirewalledCheck = snapshot.lastFirewalledCheck;
   attrs->lastKadSourcePublish = snapshot.lastSourcePublish;
+  attrs->lastKadSourceSearch = snapshot.lastSourceSearch;
+  attrs->kadSourceSearchCount = snapshot.sourceSearchCount;
   attrs->kadObservedAddresses = snapshot.observedAddresses;
   attrs->kadFirewalled = snapshot.firewalled;
+}
+
+bool shouldStartEd2kKadSourceSearch(const Ed2kAttribute* attrs, int64_t now)
+{
+  if (!attrs || attrs->link.hash.empty() || !attrs->kadRoutingTable ||
+      attrs->kadRoutingTable->usefulSize() == 0) {
+    return false;
+  }
+  constexpr size_t MAX_SOURCES_PER_FILE_UDP = 50;
+  if (attrs->peerStates.size() >= MAX_SOURCES_PER_FILE_UDP) {
+    return false;
+  }
+  if (attrs->kadSourceTraversal && !attrs->kadSourceTraversal->done()) {
+    return false;
+  }
+  const auto count = std::max<uint32_t>(
+      1, std::min<uint32_t>(attrs->kadSourceSearchCount, 7));
+  const auto delay = static_cast<int64_t>(3600) * count;
+  return attrs->lastKadSourceSearch == 0 ||
+         now >= attrs->lastKadSourceSearch + delay;
+}
+
+void markEd2kKadSourceSearchStarted(Ed2kAttribute* attrs, int64_t now)
+{
+  if (!attrs) {
+    return;
+  }
+  if (attrs->kadSourceSearchCount < 7) {
+    ++attrs->kadSourceSearchCount;
+  }
+  attrs->lastKadSourceSearch = now;
 }
 
 } // namespace aria2

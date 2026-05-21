@@ -27,7 +27,7 @@ namespace ed2k {
 namespace {
 
 constexpr char KAD_ROUTING_STATE_MAGIC[] = "A2ED2KKAD";
-constexpr uint32_t KAD_ROUTING_STATE_VERSION = 2;
+constexpr uint32_t KAD_ROUTING_STATE_VERSION = 3;
 
 void validateHashLength(const std::string& hash)
 {
@@ -402,6 +402,8 @@ std::string createKadRoutingStatePayload(const KadRoutingSnapshot& snapshot)
   appendInt64(payload, snapshot.lastSelfRefresh);
   appendInt64(payload, snapshot.lastFirewalledCheck);
   appendInt64(payload, snapshot.lastSourcePublish);
+  appendInt64(payload, snapshot.lastSourceSearch);
+  payload += packUInt32(snapshot.sourceSearchCount);
   appendByte(payload, snapshot.firewalled ? 1 : 0);
   payload += packUInt16(
       static_cast<uint16_t>(snapshot.observedAddresses.size()));
@@ -444,6 +446,11 @@ bool parseKadRoutingStatePayload(KadRoutingSnapshot& snapshot,
     if (version >= 2) {
       parsed.lastFirewalledCheck = readInt64(payload, offset);
       parsed.lastSourcePublish = readInt64(payload, offset);
+      if (version >= 3) {
+        parsed.lastSourceSearch = readInt64(payload, offset);
+        parsed.sourceSearchCount =
+            readUInt32(readBytes(payload, offset, 4).data());
+      }
       parsed.firewalled = readByte(payload, offset) != 0;
       const auto observedCount =
           readUInt16(readBytes(payload, offset, 2).data());

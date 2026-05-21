@@ -421,11 +421,9 @@ void Ed2kKadCommand::queueTraversalActions(
 
 void Ed2kKadCommand::queueSourceSearch()
 {
-  if (sourceSearchSent_) {
-    return;
-  }
   auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
-  if (!attrs->kadRoutingTable || attrs->kadRoutingTable->liveSize() == 0) {
+  const auto now = nowSeconds();
+  if (!shouldStartEd2kKadSourceSearch(attrs, now)) {
     return;
   }
   auto contacts = attrs->kadRoutingTable->findClosest(attrs->link.hash, 8, true);
@@ -438,6 +436,7 @@ void Ed2kKadCommand::queueSourceSearch()
   queueTraversalActions(*attrs->kadSourceTraversal,
                         attrs->kadSourceTraversal->start(contacts));
   sourceSearchSent_ = true;
+  markEd2kKadSourceSearchStarted(attrs, now);
 }
 
 void Ed2kKadCommand::queueKeywordSearch()

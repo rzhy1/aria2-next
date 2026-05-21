@@ -138,3 +138,34 @@ the CSV parser check passed. A socket-heavy server flow test exposed a hanging
 fixture path and was not used as the AR30 gate.
 
 Remaining: Start AR40 Kad discovery cadence.
+
+### AR40 - Kad Discovery Cadence
+
+Changed: Added durable Kad source-search cadence state and removed the command
+lifetime one-shot source-search gate as the effective policy owner. Low-source
+files can now start repeated bounded Kad source searches when routing state is
+usable, with increasing hourly backoff capped at seven searches. Active Kad
+source traversal and source-count limits suppress duplicate or low-value
+searches. Kad routing snapshots now persist last source-search time and search
+count alongside the existing publish, firewall, observed-address, router-node,
+and bucket state.
+
+Reference evidence: aMule `CPartFile::Process` starts Kad source search when
+the file has fewer than the UDP source limit, Kad is connected, the global
+`KADEMLIAASKTIME` gate allows another file request, and the per-file
+`m_LastSearchTimeKad` deadline has passed. aMule increases the per-file delay
+with `KADEMLIAREASKTIME` and caps the multiplier after several searches.
+
+Current-code evidence: `src/Ed2kAttribute.*` now owns Kad source-search due and
+started helpers. `src/Ed2kKadCommand.cc` uses that policy before creating a new
+source traversal. `src/Ed2kKadState.*` exposes useful routing size.
+`src/ed2k_kad.cc` persists the new Kad source-search metadata.
+
+Verified: `cmake --build --preset default --target aria2_tests` passed. Focused
+CppUnit paths `Ed2kKadStateTest::testKadSourceSearchCadence`,
+`Ed2kKadStateTest::testRoutingBootstrapAndRefresh`,
+`Ed2kHelperTest::testKadRoutingStatePayload`, and
+`SessionSerializerTest::testSaveEd2kDownload` passed. `git diff --check` and
+the CSV parser check passed.
+
+Remaining: Start AR50 peer lifecycle state machine.

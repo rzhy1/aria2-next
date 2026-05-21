@@ -195,6 +195,8 @@ void SessionSerializerTest::testSaveEd2kDownload()
       std::make_shared<ed2k::KadRoutingTable>(attrs->link.hash);
   attrs->lastKadFirewalledCheck = 500;
   attrs->lastKadSourcePublish = 600;
+  attrs->lastKadSourceSearch = 700;
+  attrs->kadSourceSearchCount = 3;
   attrs->kadFirewalled = false;
   attrs->kadObservedAddresses.push_back("203.0.113.55");
   ed2k::ServerState serverState;
@@ -254,6 +256,8 @@ void SessionSerializerTest::testSaveEd2kDownload()
       restoredKad, util::fromHex(kadValue.begin(), kadValue.end())));
   CPPUNIT_ASSERT_EQUAL((int64_t)500, restoredKad.lastFirewalledCheck);
   CPPUNIT_ASSERT_EQUAL((int64_t)600, restoredKad.lastSourcePublish);
+  CPPUNIT_ASSERT_EQUAL((int64_t)700, restoredKad.lastSourceSearch);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)3, restoredKad.sourceSearchCount);
   CPPUNIT_ASSERT(!restoredKad.firewalled);
   CPPUNIT_ASSERT_EQUAL((size_t)1, restoredKad.observedAddresses.size());
   CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.55"),

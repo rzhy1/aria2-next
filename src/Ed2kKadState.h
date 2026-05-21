@@ -52,6 +52,8 @@ struct KadRoutingSnapshot {
   int64_t lastSelfRefresh = 0;
   int64_t lastFirewalledCheck = 0;
   int64_t lastSourcePublish = 0;
+  int64_t lastSourceSearch = 0;
+  uint32_t sourceSearchCount = 0;
   std::vector<std::string> observedAddresses;
   bool firewalled = true;
 };
@@ -100,6 +102,7 @@ public:
   void restore(const KadRoutingSnapshot& snapshot);
   size_t liveSize() const;
   size_t replacementSize() const;
+  size_t usefulSize() const;
 
 private:
   struct Bucket {

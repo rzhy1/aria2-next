@@ -2,6 +2,7 @@
 
 #include <cppunit/extensions/HelperMacros.h>
 
+#include "Ed2kAttribute.h"
 #include "ed2k_constants.h"
 #include "util.h"
 
@@ -15,6 +16,7 @@ class Ed2kKadStateTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testRoutingFindClosestAndSnapshot);
   CPPUNIT_TEST(testRoutingFindClosestExcludesRequester);
   CPPUNIT_TEST(testRoutingBootstrapAndRefresh);
+  CPPUNIT_TEST(testKadSourceSearchCadence);
   CPPUNIT_TEST(testTraversalContinuesBeforeSearch);
   CPPUNIT_TEST(testExpiredTransactionCarriesContactForFailure);
   CPPUNIT_TEST(testTransactionCompletionMatchesTarget);
@@ -26,6 +28,7 @@ public:
   void testRoutingFindClosestAndSnapshot();
   void testRoutingFindClosestExcludesRequester();
   void testRoutingBootstrapAndRefresh();
+  void testKadSourceSearchCadence();
   void testTraversalContinuesBeforeSearch();
   void testExpiredTransactionCarriesContactForFailure();
   void testTransactionCompletionMatchesTarget();
@@ -160,6 +163,41 @@ void Ed2kKadStateTest::testRoutingBootstrapAndRefresh()
   CPPUNIT_ASSERT(table.needRefresh(target, 200));
   CPPUNIT_ASSERT_EQUAL(self, target);
   CPPUNIT_ASSERT(!table.needRefresh(target, 210));
+}
+
+void Ed2kKadStateTest::testKadSourceSearchCadence()
+{
+  Ed2kAttribute attrs;
+  attrs.link.hash = hashFromHex("0123456789abcdef0123456789abcdef");
+  attrs.kadRoutingTable =
+      std::make_shared<KadRoutingTable>(
+          hashFromHex("00000000000000000000000000000000"));
+
+  CPPUNIT_ASSERT(!shouldStartEd2kKadSourceSearch(&attrs, 100));
+
+  auto seed = contactFromHex("11111111111111111111111111111111",
+                             "203.0.113.1", 4672);
+  attrs.kadRoutingTable->heardAbout(seed, 100);
+  CPPUNIT_ASSERT(shouldStartEd2kKadSourceSearch(&attrs, 100));
+
+  markEd2kKadSourceSearchStarted(&attrs, 100);
+  CPPUNIT_ASSERT_EQUAL((int64_t)100, attrs.lastKadSourceSearch);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)1, attrs.kadSourceSearchCount);
+  CPPUNIT_ASSERT(!shouldStartEd2kKadSourceSearch(&attrs, 3699));
+  CPPUNIT_ASSERT(shouldStartEd2kKadSourceSearch(&attrs, 3700));
+
+  attrs.kadSourceTraversal = make_unique<KadTraversal>(
+      KadTraversalKind::SOURCE_LOOKUP, attrs.link.hash, 12345);
+  CPPUNIT_ASSERT(!shouldStartEd2kKadSourceSearch(&attrs, 3700));
+  attrs.kadSourceTraversal.reset();
+
+  markEd2kKadSourceSearchStarted(&attrs, 3700);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)2, attrs.kadSourceSearchCount);
+  CPPUNIT_ASSERT(!shouldStartEd2kKadSourceSearch(&attrs, 10899));
+  CPPUNIT_ASSERT(shouldStartEd2kKadSourceSearch(&attrs, 10900));
+
+  attrs.peerStates.resize(50);
+  CPPUNIT_ASSERT(!shouldStartEd2kKadSourceSearch(&attrs, 20000));
 }
 
 void Ed2kKadStateTest::testTraversalContinuesBeforeSearch()

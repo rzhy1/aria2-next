@@ -52,6 +52,8 @@ struct Ed2kAttribute : public ContextAttribute {
   std::unique_ptr<ed2k::KadTraversal> kadKeywordTraversal;
   int64_t lastKadFirewalledCheck = 0;
   int64_t lastKadSourcePublish = 0;
+  int64_t lastKadSourceSearch = 0;
+  uint32_t kadSourceSearchCount = 0;
   std::vector<std::string> kadObservedAddresses;
   bool kadFirewalled = true;
   size_t nextServerIndex = 0;
@@ -150,6 +152,8 @@ void schedulePendingEd2kPeers(RequestGroup* requestGroup, DownloadEngine* e);
 ed2k::KadRoutingSnapshot createEd2kKadSnapshot(const Ed2kAttribute* attrs);
 void restoreEd2kKadOperationalState(Ed2kAttribute* attrs,
                                     const ed2k::KadRoutingSnapshot& snapshot);
+bool shouldStartEd2kKadSourceSearch(const Ed2kAttribute* attrs, int64_t now);
+void markEd2kKadSourceSearchStarted(Ed2kAttribute* attrs, int64_t now);
 
 } // namespace aria2
 

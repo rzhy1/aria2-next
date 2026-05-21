@@ -62,6 +62,10 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kSourceExchangeMergePolicy);
   CPPUNIT_TEST(testEd2kSourcePolicyRanksSources);
   CPPUNIT_TEST(testEd2kSourcePolicyClassifiesLifecycle);
+  CPPUNIT_TEST(testEd2kPeerActionPolicySelectsConnect);
+  CPPUNIT_TEST(testEd2kPeerActionPolicyReportsQueuedReask);
+  CPPUNIT_TEST(testEd2kPeerActionPolicyHandlesCallbackAndExpiry);
+  CPPUNIT_TEST(testEd2kConnectPolicyIgnoresNonConnectActions);
   CPPUNIT_TEST(testEd2kSourcePolicyExpiresDeadSources);
   CPPUNIT_TEST(testEd2kSourcePolicyAppliesActiveCap);
   CPPUNIT_TEST(testEd2kServerSourceCadencePolicy);
@@ -113,6 +117,10 @@ public:
   void testEd2kSourceExchangeMergePolicy();
   void testEd2kSourcePolicyRanksSources();
   void testEd2kSourcePolicyClassifiesLifecycle();
+  void testEd2kPeerActionPolicySelectsConnect();
+  void testEd2kPeerActionPolicyReportsQueuedReask();
+  void testEd2kPeerActionPolicyHandlesCallbackAndExpiry();
+  void testEd2kConnectPolicyIgnoresNonConnectActions();
   void testEd2kSourcePolicyExpiresDeadSources();
   void testEd2kSourcePolicyAppliesActiveCap();
   void testEd2kServerSourceCadencePolicy();
@@ -706,6 +714,95 @@ void DownloadHelperTest::testEd2kSourcePolicyClassifiesLifecycle()
                        ed2k::classifyPeerLifecycle(peer, 160));
 }
 
+void DownloadHelperTest::testEd2kPeerActionPolicySelectsConnect()
+{
+  std::vector<ed2k::PeerState> peers(2);
+  peers[0].endpoint.host = "203.0.113.10";
+  peers[0].endpoint.port = 4662;
+  peers[0].sourceFlags = ed2k::PEER_SOURCE_EXCHANGE;
+  peers[0].failCount = 1;
+  peers[1].endpoint.host = "203.0.113.11";
+  peers[1].endpoint.port = 4662;
+  peers[1].sourceFlags = ed2k::PEER_SOURCE_SERVER;
+
+  auto action = ed2k::selectPeerAction(peers, 100, 1);
+
+  CPPUNIT_ASSERT_EQUAL(ed2k::PeerActionType::CONNECT, action.type);
+  CPPUNIT_ASSERT(action.peer);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.11"), action.peer->endpoint.host);
+  action.peer->connecting = true;
+
+  action = ed2k::selectPeerAction(peers, 100, 1);
+  CPPUNIT_ASSERT_EQUAL(ed2k::PeerActionType::WAIT, action.type);
+  CPPUNIT_ASSERT(!action.peer);
+}
+
+void DownloadHelperTest::testEd2kPeerActionPolicyReportsQueuedReask()
+{
+  std::vector<ed2k::PeerState> peers(1);
+  peers[0].endpoint.host = "203.0.113.10";
+  peers[0].endpoint.port = 4662;
+  peers[0].queued = true;
+  peers[0].queueRank = 12;
+
+  auto action = ed2k::selectPeerAction(peers, 100, 1);
+
+  CPPUNIT_ASSERT_EQUAL(ed2k::PeerActionType::REASK, action.type);
+  CPPUNIT_ASSERT(action.peer);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)12, action.peer->queueRank);
+}
+
+void DownloadHelperTest::testEd2kPeerActionPolicyHandlesCallbackAndExpiry()
+{
+  std::vector<ed2k::PeerState> peers(3);
+  peers[0].endpoint.host = "203.0.113.10";
+  peers[0].endpoint.port = 4662;
+  peers[0].lowId = true;
+  peers[0].callbackRequested = true;
+  peers[0].clientId = 42;
+  peers[1].endpoint.host = "203.0.113.11";
+  peers[1].endpoint.port = 4662;
+  peers[1].dead = true;
+  peers[1].nextRetryTime = 120;
+  peers[2].endpoint.host = "203.0.113.12";
+  peers[2].endpoint.port = 4662;
+  peers[2].noFile = true;
+
+  auto action = ed2k::selectPeerAction(peers, 100, 1);
+  CPPUNIT_ASSERT_EQUAL(ed2k::PeerActionType::CALLBACK, action.type);
+  CPPUNIT_ASSERT(action.peer);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)42, action.peer->clientId);
+
+  peers[0].callbackRequested = false;
+  peers[0].callbackImpossible = true;
+  action = ed2k::selectPeerAction(peers, 130, 1);
+  CPPUNIT_ASSERT_EQUAL(ed2k::PeerActionType::RETRY, action.type);
+  CPPUNIT_ASSERT(action.peer);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.11"), action.peer->endpoint.host);
+}
+
+void DownloadHelperTest::testEd2kConnectPolicyIgnoresNonConnectActions()
+{
+  std::vector<ed2k::PeerState> peers(3);
+  peers[0].endpoint.host = "203.0.113.10";
+  peers[0].endpoint.port = 4662;
+  peers[0].queued = true;
+  peers[0].queueRank = 1;
+  peers[1].endpoint.host = "203.0.113.11";
+  peers[1].endpoint.port = 4662;
+  peers[1].lowId = true;
+  peers[1].callbackRequested = true;
+  peers[2].endpoint.host = "203.0.113.12";
+  peers[2].endpoint.port = 4662;
+  peers[2].dead = true;
+  peers[2].nextRetryTime = 100;
+
+  auto selected = ed2k::selectConnectPeer(peers, 130, 1);
+
+  CPPUNIT_ASSERT(selected);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.12"), selected->endpoint.host);
+}
+
 void DownloadHelperTest::testEd2kSourcePolicyExpiresDeadSources()
 {
   Ed2kAttribute attrs;
@@ -746,14 +843,19 @@ void DownloadHelperTest::testEd2kSourcePolicyAppliesActiveCap()
 
   auto selected = ed2k::selectConnectPeer(attrs.peerStates, 100, 1);
   CPPUNIT_ASSERT(selected);
-  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.12"), selected->endpoint.host);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.10"), selected->endpoint.host);
   selected->connecting = true;
   selected = ed2k::selectConnectPeer(attrs.peerStates, 100, 1);
   CPPUNIT_ASSERT(!selected);
 
+  auto action = ed2k::selectPeerAction(attrs.peerStates, 100, 1);
+  CPPUNIT_ASSERT_EQUAL(ed2k::PeerActionType::REASK, action.type);
+  CPPUNIT_ASSERT(action.peer);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.12"), action.peer->endpoint.host);
+
   selected = ed2k::selectConnectPeer(attrs.peerStates, 100, 2);
   CPPUNIT_ASSERT(selected);
-  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.10"), selected->endpoint.host);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.11"), selected->endpoint.host);
 }
 
 void DownloadHelperTest::testEd2kServerSourceCadencePolicy()

@@ -66,8 +66,8 @@ bool canConnect(const PeerState& peer, int64_t now)
   if (peer.lowId && (peer.callbackRequested || peer.callbackImpossible)) {
     return false;
   }
-  if (peer.connecting || peer.accepted || peer.noFile || peer.cancelled ||
-      peer.outOfParts) {
+  if (peer.connecting || peer.accepted || peer.queued || peer.noFile ||
+      peer.cancelled || peer.outOfParts) {
     return false;
   }
   if (!retryReady(peer, now)) {
@@ -80,8 +80,24 @@ bool countsAgainstActiveCap(const PeerState& peer, int64_t now)
 {
   const auto lifecycle = classifyPeerLifecycle(peer, now);
   return lifecycle == PeerLifecycle::CONNECTING ||
-         lifecycle == PeerLifecycle::DOWNLOADING ||
-         lifecycle == PeerLifecycle::RETRYING;
+         lifecycle == PeerLifecycle::DOWNLOADING;
+}
+
+bool betterConnectCandidate(const PeerState& peer, const PeerState& selected)
+{
+  if (peer.failCount != selected.failCount) {
+    return peer.failCount < selected.failCount;
+  }
+  const auto priority = sourcePriority(peer.sourceFlags);
+  const auto selectedPriority = sourcePriority(selected.sourceFlags);
+  if (priority != selectedPriority) {
+    return priority > selectedPriority;
+  }
+  if (selected.queued != peer.queued) {
+    return peer.queued;
+  }
+  return peer.queueRank != 0 &&
+         (selected.queueRank == 0 || peer.queueRank < selected.queueRank);
 }
 
 bool retryDue(const ServerState& server, int64_t now)
@@ -117,6 +133,11 @@ PeerState* selectConnectPeer(std::vector<PeerState>& peers, int64_t now)
   return selectConnectPeer(peers, now, 0);
 }
 
+PeerAction selectPeerAction(std::vector<PeerState>& peers, int64_t now)
+{
+  return selectPeerAction(peers, now, 0);
+}
+
 PeerLifecycle classifyPeerLifecycle(const PeerState& peer, int64_t now)
 {
   if (peer.cancelled) {
@@ -147,48 +168,97 @@ PeerLifecycle classifyPeerLifecycle(const PeerState& peer, int64_t now)
   return PeerLifecycle::USEFUL;
 }
 
+PeerAction selectPeerAction(std::vector<PeerState>& peers, int64_t now,
+                            size_t activeSourceCap)
+{
+  PeerState* connectPeer = nullptr;
+  PeerState* retryPeer = nullptr;
+  PeerState* reaskPeer = nullptr;
+  PeerState* callbackPeer = nullptr;
+  PeerState* expirePeer = nullptr;
+  size_t active = 0;
+
+  for (auto& peer : peers) {
+    const auto lifecycle = classifyPeerLifecycle(peer, now);
+    if (lifecycle == PeerLifecycle::CONNECTING ||
+        lifecycle == PeerLifecycle::DOWNLOADING) {
+      ++active;
+    }
+    switch (lifecycle) {
+    case PeerLifecycle::USEFUL:
+      if (canConnect(peer, now) &&
+          (!connectPeer || betterConnectCandidate(peer, *connectPeer))) {
+        connectPeer = &peer;
+      }
+      break;
+    case PeerLifecycle::QUEUED:
+      if (!reaskPeer || betterConnectCandidate(peer, *reaskPeer)) {
+        reaskPeer = &peer;
+      }
+      break;
+    case PeerLifecycle::CALLBACK_WAITING:
+      if (!callbackPeer) {
+        callbackPeer = &peer;
+      }
+      break;
+    case PeerLifecycle::RETRYING:
+      if (canConnect(peer, now) &&
+          (!retryPeer || betterConnectCandidate(peer, *retryPeer))) {
+        retryPeer = &peer;
+      }
+      if (!expirePeer) {
+        expirePeer = &peer;
+      }
+      break;
+    case PeerLifecycle::DEAD:
+      break;
+    case PeerLifecycle::CONNECTING:
+    case PeerLifecycle::DOWNLOADING:
+    case PeerLifecycle::NO_NEEDED_PARTS:
+    case PeerLifecycle::NO_FILE:
+    case PeerLifecycle::CANCELLED:
+      break;
+    }
+  }
+
+  const bool canStartActive =
+      activeSourceCap == 0 || active < activeSourceCap;
+  if (canStartActive && connectPeer) {
+    return PeerAction{PeerActionType::CONNECT, connectPeer};
+  }
+  if (canStartActive && retryPeer) {
+    return PeerAction{PeerActionType::RETRY, retryPeer};
+  }
+  if (reaskPeer) {
+    return PeerAction{PeerActionType::REASK, reaskPeer};
+  }
+  if (callbackPeer) {
+    return PeerAction{PeerActionType::CALLBACK, callbackPeer};
+  }
+  if (expirePeer) {
+    return PeerAction{PeerActionType::EXPIRE, expirePeer};
+  }
+  return PeerAction{};
+}
+
 PeerState* selectConnectPeer(std::vector<PeerState>& peers, int64_t now,
                              size_t activeSourceCap)
 {
+  size_t active = 0;
   PeerState* selected = nullptr;
-  if (activeSourceCap > 0) {
-    size_t active = 0;
-    for (const auto& peer : peers) {
-      if (countsAgainstActiveCap(peer, now)) {
-        ++active;
-      }
-    }
-    if (active >= activeSourceCap) {
-      return nullptr;
-    }
-  }
   for (auto& peer : peers) {
+    if (countsAgainstActiveCap(peer, now)) {
+      ++active;
+    }
     if (!canConnect(peer, now)) {
       continue;
     }
-    if (!selected) {
-      selected = &peer;
-      continue;
-    }
-    if (peer.failCount != selected->failCount) {
-      if (peer.failCount < selected->failCount) {
-        selected = &peer;
-      }
-      continue;
-    }
-    if (sourcePriority(peer.sourceFlags) >
-        sourcePriority(selected->sourceFlags)) {
-      selected = &peer;
-      continue;
-    }
-    if (selected->queued != peer.queued && peer.queued) {
-      selected = &peer;
-      continue;
-    }
-    if (peer.queueRank != 0 &&
-        (selected->queueRank == 0 || peer.queueRank < selected->queueRank)) {
+    if (!selected || betterConnectCandidate(peer, *selected)) {
       selected = &peer;
     }
+  }
+  if (activeSourceCap > 0 && active >= activeSourceCap) {
+    return nullptr;
   }
   return selected;
 }

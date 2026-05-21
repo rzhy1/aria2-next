@@ -169,3 +169,37 @@ CppUnit paths `Ed2kKadStateTest::testKadSourceSearchCadence`,
 the CSV parser check passed.
 
 Remaining: Start AR50 peer lifecycle state machine.
+
+### AR50 - Peer Lifecycle State Machine
+
+Changed: Added an explicit ED2K peer action policy on top of the existing
+peer lifecycle classification. `ed2k_policy.*` now returns wait, connect,
+reask, callback, retry, skip, or expire actions instead of exposing only the
+next connectable peer. Peer scheduling in `Ed2kAttribute.cc` consumes this
+policy and only spawns TCP peer commands for connect or retry outcomes. Queued
+reask and callback outcomes are now deterministic policy boundaries for AR60
+and AR70 without changing network behavior early.
+
+Reference evidence: aMule keeps peer download state separate from connection
+creation in `CPartFile::Process` and `CUpDownClient`: queued, downloading,
+no-needed-parts, LowID callback wait, error/dead, connecting, and retry-like
+states each drive different runtime actions. Queued peers are maintained for
+UDP reask instead of being treated as ordinary connect candidates.
+
+Current-code evidence: `src/ed2k_policy.*` owns `PeerActionType` and
+`selectPeerAction`. `src/Ed2kAttribute.cc` schedules only connect/retry
+actions. Existing `PeerState` storage remains unchanged, preserving session
+compatibility while centralizing the decision layer.
+
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+Focused CppUnit paths
+`DownloadHelperTest::testEd2kPeerActionPolicySelectsConnect`,
+`DownloadHelperTest::testEd2kPeerActionPolicyReportsQueuedReask`,
+`DownloadHelperTest::testEd2kPeerActionPolicyHandlesCallbackAndExpiry`,
+`DownloadHelperTest::testEd2kConnectPolicyIgnoresNonConnectActions`,
+`DownloadHelperTest::testEd2kSourcePolicyClassifiesLifecycle`,
+`DownloadHelperTest::testEd2kSourcePolicyAppliesActiveCap`,
+`DownloadHelperTest::testEd2kPeerSchedulingSkipsBackoff`, and
+`DownloadHelperTest::testEd2kPeerSchedulingSkipsConnectingPeer` passed.
+
+Remaining: Start AR60 queued-peer UDP reask.

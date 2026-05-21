@@ -45,8 +45,29 @@ enum class PeerLifecycle {
   CANCELLED
 };
 
+enum class PeerActionType {
+  WAIT,
+  CONNECT,
+  REASK,
+  CALLBACK,
+  RETRY,
+  SKIP,
+  EXPIRE
+};
+
+struct PeerAction {
+  PeerAction() = default;
+  PeerAction(PeerActionType type, PeerState* peer) : type(type), peer(peer) {}
+
+  PeerActionType type = PeerActionType::WAIT;
+  PeerState* peer = nullptr;
+};
+
 int sourcePriority(uint32_t sourceFlags);
 PeerLifecycle classifyPeerLifecycle(const PeerState& peer, int64_t now);
+PeerAction selectPeerAction(std::vector<PeerState>& peers, int64_t now);
+PeerAction selectPeerAction(std::vector<PeerState>& peers, int64_t now,
+                            size_t activeSourceCap);
 PeerState* selectConnectPeer(std::vector<PeerState>& peers, int64_t now);
 PeerState* selectConnectPeer(std::vector<PeerState>& peers, int64_t now,
                              size_t activeSourceCap);

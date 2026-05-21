@@ -789,7 +789,12 @@ void schedulePendingEd2kPeers(RequestGroup* requestGroup, DownloadEngine* e)
   expireEd2kDeadSources(attrs, now);
   while (requestGroup->getNumStreamCommand() <
          requestGroup->getNumConcurrentCommand()) {
-    auto state = ed2k::selectConnectPeer(attrs->peerStates, now);
+    auto action = ed2k::selectPeerAction(attrs->peerStates, now);
+    if (action.type != ed2k::PeerActionType::CONNECT &&
+        action.type != ed2k::PeerActionType::RETRY) {
+      return;
+    }
+    auto state = action.peer;
     if (!state) {
       return;
     }

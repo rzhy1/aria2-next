@@ -53,6 +53,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCreateRequestGroupForUri);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2K);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KClientHash);
+  CPPUNIT_TEST(testCreateEd2kSearchRequestGroupClientHash);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KNodesDat);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KServerMetMetadata);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KKadRoutingState);
@@ -79,6 +80,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kKadCommandAckForUploadingPeerReask);
   CPPUNIT_TEST(testEd2kSourcePolicyAppliesActiveCap);
   CPPUNIT_TEST(testEd2kServerSourceCadencePolicy);
+  CPPUNIT_TEST(testEd2kServerSearchCadencePolicy);
   CPPUNIT_TEST(testEd2kPiecePolicyUsesPeerAvailability);
   CPPUNIT_TEST(testEd2kPiecePolicyReclaimsIdlePeerSegment);
   CPPUNIT_TEST(testEd2kPeerTransferRemovesCompletedRequestedRanges);
@@ -118,6 +120,7 @@ public:
   void testCreateRequestGroupForUri();
   void testCreateRequestGroupForUri_ED2K();
   void testCreateRequestGroupForUri_ED2KClientHash();
+  void testCreateEd2kSearchRequestGroupClientHash();
   void testCreateRequestGroupForUri_ED2KNodesDat();
   void testCreateRequestGroupForUri_ED2KServerMetMetadata();
   void testCreateRequestGroupForUri_ED2KKadRoutingState();
@@ -144,6 +147,7 @@ public:
   void testEd2kKadCommandAckForUploadingPeerReask();
   void testEd2kSourcePolicyAppliesActiveCap();
   void testEd2kServerSourceCadencePolicy();
+  void testEd2kServerSearchCadencePolicy();
   void testEd2kPiecePolicyUsesPeerAvailability();
   void testEd2kPiecePolicyReclaimsIdlePeerSegment();
   void testEd2kPeerTransferRemovesCompletedRequestedRanges();
@@ -297,6 +301,23 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2KClientHash()
   auto attrs = getEd2kAttrs(result[0]->getDownloadContext());
   CPPUNIT_ASSERT_EQUAL(std::string("01020304050e0708090a0b0c0d0e6f10"),
                        util::toHex(attrs->clientHash));
+}
+
+void DownloadHelperTest::testCreateEd2kSearchRequestGroupClientHash()
+{
+  option_->put(PREF_ED2K_CLIENT_HASH,
+               "0102030405060708090a0b0c0d0e0f10");
+  option_->put(PREF_ED2K_SERVER, "203.0.113.10:4661");
+  ed2k::SearchQuery query;
+  query.keyword = "test";
+
+  auto group = createEd2kSearchRequestGroup(query, option_);
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+
+  CPPUNIT_ASSERT(attrs->searchActive);
+  CPPUNIT_ASSERT_EQUAL(std::string("01020304050e0708090a0b0c0d0e6f10"),
+                       util::toHex(attrs->clientHash));
+  CPPUNIT_ASSERT(attrs->link.hash.empty());
 }
 
 void DownloadHelperTest::testCreateRequestGroupForUri_ED2KNodesDat()
@@ -1281,6 +1302,36 @@ void DownloadHelperTest::testEd2kServerSourceCadencePolicy()
   failed.nextRetryTime = 1200;
   CPPUNIT_ASSERT(!ed2k::serverUdpSourceRequestDue(failed, attrs.link.size,
                                                   1000));
+}
+
+void DownloadHelperTest::testEd2kServerSearchCadencePolicy()
+{
+  auto attrs = std::make_shared<Ed2kAttribute>();
+  attrs->searchActive = true;
+  ed2k::Endpoint server;
+  server.host = "203.0.113.10";
+  server.port = 4661;
+  attrs->servers.push_back(server);
+  attrs->serverStates.push_back(ed2k::ServerState());
+  attrs->serverStates[0].endpoint = server;
+  attrs->serverStates[0].handshakeCompleted = true;
+  attrs->serverStates[0].nextSourceRequestTime = 0;
+  attrs->serverStates[0].lastSourceResponseTime = 1000;
+  attrs->serverStates[0].lastSourceCount = 2;
+
+  auto option = std::make_shared<Option>(*option_);
+  auto dctx = std::make_shared<DownloadContext>(
+      ed2k::PIECE_LENGTH, 0, "/tmp/aria2-next-ed2k-search-test");
+  dctx->setAttribute(CTX_ATTR_ED2K, attrs);
+  auto group = std::make_shared<RequestGroup>(GroupId::create(), option);
+  group->setDownloadContext(dctx);
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option.get());
+
+  std::vector<std::unique_ptr<Command>> commands;
+  schedulePendingEd2kServers(commands, group.get(), &engine);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, commands.size());
 }
 
 void DownloadHelperTest::testEd2kPiecePolicyUsesPeerAvailability()

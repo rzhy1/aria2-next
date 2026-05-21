@@ -1084,7 +1084,8 @@ void schedulePendingEd2kServers(std::vector<std::unique_ptr<Command>>& commands,
     if (state->connected) {
       continue;
     }
-    if (!ed2k::serverTcpSourceRequestDue(*state, attrs->link.size, now)) {
+    if (!attrs->searchActive &&
+        !ed2k::serverTcpSourceRequestDue(*state, attrs->link.size, now)) {
       continue;
     }
     updateEd2kServerConnecting(attrs, server);

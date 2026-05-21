@@ -442,6 +442,7 @@ createEd2kSearchRequestGroup(const ed2k::SearchQuery& query,
   attrs->link.type = ed2k::LinkType::FILE;
   attrs->link.name = query.keyword;
   attrs->link.size = 0;
+  attrs->clientHash = getOrCreateEd2kClientHash(option.get());
   attrs->serverStates = createEd2kServerStates(option);
   addOptionEd2kServers(attrs->servers, attrs->serverStates, option);
   addEd2kServerStateEndpoints(attrs->servers, attrs->serverStates);

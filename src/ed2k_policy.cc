@@ -13,15 +13,20 @@
 #include "ed2k_policy.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 
 #include "Segment.h"
 #include "SegmentMan.h"
+#include "ed2k_constants.h"
 #include "ed2k_hash.h"
 #include "ed2k_link.h"
 
 namespace aria2 {
 
 namespace ed2k {
+
+constexpr int64_t SERVER_FRESH_SOURCE_RESPONSE_INTERVAL = 300;
 
 int sourcePriority(uint32_t sourceFlags)
 {
@@ -77,6 +82,33 @@ bool countsAgainstActiveCap(const PeerState& peer, int64_t now)
   return lifecycle == PeerLifecycle::CONNECTING ||
          lifecycle == PeerLifecycle::DOWNLOADING ||
          lifecycle == PeerLifecycle::RETRYING;
+}
+
+bool retryDue(const ServerState& server, int64_t now)
+{
+  return server.nextRetryTime == 0 || server.nextRetryTime <= now;
+}
+
+bool supportsTcpFileSize(const ServerState& server, int64_t fileSize)
+{
+  return fileSize <= static_cast<int64_t>(std::numeric_limits<uint32_t>::max()) ||
+         (server.tcpFlags & SRV_TCPFLG_LARGEFILES) != 0;
+}
+
+bool supportsUdpFileSize(const ServerState& server, int64_t fileSize)
+{
+  if (fileSize <= static_cast<int64_t>(std::numeric_limits<uint32_t>::max())) {
+    return true;
+  }
+  return (server.udpFlags & SRV_UDPFLG_EXT_GETSOURCES2) != 0 &&
+         (server.udpFlags & SRV_UDPFLG_LARGEFILES) != 0;
+}
+
+bool sourceResponseFresh(const ServerState& server, int64_t now)
+{
+  return server.lastSourceCount != 0 && server.lastSourceResponseTime != 0 &&
+         now - server.lastSourceResponseTime <
+             SERVER_FRESH_SOURCE_RESPONSE_INTERVAL;
 }
 } // namespace
 
@@ -159,6 +191,42 @@ PeerState* selectConnectPeer(std::vector<PeerState>& peers, int64_t now,
     }
   }
   return selected;
+}
+
+bool serverTcpSourceRequestDue(const ServerState& server, int64_t fileSize,
+                               int64_t now)
+{
+  if (server.connecting || server.connected || !retryDue(server, now)) {
+    return false;
+  }
+  if (!server.handshakeCompleted) {
+    return true;
+  }
+  if (!supportsTcpFileSize(server, fileSize)) {
+    return false;
+  }
+  if (sourceResponseFresh(server, now)) {
+    return false;
+  }
+  return server.nextSourceRequestTime != 0 &&
+         server.nextSourceRequestTime <= now;
+}
+
+bool serverUdpSourceRequestDue(const ServerState& server, int64_t fileSize,
+                               int64_t now)
+{
+  if (!server.handshakeCompleted || !retryDue(server, now) ||
+      sourceResponseFresh(server, now) ||
+      !supportsUdpFileSize(server, fileSize)) {
+    return false;
+  }
+  if ((server.udpFlags & (SRV_UDPFLG_EXT_GETSOURCES |
+                          SRV_UDPFLG_EXT_GETSOURCES2)) == 0) {
+    return false;
+  }
+  return server.lastUdpSourceRequestTime == 0 ||
+         now - server.lastUdpSourceRequestTime >=
+             SERVER_UDP_SOURCE_REASK_INTERVAL;
 }
 
 std::vector<std::shared_ptr<Segment>>

@@ -125,6 +125,15 @@ void updateEd2kServerIdent(Ed2kAttribute* attrs,
 void updateEd2kServerSourceRequestTime(Ed2kAttribute* attrs,
                                        const ed2k::Endpoint& server,
                                        int64_t nextTime);
+void markEd2kServerTcpSourceRequestSent(Ed2kAttribute* attrs,
+                                        const ed2k::Endpoint& server,
+                                        int64_t now);
+void markEd2kServerUdpSourceRequestSent(Ed2kAttribute* attrs,
+                                        const ed2k::Endpoint& server,
+                                        int64_t now);
+void updateEd2kServerSourceResponse(Ed2kAttribute* attrs,
+                                    const ed2k::Endpoint& server,
+                                    size_t sourceCount, int64_t now);
 void markEd2kServerSourceRequestFinished(Ed2kAttribute* attrs,
                                          const ed2k::Endpoint& server);
 void updateEd2kServerFailure(Ed2kAttribute* attrs,

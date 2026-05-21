@@ -35,6 +35,7 @@
 #include "ed2k_kad_search.h"
 #include "ed2k_packet.h"
 #include "ed2k_peer.h"
+#include "ed2k_policy.h"
 #include "ed2k_search.h"
 #include "ed2k_server.h"
 #include "fmt.h"
@@ -65,7 +66,6 @@ ed2k::Endpoint toEndpoint(const ed2k::KadContact& contact)
 }
 
 constexpr int64_t SERVER_STATUS_POLL_INTERVAL = 45;
-constexpr int64_t SERVER_SOURCE_POLL_INTERVAL = 20;
 constexpr int64_t FIREWALLED_CHECK_INTERVAL = 3600;
 constexpr int64_t SOURCE_PUBLISH_INTERVAL = 1800;
 
@@ -221,22 +221,14 @@ void Ed2kKadCommand::queueServerSourcePoll()
     return;
   }
   const auto now = nowSeconds();
-  if (lastServerSourcePoll_ != 0 &&
-      now - lastServerSourcePoll_ < SERVER_SOURCE_POLL_INTERVAL) {
-    return;
-  }
   for (const auto& server : attrs->servers) {
     auto state = getEd2kServerState(attrs, server);
-    if (!state || !state->handshakeCompleted || server.port > 65531) {
+    if (!state || server.port > 65531 ||
+        !ed2k::serverUdpSourceRequestDue(*state, attrs->link.size, now)) {
       continue;
     }
     const bool extGetSources2 =
         (state->udpFlags & ed2k::SRV_UDPFLG_EXT_GETSOURCES2) != 0;
-    if (attrs->link.size > std::numeric_limits<uint32_t>::max() &&
-        (!extGetSources2 ||
-         (state->udpFlags & ed2k::SRV_UDPFLG_LARGEFILES) == 0)) {
-      continue;
-    }
     queueEd2kUdpPacket(
         serverUdpEndpoint(server),
         extGetSources2 ? ed2k::OP_GLOBGETSOURCES2
@@ -245,6 +237,7 @@ void Ed2kKadCommand::queueServerSourcePoll()
                                           extGetSources2));
     A2_LOG_DEBUG(fmt("Queued ED2K UDP source request to %s:%u.",
                      server.host.c_str(), server.port + 4));
+    markEd2kServerUdpSourceRequestSent(attrs, server, now);
   }
   lastServerSourcePoll_ = now;
 }
@@ -569,6 +562,13 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
     }
     const auto added =
         mergeEd2kServerSources(attrs, sources, ed2k::PEER_SOURCE_SERVER);
+    if (endpoint.port >= 4) {
+      ed2k::Endpoint server;
+      server.host = endpoint.host;
+      server.port = endpoint.port - 4;
+      updateEd2kServerSourceResponse(attrs, server, sources.size(),
+                                     nowSeconds());
+    }
     if (added != 0) {
       A2_LOG_INFO(fmt("ED2K UDP server %s:%u returned %lu source(s).",
                       endpoint.host.c_str(), endpoint.port,

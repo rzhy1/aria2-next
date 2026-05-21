@@ -14,6 +14,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <limits>
 
 #include "DownloadContext.h"
 #include "DownloadEngine.h"
@@ -598,6 +600,41 @@ void updateEd2kServerSourceRequestTime(Ed2kAttribute* attrs,
   state->nextSourceRequestTime = nextTime;
 }
 
+void markEd2kServerTcpSourceRequestSent(Ed2kAttribute* attrs,
+                                        const ed2k::Endpoint& server,
+                                        int64_t now)
+{
+  auto state = getEd2kServerState(attrs, server);
+  if (!state) {
+    return;
+  }
+  state->nextSourceRequestTime = now + ed2k::SERVER_TCP_SOURCE_REASK_INTERVAL;
+}
+
+void markEd2kServerUdpSourceRequestSent(Ed2kAttribute* attrs,
+                                        const ed2k::Endpoint& server,
+                                        int64_t now)
+{
+  auto state = getEd2kServerState(attrs, server);
+  if (!state) {
+    return;
+  }
+  state->lastUdpSourceRequestTime = now;
+}
+
+void updateEd2kServerSourceResponse(Ed2kAttribute* attrs,
+                                    const ed2k::Endpoint& server,
+                                    size_t sourceCount, int64_t now)
+{
+  auto state = getEd2kServerState(attrs, server);
+  if (!state) {
+    return;
+  }
+  state->lastSourceResponseTime = now;
+  state->lastSourceCount = static_cast<uint32_t>(
+      std::min<size_t>(sourceCount, std::numeric_limits<uint32_t>::max()));
+}
+
 void markEd2kServerSourceRequestFinished(Ed2kAttribute* attrs,
                                          const ed2k::Endpoint& server)
 {
@@ -734,12 +771,7 @@ void schedulePendingEd2kServers(std::vector<std::unique_ptr<Command>>& commands,
     if (state->connected) {
       continue;
     }
-    if (state->handshakeCompleted &&
-        (state->nextSourceRequestTime == 0 ||
-         state->nextSourceRequestTime > now)) {
-      continue;
-    }
-    if (state->nextRetryTime > 0 && state->nextRetryTime > now) {
+    if (!ed2k::serverTcpSourceRequestDue(*state, attrs->link.size, now)) {
       continue;
     }
     updateEd2kServerConnecting(attrs, server);

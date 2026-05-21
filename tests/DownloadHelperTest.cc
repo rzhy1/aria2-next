@@ -64,6 +64,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kSourcePolicyClassifiesLifecycle);
   CPPUNIT_TEST(testEd2kSourcePolicyExpiresDeadSources);
   CPPUNIT_TEST(testEd2kSourcePolicyAppliesActiveCap);
+  CPPUNIT_TEST(testEd2kServerSourceCadencePolicy);
   CPPUNIT_TEST(testEd2kPiecePolicyUsesPeerAvailability);
   CPPUNIT_TEST(testEd2kPiecePolicyReclaimsIdlePeerSegment);
   CPPUNIT_TEST(testEd2kPeerTransferIgnoresDuplicateData);
@@ -114,6 +115,7 @@ public:
   void testEd2kSourcePolicyClassifiesLifecycle();
   void testEd2kSourcePolicyExpiresDeadSources();
   void testEd2kSourcePolicyAppliesActiveCap();
+  void testEd2kServerSourceCadencePolicy();
   void testEd2kPiecePolicyUsesPeerAvailability();
   void testEd2kPiecePolicyReclaimsIdlePeerSegment();
   void testEd2kPeerTransferIgnoresDuplicateData();
@@ -752,6 +754,63 @@ void DownloadHelperTest::testEd2kSourcePolicyAppliesActiveCap()
   selected = ed2k::selectConnectPeer(attrs.peerStates, 100, 2);
   CPPUNIT_ASSERT(selected);
   CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.10"), selected->endpoint.host);
+}
+
+void DownloadHelperTest::testEd2kServerSourceCadencePolicy()
+{
+  Ed2kAttribute attrs;
+  attrs.link.size = 100;
+
+  ed2k::ServerState fresh;
+  fresh.endpoint.host = "203.0.113.10";
+  fresh.endpoint.port = 4661;
+  fresh.handshakeCompleted = true;
+  fresh.nextSourceRequestTime = 1000;
+  fresh.lastSourceResponseTime = 930;
+  fresh.lastSourceCount = 2;
+  attrs.serverStates.push_back(fresh);
+
+  ed2k::ServerState unknownLargeServer;
+  unknownLargeServer.endpoint.host = "203.0.113.9";
+  unknownLargeServer.endpoint.port = 4661;
+  CPPUNIT_ASSERT(ed2k::serverTcpSourceRequestDue(
+      unknownLargeServer,
+      static_cast<int64_t>(std::numeric_limits<uint32_t>::max()) + 1, 950));
+
+  CPPUNIT_ASSERT(!ed2k::serverTcpSourceRequestDue(attrs.serverStates[0],
+                                                  attrs.link.size, 950));
+  CPPUNIT_ASSERT(!ed2k::serverTcpSourceRequestDue(attrs.serverStates[0],
+                                                  attrs.link.size, 1000));
+
+  attrs.serverStates[0].lastSourceCount = 0;
+  attrs.serverStates[0].lastSourceResponseTime = 600;
+  CPPUNIT_ASSERT(ed2k::serverTcpSourceRequestDue(attrs.serverStates[0],
+                                                 attrs.link.size, 1000));
+
+  ed2k::ServerState udp = attrs.serverStates[0];
+  udp.endpoint.port = 4665;
+  udp.udpFlags = ed2k::SRV_UDPFLG_EXT_GETSOURCES;
+  CPPUNIT_ASSERT(ed2k::serverUdpSourceRequestDue(udp, attrs.link.size, 1000));
+
+  udp.lastUdpSourceRequestTime = 990;
+  CPPUNIT_ASSERT(!ed2k::serverUdpSourceRequestDue(udp, attrs.link.size, 1000));
+
+  udp.lastUdpSourceRequestTime = 0;
+  udp.udpFlags = 0;
+  CPPUNIT_ASSERT(!ed2k::serverUdpSourceRequestDue(udp, attrs.link.size, 1000));
+
+  udp.udpFlags = ed2k::SRV_UDPFLG_EXT_GETSOURCES2;
+  attrs.link.size =
+      static_cast<int64_t>(std::numeric_limits<uint32_t>::max()) + 1;
+  CPPUNIT_ASSERT(!ed2k::serverUdpSourceRequestDue(udp, attrs.link.size, 1000));
+
+  udp.udpFlags |= ed2k::SRV_UDPFLG_LARGEFILES;
+  CPPUNIT_ASSERT(ed2k::serverUdpSourceRequestDue(udp, attrs.link.size, 1000));
+
+  ed2k::ServerState failed = udp;
+  failed.nextRetryTime = 1200;
+  CPPUNIT_ASSERT(!ed2k::serverUdpSourceRequestDue(failed, attrs.link.size,
+                                                  1000));
 }
 
 void DownloadHelperTest::testEd2kPiecePolicyUsesPeerAvailability()

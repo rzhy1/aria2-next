@@ -20,6 +20,7 @@
 
 #include "Command.h"
 #include "ed2k_peer.h"
+#include "ed2k_server.h"
 
 namespace aria2 {
 
@@ -27,6 +28,9 @@ class Segment;
 class SegmentMan;
 
 namespace ed2k {
+
+constexpr int64_t SERVER_TCP_SOURCE_REASK_INTERVAL = 800;
+constexpr int64_t SERVER_UDP_SOURCE_REASK_INTERVAL = 1300;
 
 enum class PeerLifecycle {
   USEFUL,
@@ -46,6 +50,10 @@ PeerLifecycle classifyPeerLifecycle(const PeerState& peer, int64_t now);
 PeerState* selectConnectPeer(std::vector<PeerState>& peers, int64_t now);
 PeerState* selectConnectPeer(std::vector<PeerState>& peers, int64_t now,
                              size_t activeSourceCap);
+bool serverTcpSourceRequestDue(const ServerState& server, int64_t fileSize,
+                               int64_t now);
+bool serverUdpSourceRequestDue(const ServerState& server, int64_t fileSize,
+                               int64_t now);
 std::vector<std::shared_ptr<Segment>>
 selectRequestSegments(SegmentMan* segmentMan, cuid_t cuid,
                       const std::vector<bool>& peerAvailability,

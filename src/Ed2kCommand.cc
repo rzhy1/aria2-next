@@ -121,12 +121,11 @@ bool isFileRequestPayloadForHash(const std::string& payload,
          payload.compare(0, ed2k::HASH_LENGTH, expectedHash) == 0;
 }
 
-int64_t nextServerSourceRequestTime()
+int64_t nowSeconds()
 {
   return std::chrono::duration_cast<std::chrono::seconds>(
              global::wallclock().getTime().time_since_epoch())
-             .count() +
-         60;
+      .count();
 }
 
 void storeAichRecoverySet(Ed2kAttribute* attrs,
@@ -812,14 +811,12 @@ void Ed2kCommand::handleServerPacket()
                       getCuid(), endpoint_.host.c_str(), endpoint_.port,
                       util::toHex(attrs->link.hash).c_str()));
       if (!queueGetSources()) {
-        updateEd2kServerSourceRequestTime(attrs, endpoint_,
-                                          nextServerSourceRequestTime());
+        markEd2kServerTcpSourceRequestSent(attrs, endpoint_, nowSeconds());
         markEd2kServerSourceRequestFinished(attrs, endpoint_);
         state_ = State::DONE;
         return;
       }
-      updateEd2kServerSourceRequestTime(attrs, endpoint_,
-                                        nextServerSourceRequestTime());
+      markEd2kServerTcpSourceRequestSent(attrs, endpoint_, nowSeconds());
     }
     state_ = State::WRITE;
     return;
@@ -833,6 +830,7 @@ void Ed2kCommand::handleServerPacket()
       A2_LOG_INFO(fmt("CUID#%" PRId64
                       " - ED2K server %s:%u returned unusable sources.",
                       getCuid(), endpoint_.host.c_str(), endpoint_.port));
+      updateEd2kServerSourceResponse(attrs, endpoint_, 0, nowSeconds());
       markEd2kServerSourceRequestFinished(attrs, endpoint_);
       state_ = State::DONE;
       return;
@@ -856,6 +854,8 @@ void Ed2kCommand::handleServerPacket()
                     " - ED2K server %s:%u returned %lu source(s).",
                     getCuid(), endpoint_.host.c_str(), endpoint_.port,
                     static_cast<unsigned long>(sources.size())));
+    updateEd2kServerSourceResponse(attrs, endpoint_, sources.size(),
+                                   nowSeconds());
     schedulePendingPeers();
     markEd2kServerSourceRequestFinished(attrs, endpoint_);
     state_ = outbox_.empty() ? State::DONE : State::WRITE;

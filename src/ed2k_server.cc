@@ -27,7 +27,7 @@ namespace ed2k {
 namespace {
 
 constexpr char SERVER_STATE_MAGIC[] = "A2ED2KSRV";
-constexpr uint32_t SERVER_STATE_VERSION = 3;
+constexpr uint32_t SERVER_STATE_VERSION = 4;
 
 constexpr uint8_t SERVER_TAG_NAME = 0x01;
 constexpr uint8_t SERVER_TAG_DESCRIPTION = 0x0b;
@@ -625,6 +625,9 @@ std::string createServerStatePayload(const ServerState& state)
   payload += packUInt32(state.udpStatusChallenge);
   appendInt64(payload, state.lastUdpStatusTime);
   appendInt64(payload, state.nextSourceRequestTime);
+  appendInt64(payload, state.lastSourceResponseTime);
+  payload += packUInt32(state.lastSourceCount);
+  appendInt64(payload, state.lastUdpSourceRequestTime);
   payload += packUInt32(state.failCount);
   appendInt64(payload, state.lastFailureTime);
   appendInt64(payload, state.nextRetryTime);
@@ -675,6 +678,12 @@ bool parseServerStatePayload(ServerState& state, const std::string& payload)
     parsed.lastUdpStatusTime = readInt64(payload, offset);
     if (version >= 2) {
       parsed.nextSourceRequestTime = readInt64(payload, offset);
+    }
+    if (version >= 4) {
+      parsed.lastSourceResponseTime = readInt64(payload, offset);
+      parsed.lastSourceCount =
+          readUInt32(readBytes(payload, offset, 4).data());
+      parsed.lastUdpSourceRequestTime = readInt64(payload, offset);
     }
     parsed.failCount = readUInt32(readBytes(payload, offset, 4).data());
     parsed.lastFailureTime = readInt64(payload, offset);

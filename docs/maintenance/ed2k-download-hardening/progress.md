@@ -105,3 +105,36 @@ Focused CppUnit paths
 `DownloadHelperTest::testEd2kSourcePolicyRanksSources` passed.
 
 Remaining: Start AR30 server discovery cadence.
+
+### AR30 - Server Discovery Cadence
+
+Changed: Replaced the previous noisy server source polling model with bounded
+server-source cadence state. TCP source requests now record an aMule-style
+800 second next-request horizon after `OP_GETSOURCES`. Server UDP source
+requests now use per-server timestamps, require usable UDP source capability
+flags, respect large-file support, and avoid globally polling every 20 seconds.
+Server source responses now record response time and source count so recently
+useful servers are not immediately re-polled. The new metadata is persisted in
+the ED2K server-state payload.
+
+Reference evidence: aMule defines `SERVERREASKTIME` as 800000 ms and
+`UDPSERVERREASKTIME` as 1300000 ms. `CPartFile::Process` queues local TCP
+source requests only after `SERVERREASKTIME`, while `CDownloadQueue::Process`
+and `SendNextUDPPacket` drive UDP source requests through a bounded server/file
+queue using UDP flags and large-file support.
+
+Current-code evidence: `src/ed2k_policy.*` owns deterministic TCP and UDP
+source-request due checks. `src/Ed2kCommand.cc` marks TCP source sends and
+records TCP responses. `src/Ed2kKadCommand.cc` gates UDP source requests on the
+policy helper and records UDP response usefulness. `src/ed2k_server.*` persists
+source-response time, source count, and UDP source request time.
+
+Verified: `cmake --build --preset default --target aria2_tests` passed. Focused
+CppUnit paths `DownloadHelperTest::testEd2kServerSourceCadencePolicy`,
+`DownloadHelperTest::testEd2kServerStateUpdate`,
+`Ed2kHelperTest::testServerStatePayload`, and
+`SessionSerializerTest::testSaveEd2kDownload` passed. `git diff --check` and
+the CSV parser check passed. A socket-heavy server flow test exposed a hanging
+fixture path and was not used as the AR30 gate.
+
+Remaining: Start AR40 Kad discovery cadence.

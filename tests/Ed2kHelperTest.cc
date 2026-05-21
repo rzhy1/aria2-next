@@ -1472,6 +1472,9 @@ void Ed2kHelperTest::testServerStatePayload()
   state.udpStatusChallenge = 0x55aa0011;
   state.lastUdpStatusTime = 120;
   state.nextSourceRequestTime = 180;
+  state.lastSourceResponseTime = 200;
+  state.lastSourceCount = 3;
+  state.lastUdpSourceRequestTime = 210;
   state.failCount = 2;
   state.lastFailureTime = 100;
   state.nextRetryTime = 160;
@@ -1504,6 +1507,9 @@ void Ed2kHelperTest::testServerStatePayload()
   CPPUNIT_ASSERT_EQUAL((uint32_t)0x55aa0011, parsed.udpStatusChallenge);
   CPPUNIT_ASSERT_EQUAL((int64_t)120, parsed.lastUdpStatusTime);
   CPPUNIT_ASSERT_EQUAL((int64_t)180, parsed.nextSourceRequestTime);
+  CPPUNIT_ASSERT_EQUAL((int64_t)200, parsed.lastSourceResponseTime);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)3, parsed.lastSourceCount);
+  CPPUNIT_ASSERT_EQUAL((int64_t)210, parsed.lastUdpSourceRequestTime);
   CPPUNIT_ASSERT_EQUAL((uint32_t)2, parsed.failCount);
   CPPUNIT_ASSERT_EQUAL((int64_t)100, parsed.lastFailureTime);
   CPPUNIT_ASSERT_EQUAL((int64_t)160, parsed.nextRetryTime);
@@ -1516,9 +1522,12 @@ void Ed2kHelperTest::testServerStatePayload()
   v1Payload.erase(sizeof("A2ED2KSRV") - 1 + 4 + 2 + server.host.size() + 2 +
                   2 + 4 + 1 + 2 + state.ipAddress.size() + 4 + 4 + 4 + 4 +
                   4 + 4 + 4 + 4 + 2 + 2 + 4 + 4 + 8,
-                  8);
+                  8 + 4 + 8 + 8);
   CPPUNIT_ASSERT(parseServerStatePayload(parsed, v1Payload));
   CPPUNIT_ASSERT_EQUAL((int64_t)0, parsed.nextSourceRequestTime);
+  CPPUNIT_ASSERT_EQUAL((int64_t)0, parsed.lastSourceResponseTime);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0, parsed.lastSourceCount);
+  CPPUNIT_ASSERT_EQUAL((int64_t)0, parsed.lastUdpSourceRequestTime);
   CPPUNIT_ASSERT(parsed.name.empty());
   CPPUNIT_ASSERT(parsed.description.empty());
 

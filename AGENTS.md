@@ -163,6 +163,8 @@ If the release has been publicly consumed, do not delete the release, delete the
 
 Use the smallest verification set that covers the changed surface, then expand when changes touch shared build logic, platform probes, or packaging.
 
+When a Python environment is needed, use `source /opt/anaconda3/etc/profile.d/conda.sh && conda activate global`. Non-interactive shells may not have `conda` on `PATH`, so plain `conda activate global` can fail even though the environment exists.
+
 Normal source or CMake changes require:
 
 ```bash

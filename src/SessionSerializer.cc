@@ -292,6 +292,11 @@ bool writeDownloadResult(IOFile& fp, std::set<a2_gid_t>& metainfoCache,
           !writeOptionLine(fp, PREF_PAUSE, A2_V_TRUE)) {
         return false;
       }
+      if (!attrs->clientHash.empty() &&
+          !writeOptionLine(fp, PREF_ED2K_CLIENT_HASH,
+                           util::toHex(attrs->clientHash))) {
+        return false;
+      }
       if (attrs->kadRoutingTable) {
         const auto state = util::toHex(ed2k::createKadRoutingStatePayload(
             createEd2kKadSnapshot(attrs)));

@@ -28,6 +28,7 @@ namespace aria2 {
 
 class Command;
 class DownloadEngine;
+class Option;
 class RequestGroup;
 
 class DownloadContext;
@@ -38,6 +39,7 @@ struct Ed2kAttribute : public ContextAttribute {
   std::vector<ed2k::ServerState> serverStates;
   std::vector<ed2k::Endpoint> peers;
   std::vector<ed2k::PeerState> peerStates;
+  std::string clientHash;
   std::vector<std::string> pieceHashes;
   std::string aichRootHash;
   std::vector<ed2k::AichRecoverySet> aichRecoverySets;
@@ -72,6 +74,9 @@ size_t mergeEd2kSourceExchangePeers(
     const ed2k::Endpoint& remotePeer);
 ed2k::PeerState* getEd2kPeerState(Ed2kAttribute* attrs,
                                   const ed2k::Endpoint& peer);
+std::string normalizeEd2kClientHash(std::string clientHash);
+std::string createEd2kClientHash();
+std::string getOrCreateEd2kClientHash(Option* option);
 bool markEd2kPeerQueued(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
                         uint16_t rank,
                         const std::vector<bool>& partStatus);

@@ -264,6 +264,14 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
   }
   {
     OptionHandler* op(new DefaultOptionHandler(
+        PREF_ED2K_CLIENT_HASH, NO_DESCRIPTION, NO_DEFAULT_VALUE));
+    op->setInitialOption(true);
+    op->setChangeOptionForReserved(true);
+    op->hide();
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new DefaultOptionHandler(
         PREF_ED2K_KAD_ROUTING_STATE, NO_DESCRIPTION, NO_DEFAULT_VALUE));
     op->setInitialOption(true);
     op->setChangeOptionForReserved(true);

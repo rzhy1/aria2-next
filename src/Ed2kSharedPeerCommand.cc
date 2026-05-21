@@ -16,6 +16,7 @@
 
 #include "DlRetryEx.h"
 #include "DownloadEngine.h"
+#include "Ed2kAttribute.h"
 #include "Ed2kSharedResponder.h"
 #include "Ed2kSharedStore.h"
 #include "Ed2kUploadQueue.h"
@@ -36,20 +37,6 @@
 namespace aria2 {
 
 namespace {
-
-std::string clientHash(const DownloadEngine* e)
-{
-  auto id = e->getSessionId();
-  if (id.size() >= ed2k::HASH_LENGTH) {
-    id = id.substr(0, ed2k::HASH_LENGTH);
-  }
-  else {
-    id.append(ed2k::HASH_LENGTH - id.size(), '\0');
-  }
-  id[5] = 14;
-  id[14] = 111;
-  return id;
-}
 
 uint16_t localEd2kTcpPort(const DownloadEngine* e)
 {
@@ -127,8 +114,8 @@ void Ed2kSharedPeerCommand::queuePacket(uint8_t protocol, uint8_t opcode,
 void Ed2kSharedPeerCommand::queuePeerHelloAnswer()
 {
   auto payload = ed2k::createPeerHelloPayload(
-      clientHash(e_), 0, localEd2kTcpPort(e_), ed2k::Endpoint(),
-      "aria2-next", localPeerInfo_, false);
+      getOrCreateEd2kClientHash(e_->getOption()), 0, localEd2kTcpPort(e_),
+      ed2k::Endpoint(), "aria2-next", localPeerInfo_, false);
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_HELLOANSWER, payload);
 }
 

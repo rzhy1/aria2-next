@@ -68,20 +68,6 @@ std::shared_ptr<Request> makeEd2kRequest(const ed2k::Endpoint& endpoint,
   return req;
 }
 
-std::string clientHash(const DownloadEngine* e)
-{
-  auto id = e->getSessionId();
-  if (id.size() >= ed2k::HASH_LENGTH) {
-    id = id.substr(0, ed2k::HASH_LENGTH);
-  }
-  else {
-    id.append(ed2k::HASH_LENGTH - id.size(), '\0');
-  }
-  id[5] = 14;
-  id[14] = 111;
-  return id;
-}
-
 uint16_t localEd2kTcpPort(const DownloadEngine* e)
 {
   auto port = e->getEd2kTcpPort();
@@ -310,8 +296,9 @@ void Ed2kCommand::queuePacket(uint8_t protocol, uint8_t opcode,
 
 void Ed2kCommand::queueServerLogin()
 {
+  auto attrs = getEd2kAttrs(getDownloadContext());
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_LOGINREQUEST,
-              ed2k::createLoginRequestPayload(clientHash(getDownloadEngine()),
+              ed2k::createLoginRequestPayload(attrs->clientHash,
                                               0,
                                               localEd2kTcpPort(getDownloadEngine()),
                                               "aria2-next"));
@@ -391,8 +378,9 @@ ed2k::Endpoint Ed2kCommand::localEd2kServerEndpoint() const
 
 void Ed2kCommand::queuePeerHello()
 {
+  auto attrs = getEd2kAttrs(getDownloadContext());
   auto payload = ed2k::createPeerHelloPayload(
-      clientHash(getDownloadEngine()), localEd2kClientId(),
+      attrs->clientHash, localEd2kClientId(),
       localEd2kTcpPort(getDownloadEngine()), localEd2kServerEndpoint(),
       "aria2-next", localPeerInfo_, true);
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_HELLO, payload);
@@ -400,8 +388,9 @@ void Ed2kCommand::queuePeerHello()
 
 void Ed2kCommand::queuePeerHelloAnswer()
 {
+  auto attrs = getEd2kAttrs(getDownloadContext());
   auto payload = ed2k::createPeerHelloPayload(
-      clientHash(getDownloadEngine()), localEd2kClientId(),
+      attrs->clientHash, localEd2kClientId(),
       localEd2kTcpPort(getDownloadEngine()), localEd2kServerEndpoint(),
       "aria2-next", localPeerInfo_, false);
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_HELLOANSWER, payload);

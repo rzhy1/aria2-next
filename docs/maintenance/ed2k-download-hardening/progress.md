@@ -45,3 +45,33 @@ Verified: `git diff --check docs/maintenance` passed. The CSV parser check
 passed for all `docs/maintenance/ed2k-download-hardening` CSV files.
 
 Remaining: Start AR10 stable ED2K identity and runtime metadata.
+
+### AR10 - Stable ED2K Identity and Metadata
+
+Changed: Added a hidden `ed2k-client-hash` state value, stored it on
+`Ed2kAttribute`, restored it while creating ED2K request groups, saved it
+through `SessionSerializer`, and used it for ED2K server login and peer hello.
+The previous duplicate hash helpers derived identity from the per-process
+`DownloadEngine` session id and were removed.
+
+Reference evidence: aMule reads `s_userhash` from `preferences.dat`, generates
+and saves it if missing, marks bytes 5 and 14 as eMule-style identity bytes,
+and Kad derives its client hash from the same persisted user hash. aria2-next
+keeps the same stable-identity behavior in native hidden session state instead
+of adding a legacy database.
+
+Current-code evidence: `src/Ed2kAttribute.*` owns client-hash normalization,
+creation, and option restore; `src/download_helper.cc` copies the identity into
+request state; `src/SessionSerializer.cc` writes it back; `src/Ed2kCommand.cc`
+uses it for server and peer handshakes; `src/Ed2kSharedPeerCommand.cc` uses the
+process option identity for shared-peer replies.
+
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+Focused CppUnit paths
+`All Tests/aria2::SessionSerializerTest/aria2::SessionSerializerTest::testSaveEd2kDownload`
+and
+`All Tests/aria2::DownloadHelperTest/aria2::DownloadHelperTest::testCreateRequestGroupForUri_ED2KClientHash`
+passed. `build/default/aria2_tests --list` now exposes exact test paths for
+short checkpoint verification.
+
+Remaining: Start AR20 source lifecycle and quality model.

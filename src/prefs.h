@@ -323,6 +323,8 @@ extern PrefPtr PREF_ED2K_SERVER_STATE;
 extern PrefPtr PREF_ED2K_SHARED_FILE_STATE;
 // value: hex-encoded ED2K peer credit state
 extern PrefPtr PREF_ED2K_PEER_CREDIT_STATE;
+// value: hex-encoded ED2K client hash
+extern PrefPtr PREF_ED2K_CLIENT_HASH;
 // value: hex-encoded ED2K Kad routing state
 extern PrefPtr PREF_ED2K_KAD_ROUTING_STATE;
 // value: string

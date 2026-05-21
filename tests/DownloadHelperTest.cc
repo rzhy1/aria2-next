@@ -50,6 +50,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(DownloadHelperTest);
   CPPUNIT_TEST(testCreateRequestGroupForUri);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2K);
+  CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KClientHash);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KNodesDat);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KServerMetMetadata);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KKadRoutingState);
@@ -96,6 +97,7 @@ public:
 
   void testCreateRequestGroupForUri();
   void testCreateRequestGroupForUri_ED2K();
+  void testCreateRequestGroupForUri_ED2KClientHash();
   void testCreateRequestGroupForUri_ED2KNodesDat();
   void testCreateRequestGroupForUri_ED2KServerMetMetadata();
   void testCreateRequestGroupForUri_ED2KKadRoutingState();
@@ -240,6 +242,23 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2K()
   CPPUNIT_ASSERT_EQUAL((size_t)2, attrs->servers.size());
   CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.10"), attrs->servers[0].host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4661, attrs->servers[0].port);
+}
+
+void DownloadHelperTest::testCreateRequestGroupForUri_ED2KClientHash()
+{
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|/"};
+  option_->put(PREF_ED2K_CLIENT_HASH,
+               "0102030405060708090a0b0c0d0e0f10");
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, result.size());
+  auto attrs = getEd2kAttrs(result[0]->getDownloadContext());
+  CPPUNIT_ASSERT_EQUAL(std::string("01020304050e0708090a0b0c0d0e6f10"),
+                       util::toHex(attrs->clientHash));
 }
 
 void DownloadHelperTest::testCreateRequestGroupForUri_ED2KNodesDat()

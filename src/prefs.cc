@@ -370,6 +370,8 @@ PrefPtr PREF_ED2K_SERVER_STATE = makePref("ed2k-server-state");
 PrefPtr PREF_ED2K_SHARED_FILE_STATE = makePref("ed2k-shared-file-state");
 // value: hex-encoded ED2K peer credit state
 PrefPtr PREF_ED2K_PEER_CREDIT_STATE = makePref("ed2k-peer-credit-state");
+// value: hex-encoded ED2K client hash
+PrefPtr PREF_ED2K_CLIENT_HASH = makePref("ed2k-client-hash");
 // value: hex-encoded ED2K Kad routing state
 PrefPtr PREF_ED2K_KAD_ROUTING_STATE = makePref("ed2k-kad-routing-state");
 // value: string

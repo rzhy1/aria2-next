@@ -364,6 +364,7 @@ createEd2kRequestGroup(const std::string& ed2kUri,
       option->getAsInt(PREF_MAX_CONNECTION_PER_SERVER));
   auto attrs = std::make_shared<Ed2kAttribute>();
   attrs->link = std::move(link);
+  attrs->clientHash = getOrCreateEd2kClientHash(option.get());
   attrs->serverStates = createEd2kServerStates(option);
   addOptionEd2kServers(attrs->servers, attrs->serverStates, option);
   addEd2kServerStateEndpoints(attrs->servers, attrs->serverStates);

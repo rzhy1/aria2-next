@@ -17,10 +17,15 @@
 
 #include "DownloadContext.h"
 #include "DownloadEngine.h"
+#include "DlAbortEx.h"
 #include "Ed2kCommand.h"
+#include "Option.h"
 #include "RequestGroup.h"
+#include "SimpleRandomizer.h"
 #include "a2functional.h"
+#include "ed2k_hash.h"
 #include "ed2k_policy.h"
+#include "prefs.h"
 #include "util.h"
 #include "wallclock.h"
 
@@ -34,6 +39,44 @@ Ed2kAttribute* getEd2kAttrs(const std::shared_ptr<DownloadContext>& dctx)
 Ed2kAttribute* getEd2kAttrs(DownloadContext* dctx)
 {
   return static_cast<Ed2kAttribute*>(dctx->getAttribute(CTX_ATTR_ED2K).get());
+}
+
+std::string normalizeEd2kClientHash(std::string clientHash)
+{
+  if (clientHash.size() >= ed2k::HASH_LENGTH) {
+    clientHash = clientHash.substr(0, ed2k::HASH_LENGTH);
+  }
+  else {
+    clientHash.append(ed2k::HASH_LENGTH - clientHash.size(), '\0');
+  }
+  clientHash[5] = 14;
+  clientHash[14] = 111;
+  return clientHash;
+}
+
+std::string createEd2kClientHash()
+{
+  std::string clientHash(ed2k::HASH_LENGTH, '\0');
+  SimpleRandomizer::getInstance()->getRandomBytes(
+      reinterpret_cast<unsigned char*>(&clientHash[0]), clientHash.size());
+  return normalizeEd2kClientHash(std::move(clientHash));
+}
+
+std::string getOrCreateEd2kClientHash(Option* option)
+{
+  if (!option->blank(PREF_ED2K_CLIENT_HASH)) {
+    const auto value = option->get(PREF_ED2K_CLIENT_HASH);
+    if (value.size() != ed2k::HASH_LENGTH * 2 || !util::isHexDigit(value)) {
+      throw DL_ABORT_EX("Cannot parse ED2K client hash.");
+    }
+    const auto clientHash =
+        normalizeEd2kClientHash(util::fromHex(value.begin(), value.end()));
+    option->put(PREF_ED2K_CLIENT_HASH, util::toHex(clientHash));
+    return clientHash;
+  }
+  const auto clientHash = createEd2kClientHash();
+  option->put(PREF_ED2K_CLIENT_HASH, util::toHex(clientHash));
+  return clientHash;
 }
 
 bool addUniqueEndpoint(std::vector<ed2k::Endpoint>& endpoints,

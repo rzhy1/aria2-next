@@ -179,6 +179,9 @@ void SessionSerializerTest::testSaveEd2kDownload()
   createRequestGroupForUri(result, option, uris);
   CPPUNIT_ASSERT_EQUAL((size_t)1, result.size());
   auto attrs = getEd2kAttrs(result[0]->getDownloadContext());
+  std::string clientHashHex("01020304050e0708090a0b0c0d0e6f10");
+  attrs->clientHash =
+      util::fromHex(clientHashHex.begin(), clientHashHex.end());
   std::string firstPieceHash("33333333333333333333333333333333");
   std::string secondPieceHash("44444444444444444444444444444444");
   attrs->pieceHashes = {
@@ -238,6 +241,10 @@ void SessionSerializerTest::testSaveEd2kDownload()
   std::getline(in, line);
   CPPUNIT_ASSERT_EQUAL(
       fmt(" gid=%s", GroupId::toHex(result[0]->getGID()).c_str()), line);
+  std::getline(in, line);
+  CPPUNIT_ASSERT_EQUAL(
+      std::string(" ed2k-client-hash=01020304050e0708090a0b0c0d0e6f10"),
+      line);
   std::getline(in, line);
   CPPUNIT_ASSERT(util::startsWith(line, " ed2k-kad-routing-state="));
   ed2k::KadRoutingSnapshot restoredKad;

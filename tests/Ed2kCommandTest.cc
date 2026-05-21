@@ -74,6 +74,8 @@ std::shared_ptr<DownloadContext> createEd2kContext()
   attrs->link.name = "ed2k-command-test.bin";
   attrs->link.size = ed2k::PIECE_LENGTH + 1;
   attrs->link.hash = ed2k::rootHash(createPieceHashes());
+  attrs->clientHash = normalizeEd2kClientHash(std::string(ed2k::HASH_LENGTH,
+                                                          '\x42'));
   dctx->setAttribute(CTX_ATTR_ED2K, std::move(attrs));
   return dctx;
 }
@@ -88,33 +90,45 @@ createRequestGroup(const std::shared_ptr<Option>& option,
   return group;
 }
 
-std::shared_ptr<SocketCore> acceptPeer(SocketCore& listenSocket)
+std::shared_ptr<SocketCore> acceptPeer(SocketCore& listenSocket,
+                                       DownloadEngine& engine)
 {
-  while (!listenSocket.isReadable(0)) {
+  for (int i = 0; i < MAX_ENGINE_TICKS && !listenSocket.isReadable(0); ++i) {
+    engine.run(true);
   }
+  CPPUNIT_ASSERT(listenSocket.isReadable(0));
   auto socket = listenSocket.acceptConnection();
-  socket->setBlockingMode();
+  socket->setNonBlockingMode();
   return socket;
 }
 
-std::string readPacket(const std::shared_ptr<SocketCore>& socket)
+void readFromSocket(const std::shared_ptr<SocketCore>& socket,
+                    DownloadEngine& engine, char* data, size_t length)
+{
+  size_t readLength = 0;
+  for (int i = 0; i < MAX_ENGINE_TICKS && readLength < length; ++i) {
+    if (!socket->isReadable(0)) {
+      engine.run(true);
+      continue;
+    }
+    size_t len = length - readLength;
+    socket->readData(data + readLength, len);
+    readLength += len;
+  }
+  CPPUNIT_ASSERT_EQUAL(length, readLength);
+}
+
+std::string readPacket(const std::shared_ptr<SocketCore>& socket,
+                       DownloadEngine& engine)
 {
   std::array<char, 6> header;
-  size_t headerRead = 0;
-  while (headerRead < header.size()) {
-    size_t len = header.size() - headerRead;
-    socket->readData(header.data() + headerRead, len);
-    headerRead += len;
-  }
+  readFromSocket(socket, engine, header.data(), header.size());
   ed2k::PacketHeader packetHeader;
   CPPUNIT_ASSERT(ed2k::readPacketHeader(packetHeader, header.data(),
                                         header.size()));
   std::string body(packetHeader.payloadSize(), '\0');
-  size_t bodyRead = 0;
-  while (bodyRead < body.size()) {
-    size_t len = body.size() - bodyRead;
-    socket->readData(&body[bodyRead], len);
-    bodyRead += len;
+  if (!body.empty()) {
+    readFromSocket(socket, engine, &body[0], body.size());
   }
   return std::string(header.data(), header.size()) + body;
 }
@@ -263,10 +277,10 @@ void Ed2kCommandTest::testServerSourceDiscoveryFlow()
   engine.addCommand(std::move(commands));
 
   runEngineTicks(engine, 1);
-  auto serverSocket = acceptPeer(listenSocket);
+  auto serverSocket = acceptPeer(listenSocket, engine);
   runEngineTicks(engine, 1);
 
-  auto login = readPacket(serverSocket);
+  auto login = readPacket(serverSocket, engine);
   auto loginHeader = packetHeaderOf(login);
   CPPUNIT_ASSERT_EQUAL(ed2k::PROTO_EDONKEY, loginHeader.protocol);
   CPPUNIT_ASSERT_EQUAL(ed2k::OP_LOGINREQUEST, loginHeader.opcode);
@@ -278,7 +292,7 @@ void Ed2kCommandTest::testServerSourceDiscoveryFlow()
                              ed2k::packUInt32(0)));
   runEngineTicks(engine, 1);
 
-  auto getSources = readPacket(serverSocket);
+  auto getSources = readPacket(serverSocket, engine);
   auto getSourcesHeader = packetHeaderOf(getSources);
   CPPUNIT_ASSERT_EQUAL(ed2k::PROTO_EDONKEY, getSourcesHeader.protocol);
   CPPUNIT_ASSERT_EQUAL(ed2k::OP_GETSOURCES, getSourcesHeader.opcode);
@@ -342,10 +356,10 @@ void Ed2kCommandTest::testPeerHandshakeQueuesFileRequestAndQueueRank()
                                              &engine, peer, false));
 
   runEngineTicks(engine, 1);
-  auto peerSocket = acceptPeer(listenSocket);
+  auto peerSocket = acceptPeer(listenSocket, engine);
   runEngineTicks(engine, 1);
 
-  auto hello = readPacket(peerSocket);
+  auto hello = readPacket(peerSocket, engine);
   auto helloHeader = packetHeaderOf(hello);
   CPPUNIT_ASSERT_EQUAL(ed2k::PROTO_EDONKEY, helloHeader.protocol);
   CPPUNIT_ASSERT_EQUAL(ed2k::OP_HELLO, helloHeader.opcode);
@@ -359,12 +373,12 @@ void Ed2kCommandTest::testPeerHandshakeQueuesFileRequestAndQueueRank()
                                            helloAnswerPayload));
   runEngineTicks(engine, 1);
 
-  auto emuleInfo = readPacket(peerSocket);
+  auto emuleInfo = readPacket(peerSocket, engine);
   auto emuleInfoHeader = packetHeaderOf(emuleInfo);
   CPPUNIT_ASSERT_EQUAL(ed2k::PROTO_EMULE, emuleInfoHeader.protocol);
   CPPUNIT_ASSERT_EQUAL(ed2k::OP_EMULEINFO, emuleInfoHeader.opcode);
 
-  auto fileRequest = readPacket(peerSocket);
+  auto fileRequest = readPacket(peerSocket, engine);
   auto fileRequestHeader = packetHeaderOf(fileRequest);
   CPPUNIT_ASSERT_EQUAL(ed2k::PROTO_EDONKEY, fileRequestHeader.protocol);
   CPPUNIT_ASSERT_EQUAL(ed2k::OP_REQUESTFILENAME, fileRequestHeader.opcode);
@@ -377,7 +391,7 @@ void Ed2kCommandTest::testPeerHandshakeQueuesFileRequestAndQueueRank()
       attrs->link.hash + std::string("ed2k-command-test.bin")));
   runEngineTicks(engine, 1);
 
-  auto statusRequest = readPacket(peerSocket);
+  auto statusRequest = readPacket(peerSocket, engine);
   auto statusRequestHeader = packetHeaderOf(statusRequest);
   CPPUNIT_ASSERT_EQUAL(ed2k::PROTO_EDONKEY, statusRequestHeader.protocol);
   CPPUNIT_ASSERT_EQUAL(ed2k::OP_SETREQFILEID, statusRequestHeader.opcode);
@@ -389,7 +403,7 @@ void Ed2kCommandTest::testPeerHandshakeQueuesFileRequestAndQueueRank()
                                     std::vector<bool>{true, true})));
   runEngineTicks(engine, 1);
 
-  auto hashSetRequest = readPacket(peerSocket);
+  auto hashSetRequest = readPacket(peerSocket, engine);
   auto hashSetRequestHeader = packetHeaderOf(hashSetRequest);
   CPPUNIT_ASSERT_EQUAL(ed2k::PROTO_EDONKEY, hashSetRequestHeader.protocol);
   CPPUNIT_ASSERT_EQUAL(ed2k::OP_HASHSETREQUEST, hashSetRequestHeader.opcode);
@@ -401,7 +415,7 @@ void Ed2kCommandTest::testPeerHandshakeQueuesFileRequestAndQueueRank()
       ed2k::createHashSetAnswerPayload(attrs->link.hash, pieceHashes)));
   runEngineTicks(engine, 1);
 
-  auto sourceExchange = readPacket(peerSocket);
+  auto sourceExchange = readPacket(peerSocket, engine);
   auto sourceExchangeHeader = packetHeaderOf(sourceExchange);
   CPPUNIT_ASSERT_EQUAL(ed2k::PROTO_EMULE, sourceExchangeHeader.protocol);
   CPPUNIT_ASSERT_EQUAL(ed2k::OP_REQUESTSOURCES2,
@@ -409,7 +423,7 @@ void Ed2kCommandTest::testPeerHandshakeQueuesFileRequestAndQueueRank()
   CPPUNIT_ASSERT_EQUAL(ed2k::createRequestSources2Payload(attrs->link.hash),
                        packetBodyOf(sourceExchange));
 
-  auto startUpload = readPacket(peerSocket);
+  auto startUpload = readPacket(peerSocket, engine);
   auto startUploadHeader = packetHeaderOf(startUpload);
   CPPUNIT_ASSERT_EQUAL(ed2k::PROTO_EDONKEY, startUploadHeader.protocol);
   CPPUNIT_ASSERT_EQUAL(ed2k::OP_STARTUPLOADREQ, startUploadHeader.opcode);
@@ -443,6 +457,8 @@ void Ed2kCommandTest::testPeerCommandFinishesGroupAfterLastPart()
   attrs->link.name = "ed2k-command-finished.bin";
   attrs->link.size = data.size();
   attrs->link.hash = ed2k::md4Digest(data);
+  attrs->clientHash = normalizeEd2kClientHash(std::string(ed2k::HASH_LENGTH,
+                                                          '\x42'));
   attrs->pieceHashes.push_back(attrs->link.hash);
   dctx->setAttribute(CTX_ATTR_ED2K, std::move(attrs));
 
@@ -476,10 +492,10 @@ void Ed2kCommandTest::testPeerCommandFinishesGroupAfterLastPart()
   engine.addCommand(std::move(listener));
 
   runEngineTicks(engine, 1);
-  auto peerSocket = acceptPeer(listenSocket);
+  auto peerSocket = acceptPeer(listenSocket, engine);
   runEngineTicks(engine, 1);
 
-  readPacket(peerSocket);
+  readPacket(peerSocket, engine);
   auto remoteInfo = ed2k::createLocalEmulePeerInfo();
   peerSocket->writeData(ed2k::createPacket(
       ed2k::PROTO_EDONKEY, ed2k::OP_HELLOANSWER,
@@ -488,28 +504,28 @@ void Ed2kCommandTest::testPeerCommandFinishesGroupAfterLastPart()
           peerAddr.port, ed2k::Endpoint(), "test-peer", remoteInfo, false)));
   runEngineTicks(engine, 1);
 
-  readPacket(peerSocket);
-  readPacket(peerSocket);
+  readPacket(peerSocket, engine);
+  readPacket(peerSocket, engine);
   peerSocket->writeData(ed2k::createPacket(
       ed2k::PROTO_EDONKEY, ed2k::OP_REQFILENAMEANSWER,
       getEd2kAttrs(dctx)->link.hash + std::string("ed2k-command-finished.bin")));
   runEngineTicks(engine, 1);
 
-  readPacket(peerSocket);
+  readPacket(peerSocket, engine);
   peerSocket->writeData(ed2k::createPacket(
       ed2k::PROTO_EDONKEY, ed2k::OP_FILESTATUS,
       ed2k::createFileStatusPayload(getEd2kAttrs(dctx)->link.hash,
                                     std::vector<bool>{true})));
   runEngineTicks(engine, 1);
 
-  readPacket(peerSocket);
-  readPacket(peerSocket);
+  readPacket(peerSocket, engine);
+  readPacket(peerSocket, engine);
   peerSocket->writeData(ed2k::createPacket(ed2k::PROTO_EDONKEY,
                                            ed2k::OP_ACCEPTUPLOADREQ,
                                            std::string()));
   runEngineTicks(engine, 1);
 
-  auto partRequest = readPacket(peerSocket);
+  auto partRequest = readPacket(peerSocket, engine);
   CPPUNIT_ASSERT_EQUAL(ed2k::OP_REQUESTPARTS,
                        packetHeaderOf(partRequest).opcode);
   const size_t split = 8;

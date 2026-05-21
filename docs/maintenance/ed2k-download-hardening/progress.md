@@ -339,3 +339,34 @@ CppUnit paths
 `Ed2kHelperTest::testUdpReaskPayloads` passed.
 
 Remaining: Start AR100 capability truth, documentation, and final verification.
+
+### AR100 - Capability Truth, Documentation, and Final Verification
+
+Changed: Rechecked local ED2K capability claims and kept them limited to
+implemented peer send/receive paths. Added stable ED2K RPC aggregate fields for
+LowID sources and server-callback waiting peers, documented those fields in the
+manual, and updated the README high-level ED2K description to include upload
+cooperation, queue maintenance, and this hardening tracker.
+
+Evidence: `src/ed2k_peer.cc`, `src/Ed2kCommand.cc`, and
+`src/Ed2kSharedPeerCommand.cc` were inspected for local capability truth. No
+new local multipacket, extended multipacket, crypt, secure-ident, Kad, or file
+identifier claims were added. `src/RpcMethodImpl.cc` now exposes
+`lowIdPeerCount` and `callbackWaitingPeerCount`, with coverage in
+`tests/RpcMethodTest.cc`.
+
+Fixed: The full local test suite exposed an unbounded wait in
+`tests/Ed2kCommandTest.cc`. The test helper now advances the local
+`DownloadEngine` with a bounded tick budget while waiting for loopback accept
+and packet reads. ED2K command fixtures now provide a valid client hash when
+they bypass the normal ED2K request setup path.
+
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+Focused CppUnit paths
+`RpcMethodTest::testGatherProgressEd2kStatus`,
+`Ed2kCommandTest::testServerSourceDiscoveryFlow`, and
+`Ed2kCommandTest` passed. Final local verification passed with
+`cmake --preset default`, `cmake --build --preset default`,
+`ctest --preset default`, and `build/default/aria2-next --version`.
+
+Remaining: Public ED2K network smoke is manual operational evidence only.

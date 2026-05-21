@@ -2860,6 +2860,12 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
     ``deadPeerCount``
       Number of known ED2K peers currently in retry backoff.
 
+    ``lowIdPeerCount``
+      Number of known ED2K peers reported as LowID sources.
+
+    ``callbackWaitingPeerCount``
+      Number of LowID ED2K peers currently waiting for server callback.
+
     ``kadNodeCount``
       Number of live nodes in this task's Kad routing table.
 

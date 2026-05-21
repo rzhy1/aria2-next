@@ -781,6 +781,28 @@ size_t countEd2kDeadPeers(const Ed2kAttribute* attrs)
   return count;
 }
 
+size_t countEd2kLowIdPeers(const Ed2kAttribute* attrs)
+{
+  size_t count = 0;
+  for (const auto& state : attrs->peerStates) {
+    if (state.lowId) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+size_t countEd2kCallbackWaitingPeers(const Ed2kAttribute* attrs)
+{
+  size_t count = 0;
+  for (const auto& state : attrs->peerStates) {
+    if (state.lowIdCallbackState == ed2k::LowIdCallbackState::REQUESTED) {
+      ++count;
+    }
+  }
+  return count;
+}
+
 std::unique_ptr<Dict> createEd2kStatusEntry(const Ed2kAttribute* attrs,
                                             RequestGroupMan* rgman)
 {
@@ -805,6 +827,9 @@ std::unique_ptr<Dict> createEd2kStatusEntry(const Ed2kAttribute* attrs,
   dict->put("queuedPeerCount", util::uitos(countEd2kQueuedPeers(attrs)));
   dict->put("acceptedPeerCount", util::uitos(countEd2kAcceptedPeers(attrs)));
   dict->put("deadPeerCount", util::uitos(countEd2kDeadPeers(attrs)));
+  dict->put("lowIdPeerCount", util::uitos(countEd2kLowIdPeers(attrs)));
+  dict->put("callbackWaitingPeerCount",
+            util::uitos(countEd2kCallbackWaitingPeers(attrs)));
   dict->put("kadNodeCount",
             util::uitos(attrs->kadRoutingTable
                             ? attrs->kadRoutingTable->liveSize()

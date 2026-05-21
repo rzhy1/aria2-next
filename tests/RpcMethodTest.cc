@@ -1114,6 +1114,14 @@ void RpcMethodTest::testGatherProgressEd2kStatus()
   peer.queueRank = 7;
   attrs->peerStates.push_back(peer);
 
+  ed2k::PeerState lowIdPeer;
+  lowIdPeer.endpoint.host = "120.0.0.42";
+  lowIdPeer.endpoint.port = 4662;
+  lowIdPeer.lowId = true;
+  lowIdPeer.callbackRequested = true;
+  lowIdPeer.lowIdCallbackState = ed2k::LowIdCallbackState::REQUESTED;
+  attrs->peerStates.push_back(lowIdPeer);
+
   attrs->kadRoutingTable = std::make_shared<ed2k::KadRoutingTable>(
       std::string(ed2k::HASH_LENGTH, '\x33'));
   ed2k::KadContact kadNode;
@@ -1155,9 +1163,13 @@ void RpcMethodTest::testGatherProgressEd2kStatus()
                        getString(ed2kStatus, "serverCount"));
   CPPUNIT_ASSERT_EQUAL(std::string("1"),
                        getString(ed2kStatus, "connectedServerCount"));
-  CPPUNIT_ASSERT_EQUAL(std::string("1"), getString(ed2kStatus, "peerCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("2"), getString(ed2kStatus, "peerCount"));
   CPPUNIT_ASSERT_EQUAL(std::string("1"),
                        getString(ed2kStatus, "queuedPeerCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("1"),
+                       getString(ed2kStatus, "lowIdPeerCount"));
+  CPPUNIT_ASSERT_EQUAL(std::string("1"),
+                       getString(ed2kStatus, "callbackWaitingPeerCount"));
   CPPUNIT_ASSERT_EQUAL(std::string("1"), getString(ed2kStatus, "kadNodeCount"));
   CPPUNIT_ASSERT_EQUAL(std::string("1"), getString(ed2kStatus, "kadRouterCount"));
   CPPUNIT_ASSERT(!downcast<Bool>(ed2kStatus->get("kadFirewalled"))->val());

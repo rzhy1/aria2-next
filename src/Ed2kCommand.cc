@@ -623,6 +623,23 @@ bool Ed2kCommand::updatePeerEndpointFromHello(bool helloPacket)
   return true;
 }
 
+namespace {
+void updatePeerUdpMetadata(Ed2kAttribute* attrs, const ed2k::Endpoint& endpoint,
+                           const ed2k::EmulePeerInfo& info)
+{
+  auto state = getEd2kPeerState(attrs, endpoint);
+  if (!state) {
+    return;
+  }
+  if (info.udpPort != 0) {
+    state->udpPort = info.udpPort;
+  }
+  if (info.miscOptions.udpVersion != 0) {
+    state->udpVersion = info.miscOptions.udpVersion;
+  }
+}
+} // namespace
+
 void Ed2kCommand::startResolve()
 {
   auto ipaddr = resolveHostname(resolvedAddresses_, endpoint_.host,
@@ -962,6 +979,7 @@ void Ed2kCommand::handlePeerPacket()
     switch (currentHeader_.opcode) {
     case ed2k::OP_EMULEINFO:
       if (ed2k::parseEmuleInfoPayload(remotePeerInfo_, body_)) {
+        updatePeerUdpMetadata(attrs, endpoint_, remotePeerInfo_);
         queueEmuleInfo(true);
         state_ = State::WRITE;
       }
@@ -970,6 +988,7 @@ void Ed2kCommand::handlePeerPacket()
       if (!ed2k::parseEmuleInfoPayload(remotePeerInfo_, body_)) {
         throw DL_RETRY_EX("Bad eMule info answer.");
       }
+      updatePeerUdpMetadata(attrs, endpoint_, remotePeerInfo_);
       queueAichFileHashRequest();
       if (!outbox_.empty()) {
         state_ = State::WRITE;
@@ -1102,6 +1121,7 @@ void Ed2kCommand::handlePeerPacket()
       break;
     }
     ed2k::parsePeerHelloPayload(remotePeerInfo_, body_, true);
+    updatePeerUdpMetadata(attrs, endpoint_, remotePeerInfo_);
     queuePeerHelloAnswer();
     queueEmuleInfo(true);
     queuePeerFileRequest();
@@ -1112,6 +1132,7 @@ void Ed2kCommand::handlePeerPacket()
       break;
     }
     ed2k::parsePeerHelloPayload(remotePeerInfo_, body_, false);
+    updatePeerUdpMetadata(attrs, endpoint_, remotePeerInfo_);
     queueEmuleInfo(false);
     queuePeerFileRequest();
     state_ = State::WRITE;

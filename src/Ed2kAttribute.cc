@@ -104,6 +104,21 @@ bool sameEndpoint(const ed2k::Endpoint& lhs, const ed2k::Endpoint& rhs)
   return lhs.host == rhs.host && lhs.port == rhs.port;
 }
 
+ed2k::PeerState* findEd2kPeerStateByEndpointOrUdp(Ed2kAttribute* attrs,
+                                                  const ed2k::Endpoint& peer)
+{
+  if (!attrs || peer.host.empty() || peer.port == 0) {
+    return nullptr;
+  }
+  auto i = std::find_if(attrs->peerStates.begin(), attrs->peerStates.end(),
+                        [&](const ed2k::PeerState& state) {
+                          return state.endpoint.host == peer.host &&
+                                 (state.endpoint.port == peer.port ||
+                                  state.udpPort == peer.port);
+                        });
+  return i == attrs->peerStates.end() ? nullptr : &*i;
+}
+
 bool isFilteredSourceExchangePeer(const ed2k::Endpoint& peer,
                                   const ed2k::Endpoint& remotePeer)
 {
@@ -292,6 +307,65 @@ bool markEd2kPeerQueued(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
   return true;
 }
 
+bool markEd2kPeerUdpReaskSent(Ed2kAttribute* attrs,
+                              const ed2k::Endpoint& peer, int64_t now)
+{
+  auto state = getEd2kPeerState(attrs, peer);
+  if (!state) {
+    return false;
+  }
+  state->udpReaskPending = true;
+  state->lastUdpReaskTime = now;
+  state->nextUdpReaskTime = now + ed2k::PEER_UDP_REASK_INTERVAL;
+  return true;
+}
+
+bool markEd2kPeerUdpReaskAck(Ed2kAttribute* attrs,
+                             const ed2k::Endpoint& peer, uint16_t rank,
+                             const std::vector<bool>& partStatus,
+                             int64_t now)
+{
+  auto state = findEd2kPeerStateByEndpointOrUdp(attrs, peer);
+  if (!state) {
+    return false;
+  }
+  state->queued = true;
+  state->dead = false;
+  state->noFile = false;
+  state->cancelled = false;
+  state->remoteQueueFull = false;
+  state->udpReaskPending = false;
+  state->queueRank = rank;
+  if (!partStatus.empty()) {
+    state->partStatus = partStatus;
+  }
+  state->lastUdpReaskTime = now;
+  state->nextUdpReaskTime = now + ed2k::PEER_UDP_REASK_INTERVAL;
+  return true;
+}
+
+bool markEd2kPeerQueueFull(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
+                           int64_t now, int64_t baseRetrySeconds)
+{
+  auto state = findEd2kPeerStateByEndpointOrUdp(attrs, peer);
+  if (!state) {
+    return false;
+  }
+  const auto endpoint = state->endpoint;
+  if (!markEd2kPeerFailure(attrs, endpoint, now, baseRetrySeconds)) {
+    return false;
+  }
+  state = getEd2kPeerState(attrs, endpoint);
+  state->queued = true;
+  state->dead = true;
+  state->noFile = false;
+  state->remoteQueueFull = true;
+  state->udpReaskPending = false;
+  state->queueRank = 0;
+  state->nextUdpReaskTime = state->nextRetryTime;
+  return true;
+}
+
 bool markEd2kPeerConnecting(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
 {
   auto state = getEd2kPeerState(attrs, peer);
@@ -381,6 +455,8 @@ bool markEd2kPeerAccepted(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
   state->accepted = true;
   state->queued = false;
   state->dead = false;
+  state->udpReaskPending = false;
+  state->remoteQueueFull = false;
   state->outOfParts = false;
   return true;
 }
@@ -424,6 +500,7 @@ bool markEd2kPeerFailure(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
   state->connecting = false;
   state->dead = true;
   state->accepted = false;
+  state->udpReaskPending = false;
   state->requestedParts.clear();
   ++state->failCount;
   state->lastFailureTime = now;
@@ -457,11 +534,42 @@ size_t expireEd2kDeadSources(Ed2kAttribute* attrs, int64_t now)
     state.dead = false;
     state.noFile = false;
     state.cancelled = false;
+    state.remoteQueueFull = false;
+    state.udpReaskPending = false;
     state.nextRetryTime = 0;
     state.requestedParts.clear();
     ++expired;
   }
   return expired;
+}
+
+ed2k::PeerState* selectDueEd2kUdpReaskPeer(Ed2kAttribute* attrs, int64_t now)
+{
+  if (!attrs) {
+    return nullptr;
+  }
+  ed2k::PeerState* selected = nullptr;
+  for (auto& state : attrs->peerStates) {
+    if (!state.queued || state.dead || state.noFile || state.cancelled ||
+        state.outOfParts || state.accepted || state.connecting ||
+        state.udpReaskPending || state.udpPort == 0 ||
+        state.udpVersion == 0) {
+      continue;
+    }
+    if (state.nextUdpReaskTime != 0 && state.nextUdpReaskTime > now) {
+      continue;
+    }
+    if (!selected ||
+        ed2k::sourcePriority(state.sourceFlags) >
+            ed2k::sourcePriority(selected->sourceFlags) ||
+        (ed2k::sourcePriority(state.sourceFlags) ==
+             ed2k::sourcePriority(selected->sourceFlags) &&
+         state.queueRank != 0 &&
+         (selected->queueRank == 0 || state.queueRank < selected->queueRank))) {
+      selected = &state;
+    }
+  }
+  return selected;
 }
 
 ed2k::ServerState* getEd2kServerState(Ed2kAttribute* attrs,

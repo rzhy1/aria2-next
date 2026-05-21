@@ -82,6 +82,14 @@ std::string getOrCreateEd2kClientHash(Option* option);
 bool markEd2kPeerQueued(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
                         uint16_t rank,
                         const std::vector<bool>& partStatus);
+bool markEd2kPeerUdpReaskSent(Ed2kAttribute* attrs,
+                              const ed2k::Endpoint& peer, int64_t now);
+bool markEd2kPeerUdpReaskAck(Ed2kAttribute* attrs,
+                             const ed2k::Endpoint& peer, uint16_t rank,
+                             const std::vector<bool>& partStatus,
+                             int64_t now);
+bool markEd2kPeerQueueFull(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
+                           int64_t now, int64_t baseRetrySeconds);
 bool markEd2kPeerConnecting(Ed2kAttribute* attrs, const ed2k::Endpoint& peer);
 bool markEd2kPeerDisconnected(Ed2kAttribute* attrs,
                               const ed2k::Endpoint& peer);
@@ -154,6 +162,8 @@ void restoreEd2kKadOperationalState(Ed2kAttribute* attrs,
                                     const ed2k::KadRoutingSnapshot& snapshot);
 bool shouldStartEd2kKadSourceSearch(const Ed2kAttribute* attrs, int64_t now);
 void markEd2kKadSourceSearchStarted(Ed2kAttribute* attrs, int64_t now);
+ed2k::PeerState* selectDueEd2kUdpReaskPeer(Ed2kAttribute* attrs,
+                                           int64_t now);
 
 } // namespace aria2
 

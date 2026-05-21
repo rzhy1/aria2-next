@@ -14,6 +14,7 @@
 #include "DiskAdaptor.h"
 #include "DlRetryEx.h"
 #include "Ed2kAttribute.h"
+#include "Ed2kKadCommand.h"
 #include "Ed2kPeerTransfer.h"
 #include "Option.h"
 #include "Piece.h"
@@ -67,6 +68,10 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kPeerActionPolicyHandlesCallbackAndExpiry);
   CPPUNIT_TEST(testEd2kConnectPolicyIgnoresNonConnectActions);
   CPPUNIT_TEST(testEd2kSourcePolicyExpiresDeadSources);
+  CPPUNIT_TEST(testEd2kPeerUdpReaskStateTransitions);
+  CPPUNIT_TEST(testEd2kPeerUdpReaskReplyMatchesUdpPort);
+  CPPUNIT_TEST(testEd2kPeerUdpReaskDueSelection);
+  CPPUNIT_TEST(testEd2kKadCommandQueuesDuePeerReask);
   CPPUNIT_TEST(testEd2kSourcePolicyAppliesActiveCap);
   CPPUNIT_TEST(testEd2kServerSourceCadencePolicy);
   CPPUNIT_TEST(testEd2kPiecePolicyUsesPeerAvailability);
@@ -122,6 +127,10 @@ public:
   void testEd2kPeerActionPolicyHandlesCallbackAndExpiry();
   void testEd2kConnectPolicyIgnoresNonConnectActions();
   void testEd2kSourcePolicyExpiresDeadSources();
+  void testEd2kPeerUdpReaskStateTransitions();
+  void testEd2kPeerUdpReaskReplyMatchesUdpPort();
+  void testEd2kPeerUdpReaskDueSelection();
+  void testEd2kKadCommandQueuesDuePeerReask();
   void testEd2kSourcePolicyAppliesActiveCap();
   void testEd2kServerSourceCadencePolicy();
   void testEd2kPiecePolicyUsesPeerAvailability();
@@ -822,6 +831,162 @@ void DownloadHelperTest::testEd2kSourcePolicyExpiresDeadSources()
   CPPUNIT_ASSERT(!state->dead);
   CPPUNIT_ASSERT(!state->noFile);
   CPPUNIT_ASSERT_EQUAL((int64_t)0, state->nextRetryTime);
+}
+
+void DownloadHelperTest::testEd2kPeerUdpReaskStateTransitions()
+{
+  Ed2kAttribute attrs;
+  ed2k::Endpoint peer;
+  peer.host = "203.0.113.10";
+  peer.port = 4662;
+  addEd2kPeer(&attrs, peer, ed2k::PEER_SOURCE_SERVER);
+  CPPUNIT_ASSERT(markEd2kPeerQueued(&attrs, peer, 7,
+                                    std::vector<bool>{true, false}));
+  auto state = getEd2kPeerState(&attrs, peer);
+  state->udpPort = 4672;
+  state->udpVersion = 4;
+
+  CPPUNIT_ASSERT(markEd2kPeerUdpReaskSent(&attrs, peer, 100));
+  CPPUNIT_ASSERT(state->udpReaskPending);
+  CPPUNIT_ASSERT_EQUAL((int64_t)100, state->lastUdpReaskTime);
+  CPPUNIT_ASSERT_EQUAL((int64_t)1400, state->nextUdpReaskTime);
+
+  CPPUNIT_ASSERT(markEd2kPeerUdpReaskAck(&attrs, peer, 3,
+                                         std::vector<bool>{false, true},
+                                         120));
+  CPPUNIT_ASSERT(!state->udpReaskPending);
+  CPPUNIT_ASSERT(!state->remoteQueueFull);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)3, state->queueRank);
+  CPPUNIT_ASSERT_EQUAL((int64_t)120, state->lastUdpReaskTime);
+  CPPUNIT_ASSERT_EQUAL((int64_t)1420, state->nextUdpReaskTime);
+  CPPUNIT_ASSERT_EQUAL((size_t)2, state->partStatus.size());
+  CPPUNIT_ASSERT(!state->partStatus[0]);
+  CPPUNIT_ASSERT(state->partStatus[1]);
+
+  CPPUNIT_ASSERT(markEd2kPeerQueueFull(&attrs, peer, 200, 30));
+  CPPUNIT_ASSERT(!state->udpReaskPending);
+  CPPUNIT_ASSERT(state->remoteQueueFull);
+  CPPUNIT_ASSERT(state->dead);
+  CPPUNIT_ASSERT(!state->noFile);
+  CPPUNIT_ASSERT_EQUAL((int64_t)230, state->nextRetryTime);
+}
+
+void DownloadHelperTest::testEd2kPeerUdpReaskReplyMatchesUdpPort()
+{
+  Ed2kAttribute attrs;
+  ed2k::Endpoint peer;
+  peer.host = "203.0.113.10";
+  peer.port = 4662;
+  addEd2kPeer(&attrs, peer, ed2k::PEER_SOURCE_SERVER);
+  markEd2kPeerQueued(&attrs, peer, 7, std::vector<bool>{true});
+  auto state = getEd2kPeerState(&attrs, peer);
+  state->udpPort = 4672;
+  state->udpVersion = 4;
+  state->udpReaskPending = true;
+
+  ed2k::Endpoint udpPeer = peer;
+  udpPeer.port = 4672;
+
+  CPPUNIT_ASSERT(markEd2kPeerUdpReaskAck(&attrs, udpPeer, 5,
+                                         std::vector<bool>{false}, 100));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs.peerStates.size());
+  CPPUNIT_ASSERT(!state->udpReaskPending);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)5, state->queueRank);
+
+  CPPUNIT_ASSERT(markEd2kPeerQueueFull(&attrs, udpPeer, 200, 30));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs.peerStates.size());
+  CPPUNIT_ASSERT(state->remoteQueueFull);
+  CPPUNIT_ASSERT(state->dead);
+}
+
+void DownloadHelperTest::testEd2kPeerUdpReaskDueSelection()
+{
+  Ed2kAttribute attrs;
+  ed2k::Endpoint waiting;
+  waiting.host = "203.0.113.10";
+  waiting.port = 4662;
+  addEd2kPeer(&attrs, waiting, ed2k::PEER_SOURCE_SERVER);
+  markEd2kPeerQueued(&attrs, waiting, 8, std::vector<bool>{true});
+  auto waitingState = getEd2kPeerState(&attrs, waiting);
+  waitingState->udpPort = 4672;
+  waitingState->udpVersion = 4;
+  waitingState->nextUdpReaskTime = 500;
+
+  ed2k::Endpoint due;
+  due.host = "203.0.113.11";
+  due.port = 4662;
+  addEd2kPeer(&attrs, due, ed2k::PEER_SOURCE_KAD);
+  markEd2kPeerQueued(&attrs, due, 2, std::vector<bool>{true});
+  auto dueState = getEd2kPeerState(&attrs, due);
+  dueState->udpPort = 4672;
+  dueState->udpVersion = 4;
+  dueState->nextUdpReaskTime = 300;
+
+  ed2k::Endpoint pending;
+  pending.host = "203.0.113.12";
+  pending.port = 4662;
+  addEd2kPeer(&attrs, pending, ed2k::PEER_SOURCE_EXCHANGE);
+  markEd2kPeerQueued(&attrs, pending, 1, std::vector<bool>{true});
+  auto pendingState = getEd2kPeerState(&attrs, pending);
+  pendingState->udpPort = 4672;
+  pendingState->udpVersion = 4;
+  pendingState->udpReaskPending = true;
+
+  auto selected = selectDueEd2kUdpReaskPeer(&attrs, 400);
+
+  CPPUNIT_ASSERT(selected);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.11"), selected->endpoint.host);
+}
+
+void DownloadHelperTest::testEd2kKadCommandQueuesDuePeerReask()
+{
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20next.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|/"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_ED2K_SERVER, "203.0.113.10:4661");
+  option_->put(PREF_MAX_DOWNLOAD_LIMIT, "0");
+  option_->put(PREF_MAX_UPLOAD_LIMIT, "0");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_DRY_RUN, A2_V_TRUE);
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+  auto group = result[0];
+  auto attrs = getEd2kAttrs(group->getDownloadContext());
+  ed2k::Endpoint peer;
+  peer.host = "203.0.113.20";
+  peer.port = 4662;
+  addEd2kPeer(attrs, peer, ed2k::PEER_SOURCE_SERVER);
+  markEd2kPeerQueued(attrs, peer, 4, std::vector<bool>{true});
+  auto state = getEd2kPeerState(attrs, peer);
+  state->udpPort = 4672;
+  state->udpVersion = 4;
+  state->nextUdpReaskTime = 100;
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{group}, 1, option_.get()));
+  Ed2kKadCommand command(1, group.get(), &engine);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, command.testQueueDuePeerReasks(200));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, command.testQueuedPacketCount());
+  const auto& item = command.testQueuedPacketAt(0);
+  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.20"), item.first.host);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4672, item.first.port);
+  ed2k::PacketHeader header;
+  CPPUNIT_ASSERT(ed2k::readDatagramHeader(header, item.second.data(),
+                                          item.second.size()));
+  CPPUNIT_ASSERT_EQUAL(ed2k::PROTO_EMULE, header.protocol);
+  CPPUNIT_ASSERT_EQUAL(ed2k::OP_REASKFILEPING, header.opcode);
+  ed2k::UdpReask reask;
+  CPPUNIT_ASSERT(ed2k::parseUdpReaskFilePingPayload(
+      reask, item.second.substr(2)));
+  CPPUNIT_ASSERT_EQUAL(attrs->link.hash, reask.fileHash);
+  CPPUNIT_ASSERT(state->udpReaskPending);
+  CPPUNIT_ASSERT_EQUAL((int64_t)200, state->lastUdpReaskTime);
+  CPPUNIT_ASSERT_EQUAL((int64_t)1500, state->nextUdpReaskTime);
 }
 
 void DownloadHelperTest::testEd2kSourcePolicyAppliesActiveCap()

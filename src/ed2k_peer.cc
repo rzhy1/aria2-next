@@ -457,6 +457,9 @@ bool parseEmuleInfoPayload(EmulePeerInfo& info, const std::string& payload)
       info.miscOptions.dataCompressionVersion =
           static_cast<uint8_t>(tag.intValue & 0xffu);
     }
+    else if (tag.id == ET_UDPPORT) {
+      info.udpPort = static_cast<uint16_t>(tag.intValue & 0xffffu);
+    }
     else if (tag.id == ET_UDPVER) {
       info.miscOptions.udpVersion = static_cast<uint8_t>(tag.intValue & 0xffu);
     }
@@ -563,6 +566,12 @@ bool parsePeerHelloPayload(EmulePeerInfo& info, const std::string& payload,
     }
     else if (tag.id == CT_EMULE_MISCOPTIONS2) {
       info.miscOptions2 = parseEmuleMiscOptions2(tag.intValue);
+    }
+    else if (tag.id == ET_UDPPORT) {
+      info.udpPort = static_cast<uint16_t>(tag.intValue & 0xffffu);
+    }
+    else if (tag.id == ET_UDPVER) {
+      info.miscOptions.udpVersion = static_cast<uint8_t>(tag.intValue & 0xffu);
     }
   }
   return true;

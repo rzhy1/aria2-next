@@ -203,3 +203,35 @@ Focused CppUnit paths
 `DownloadHelperTest::testEd2kPeerSchedulingSkipsConnectingPeer` passed.
 
 Remaining: Start AR60 queued-peer UDP reask.
+
+### AR60 - Queued-Peer UDP Reask
+
+Changed: Added runtime UDP reask state for queued ED2K peers. Peer state now
+keeps the remote UDP port, UDP version, pending flag, remote queue-full flag,
+last reask time, and next reask time. Peer hello and eMule info parsing now
+preserve remote UDP metadata. The existing ED2K UDP command loop queues
+bounded `OP_REASKFILEPING` packets for due queued peers and marks the request
+pending before the next maintenance tick can select the same peer again.
+
+Reference evidence: aMule `CPartFile::Process` periodically reasks queued
+peers through `CUpDownClient::UDPReaskForDownload` using `FILEREASKTIME`.
+`CUpDownClient::UDPReaskACK` clears UDP pending state, updates queue rank, and
+refreshes last-asked time. `ClientUDPSocket` treats `OP_QUEUEFULL` as temporary
+queue state and `OP_FILENOTFOUND` as dead-source evidence.
+
+Current-code evidence: `src/Ed2kAttribute.*` owns UDP reask state transitions,
+due-peer selection, queue-full retry state, and UDP-port reply matching.
+`src/Ed2kKadCommand.cc` sends due peer reasks from the existing UDP command
+owner and applies ACK, queue-full, and file-not-found replies. `src/ed2k_peer.*`
+preserves UDP port and version metadata needed for outbound reask.
+
+Verified: `cmake --build --preset default --target aria2_tests` passed.
+Focused CppUnit paths
+`DownloadHelperTest::testEd2kPeerUdpReaskStateTransitions`,
+`DownloadHelperTest::testEd2kPeerUdpReaskReplyMatchesUdpPort`,
+`DownloadHelperTest::testEd2kPeerUdpReaskDueSelection`,
+`DownloadHelperTest::testEd2kKadCommandQueuesDuePeerReask`,
+`Ed2kHelperTest::testEmuleInfoPayload`, and
+`Ed2kHelperTest::testPeerHelloPayload` passed.
+
+Remaining: Start AR70 LowID callback handling.

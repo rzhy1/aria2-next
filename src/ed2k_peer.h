@@ -75,6 +75,7 @@ struct EmulePeerInfo {
   std::string userHash;
   uint8_t version = 0;
   uint8_t protocolVersion = 0;
+  uint16_t udpPort = 0;
   EmuleMiscOptions miscOptions;
   EmuleMiscOptions2 miscOptions2;
 };
@@ -102,6 +103,12 @@ struct PeerState {
   bool connecting = false;
   bool queued = false;
   uint16_t queueRank = 0;
+  uint16_t udpPort = 0;
+  uint8_t udpVersion = 0;
+  bool udpReaskPending = false;
+  bool remoteQueueFull = false;
+  int64_t lastUdpReaskTime = 0;
+  int64_t nextUdpReaskTime = 0;
   bool dead = false;
   bool accepted = false;
   bool outOfParts = false;

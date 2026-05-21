@@ -1002,6 +1002,7 @@ void Ed2kHelperTest::testEmuleInfoPayload()
   CPPUNIT_ASSERT(parseEmuleInfoPayload(parsed, payload));
   CPPUNIT_ASSERT_EQUAL((uint8_t)0x3c, parsed.version);
   CPPUNIT_ASSERT_EQUAL((uint8_t)0x01, parsed.protocolVersion);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)0, parsed.udpPort);
   CPPUNIT_ASSERT_EQUAL((uint8_t)0, parsed.miscOptions.aichVersion);
   CPPUNIT_ASSERT(!parsed.miscOptions.unicode);
   CPPUNIT_ASSERT_EQUAL((uint8_t)1, parsed.miscOptions.dataCompressionVersion);
@@ -1010,6 +1011,16 @@ void Ed2kHelperTest::testEmuleInfoPayload()
   CPPUNIT_ASSERT(!parsed.miscOptions.multiPacket);
   CPPUNIT_ASSERT(!parsed.miscOptions2.supportsSourceExchange2);
   CPPUNIT_ASSERT(!parsed.miscOptions2.supportsLargeFiles);
+
+  std::string remotePayload;
+  remotePayload.push_back(static_cast<char>(0x3c));
+  remotePayload.push_back(static_cast<char>(0x01));
+  remotePayload += packUInt32(2);
+  remotePayload += createUInt32Tag(0x21, 4672);
+  remotePayload += createUInt32Tag(0x22, 4);
+  CPPUNIT_ASSERT(parseEmuleInfoPayload(parsed, remotePayload));
+  CPPUNIT_ASSERT_EQUAL((uint16_t)4672, parsed.udpPort);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)4, parsed.miscOptions.udpVersion);
 }
 
 void Ed2kHelperTest::testLocalEmulePeerInfoCapabilities()
@@ -1081,6 +1092,7 @@ void Ed2kHelperTest::testPeerHelloPayload()
   EmulePeerInfo parsed;
   CPPUNIT_ASSERT(parsePeerHelloPayload(parsed, payload, true));
   CPPUNIT_ASSERT_EQUAL(clientHash, parsed.userHash);
+  CPPUNIT_ASSERT_EQUAL((uint16_t)0, parsed.udpPort);
   CPPUNIT_ASSERT_EQUAL((uint8_t)1, parsed.miscOptions.aichVersion);
   CPPUNIT_ASSERT(parsed.miscOptions.unicode);
   CPPUNIT_ASSERT_EQUAL((uint8_t)1, parsed.miscOptions.dataCompressionVersion);

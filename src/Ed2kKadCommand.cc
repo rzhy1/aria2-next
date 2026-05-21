@@ -461,6 +461,22 @@ void Ed2kKadCommand::queueKeywordSearch()
   keywordSearchSent_ = true;
 }
 
+size_t Ed2kKadCommand::queueDuePeerReasks(int64_t now)
+{
+  auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
+  size_t queued = 0;
+  while (auto peer = selectDueEd2kUdpReaskPeer(attrs, now)) {
+    ed2k::Endpoint endpoint = peer->endpoint;
+    endpoint.port = peer->udpPort;
+    queueEmuleUdpPacket(endpoint, ed2k::OP_REASKFILEPING,
+                        ed2k::createUdpReaskFilePingPayload(
+                            attrs->link.hash));
+    markEd2kPeerUdpReaskSent(attrs, peer->endpoint, now);
+    ++queued;
+  }
+  return queued;
+}
+
 void Ed2kKadCommand::sendQueuedPackets()
 {
   while (!outbox_.empty()) {
@@ -524,12 +540,18 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
   if (opcode == ed2k::OP_REASKACK) {
     ed2k::UdpReaskAck ack;
     if (ed2k::parseUdpReaskAckPayload(ack, payload)) {
-      markEd2kPeerQueued(getEd2kAttrs(requestGroup_->getDownloadContext()),
-                         endpoint, ack.rank, ack.bitfield);
+      markEd2kPeerUdpReaskAck(
+          getEd2kAttrs(requestGroup_->getDownloadContext()), endpoint,
+          ack.rank, ack.bitfield, nowSeconds());
     }
     return;
   }
-  if (opcode == ed2k::OP_QUEUEFULL || opcode == ed2k::OP_FILENOTFOUND) {
+  if (opcode == ed2k::OP_QUEUEFULL) {
+    markEd2kPeerQueueFull(getEd2kAttrs(requestGroup_->getDownloadContext()),
+                          endpoint, nowSeconds(), peerRetryWait(e_));
+    return;
+  }
+  if (opcode == ed2k::OP_FILENOTFOUND) {
     markEd2kPeerDead(getEd2kAttrs(requestGroup_->getDownloadContext()),
                      endpoint, nowSeconds(), peerRetryWait(e_));
     return;
@@ -829,6 +851,7 @@ bool Ed2kKadCommand::execute()
     schedulePendingEd2kServers(requestGroup_, e_);
     queueServerStatusPoll();
     queueServerSourcePoll();
+    queueDuePeerReasks(nowSeconds());
     queueBootstrap();
     if (!requestGroup_->downloadFinished()) {
       if (attrs->searchActive) {

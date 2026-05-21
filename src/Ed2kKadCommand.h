@@ -37,6 +37,15 @@ public:
   virtual bool execute() CXX11_OVERRIDE;
   uint16_t getLocalUdpPort() const;
   bool waitLocalUdpReadable(time_t timeout) const;
+#ifdef A2_TEST_DIR
+  size_t testQueueDuePeerReasks(int64_t now) { return queueDuePeerReasks(now); }
+  size_t testQueuedPacketCount() const { return outbox_.size(); }
+  const std::pair<ed2k::Endpoint, std::string>& testQueuedPacketAt(
+      size_t index) const
+  {
+    return outbox_.at(index);
+  }
+#endif // A2_TEST_DIR
 
 private:
   RequestGroup* requestGroup_;
@@ -58,6 +67,7 @@ private:
   void queueServerSourcePoll();
   void queueSourceSearch();
   void queueKeywordSearch();
+  size_t queueDuePeerReasks(int64_t now);
   void queueTraversalActions(
       ed2k::KadTraversal& traversal,
       const std::vector<ed2k::KadTraversalAction>& actions);

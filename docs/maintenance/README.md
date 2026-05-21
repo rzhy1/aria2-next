@@ -21,6 +21,11 @@ maintenance task owns its own subdirectory.
 | `ed2k-refactor/reference-ledger.csv` | Active authoritative reference alignment and pruning ledger |
 | `ed2k-refactor/checkpoints/` | Active domain-specific ED2K/eMule checkpoint matrices |
 | `ed2k-refactor/progress.md` | Active chronological ED2K/eMule refactor progress log |
+| `ed2k-download-hardening/overview.md` | Active tracker entry point for ED2K/eMule download reliability hardening |
+| `ed2k-download-hardening/roadmap.csv` | Active checkpoint index for ED2K download hardening |
+| `ed2k-download-hardening/capability-ledger.csv` | Active aMule-runtime capability and pruning ledger |
+| `ed2k-download-hardening/checkpoints/` | Active narrow ED2K download hardening checkpoint matrices |
+| `ed2k-download-hardening/progress.md` | Active chronological ED2K download hardening progress log |
 
 Maintenance records should be durable and compact. Temporary API payloads,
 scratch research files, generated reports, local caches, and conversation logs

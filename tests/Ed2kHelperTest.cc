@@ -998,17 +998,17 @@ void Ed2kHelperTest::testCompressedPartPayloads()
   CPPUNIT_ASSERT(parseCompressedPartPayload(header, compressedData, payload32,
                                            fileHash, false));
   CPPUNIT_ASSERT_EQUAL((int64_t)184320, header.begin);
-  CPPUNIT_ASSERT_EQUAL((uint32_t)4, header.compressedLength);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)4, header.totalCompressedLength);
   CPPUNIT_ASSERT_EQUAL(std::string("data"), compressedData);
 
-  auto payload64 = fileHash + packUInt64(0x100000001LL) + packUInt32(2) + "xy";
+  auto payload64 = fileHash + packUInt64(0x100000001LL) + packUInt32(7) + "xy";
   CPPUNIT_ASSERT(parseCompressedPartPayload(header, compressedData, payload64,
                                            fileHash, true));
   CPPUNIT_ASSERT_EQUAL((int64_t)0x100000001LL, header.begin);
-  CPPUNIT_ASSERT_EQUAL((uint32_t)2, header.compressedLength);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)7, header.totalCompressedLength);
   CPPUNIT_ASSERT_EQUAL(std::string("xy"), compressedData);
 
-  auto bad = fileHash + packUInt32(0) + packUInt32(10) + "tiny";
+  auto bad = fileHash + packUInt32(0) + packUInt32(3) + "tiny";
   CPPUNIT_ASSERT(!parseCompressedPartPayload(header, compressedData, bad,
                                             fileHash, false));
 }

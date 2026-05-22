@@ -37,6 +37,7 @@
 #include "message_digest_helper.h"
 #include "Option.h"
 #include "PeerStat.h"
+#include "Piece.h"
 #include "PieceStorage.h"
 #include "Request.h"
 #include "RequestGroup.h"
@@ -75,6 +76,32 @@ std::shared_ptr<Request> makeEd2kRequest(const ed2k::Endpoint& endpoint,
                     endpoint.port));
   }
   return req;
+}
+
+bool rangesOverlap(const ed2k::PartRange& lhs, const ed2k::PartRange& rhs)
+{
+  return lhs.begin < rhs.end && rhs.begin < lhs.end;
+}
+
+bool blockRangeAvailable(Ed2kAttribute* attrs, const ed2k::PartRange& range)
+{
+  if (!attrs) {
+    return false;
+  }
+  return std::none_of(attrs->requestedPartRanges.begin(),
+                      attrs->requestedPartRanges.end(),
+                      [&](const ed2k::PartRange& existing) {
+                        return rangesOverlap(existing, range);
+                      });
+}
+
+bool blockRangeAvailable(const std::vector<ed2k::PartRange>& ranges,
+                         const ed2k::PartRange& range)
+{
+  return std::none_of(ranges.begin(), ranges.end(),
+                      [&](const ed2k::PartRange& existing) {
+                        return rangesOverlap(existing, range);
+                      });
 }
 
 uint16_t localEd2kTcpPort(const DownloadEngine* e)
@@ -211,6 +238,7 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       aichFileHashRequested_(false),
       incoming_(false),
       serverRequestSent_(false),
+      closeAfterOutbox_(false),
       use64BitOffsets_(requestGroup->getDownloadContext()->getTotalLength() >
                        std::numeric_limits<uint32_t>::max()),
       localPeerInfo_(ed2k::createLocalEmulePeerInfo()),
@@ -218,8 +246,12 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       obfuscationMagicRead_(0),
       obfuscationMethodRead_(0),
       obfuscationPaddingRead_(0),
-      obfuscationEnabled_(false)
+      obfuscationEnabled_(false),
+      compressedPartStreamInitialized_(false),
+      compressedPartBase_(0),
+      compressedPartInflated_(0)
 {
+  std::memset(&compressedPartStream_, 0, sizeof(compressedPartStream_));
   localPeerInfo_.udpPort = localEd2kUdpPort(e);
   localPeerInfo_.miscOptions.udpVersion = localPeerInfo_.udpPort == 0 ? 0 : 4;
   setTimeout(std::chrono::seconds(getOption()->getAsInt(PREF_CONNECT_TIMEOUT)));
@@ -253,6 +285,7 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       sourceExchangeRequested_(false),
       aichFileHashRequested_(false),
       serverRequestSent_(false),
+      closeAfterOutbox_(false),
       use64BitOffsets_(requestGroup->getDownloadContext()->getTotalLength() >
                        std::numeric_limits<uint32_t>::max()),
       incoming_(true),
@@ -261,8 +294,12 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       obfuscationMagicRead_(0),
       obfuscationMethodRead_(0),
       obfuscationPaddingRead_(0),
-      obfuscationEnabled_(false)
+      obfuscationEnabled_(false),
+      compressedPartStreamInitialized_(false),
+      compressedPartBase_(0),
+      compressedPartInflated_(0)
 {
+  std::memset(&compressedPartStream_, 0, sizeof(compressedPartStream_));
   localPeerInfo_.udpPort = localEd2kUdpPort(e);
   localPeerInfo_.miscOptions.udpVersion = localPeerInfo_.udpPort == 0 ? 0 : 4;
   setTimeout(std::chrono::seconds(getOption()->getAsInt(PREF_CONNECT_TIMEOUT)));
@@ -276,6 +313,7 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
 
 Ed2kCommand::~Ed2kCommand()
 {
+  resetCompressedPartInflater();
   if (mode_ == Mode::PEER && getDownloadContext()) {
     markEd2kPeerDisconnected(getEd2kAttrs(getDownloadContext()), endpoint_);
   }
@@ -489,6 +527,62 @@ void Ed2kCommand::decryptData(char* data, size_t length)
       reinterpret_cast<const unsigned char*>(data));
 }
 
+void Ed2kCommand::resetCompressedPartInflater()
+{
+  if (compressedPartStreamInitialized_) {
+    inflateEnd(&compressedPartStream_);
+    std::memset(&compressedPartStream_, 0, sizeof(compressedPartStream_));
+    compressedPartStreamInitialized_ = false;
+  }
+  compressedPartBase_ = 0;
+  compressedPartInflated_ = 0;
+}
+
+bool Ed2kCommand::inflateCompressedPartChunk(std::string& data,
+                                             const std::string& compressedData,
+                                             int64_t blockBegin,
+                                             size_t maxOutput)
+{
+  data.clear();
+  if (compressedData.empty() || maxOutput == 0) {
+    return false;
+  }
+  if (!compressedPartStreamInitialized_ ||
+      compressedPartBase_ != blockBegin) {
+    resetCompressedPartInflater();
+    if (inflateInit(&compressedPartStream_) != Z_OK) {
+      return false;
+    }
+    compressedPartStreamInitialized_ = true;
+    compressedPartBase_ = blockBegin;
+    compressedPartInflated_ = 0;
+  }
+
+  data.assign(maxOutput, '\0');
+  const auto oldTotalOut = compressedPartStream_.total_out;
+  compressedPartStream_.avail_in = compressedData.size();
+  compressedPartStream_.next_in = reinterpret_cast<unsigned char*>(
+      const_cast<char*>(compressedData.data()));
+  compressedPartStream_.avail_out = data.size();
+  compressedPartStream_.next_out = reinterpret_cast<unsigned char*>(&data[0]);
+
+  const auto rc = inflate(&compressedPartStream_, Z_SYNC_FLUSH);
+  const auto produced = static_cast<size_t>(compressedPartStream_.total_out -
+                                           oldTotalOut);
+  if ((rc != Z_OK && rc != Z_STREAM_END) ||
+      compressedPartStream_.avail_in != 0 || produced > maxOutput) {
+    resetCompressedPartInflater();
+    data.clear();
+    return false;
+  }
+  compressedPartInflated_ += static_cast<int64_t>(produced);
+  data.resize(produced);
+  if (rc == Z_STREAM_END) {
+    resetCompressedPartInflater();
+  }
+  return true;
+}
+
 bool Ed2kCommand::execute()
 {
   try {
@@ -521,6 +615,7 @@ bool Ed2kCommand::execute()
     else {
       markEd2kPeerFailure(getEd2kAttrs(getDownloadContext()), endpoint_, now,
                           retryWait);
+      scheduleEd2kPeerCheck(getRequestGroup(), getDownloadEngine());
     }
     A2_LOG_INFO_EX(EX_EXCEPTION_CAUGHT, err);
     return true;
@@ -778,32 +873,104 @@ void Ed2kCommand::queuePeerPartRequest()
   std::vector<ed2k::PartRange> ranges;
   const auto attrs = getEd2kAttrs(getDownloadContext());
   auto state = getEd2kPeerState(attrs, endpoint_);
-  const auto segments = ed2k::selectRequestSegments(
-      getSegmentMan().get(), getCuid(),
-      state ? state->partStatus : std::vector<bool>(), 3);
-  for (const auto& segment : segments) {
-    if (ranges.size() >= 3) {
-      break;
-    }
-    if (!segment || segment->complete()) {
-      continue;
-    }
-    const int64_t begin = segment->getPositionToWrite();
-    const int64_t end =
-        std::min(begin + static_cast<int64_t>(ed2k::BLOCK_LENGTH),
-                 segment->getPosition() + segment->getLength());
-    if (end <= begin) {
-      continue;
-    }
-    ed2k::PartRange range;
-    range.begin = begin;
-    range.end = end;
-    ranges.push_back(range);
+  const std::vector<ed2k::PartRange> outstanding =
+      state ? state->requestedParts : std::vector<ed2k::PartRange>();
+
+  if (outstanding.size() >= 3) {
+    return;
   }
+  const auto maxNewRanges = 3 - outstanding.size();
+
+  for (size_t index = 0;
+       ranges.size() < maxNewRanges &&
+       index < getDownloadContext()->getNumPieces();
+       ++index) {
+    if (getPieceStorage()->hasPiece(index)) {
+      continue;
+    }
+    if (state && !state->partStatus.empty() &&
+        (index >= state->partStatus.size() || !state->partStatus[index])) {
+      continue;
+    }
+
+    const int64_t pieceBegin =
+        static_cast<int64_t>(index) * getDownloadContext()->getPieceLength();
+    const int64_t pieceEnd =
+        std::min(pieceBegin +
+                     static_cast<int64_t>(getDownloadContext()->getPieceLength()),
+                 getDownloadContext()->getTotalLength());
+    auto piece = getPieceStorage()->getPiece(index);
+    const auto pieceBlockLength = static_cast<int64_t>(Piece::BLOCK_LENGTH);
+    const auto requestBlockLength =
+        static_cast<int64_t>(ed2k::BLOCK_LENGTH / Piece::BLOCK_LENGTH) *
+        pieceBlockLength;
+    for (int64_t begin = pieceBegin;
+         ranges.size() < maxNewRanges && begin < pieceEnd;) {
+      const auto block =
+          static_cast<size_t>((begin - pieceBegin) / pieceBlockLength);
+      if (piece && piece->hasBlock(block)) {
+        begin += pieceBlockLength;
+        continue;
+      }
+      auto end = std::min(begin + requestBlockLength, pieceEnd);
+      if (piece) {
+        for (auto next = begin + pieceBlockLength; next < end;
+             next += pieceBlockLength) {
+          const auto nextBlock =
+              static_cast<size_t>((next - pieceBegin) / pieceBlockLength);
+          if (piece->hasBlock(nextBlock)) {
+            end = next;
+            break;
+          }
+        }
+      }
+      ed2k::PartRange range;
+      range.begin = begin;
+      range.end = end;
+      if (!blockRangeAvailable(attrs, range) ||
+          !blockRangeAvailable(ranges, range)) {
+        begin += pieceBlockLength;
+        continue;
+      }
+      ranges.push_back(range);
+      begin = end;
+    }
+  }
+
+  if (ranges.empty() && maxNewRanges > 0) {
+    ed2k::PartRange reclaimed;
+    const auto requesterPartStatus =
+        state ? state->partStatus : std::vector<bool>();
+    if (reclaimEd2kStalledRequestedRange(
+            attrs, endpoint_, requesterPartStatus, nowSeconds(),
+            ed2k::ENDGAME_RECLAIM_STALL_SECONDS, reclaimed) &&
+        blockRangeAvailable(ranges, reclaimed)) {
+      ranges.push_back(reclaimed);
+      A2_LOG_DEBUG(fmt("CUID#%" PRId64
+                       " - Reclaimed stalled ED2K part request begin=%" PRId64
+                       " end=%" PRId64 ".",
+                       getCuid(), reclaimed.begin, reclaimed.end));
+    }
+  }
+
   if (ranges.empty()) {
     return;
   }
-  updateEd2kPeerRequestedParts(attrs, endpoint_, ranges, nowSeconds());
+
+  for (const auto& range : ranges) {
+    A2_LOG_DEBUG(fmt("CUID#%" PRId64
+                     " - Queue ED2K part request begin=%" PRId64
+                     " end=%" PRId64 ".",
+                     getCuid(), range.begin, range.end));
+  }
+  if (!state || state->requestedParts.empty()) {
+    getSegmentMan()->getSegmentWithIndex(
+        getCuid(), static_cast<size_t>(ranges.front().begin /
+                                      getDownloadContext()->getPieceLength()));
+  }
+  auto requested = outstanding;
+  requested.insert(requested.end(), ranges.begin(), ranges.end());
+  updateEd2kPeerRequestedParts(attrs, endpoint_, requested, nowSeconds());
   queuePacket(ed2k::PROTO_EDONKEY,
               use64BitOffsets_ ? ed2k::OP_REQUESTPARTS_I64
                                : ed2k::OP_REQUESTPARTS,
@@ -814,6 +981,25 @@ void Ed2kCommand::queuePeerPartRequest()
 void Ed2kCommand::queueCancelTransfer()
 {
   queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_CANCELTRANSFER, std::string());
+}
+
+bool Ed2kCommand::sendPendingCancelTransfer()
+{
+  if (mode_ != Mode::PEER || incoming_ || !peerAccepted_) {
+    return false;
+  }
+  auto state = getEd2kPeerState(getEd2kAttrs(getDownloadContext()), endpoint_);
+  if (!state || !state->cancelTransferSent || !state->requestedParts.empty()) {
+    return false;
+  }
+  A2_LOG_DEBUG(fmt("CUID#%" PRId64
+                   " - Sending ED2K cancel transfer for reclaimed range.",
+                   getCuid()));
+  queueCancelTransfer();
+  state_ = State::WRITE;
+  peerAccepted_ = false;
+  closeAfterOutbox_ = true;
+  return true;
 }
 
 bool Ed2kCommand::expireStalledTransfer()
@@ -882,6 +1068,7 @@ bool Ed2kCommand::updatePeerEndpointFromHello(bool helloPacket)
     if (oldState) {
       oldState->connecting = false;
       oldState->accepted = false;
+      releaseEd2kRequestedRanges(attrs, oldState->requestedParts);
       oldState->requestedParts.clear();
     }
     state_ = State::DONE;
@@ -899,6 +1086,7 @@ bool Ed2kCommand::updatePeerEndpointFromHello(bool helloPacket)
   if (oldState && oldState != newState) {
     oldState->connecting = false;
     oldState->accepted = false;
+    releaseEd2kRequestedRanges(attrs, oldState->requestedParts);
     oldState->requestedParts.clear();
   }
   return true;
@@ -974,6 +1162,10 @@ bool Ed2kCommand::flushOutbox()
     outboxEncrypted_.pop_front();
   }
   disableWriteCheckSocket();
+  if (closeAfterOutbox_) {
+    state_ = State::DONE;
+    return true;
+  }
   setReadCheckSocket(getSocket());
   state_ = State::READ_HEADER;
   return true;
@@ -1094,7 +1286,7 @@ void Ed2kCommand::handlePartData(int64_t begin, const std::string& data)
   if (!completedSegment) {
     return;
   }
-  if (transfer.completeVerifiedSegment(completedSegment->getIndex())) {
+  if (transfer.completeVerifiedSegment(completedSegment)) {
     clearEd2kPeerRequestedParts(getEd2kAttrs(getDownloadContext()), endpoint_);
   }
 }
@@ -1273,7 +1465,9 @@ void Ed2kCommand::handleServerPacket()
 void Ed2kCommand::handlePeerPacket()
 {
   auto attrs = getEd2kAttrs(getDownloadContext());
-  if (currentHeader_.protocol == ed2k::PROTO_EMULE) {
+  if (currentHeader_.protocol == ed2k::PROTO_EMULE &&
+      currentHeader_.opcode != ed2k::OP_COMPRESSEDPART &&
+      currentHeader_.opcode != ed2k::OP_COMPRESSEDPART_I64) {
     switch (currentHeader_.opcode) {
     case ed2k::OP_EMULEINFO:
       if (ed2k::parseEmuleInfoPayload(remotePeerInfo_, body_)) {
@@ -1531,6 +1725,7 @@ void Ed2kCommand::handlePeerPacket()
     break;
   case ed2k::OP_OUTOFPARTREQS:
     markEd2kPeerOutOfParts(attrs, endpoint_);
+    schedulePendingPeers();
     state_ = State::DONE;
     break;
   case ed2k::OP_FILEREQANSNOFIL:
@@ -1540,10 +1735,12 @@ void Ed2kCommand::handlePeerPacket()
             global::wallclock().getTime().time_since_epoch())
             .count(),
         std::max<int64_t>(1, getOption()->getAsInt(PREF_RETRY_WAIT)));
+    schedulePendingPeers();
     state_ = State::DONE;
     break;
   case ed2k::OP_CANCELTRANSFER:
     markEd2kPeerCancelled(attrs, endpoint_);
+    schedulePendingPeers();
     state_ = State::DONE;
     break;
   case ed2k::OP_QUEUERANK:
@@ -1556,6 +1753,7 @@ void Ed2kCommand::handlePeerPacket()
     const std::vector<bool> partStatus =
         peerState ? peerState->partStatus : std::vector<bool>();
     markEd2kPeerQueued(attrs, endpoint_, rank, partStatus);
+    schedulePendingPeers();
     state_ = State::DONE;
     break;
   }
@@ -1581,6 +1779,10 @@ void Ed2kCommand::handlePeerPacket()
       throw DL_RETRY_EX("Bad ED2K part range.");
     }
     const auto data = body_.substr(metaLength);
+    A2_LOG_DEBUG(fmt("CUID#%" PRId64
+                     " - Read ED2K part data begin=%" PRId64
+                     " end=%" PRId64 ".",
+                     getCuid(), begin, end));
     if (!remotePeerInfo_.userHash.empty()) {
       auto rgman = getDownloadEngine()->getRequestGroupMan().get();
       if (rgman && rgman->getEd2kUploadQueue()) {
@@ -1619,19 +1821,32 @@ void Ed2kCommand::handlePeerPacket()
                                           attrs->link.hash, is64)) {
       throw DL_RETRY_EX("Bad compressed ED2K part packet.");
     }
-    ed2k::PeerTransfer transfer(getDownloadContext().get(),
-                                getPieceStorage().get(), getSegmentMan().get(),
-                                getCuid());
-    const auto expectedLength = transfer.expectedPartLength(header.begin);
-    if (expectedLength <= 0) {
+    const auto peerState = getEd2kPeerState(attrs, endpoint_);
+    auto requested = peerState ? std::find_if(
+                         peerState->requestedParts.begin(),
+                         peerState->requestedParts.end(),
+                         [&](const ed2k::PartRange& range) {
+                           return range.begin <= header.begin &&
+                                  header.begin < range.end;
+                         })
+                               : std::vector<ed2k::PartRange>::const_iterator();
+    if (!peerState || requested == peerState->requestedParts.end()) {
       throw DL_RETRY_EX("Unexpected compressed ED2K part range.");
     }
+    const auto writeBegin = requested->begin + compressedPartInflated_;
+    if (writeBegin < header.begin || writeBegin >= requested->end) {
+      throw DL_RETRY_EX("Unexpected compressed ED2K part range.");
+    }
+    const auto maxOutput = static_cast<size_t>(
+        std::min<int64_t>(ed2k::BLOCK_LENGTH, requested->end - writeBegin));
     std::string data;
-    if (!ed2k::inflateCompressedPartData(
-            data, compressedData, static_cast<size_t>(expectedLength))) {
+    if (!inflateCompressedPartChunk(data, compressedData, requested->begin,
+                                    maxOutput)) {
       throw DL_RETRY_EX("Bad compressed ED2K part data.");
     }
-    handlePartData(header.begin, data);
+    if (!data.empty()) {
+      handlePartData(writeBegin, data);
+    }
     if (getRequestGroup()->downloadFinished()) {
       state_ = State::DONE;
     }
@@ -1724,6 +1939,9 @@ bool Ed2kCommand::executeInternal()
       }
       break;
     case State::READ_HEADER:
+      if (sendPendingCancelTransfer()) {
+        break;
+      }
       if (expireStalledTransfer()) {
         break;
       }
@@ -1732,6 +1950,9 @@ bool Ed2kCommand::executeInternal()
       }
       break;
     case State::READ_BODY:
+      if (sendPendingCancelTransfer()) {
+        break;
+      }
       if (expireStalledTransfer()) {
         break;
       }

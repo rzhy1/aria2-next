@@ -41,6 +41,7 @@ struct Ed2kAttribute : public ContextAttribute {
   std::vector<ed2k::ServerState> serverStates;
   std::vector<ed2k::Endpoint> peers;
   std::vector<ed2k::PeerState> peerStates;
+  std::vector<ed2k::PartRange> requestedPartRanges;
   std::string clientHash;
   std::vector<std::string> pieceHashes;
   std::string aichRootHash;
@@ -119,12 +120,20 @@ bool updateEd2kPeerRequestedParts(
 bool updateEd2kPeerRequestedParts(
     Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
     const std::vector<ed2k::PartRange>& ranges, int64_t now);
+bool markEd2kRequestedRanges(Ed2kAttribute* attrs,
+                             const std::vector<ed2k::PartRange>& ranges);
 size_t removeEd2kPeerCompletedRequestedRange(Ed2kAttribute* attrs,
                                              const ed2k::Endpoint& peer,
                                              int64_t begin, int64_t end,
                                              int64_t now);
+void releaseEd2kRequestedRanges(Ed2kAttribute* attrs,
+                                const std::vector<ed2k::PartRange>& ranges);
 bool clearEd2kPeerRequestedParts(Ed2kAttribute* attrs,
                                  const ed2k::Endpoint& peer);
+bool reclaimEd2kStalledRequestedRange(
+    Ed2kAttribute* attrs, const ed2k::Endpoint& requester,
+    const std::vector<bool>& requesterPartStatus, int64_t now,
+    int64_t staleSeconds, ed2k::PartRange& reclaimed);
 bool expireEd2kStalledPeerTransfer(Ed2kAttribute* attrs,
                                    SegmentMan* segmentMan,
                                    const ed2k::Endpoint& peer,
@@ -186,6 +195,7 @@ void schedulePendingEd2kServers(std::vector<std::unique_ptr<Command>>& commands,
                                 RequestGroup* requestGroup,
                                 DownloadEngine* e);
 void schedulePendingEd2kPeers(RequestGroup* requestGroup, DownloadEngine* e);
+void scheduleEd2kPeerCheck(RequestGroup* requestGroup, DownloadEngine* e);
 ed2k::KadRoutingSnapshot createEd2kKadSnapshot(const Ed2kAttribute* attrs);
 void restoreEd2kKadOperationalState(Ed2kAttribute* attrs,
                                     const ed2k::KadRoutingSnapshot& snapshot);

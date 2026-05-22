@@ -67,6 +67,7 @@
 #include "ed2k_hash.h"
 #include "ed2k_kad.h"
 #include "ed2k_link.h"
+#include "ed2k_policy.h"
 #include "ed2k_search.h"
 #include "ed2k_server.h"
 #include "SimpleRandomizer.h"
@@ -419,7 +420,11 @@ createEd2kRequestGroup(const std::string& ed2kUri,
   dctx->setAttribute(CTX_ATTR_ED2K, std::move(attrs));
   dctx->setAcceptMetalink(false);
   rg->setDownloadContext(dctx);
-  rg->setNumConcurrentCommand(option->getAsInt(PREF_SPLIT));
+  const auto peerConnections =
+      option->definedLocal(PREF_SPLIT)
+          ? option->getAsInt(PREF_SPLIT)
+          : ed2k::DEFAULT_PEER_CONNECTIONS;
+  rg->setNumConcurrentCommand(peerConnections);
 
   if (option->getAsBool(PREF_ENABLE_RPC)) {
     rg->setPauseRequested(option->getAsBool(PREF_PAUSE));

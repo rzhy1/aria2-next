@@ -32,6 +32,8 @@ namespace ed2k {
 constexpr int64_t SERVER_TCP_SOURCE_REASK_INTERVAL = 800;
 constexpr int64_t SERVER_UDP_SOURCE_REASK_INTERVAL = 1300;
 constexpr int64_t PEER_UDP_REASK_INTERVAL = 1300;
+constexpr int DEFAULT_PEER_CONNECTIONS = 20;
+constexpr int64_t ENDGAME_RECLAIM_STALL_SECONDS = 10;
 
 enum class PeerLifecycle {
   USEFUL,

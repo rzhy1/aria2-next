@@ -21,6 +21,7 @@
 #include "DownloadContext.h"
 #include "Ed2kAttribute.h"
 #include "Piece.h"
+#include "PiecedSegment.h"
 #include "PieceStorage.h"
 #include "Segment.h"
 #include "SegmentMan.h"
@@ -53,6 +54,28 @@ int64_t PeerTransfer::expectedPartLength(int64_t begin) const
   return 0;
 }
 
+std::shared_ptr<Segment> PeerTransfer::getOrCreateSegment(size_t index) const
+{
+  std::vector<std::shared_ptr<Segment>> segments;
+  segmentMan_->getInFlightSegment(segments, cuid_);
+  for (const auto& segment : segments) {
+    if (segment && segment->getIndex() == index) {
+      return segment;
+    }
+  }
+
+  auto segment = segmentMan_->getSegmentWithIndex(cuid_, index);
+  if (segment) {
+    return segment;
+  }
+
+  auto piece = pieceStorage_->getPiece(index);
+  if (!piece || piece->pieceComplete()) {
+    return nullptr;
+  }
+  return std::make_shared<PiecedSegment>(dctx_->getPieceLength(), piece);
+}
+
 std::shared_ptr<Segment>
 PeerTransfer::writePartData(int64_t begin, const std::string& data)
 {
@@ -67,43 +90,6 @@ PeerTransfer::writePartData(int64_t begin, const std::string& data)
     throw DL_RETRY_EX("Bad ED2K part range.");
   }
 
-  std::vector<std::shared_ptr<Segment>> segments;
-  segmentMan_->getInFlightSegment(segments, cuid_);
-  for (auto& segment : segments) {
-    const auto segmentBegin = segment->getPosition();
-    const auto segmentEnd = segmentBegin + segment->getLength();
-    if (begin < segmentBegin || end > segmentEnd) {
-      continue;
-    }
-    const auto writeBegin = segment->getPositionToWrite();
-    if (end <= writeBegin) {
-      return nullptr;
-    }
-    if (begin > writeBegin) {
-      continue;
-    }
-    const auto dataOffset = static_cast<size_t>(writeBegin - begin);
-    const auto writeSize = data.size() - dataOffset;
-    pieceStorage_->getDiskAdaptor()->writeData(
-        reinterpret_cast<const unsigned char*>(data.data() + dataOffset),
-        writeSize, writeBegin);
-    dctx_->updateDownload(writeSize);
-    segment->updateWrittenLength(writeSize);
-    if (!segment->complete()) {
-      return nullptr;
-    }
-    if (!verifyPiece(segment->getIndex())) {
-      const auto pieceData = readPiece(segment->getIndex());
-      segment->clear(pieceStorage_->getWrDiskCache());
-      if (!pieceData.empty()) {
-        applyAichRecovery(segment->getPiece(), pieceData);
-      }
-      segmentMan_->cancelSegment(cuid_, segment);
-      throw DL_RETRY_EX("Bad ED2K piece hash.");
-    }
-    return segment;
-  }
-
   const auto index = static_cast<size_t>(begin / dctx_->getPieceLength());
   const auto pieceBegin = static_cast<int64_t>(index) * dctx_->getPieceLength();
   const auto pieceEnd =
@@ -112,8 +98,47 @@ PeerTransfer::writePartData(int64_t begin, const std::string& data)
   if (begin >= pieceBegin && end <= pieceEnd && pieceStorage_->hasPiece(index)) {
     return nullptr;
   }
+  if (begin < pieceBegin || end > pieceEnd) {
+    throw DL_RETRY_EX("Unexpected ED2K part range.");
+  }
 
-  throw DL_RETRY_EX("Unexpected ED2K part range.");
+  auto segment = getOrCreateSegment(index);
+  if (!segment) {
+    throw DL_RETRY_EX("Unexpected ED2K part range.");
+  }
+  auto piece = segment->getPiece();
+  const auto blockLength = piece->getBlockLength();
+  const auto firstBlock =
+      static_cast<size_t>((begin - pieceBegin) / blockLength);
+  const auto lastBlock =
+      static_cast<size_t>((end - pieceBegin - 1) / blockLength);
+
+  pieceStorage_->getDiskAdaptor()->writeData(
+      reinterpret_cast<const unsigned char*>(data.data()), data.size(), begin);
+  dctx_->updateDownload(data.size());
+  for (auto block = firstBlock; block <= lastBlock; ++block) {
+    const auto blockBegin =
+        pieceBegin + static_cast<int64_t>(block) * blockLength;
+    const auto blockEnd =
+        std::min(blockBegin + static_cast<int64_t>(piece->getBlockLength(block)),
+                 pieceEnd);
+    if (!piece->hasBlock(block) && end >= blockEnd) {
+      piece->completeBlock(block);
+    }
+  }
+  if (!piece->pieceComplete()) {
+    return nullptr;
+  }
+  if (!verifyPiece(index)) {
+    const auto pieceData = readPiece(index);
+    segment->clear(pieceStorage_->getWrDiskCache());
+    if (!pieceData.empty()) {
+      applyAichRecovery(piece, pieceData);
+    }
+    segmentMan_->cancelSegmentByIndex(index);
+    throw DL_RETRY_EX("Bad ED2K piece hash.");
+  }
+  return segment;
 }
 
 bool PeerTransfer::applyAichRecovery(const std::shared_ptr<Piece>& piece,
@@ -158,16 +183,12 @@ bool PeerTransfer::applyAichRecovery(const std::shared_ptr<Piece>& piece,
   return keptAny;
 }
 
-bool PeerTransfer::completeVerifiedSegment(size_t index)
+bool PeerTransfer::completeVerifiedSegment(const std::shared_ptr<Segment>& segment)
 {
-  std::vector<std::shared_ptr<Segment>> segments;
-  segmentMan_->getInFlightSegment(segments, cuid_);
-  for (auto& segment : segments) {
-    if (segment->getIndex() == index) {
-      return segmentMan_->completeSegment(cuid_, segment);
-    }
+  if (!segment) {
+    return false;
   }
-  return false;
+  return segmentMan_->completeSegment(cuid_, segment);
 }
 
 std::string PeerTransfer::readPiece(size_t index) const

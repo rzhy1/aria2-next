@@ -26,6 +26,7 @@
 #include "SegmentMan.h"
 #include "SimpleRandomizer.h"
 #include "a2functional.h"
+#include "Command.h"
 #include "ed2k_hash.h"
 #include "ed2k_endpoint.h"
 #include "ed2k_kad.h"
@@ -35,6 +36,30 @@
 #include "wallclock.h"
 
 namespace aria2 {
+
+namespace {
+class Ed2kPeerScheduleCommand : public Command {
+public:
+  Ed2kPeerScheduleCommand(cuid_t cuid, RequestGroup* requestGroup,
+                          DownloadEngine* e)
+      : Command(cuid), requestGroup_(requestGroup), e_(e)
+  {
+    setStatus(Command::STATUS_ONESHOT_REALTIME);
+  }
+
+  bool execute() CXX11_OVERRIDE
+  {
+    if (!requestGroup_->downloadFinished() && !requestGroup_->isHaltRequested()) {
+      schedulePendingEd2kPeers(requestGroup_, e_);
+    }
+    return true;
+  }
+
+private:
+  RequestGroup* requestGroup_;
+  DownloadEngine* e_;
+};
+} // namespace
 
 Ed2kAttribute* getEd2kAttrs(const std::shared_ptr<DownloadContext>& dctx)
 {
@@ -277,6 +302,7 @@ bool addEd2kFoundSource(Ed2kAttribute* attrs, const ed2k::FoundSource& source,
   state->connecting = false;
   state->accepted = false;
   state->queued = false;
+  releaseEd2kRequestedRanges(attrs, state->requestedParts);
   state->requestedParts.clear();
   return false;
 }
@@ -446,6 +472,7 @@ bool markEd2kPeerDisconnected(Ed2kAttribute* attrs,
   }
   state->connecting = false;
   state->accepted = false;
+  releaseEd2kRequestedRanges(attrs, state->requestedParts);
   state->requestedParts.clear();
   return true;
 }
@@ -471,6 +498,7 @@ bool markEd2kCallbackRequestSent(Ed2kAttribute* attrs, uint32_t clientId,
   i->connecting = false;
   i->accepted = false;
   i->queued = false;
+  releaseEd2kRequestedRanges(attrs, i->requestedParts);
   i->requestedParts.clear();
   return true;
 }
@@ -498,6 +526,7 @@ bool markEd2kCallbackAccepted(Ed2kAttribute* attrs, uint32_t clientId,
   state->dead = false;
   state->cancelled = false;
   state->noFile = false;
+  releaseEd2kRequestedRanges(attrs, state->requestedParts);
   state->requestedParts.clear();
   for (auto& existing : attrs->peerStates) {
     if (&existing == state || existing.clientId != clientId ||
@@ -512,6 +541,7 @@ bool markEd2kCallbackAccepted(Ed2kAttribute* attrs, uint32_t clientId,
     existing.connecting = false;
     existing.accepted = false;
     existing.queued = false;
+    releaseEd2kRequestedRanges(attrs, existing.requestedParts);
     existing.requestedParts.clear();
   }
   return true;
@@ -557,6 +587,7 @@ bool markEd2kCallbackFailed(Ed2kAttribute* attrs, uint32_t clientId,
   i->connecting = false;
   i->accepted = false;
   i->queued = false;
+  releaseEd2kRequestedRanges(attrs, i->requestedParts);
   i->requestedParts.clear();
   if (baseRetrySeconds > 0) {
     i->dead = true;
@@ -594,6 +625,7 @@ size_t expireEd2kCallbackWaits(Ed2kAttribute* attrs, int64_t now)
     state.connecting = false;
     state.accepted = false;
     state.queued = false;
+    releaseEd2kRequestedRanges(attrs, state.requestedParts);
     state.requestedParts.clear();
     state.nextRetryTime = 0;
     ++expired;
@@ -628,13 +660,45 @@ bool updateEd2kPeerRequestedParts(
   if (!state) {
     return false;
   }
+  releaseEd2kRequestedRanges(attrs, state->requestedParts);
   state->requestedParts = ranges;
+  markEd2kRequestedRanges(attrs, ranges);
   if (!ranges.empty() && now != 0) {
     state->lastPartRequestTime = now;
     state->lastTransferProgressTime = now;
     state->cancelTransferSent = false;
   }
   return true;
+}
+
+bool markEd2kRequestedRanges(Ed2kAttribute* attrs,
+                             const std::vector<ed2k::PartRange>& ranges)
+{
+  if (!attrs) {
+    return false;
+  }
+  attrs->requestedPartRanges.insert(attrs->requestedPartRanges.end(),
+                                    ranges.begin(), ranges.end());
+  return true;
+}
+
+void releaseEd2kRequestedRanges(Ed2kAttribute* attrs,
+                                const std::vector<ed2k::PartRange>& ranges)
+{
+  if (!attrs || ranges.empty()) {
+    return;
+  }
+  for (const auto& range : ranges) {
+    auto i = std::find_if(attrs->requestedPartRanges.begin(),
+                          attrs->requestedPartRanges.end(),
+                          [&](const ed2k::PartRange& item) {
+                            return item.begin == range.begin &&
+                                   item.end == range.end;
+                          });
+    if (i != attrs->requestedPartRanges.end()) {
+      attrs->requestedPartRanges.erase(i);
+    }
+  }
 }
 
 size_t removeEd2kPeerCompletedRequestedRange(Ed2kAttribute* attrs,
@@ -646,19 +710,49 @@ size_t removeEd2kPeerCompletedRequestedRange(Ed2kAttribute* attrs,
   if (!state || end <= begin) {
     return 0;
   }
-  const auto oldSize = state->requestedParts.size();
+  size_t updated = 0;
+  std::vector<ed2k::PartRange> removedRanges;
+  std::vector<ed2k::PartRange> addedRanges;
+  for (auto& range : state->requestedParts) {
+    if (end <= range.begin || begin >= range.end) {
+      continue;
+    }
+    removedRanges.push_back(range);
+    if (begin <= range.begin && end < range.end) {
+      range.begin = end;
+      addedRanges.push_back(range);
+    }
+    else if (begin > range.begin && end >= range.end) {
+      range.end = begin;
+      addedRanges.push_back(range);
+    }
+    else if (begin > range.begin && end < range.end) {
+      ed2k::PartRange tail;
+      tail.begin = end;
+      tail.end = range.end;
+      range.end = begin;
+      addedRanges.push_back(range);
+      state->requestedParts.push_back(tail);
+      addedRanges.push_back(tail);
+    }
+    else {
+      range.begin = range.end = 0;
+    }
+    ++updated;
+  }
   state->requestedParts.erase(
       std::remove_if(state->requestedParts.begin(), state->requestedParts.end(),
-                     [&](const ed2k::PartRange& range) {
-                       return range.begin >= begin && range.end <= end;
+                     [](const ed2k::PartRange& range) {
+                       return range.end <= range.begin;
                      }),
       state->requestedParts.end());
-  const auto removed = oldSize - state->requestedParts.size();
-  if (removed != 0) {
+  releaseEd2kRequestedRanges(attrs, removedRanges);
+  markEd2kRequestedRanges(attrs, addedRanges);
+  if (updated != 0) {
     state->lastTransferProgressTime = now;
     state->cancelTransferSent = false;
   }
-  return removed;
+  return updated;
 }
 
 bool clearEd2kPeerRequestedParts(Ed2kAttribute* attrs,
@@ -668,8 +762,58 @@ bool clearEd2kPeerRequestedParts(Ed2kAttribute* attrs,
   if (!state) {
     return false;
   }
+  releaseEd2kRequestedRanges(attrs, state->requestedParts);
   state->requestedParts.clear();
   return true;
+}
+
+bool reclaimEd2kStalledRequestedRange(
+    Ed2kAttribute* attrs, const ed2k::Endpoint& requester,
+    const std::vector<bool>& requesterPartStatus, int64_t now,
+    int64_t staleSeconds, ed2k::PartRange& reclaimed)
+{
+  if (!attrs || requester.host.empty() || requester.port == 0 ||
+      staleSeconds <= 0) {
+    return false;
+  }
+  const auto requesterState = getEd2kPeerState(attrs, requester);
+  for (auto& state : attrs->peerStates) {
+    if (sameEndpoint(state.endpoint, requester) ||
+        state.requestedParts.empty() || state.cancelTransferSent) {
+      continue;
+    }
+    const auto lastProgress =
+        state.lastTransferProgressTime != 0 ? state.lastTransferProgressTime
+                                            : state.lastPartRequestTime;
+    if (lastProgress == 0 || now - lastProgress < staleSeconds) {
+      continue;
+    }
+    for (auto range = state.requestedParts.begin();
+         range != state.requestedParts.end(); ++range) {
+      const auto pieceIndex =
+          static_cast<size_t>(range->begin / ed2k::PIECE_LENGTH);
+      if (!requesterPartStatus.empty() &&
+          (pieceIndex >= requesterPartStatus.size() ||
+           !requesterPartStatus[pieceIndex])) {
+        continue;
+      }
+      if (requesterState &&
+          std::any_of(requesterState->requestedParts.begin(),
+                      requesterState->requestedParts.end(),
+                      [&](const ed2k::PartRange& existing) {
+                        return existing.begin < range->end &&
+                               range->begin < existing.end;
+                      })) {
+        continue;
+      }
+      reclaimed = *range;
+      releaseEd2kRequestedRanges(attrs, std::vector<ed2k::PartRange>{*range});
+      state.requestedParts.erase(range);
+      state.cancelTransferSent = true;
+      return true;
+    }
+  }
+  return false;
 }
 
 bool expireEd2kStalledPeerTransfer(Ed2kAttribute* attrs,
@@ -691,6 +835,7 @@ bool expireEd2kStalledPeerTransfer(Ed2kAttribute* attrs,
     return false;
   }
   segmentMan->cancelSegment(cuid);
+  releaseEd2kRequestedRanges(attrs, state->requestedParts);
   state->requestedParts.clear();
   state->cancelTransferSent = true;
   if (!markEd2kPeerFailure(attrs, peer, now, baseRetrySeconds)) {
@@ -732,6 +877,7 @@ bool markEd2kPeerOutOfParts(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
   state->connecting = false;
   state->accepted = false;
   state->queued = true;
+  releaseEd2kRequestedRanges(attrs, state->requestedParts);
   state->requestedParts.clear();
   return true;
 }
@@ -746,6 +892,7 @@ bool markEd2kPeerCancelled(Ed2kAttribute* attrs, const ed2k::Endpoint& peer)
   state->connecting = false;
   state->accepted = false;
   state->queued = false;
+  releaseEd2kRequestedRanges(attrs, state->requestedParts);
   state->requestedParts.clear();
   return true;
 }
@@ -762,6 +909,7 @@ bool markEd2kPeerFailure(Ed2kAttribute* attrs, const ed2k::Endpoint& peer,
   state->dead = true;
   state->accepted = false;
   state->udpReaskPending = false;
+  releaseEd2kRequestedRanges(attrs, state->requestedParts);
   state->requestedParts.clear();
   ++state->failCount;
   state->lastFailureTime = now;
@@ -798,6 +946,7 @@ size_t expireEd2kDeadSources(Ed2kAttribute* attrs, int64_t now)
     state.remoteQueueFull = false;
     state.udpReaskPending = false;
     state.nextRetryTime = 0;
+    releaseEd2kRequestedRanges(attrs, state.requestedParts);
     state.requestedParts.clear();
     ++expired;
   }
@@ -1175,6 +1324,13 @@ void schedulePendingEd2kPeers(RequestGroup* requestGroup, DownloadEngine* e)
     e->addCommand(make_unique<Ed2kCommand>(e->newCUID(), requestGroup, e,
                                            peer, false));
   }
+}
+
+void scheduleEd2kPeerCheck(RequestGroup* requestGroup, DownloadEngine* e)
+{
+  e->addCommand(
+      make_unique<Ed2kPeerScheduleCommand>(e->newCUID(), requestGroup, e));
+  e->setNoWait(true);
 }
 
 ed2k::KadRoutingSnapshot createEd2kKadSnapshot(const Ed2kAttribute* attrs)

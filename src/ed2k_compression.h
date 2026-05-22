@@ -24,7 +24,7 @@ namespace ed2k {
 
 struct CompressedPartHeader {
   int64_t begin = 0;
-  uint32_t compressedLength = 0;
+  uint32_t totalCompressedLength = 0;
 };
 
 bool parseCompressedPartPayload(CompressedPartHeader& header,

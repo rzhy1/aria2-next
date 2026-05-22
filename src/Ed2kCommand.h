@@ -23,6 +23,7 @@
 #include <deque>
 #include <vector>
 #include <cstdint>
+#include <zlib.h>
 
 namespace aria2 {
 
@@ -73,6 +74,7 @@ private:
   bool use64BitOffsets_;
   bool incoming_;
   bool serverRequestSent_;
+  bool closeAfterOutbox_;
   std::deque<uint32_t> pendingCallbackClientIds_;
   ed2k::EmulePeerInfo localPeerInfo_;
   ed2k::EmulePeerInfo remotePeerInfo_;
@@ -87,6 +89,10 @@ private:
   std::string obfuscationPaddingBuf_;
   size_t obfuscationPaddingRead_;
   bool obfuscationEnabled_;
+  z_stream compressedPartStream_;
+  bool compressedPartStreamInitialized_;
+  int64_t compressedPartBase_;
+  int64_t compressedPartInflated_;
 
   bool isExpectedServerEof() const;
   bool shouldObfuscatePeerConnection() const;
@@ -97,6 +103,10 @@ private:
   bool readObfuscationPadding();
   void encryptPacket(std::string& data);
   void decryptData(char* data, size_t length);
+  void resetCompressedPartInflater();
+  bool inflateCompressedPartChunk(std::string& data,
+                                  const std::string& compressedData,
+                                  int64_t blockBegin, size_t maxOutput);
   void startResolve();
   void startConnect();
   bool flushOutbox();
@@ -125,6 +135,7 @@ private:
   void queuePeerStartUpload();
   void queuePeerPartRequest();
   void queueCancelTransfer();
+  bool sendPendingCancelTransfer();
   bool expireStalledTransfer();
   ed2k::SharedResponder createSharedResponder();
   bool updatePeerEndpointFromHello(bool helloPacket);

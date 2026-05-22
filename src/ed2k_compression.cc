@@ -49,14 +49,16 @@ bool parseCompressedPartPayload(CompressedPartHeader& header,
   }
   const uint64_t begin = use64BitOffsets ? readUInt64(payload.data() + 16)
                                          : readUInt32(payload.data() + 16);
-  const auto compressedLength =
+  const auto totalCompressedLength =
       readUInt32(payload.data() + (use64BitOffsets ? 24 : 20));
-  if (compressedLength != payload.size() - metaLength ||
+  const auto chunkLength = payload.size() - metaLength;
+  if (totalCompressedLength == 0 || chunkLength == 0 ||
+      chunkLength > totalCompressedLength ||
       begin > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
     return false;
   }
   header.begin = static_cast<int64_t>(begin);
-  header.compressedLength = compressedLength;
+  header.totalCompressedLength = totalCompressedLength;
   compressedData.assign(payload.begin() + metaLength, payload.end());
   return true;
 }

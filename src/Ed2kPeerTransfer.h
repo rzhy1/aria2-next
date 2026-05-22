@@ -40,6 +40,7 @@ private:
   bool verifyPiece(size_t index) const;
   bool applyAichRecovery(const std::shared_ptr<Piece>& piece,
                          const std::string& data) const;
+  std::shared_ptr<Segment> getOrCreateSegment(size_t index) const;
 
 public:
   PeerTransfer(DownloadContext* dctx, PieceStorage* pieceStorage,
@@ -48,7 +49,7 @@ public:
   int64_t expectedPartLength(int64_t begin) const;
   std::shared_ptr<Segment> writePartData(int64_t begin,
                                          const std::string& data);
-  bool completeVerifiedSegment(size_t index);
+  bool completeVerifiedSegment(const std::shared_ptr<Segment>& segment);
 };
 
 } // namespace ed2k

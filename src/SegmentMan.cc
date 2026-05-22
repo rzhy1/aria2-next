@@ -339,6 +339,19 @@ void SegmentMan::cancelSegment(cuid_t cuid,
   }
 }
 
+bool SegmentMan::cancelSegmentByIndex(size_t index)
+{
+  for (auto itr = usedSegmentEntries_.begin(), eoi = usedSegmentEntries_.end();
+       itr != eoi; ++itr) {
+    if ((*itr)->segment->getIndex() == index) {
+      cancelSegmentInternal((*itr)->cuid, (*itr)->segment);
+      usedSegmentEntries_.erase(itr);
+      return true;
+    }
+  }
+  return false;
+}
+
 void SegmentMan::cancelAllSegments()
 {
   for (auto& e : usedSegmentEntries_) {

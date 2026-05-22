@@ -91,7 +91,10 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kPiecePolicyReclaimsIdlePeerSegment);
   CPPUNIT_TEST(testEd2kPeerTransferRemovesCompletedRequestedRanges);
   CPPUNIT_TEST(testEd2kPeerTransferExpiresStalledRequests);
+  CPPUNIT_TEST(testEd2kPeerTransferReclaimsStalledEndgameRange);
   CPPUNIT_TEST(testEd2kPeerTransferIgnoresDuplicateData);
+  CPPUNIT_TEST(testEd2kPeerTransferAcceptsParallelPieceBlocks);
+  CPPUNIT_TEST(testEd2kPeerTransferCancelsOwnerAfterParallelHashFailure);
   CPPUNIT_TEST(testEd2kPeerTransferAppliesAichRecoveryData);
   CPPUNIT_TEST(testEd2kSchedulingKeepsInlineSourceLabel);
   CPPUNIT_TEST(testEd2kPeerSchedulingSkipsBackoff);
@@ -162,7 +165,10 @@ public:
   void testEd2kPiecePolicyReclaimsIdlePeerSegment();
   void testEd2kPeerTransferRemovesCompletedRequestedRanges();
   void testEd2kPeerTransferExpiresStalledRequests();
+  void testEd2kPeerTransferReclaimsStalledEndgameRange();
   void testEd2kPeerTransferIgnoresDuplicateData();
+  void testEd2kPeerTransferAcceptsParallelPieceBlocks();
+  void testEd2kPeerTransferCancelsOwnerAfterParallelHashFailure();
   void testEd2kPeerTransferAppliesAichRecoveryData();
   void testEd2kSchedulingKeepsInlineSourceLabel();
   void testEd2kPeerSchedulingSkipsBackoff();
@@ -294,6 +300,12 @@ void DownloadHelperTest::testCreateRequestGroupForUri_ED2K()
   CPPUNIT_ASSERT_EQUAL((size_t)2, attrs->servers.size());
   CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.10"), attrs->servers[0].host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4661, attrs->servers[0].port);
+
+  option_->remove(PREF_SPLIT);
+  result.clear();
+  createRequestGroupForUri(result, option_, uris);
+  CPPUNIT_ASSERT_EQUAL(ed2k::DEFAULT_PEER_CONNECTIONS,
+                       result[0]->getNumConcurrentCommand());
 }
 
 void DownloadHelperTest::testCreateRequestGroupForUri_ED2KClientHash()
@@ -1718,6 +1730,59 @@ void DownloadHelperTest::testEd2kPeerTransferExpiresStalledRequests()
   CPPUNIT_ASSERT(inFlight.empty());
 }
 
+void DownloadHelperTest::testEd2kPeerTransferReclaimsStalledEndgameRange()
+{
+  Ed2kAttribute attrs;
+  attrs.link.size = static_cast<int64_t>(ed2k::PIECE_LENGTH) * 2;
+
+  ed2k::Endpoint slowPeer;
+  slowPeer.host = "203.0.113.10";
+  slowPeer.port = 4662;
+  ed2k::Endpoint fastPeer;
+  fastPeer.host = "203.0.113.11";
+  fastPeer.port = 4662;
+
+  addEd2kPeer(&attrs, slowPeer, ed2k::PEER_SOURCE_SERVER);
+  addEd2kPeer(&attrs, fastPeer, ed2k::PEER_SOURCE_SERVER);
+
+  std::vector<ed2k::PartRange> ranges;
+  ed2k::PartRange range;
+  range.begin = 0;
+  range.end = Piece::BLOCK_LENGTH;
+  ranges.push_back(range);
+  CPPUNIT_ASSERT(updateEd2kPeerRequestedParts(&attrs, slowPeer, ranges, 100));
+
+  auto slowState = getEd2kPeerState(&attrs, slowPeer);
+  auto fastState = getEd2kPeerState(&attrs, fastPeer);
+  CPPUNIT_ASSERT(slowState);
+  CPPUNIT_ASSERT(fastState);
+  slowState->accepted = true;
+  fastState->accepted = true;
+  fastState->partStatus.push_back(true);
+  fastState->partStatus.push_back(false);
+
+  ed2k::PartRange reclaimed;
+  CPPUNIT_ASSERT(!reclaimEd2kStalledRequestedRange(
+      &attrs, fastPeer, fastState->partStatus, 109, 10, reclaimed));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, slowState->requestedParts.size());
+
+  CPPUNIT_ASSERT(reclaimEd2kStalledRequestedRange(
+      &attrs, fastPeer, fastState->partStatus, 110, 10, reclaimed));
+  CPPUNIT_ASSERT_EQUAL((int64_t)0, reclaimed.begin);
+  CPPUNIT_ASSERT_EQUAL(static_cast<int64_t>(Piece::BLOCK_LENGTH),
+                       reclaimed.end);
+  CPPUNIT_ASSERT(slowState->requestedParts.empty());
+  CPPUNIT_ASSERT(slowState->cancelTransferSent);
+  CPPUNIT_ASSERT(attrs.requestedPartRanges.empty());
+
+  CPPUNIT_ASSERT(updateEd2kPeerRequestedParts(&attrs, fastPeer,
+                                              std::vector<ed2k::PartRange>{
+                                                  reclaimed},
+                                              110));
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs.requestedPartRanges.size());
+  CPPUNIT_ASSERT_EQUAL((int64_t)0, attrs.requestedPartRanges[0].begin);
+}
+
 void DownloadHelperTest::testEd2kPeerTransferIgnoresDuplicateData()
 {
   const std::string outdir = A2_TEST_OUT_DIR "/ed2k-transfer-duplicate";
@@ -1748,8 +1813,85 @@ void DownloadHelperTest::testEd2kPeerTransferIgnoresDuplicateData()
   CPPUNIT_ASSERT(!transfer.writePartData(0, data.substr(0, 8)));
   auto completed = transfer.writePartData(0, data);
   CPPUNIT_ASSERT(completed);
-  CPPUNIT_ASSERT(transfer.completeVerifiedSegment(completed->getIndex()));
+  CPPUNIT_ASSERT(transfer.completeVerifiedSegment(completed));
   CPPUNIT_ASSERT(!transfer.writePartData(0, data));
+}
+
+void DownloadHelperTest::testEd2kPeerTransferAcceptsParallelPieceBlocks()
+{
+  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-transfer-parallel";
+  const std::string outfile = outdir + "/aria2 next parallel transfer.bin";
+  File(outfile).remove();
+  File(outfile + DefaultBtProgressInfoFile::getSuffix()).remove();
+  File(outdir).mkdirs();
+
+  const std::string first(Piece::BLOCK_LENGTH, 'a');
+  const std::string second(Piece::BLOCK_LENGTH, 'b');
+  const auto data = first + second;
+  auto dctx = std::make_shared<DownloadContext>(
+      ed2k::PIECE_LENGTH, static_cast<int64_t>(data.size()), outfile);
+  auto group = std::make_shared<RequestGroup>(GroupId::create(), option_);
+  group->setDownloadContext(dctx);
+  auto attrs = std::make_shared<Ed2kAttribute>();
+  attrs->link.hash = ed2k::md4Digest(data);
+  attrs->pieceHashes.push_back(attrs->link.hash);
+  dctx->setAttribute(CTX_ATTR_ED2K, attrs);
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  auto pieceStorage = std::make_shared<DefaultPieceStorage>(dctx, option_.get());
+  pieceStorage->initStorage();
+  pieceStorage->getDiskAdaptor()->openFile();
+  auto segmentMan = std::make_shared<SegmentMan>(dctx, pieceStorage);
+
+  CPPUNIT_ASSERT(segmentMan->getSegmentWithIndex(1, 0));
+  ed2k::PeerTransfer firstPeer(dctx.get(), pieceStorage.get(),
+                               segmentMan.get(), 1);
+  CPPUNIT_ASSERT(!firstPeer.writePartData(0, first));
+
+  ed2k::PeerTransfer secondPeer(dctx.get(), pieceStorage.get(),
+                                segmentMan.get(), 2);
+  auto completed = secondPeer.writePartData(first.size(), second);
+  CPPUNIT_ASSERT(completed);
+  CPPUNIT_ASSERT(secondPeer.completeVerifiedSegment(completed));
+  CPPUNIT_ASSERT(pieceStorage->hasPiece(0));
+}
+
+void DownloadHelperTest::testEd2kPeerTransferCancelsOwnerAfterParallelHashFailure()
+{
+  const std::string outdir = A2_TEST_OUT_DIR "/ed2k-transfer-parallel-bad";
+  const std::string outfile = outdir + "/aria2 next parallel bad transfer.bin";
+  File(outfile).remove();
+  File(outfile + DefaultBtProgressInfoFile::getSuffix()).remove();
+  File(outdir).mkdirs();
+
+  const std::string first(Piece::BLOCK_LENGTH, 'a');
+  const std::string second(Piece::BLOCK_LENGTH, 'b');
+  const auto data = first + second;
+  std::string corruptSecond = second;
+  corruptSecond[0] = 'x';
+  auto dctx = std::make_shared<DownloadContext>(
+      ed2k::PIECE_LENGTH, static_cast<int64_t>(data.size()), outfile);
+  auto group = std::make_shared<RequestGroup>(GroupId::create(), option_);
+  group->setDownloadContext(dctx);
+  auto attrs = std::make_shared<Ed2kAttribute>();
+  attrs->link.hash = ed2k::md4Digest(data);
+  attrs->pieceHashes.push_back(attrs->link.hash);
+  dctx->setAttribute(CTX_ATTR_ED2K, attrs);
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  auto pieceStorage = std::make_shared<DefaultPieceStorage>(dctx, option_.get());
+  pieceStorage->initStorage();
+  pieceStorage->getDiskAdaptor()->openFile();
+  auto segmentMan = std::make_shared<SegmentMan>(dctx, pieceStorage);
+
+  CPPUNIT_ASSERT(segmentMan->getSegmentWithIndex(1, 0));
+  ed2k::PeerTransfer firstPeer(dctx.get(), pieceStorage.get(),
+                               segmentMan.get(), 1);
+  CPPUNIT_ASSERT(!firstPeer.writePartData(0, first));
+
+  ed2k::PeerTransfer secondPeer(dctx.get(), pieceStorage.get(),
+                                segmentMan.get(), 2);
+  CPPUNIT_ASSERT_THROW(secondPeer.writePartData(first.size(), corruptSecond),
+                       DlRetryEx);
+  CPPUNIT_ASSERT(!pieceStorage->isPieceUsed(0));
 }
 
 void DownloadHelperTest::testEd2kPeerTransferAppliesAichRecoveryData()

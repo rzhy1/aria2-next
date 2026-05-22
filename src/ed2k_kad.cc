@@ -141,6 +141,7 @@ bool possibleKadObfuscatedDatagram(const std::string& datagram)
   switch (marker) {
   case PROTO_EDONKEY:
   case KAD_PROTOCOL:
+  case KAD_PACKED_PROTOCOL:
   case PROTO_PACKED:
   case PROTO_EMULE:
     return false;
@@ -270,7 +271,7 @@ std::string ed2kHashToKadId(const std::string& hash)
 std::string kadIdToEd2kHash(const std::string& id)
 {
   validateHashLength(id);
-  return id;
+  return ed2kHashToKadId(id);
 }
 
 std::string kadIdToObfuscationKeyBytes(const std::string& id)

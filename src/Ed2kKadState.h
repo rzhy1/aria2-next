@@ -150,6 +150,7 @@ private:
     bool queried = false;
     bool alive = false;
     bool failed = false;
+    bool searched = false;
   };
 
   KadTraversalKind kind_ = KadTraversalKind::SOURCE_LOOKUP;
@@ -164,7 +165,8 @@ private:
 
   void addContact(const KadContact& contact);
   std::vector<KadTraversalAction> nextActions();
-  void startSearch(std::vector<KadTraversalAction>& actions);
+  void startSearch(std::vector<KadTraversalAction>& actions,
+                   bool onlyAlive = false);
 };
 
 struct KadTransaction {

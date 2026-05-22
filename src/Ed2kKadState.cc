@@ -589,6 +589,11 @@ std::vector<KadTraversalAction> KadTraversal::nextActions()
     actions.push_back(action);
   }
 
+  if (actions.empty() && inFlight_ == 0 &&
+      kind_ == KadTraversalKind::SOURCE_LOOKUP && alive != 0) {
+    startSearch(actions, true);
+  }
+
   if (!actions.empty() || inFlight_ != 0) {
     return actions;
   }
@@ -597,17 +602,22 @@ std::vector<KadTraversalAction> KadTraversal::nextActions()
   return actions;
 }
 
-void KadTraversal::startSearch(std::vector<KadTraversalAction>& actions)
+void KadTraversal::startSearch(std::vector<KadTraversalAction>& actions,
+                               bool onlyAlive)
 {
   if (searchStarted_) {
-    done_ = true;
-    return;
+    if (!onlyAlive) {
+      done_ = true;
+      return;
+    }
   }
   searchStarted_ = true;
-  for (const auto& observer : observers_) {
-    if (observer.failed) {
+  for (auto& observer : observers_) {
+    if (observer.failed || observer.searched ||
+        (onlyAlive && !observer.alive)) {
       continue;
     }
+    observer.searched = true;
     KadTraversalAction action;
     action.type = KadTraversalActionType::SEARCH;
     action.contact = observer.contact;

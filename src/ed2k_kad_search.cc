@@ -238,13 +238,13 @@ bool extractKadSourceEndpoint(KadSourceEndpoint& source,
   }
   source.endpoint.host = ipv4FromEndpoint(reverseUInt32Bytes(ip));
   source.endpoint.port = port;
-  source.endpoint.userHash = kadIdToEd2kHash(entry.id);
+  source.endpoint.userHash = entry.id;
   source.endpoint.cryptOptions = cryptOptions;
   source.udpPort = udpPort;
   source.sourceType = static_cast<uint8_t>(sourceType);
   source.buddyIp = buddyIp == 0 ? 0 : reverseUInt32Bytes(buddyIp);
   source.buddyPort = buddyPort;
-  source.buddyHash = buddyId.empty() ? std::string() : kadIdToEd2kHash(buddyId);
+  source.buddyHash = buddyId;
   source.buddyId = std::move(buddyId);
   return true;
 }

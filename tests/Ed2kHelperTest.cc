@@ -855,6 +855,13 @@ void Ed2kHelperTest::testKadSourceEndpointPreservesUdpAndCryptMetadata()
   CPPUNIT_ASSERT_EQUAL(std::string(HASH_LENGTH, '\x44'), endpoint.userHash);
   CPPUNIT_ASSERT_EQUAL((uint16_t)0x03, endpoint.cryptOptions);
 
+  entry.id = util::fromHex(std::begin("0c7fab2a8d37bed47b551391d0d8241d"),
+                           std::end("0c7fab2a8d37bed47b551391d0d8241d") - 1);
+  CPPUNIT_ASSERT(extractKadSourceEndpoint(endpoint, entry));
+  CPPUNIT_ASSERT_EQUAL(
+      std::string("0c7fab2a8d37bed47b551391d0d8241d"),
+      util::toHex(endpoint.userHash));
+
   KadSourceEndpoint source;
   CPPUNIT_ASSERT(extractKadSourceEndpoint(source, entry));
   CPPUNIT_ASSERT_EQUAL(std::string("220.132.181.52"), source.endpoint.host);
@@ -1423,7 +1430,7 @@ void Ed2kHelperTest::testKadUInt128ConversionMatchesAMule()
   CPPUNIT_ASSERT_EQUAL(
       std::string("0c7fab2a8d37bed47b551391d0d8241d"),
       util::toHex(kadId));
-  CPPUNIT_ASSERT_EQUAL(kadId, kadIdToEd2kHash(kadId));
+  CPPUNIT_ASSERT_EQUAL(fileHash, kadIdToEd2kHash(kadId));
 }
 
 void Ed2kHelperTest::testKadObfuscatedPacketRoundTrip()

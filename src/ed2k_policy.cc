@@ -119,7 +119,8 @@ bool supportsTcpFileSize(const ServerState& server, int64_t fileSize)
 bool supportsUdpFileSize(const ServerState& server, int64_t fileSize)
 {
   if (fileSize <= static_cast<int64_t>(std::numeric_limits<uint32_t>::max())) {
-    return true;
+    return (server.udpFlags & (SRV_UDPFLG_EXT_GETSOURCES |
+                               SRV_UDPFLG_EXT_GETSOURCES2)) != 0;
   }
   return (server.udpFlags & SRV_UDPFLG_EXT_GETSOURCES2) != 0 &&
          (server.udpFlags & SRV_UDPFLG_LARGEFILES) != 0;

@@ -69,14 +69,17 @@ bool isKadProtocolDatagram(const std::string& datagram)
 {
   ed2k::PacketHeader header;
   return ed2k::readDatagramHeader(header, datagram.data(), datagram.size()) &&
-         header.protocol == ed2k::KAD_PROTOCOL &&
+         (header.protocol == ed2k::KAD_PROTOCOL ||
+          header.protocol == ed2k::KAD_PACKED_PROTOCOL) &&
          header.payloadSize() + 2 == datagram.size();
 }
 
 bool isKnownEd2kUdpProtocol(uint8_t protocol)
 {
-  return protocol == ed2k::KAD_PROTOCOL || protocol == ed2k::PROTO_EDONKEY ||
-         protocol == ed2k::PROTO_EMULE || protocol == ed2k::PROTO_PACKED;
+  return protocol == ed2k::KAD_PROTOCOL ||
+         protocol == ed2k::KAD_PACKED_PROTOCOL ||
+         protocol == ed2k::PROTO_EDONKEY || protocol == ed2k::PROTO_EMULE ||
+         protocol == ed2k::PROTO_PACKED;
 }
 
 int64_t peerRetryWait(const DownloadEngine* e)
@@ -723,6 +726,7 @@ void Ed2kKadCommand::receivePackets()
     if (!ed2k::readDatagramHeader(
             header, raw.data(), static_cast<size_t>(length)) ||
         (header.protocol != ed2k::KAD_PROTOCOL &&
+         header.protocol != ed2k::KAD_PACKED_PROTOCOL &&
          header.protocol != ed2k::PROTO_EDONKEY &&
          header.protocol != ed2k::PROTO_EMULE &&
          header.protocol != ed2k::PROTO_PACKED) ||
@@ -734,12 +738,15 @@ void Ed2kKadCommand::receivePackets()
         sender.addr.c_str(), sender.port, header.protocol, header.opcode,
         static_cast<unsigned long>(header.payloadSize())));
     std::string payload(raw.data() + 2, raw.data() + length);
-    if (header.protocol == ed2k::PROTO_PACKED) {
+    if (header.protocol == ed2k::PROTO_PACKED ||
+        header.protocol == ed2k::KAD_PACKED_PROTOCOL) {
       std::string inflated;
       if (!ed2k::inflatePackedPacketPayload(inflated, payload, 64_k)) {
         continue;
       }
-      header.protocol = ed2k::PROTO_EMULE;
+      header.protocol = header.protocol == ed2k::KAD_PACKED_PROTOCOL
+                            ? ed2k::KAD_PROTOCOL
+                            : ed2k::PROTO_EMULE;
       payload.swap(inflated);
     }
     if (header.protocol == ed2k::PROTO_EDONKEY ||

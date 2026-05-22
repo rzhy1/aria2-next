@@ -24,6 +24,7 @@ namespace ed2k {
 constexpr uint8_t PROTO_EDONKEY = 0xe3;
 constexpr uint8_t PROTO_PACKED = 0xd4;
 constexpr uint8_t PROTO_EMULE = 0xc5;
+constexpr uint8_t KAD_PACKED_PROTOCOL = 0xe5;
 constexpr uint8_t OP_LOGINREQUEST = 0x01;
 constexpr uint8_t OP_REJECT = 0x05;
 constexpr uint8_t OP_GETSERVERLIST = 0x14;

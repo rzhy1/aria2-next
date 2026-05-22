@@ -14,6 +14,7 @@
 #define D_ED2K_COMMAND_H
 
 #include "AbstractCommand.h"
+#include "ed2k_compression.h"
 #include "ed2k_link.h"
 #include "ed2k_packet.h"
 #include "ed2k_peer.h"
@@ -23,7 +24,6 @@
 #include <deque>
 #include <vector>
 #include <cstdint>
-#include <zlib.h>
 
 namespace aria2 {
 
@@ -89,10 +89,11 @@ private:
   std::string obfuscationPaddingBuf_;
   size_t obfuscationPaddingRead_;
   bool obfuscationEnabled_;
-  z_stream compressedPartStream_;
-  bool compressedPartStreamInitialized_;
-  int64_t compressedPartBase_;
-  int64_t compressedPartInflated_;
+  struct CompressedPartState {
+    ed2k::PartRange block;
+    ed2k::CompressedPartInflater inflater;
+  };
+  std::vector<std::unique_ptr<CompressedPartState>> compressedPartStates_;
 
   bool isExpectedServerEof() const;
   bool shouldObfuscatePeerConnection() const;
@@ -103,10 +104,11 @@ private:
   bool readObfuscationPadding();
   void encryptPacket(std::string& data);
   void decryptData(char* data, size_t length);
-  void resetCompressedPartInflater();
-  bool inflateCompressedPartChunk(std::string& data,
-                                  const std::string& compressedData,
-                                  int64_t blockBegin, size_t maxOutput);
+  void resetCompressedPartInflaters();
+  CompressedPartState* findCompressedPartState(int64_t begin);
+  CompressedPartState* getOrCreateCompressedPartState(
+      const ed2k::PartRange& block);
+  void releaseCompletedCompressedPartState(const ed2k::PartRange& block);
   void startResolve();
   void startConnect();
   bool flushOutbox();

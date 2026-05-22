@@ -35,6 +35,88 @@ void validateHashLength(const std::string& hash)
 
 } // namespace
 
+CompressedPartInflater::CompressedPartInflater()
+    : stream_(),
+      streamInitialized_(false),
+      blockBegin_(0),
+      inflatedLength_(0)
+{
+  std::memset(&stream_, 0, sizeof(stream_));
+}
+
+CompressedPartInflater::~CompressedPartInflater()
+{
+  reset();
+}
+
+void CompressedPartInflater::reset()
+{
+  if (streamInitialized_) {
+    inflateEnd(&stream_);
+    std::memset(&stream_, 0, sizeof(stream_));
+    streamInitialized_ = false;
+  }
+  blockBegin_ = 0;
+  inflatedLength_ = 0;
+}
+
+bool CompressedPartInflater::inflateChunk(std::string& data,
+                                          const std::string& compressedData,
+                                          int64_t blockBegin, size_t maxOutput)
+{
+  data.clear();
+  if (compressedData.empty() || maxOutput == 0) {
+    return false;
+  }
+  if (!streamInitialized_ || blockBegin_ != blockBegin) {
+    reset();
+    if (inflateInit(&stream_) != Z_OK) {
+      return false;
+    }
+    streamInitialized_ = true;
+    blockBegin_ = blockBegin;
+    inflatedLength_ = 0;
+  }
+
+  data.assign(maxOutput, '\0');
+  const auto oldTotalOut = stream_.total_out;
+  stream_.avail_in = compressedData.size();
+  stream_.next_in = reinterpret_cast<unsigned char*>(
+      const_cast<char*>(compressedData.data()));
+  stream_.avail_out = data.size();
+  stream_.next_out = reinterpret_cast<unsigned char*>(&data[0]);
+
+  const auto rc = inflate(&stream_, Z_SYNC_FLUSH);
+  const auto produced = static_cast<size_t>(stream_.total_out - oldTotalOut);
+  if ((rc != Z_OK && rc != Z_STREAM_END) || stream_.avail_in != 0 ||
+      produced > maxOutput) {
+    reset();
+    data.clear();
+    return false;
+  }
+  inflatedLength_ += static_cast<int64_t>(produced);
+  data.resize(produced);
+  if (rc == Z_STREAM_END) {
+    reset();
+  }
+  return true;
+}
+
+bool CompressedPartInflater::active() const
+{
+  return streamInitialized_;
+}
+
+int64_t CompressedPartInflater::blockBegin() const
+{
+  return blockBegin_;
+}
+
+int64_t CompressedPartInflater::inflatedLength() const
+{
+  return inflatedLength_;
+}
+
 bool parseCompressedPartPayload(CompressedPartHeader& header,
                                 std::string& compressedData,
                                 const std::string& payload,

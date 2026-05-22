@@ -37,6 +37,7 @@ class Ed2kHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testSourceExchange2Payloads);
   CPPUNIT_TEST(testCompressedPartPayloads);
   CPPUNIT_TEST(testInflateCompressedPartData);
+  CPPUNIT_TEST(testCompressedPartInflaterKeepsBlockOwnerAcrossChunks);
   CPPUNIT_TEST(testInflatePackedPacketPayload);
   CPPUNIT_TEST(testEmuleInfoPayload);
   CPPUNIT_TEST(testLocalEmulePeerInfoCapabilities);
@@ -79,6 +80,7 @@ public:
   void testSourceExchange2Payloads();
   void testCompressedPartPayloads();
   void testInflateCompressedPartData();
+  void testCompressedPartInflaterKeepsBlockOwnerAcrossChunks();
   void testInflatePackedPacketPayload();
   void testEmuleInfoPayload();
   void testLocalEmulePeerInfoCapabilities();
@@ -1039,6 +1041,47 @@ void Ed2kHelperTest::testInflateCompressedPartData()
   CPPUNIT_ASSERT(!inflateCompressedPartData(inflated, compressed,
                                            input.size() - 1));
   CPPUNIT_ASSERT(!inflateCompressedPartData(inflated, "not zlib", input.size()));
+}
+
+void Ed2kHelperTest::testCompressedPartInflaterKeepsBlockOwnerAcrossChunks()
+{
+  std::string input;
+  for (int i = 0; i < 220000; ++i) {
+    input.push_back(static_cast<char>('A' + (i % 5)));
+  }
+
+  z_stream strm;
+  memset(&strm, 0, sizeof(strm));
+  CPPUNIT_ASSERT_EQUAL(Z_OK, deflateInit(&strm, Z_DEFAULT_COMPRESSION));
+  strm.avail_in = 98304;
+  strm.next_in = reinterpret_cast<unsigned char*>(&input[0]);
+  std::string compressed(compressBound(input.size()), '\0');
+  strm.avail_out = compressed.size();
+  strm.next_out = reinterpret_cast<unsigned char*>(&compressed[0]);
+  CPPUNIT_ASSERT_EQUAL(Z_OK, deflate(&strm, Z_SYNC_FLUSH));
+  const auto firstCompressedLength = compressed.size() - strm.avail_out;
+  strm.avail_in = input.size() - 98304;
+  strm.next_in = reinterpret_cast<unsigned char*>(&input[98304]);
+  CPPUNIT_ASSERT_EQUAL(Z_STREAM_END, deflate(&strm, Z_FINISH));
+  compressed.resize(compressed.size() - strm.avail_out);
+  CPPUNIT_ASSERT_EQUAL(Z_OK, deflateEnd(&strm));
+
+  CompressedPartInflater inflater;
+  std::string first;
+  CPPUNIT_ASSERT(inflater.inflateChunk(
+      first, compressed.substr(0, firstCompressedLength), 0, 98304));
+  CPPUNIT_ASSERT(inflater.active());
+  CPPUNIT_ASSERT_EQUAL(static_cast<int64_t>(0), inflater.blockBegin());
+  CPPUNIT_ASSERT_EQUAL(static_cast<int64_t>(first.size()),
+                       inflater.inflatedLength());
+  CPPUNIT_ASSERT_EQUAL(input.substr(0, 98304), first);
+
+  std::string second;
+  CPPUNIT_ASSERT(inflater.inflateChunk(
+      second, compressed.substr(firstCompressedLength), 0,
+      input.size() - first.size()));
+  CPPUNIT_ASSERT(!inflater.active());
+  CPPUNIT_ASSERT_EQUAL(input, first + second);
 }
 
 void Ed2kHelperTest::testInflatePackedPacketPayload()

@@ -246,12 +246,8 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       obfuscationMagicRead_(0),
       obfuscationMethodRead_(0),
       obfuscationPaddingRead_(0),
-      obfuscationEnabled_(false),
-      compressedPartStreamInitialized_(false),
-      compressedPartBase_(0),
-      compressedPartInflated_(0)
+      obfuscationEnabled_(false)
 {
-  std::memset(&compressedPartStream_, 0, sizeof(compressedPartStream_));
   localPeerInfo_.udpPort = localEd2kUdpPort(e);
   localPeerInfo_.miscOptions.udpVersion = localPeerInfo_.udpPort == 0 ? 0 : 4;
   setTimeout(std::chrono::seconds(getOption()->getAsInt(PREF_CONNECT_TIMEOUT)));
@@ -294,12 +290,8 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       obfuscationMagicRead_(0),
       obfuscationMethodRead_(0),
       obfuscationPaddingRead_(0),
-      obfuscationEnabled_(false),
-      compressedPartStreamInitialized_(false),
-      compressedPartBase_(0),
-      compressedPartInflated_(0)
+      obfuscationEnabled_(false)
 {
-  std::memset(&compressedPartStream_, 0, sizeof(compressedPartStream_));
   localPeerInfo_.udpPort = localEd2kUdpPort(e);
   localPeerInfo_.miscOptions.udpVersion = localPeerInfo_.udpPort == 0 ? 0 : 4;
   setTimeout(std::chrono::seconds(getOption()->getAsInt(PREF_CONNECT_TIMEOUT)));
@@ -313,7 +305,7 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
 
 Ed2kCommand::~Ed2kCommand()
 {
-  resetCompressedPartInflater();
+  resetCompressedPartInflaters();
   if (mode_ == Mode::PEER && getDownloadContext()) {
     markEd2kPeerDisconnected(getEd2kAttrs(getDownloadContext()), endpoint_);
   }
@@ -527,60 +519,47 @@ void Ed2kCommand::decryptData(char* data, size_t length)
       reinterpret_cast<const unsigned char*>(data));
 }
 
-void Ed2kCommand::resetCompressedPartInflater()
+void Ed2kCommand::resetCompressedPartInflaters()
 {
-  if (compressedPartStreamInitialized_) {
-    inflateEnd(&compressedPartStream_);
-    std::memset(&compressedPartStream_, 0, sizeof(compressedPartStream_));
-    compressedPartStreamInitialized_ = false;
-  }
-  compressedPartBase_ = 0;
-  compressedPartInflated_ = 0;
+  compressedPartStates_.clear();
 }
 
-bool Ed2kCommand::inflateCompressedPartChunk(std::string& data,
-                                             const std::string& compressedData,
-                                             int64_t blockBegin,
-                                             size_t maxOutput)
+Ed2kCommand::CompressedPartState*
+Ed2kCommand::findCompressedPartState(int64_t begin)
 {
-  data.clear();
-  if (compressedData.empty() || maxOutput == 0) {
-    return false;
-  }
-  if (!compressedPartStreamInitialized_ ||
-      compressedPartBase_ != blockBegin) {
-    resetCompressedPartInflater();
-    if (inflateInit(&compressedPartStream_) != Z_OK) {
-      return false;
+  for (const auto& state : compressedPartStates_) {
+    if (state && state->block.begin <= begin && begin < state->block.end) {
+      return state.get();
     }
-    compressedPartStreamInitialized_ = true;
-    compressedPartBase_ = blockBegin;
-    compressedPartInflated_ = 0;
   }
+  return nullptr;
+}
 
-  data.assign(maxOutput, '\0');
-  const auto oldTotalOut = compressedPartStream_.total_out;
-  compressedPartStream_.avail_in = compressedData.size();
-  compressedPartStream_.next_in = reinterpret_cast<unsigned char*>(
-      const_cast<char*>(compressedData.data()));
-  compressedPartStream_.avail_out = data.size();
-  compressedPartStream_.next_out = reinterpret_cast<unsigned char*>(&data[0]);
+Ed2kCommand::CompressedPartState*
+Ed2kCommand::getOrCreateCompressedPartState(const ed2k::PartRange& block)
+{
+  if (block.end <= block.begin) {
+    return nullptr;
+  }
+  if (auto state = findCompressedPartState(block.begin)) {
+    return state;
+  }
+  auto state = make_unique<CompressedPartState>();
+  state->block = block;
+  compressedPartStates_.push_back(std::move(state));
+  return compressedPartStates_.back().get();
+}
 
-  const auto rc = inflate(&compressedPartStream_, Z_SYNC_FLUSH);
-  const auto produced = static_cast<size_t>(compressedPartStream_.total_out -
-                                           oldTotalOut);
-  if ((rc != Z_OK && rc != Z_STREAM_END) ||
-      compressedPartStream_.avail_in != 0 || produced > maxOutput) {
-    resetCompressedPartInflater();
-    data.clear();
-    return false;
-  }
-  compressedPartInflated_ += static_cast<int64_t>(produced);
-  data.resize(produced);
-  if (rc == Z_STREAM_END) {
-    resetCompressedPartInflater();
-  }
-  return true;
+void Ed2kCommand::releaseCompletedCompressedPartState(
+    const ed2k::PartRange& block)
+{
+  compressedPartStates_.erase(
+      std::remove_if(compressedPartStates_.begin(), compressedPartStates_.end(),
+                     [&](const std::unique_ptr<CompressedPartState>& state) {
+                       return !state || (state->block.begin == block.begin &&
+                                         state->block.end == block.end);
+                     }),
+      compressedPartStates_.end());
 }
 
 bool Ed2kCommand::execute()
@@ -1822,30 +1801,40 @@ void Ed2kCommand::handlePeerPacket()
       throw DL_RETRY_EX("Bad compressed ED2K part packet.");
     }
     const auto peerState = getEd2kPeerState(attrs, endpoint_);
-    auto requested = peerState ? std::find_if(
-                         peerState->requestedParts.begin(),
-                         peerState->requestedParts.end(),
-                         [&](const ed2k::PartRange& range) {
-                           return range.begin <= header.begin &&
-                                  header.begin < range.end;
-                         })
-                               : std::vector<ed2k::PartRange>::const_iterator();
-    if (!peerState || requested == peerState->requestedParts.end()) {
+    auto compressedState = findCompressedPartState(header.begin);
+    if (!compressedState && peerState) {
+      auto requested = std::find_if(
+          peerState->requestedParts.begin(), peerState->requestedParts.end(),
+          [&](const ed2k::PartRange& range) {
+            return range.begin <= header.begin && header.begin < range.end;
+          });
+      if (requested != peerState->requestedParts.end()) {
+        compressedState = getOrCreateCompressedPartState(*requested);
+      }
+    }
+    if (!compressedState) {
       throw DL_RETRY_EX("Unexpected compressed ED2K part range.");
     }
-    const auto writeBegin = requested->begin + compressedPartInflated_;
-    if (writeBegin < header.begin || writeBegin >= requested->end) {
+    const auto writeBegin =
+        compressedState->block.begin +
+        compressedState->inflater.inflatedLength();
+    if (writeBegin < compressedState->block.begin ||
+        writeBegin >= compressedState->block.end) {
       throw DL_RETRY_EX("Unexpected compressed ED2K part range.");
     }
     const auto maxOutput = static_cast<size_t>(
-        std::min<int64_t>(ed2k::BLOCK_LENGTH, requested->end - writeBegin));
+        std::min<int64_t>(ed2k::BLOCK_LENGTH,
+                          compressedState->block.end - writeBegin));
     std::string data;
-    if (!inflateCompressedPartChunk(data, compressedData, requested->begin,
-                                    maxOutput)) {
+    if (!compressedState->inflater.inflateChunk(
+            data, compressedData, compressedState->block.begin, maxOutput)) {
       throw DL_RETRY_EX("Bad compressed ED2K part data.");
     }
     if (!data.empty()) {
       handlePartData(writeBegin, data);
+    }
+    if (!compressedState->inflater.active()) {
+      releaseCompletedCompressedPartState(compressedState->block);
     }
     if (getRequestGroup()->downloadFinished()) {
       state_ = State::DONE;

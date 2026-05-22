@@ -239,7 +239,7 @@ PeerAction selectPeerAction(std::vector<PeerState>& peers, int64_t now,
     return PeerAction{PeerActionType::REASK, reaskPeer};
   }
   if (callbackPeer) {
-    return PeerAction{PeerActionType::CALLBACK, callbackPeer};
+    return PeerAction{PeerActionType::REQUEST_CALLBACK, callbackPeer};
   }
   if (expirePeer) {
     return PeerAction{PeerActionType::EXPIRE, expirePeer};

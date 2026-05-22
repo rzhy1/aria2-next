@@ -52,7 +52,7 @@ enum class PeerActionType {
   WAIT,
   CONNECT,
   REASK,
-  CALLBACK,
+  REQUEST_CALLBACK,
   RETRY,
   SKIP,
   EXPIRE

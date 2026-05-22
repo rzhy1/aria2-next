@@ -1218,7 +1218,7 @@ bool Ed2kCommand::readBody()
     }
     A2_LOG_DEBUG(fmt("CUID#%" PRId64
                      " - Unpacked ED2K packet opcode=0x%02x, "
-                     "compressed=%lu, inflated=%lu.",
+                     "compressed=%zu, inflated=%zu.",
                      getCuid(), currentHeader_.opcode, body_.size(),
                      inflated.size()));
     body_.swap(inflated);

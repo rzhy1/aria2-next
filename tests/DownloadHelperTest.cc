@@ -1097,7 +1097,7 @@ void DownloadHelperTest::testEd2kPeerActionPolicyHandlesCallbackAndExpiry()
   peers[2].noFile = true;
 
   auto action = ed2k::selectPeerAction(peers, 100, 1);
-  CPPUNIT_ASSERT_EQUAL(ed2k::PeerActionType::CALLBACK, action.type);
+  CPPUNIT_ASSERT_EQUAL(ed2k::PeerActionType::REQUEST_CALLBACK, action.type);
   CPPUNIT_ASSERT(action.peer);
   CPPUNIT_ASSERT_EQUAL((uint32_t)42, action.peer->clientId);
 

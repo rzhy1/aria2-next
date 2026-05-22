@@ -145,6 +145,9 @@ Tag readTag(const std::string& data, size_t& offset)
   else {
     auto nameSize = readUInt16(readBytes(data, offset, 2).data());
     tag.name = readBytes(data, offset, nameSize);
+    if (tag.name.size() == 1) {
+      tag.id = static_cast<unsigned char>(tag.name[0]);
+    }
   }
 
   switch (tagType) {

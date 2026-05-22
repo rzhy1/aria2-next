@@ -25,6 +25,7 @@
 #include "ed2k_hash.h"
 #include "ed2k_kad.h"
 #include "ed2k_kad_search.h"
+#include "ed2k_link.h"
 #include "ed2k_packet.h"
 #include "ed2k_peer.h"
 #include "ed2k_server.h"
@@ -264,6 +265,7 @@ class Ed2kCommandTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(Ed2kCommandTest);
   CPPUNIT_TEST(testServerSourceDiscoveryFlow);
   CPPUNIT_TEST(testPeerHandshakeQueuesFileRequestAndQueueRank);
+  CPPUNIT_TEST(testCryptPeerStartsWithObfuscatedHandshake);
   CPPUNIT_TEST(testPeerCommandFinishesGroupAfterLastPart);
   CPPUNIT_TEST(testPendingConnectDrainsAfterHalt);
   CPPUNIT_TEST(testForceHaltDrainsIdleKadGroup);
@@ -275,6 +277,7 @@ class Ed2kCommandTest : public CppUnit::TestFixture {
 public:
   void testServerSourceDiscoveryFlow();
   void testPeerHandshakeQueuesFileRequestAndQueueRank();
+  void testCryptPeerStartsWithObfuscatedHandshake();
   void testPeerCommandFinishesGroupAfterLastPart();
   void testPendingConnectDrainsAfterHalt();
   void testForceHaltDrainsIdleKadGroup();
@@ -479,6 +482,52 @@ void Ed2kCommandTest::testPeerHandshakeQueuesFileRequestAndQueueRank()
   CPPUNIT_ASSERT(state->queued);
   CPPUNIT_ASSERT_EQUAL((uint16_t)7, state->queueRank);
   CPPUNIT_ASSERT(!state->connecting);
+  engine.requestHalt();
+}
+
+void Ed2kCommandTest::testCryptPeerStartsWithObfuscatedHandshake()
+{
+  auto option = createOption();
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option.get());
+  auto dctx = createEd2kContext();
+  auto group = createRequestGroup(option, dctx);
+  engine.setRequestGroupMan(
+      make_unique<RequestGroupMan>(
+          std::vector<std::shared_ptr<RequestGroup>>{group}, 5,
+          option.get()));
+  engine.getRequestGroupMan()->addRequestGroup(group);
+  group->setRequestGroupMan(engine.getRequestGroupMan().get());
+
+  SocketCore listenSocket;
+  listenSocket.bind(0);
+  listenSocket.beginListen();
+  listenSocket.setBlockingMode();
+  auto peerAddr = listenSocket.getAddrInfo();
+
+  ed2k::Endpoint peer;
+  peer.host = "127.0.0.1";
+  peer.port = peerAddr.port;
+  peer.userHash = std::string(ed2k::HASH_LENGTH, '\x22');
+  peer.cryptOptions = ed2k::SOURCE_CRYPT_SUPPORT |
+                      ed2k::SOURCE_CRYPT_REQUEST |
+                      ed2k::SOURCE_CRYPT_HAS_USER_HASH;
+  addEd2kPeer(getEd2kAttrs(dctx), peer, ed2k::PEER_SOURCE_INLINE);
+
+  engine.addCommand(make_unique<Ed2kCommand>(engine.newCUID(), group.get(),
+                                             &engine, peer, false));
+
+  runEngineTicks(engine, 1);
+  auto peerSocket = acceptPeer(listenSocket, engine);
+  runEngineTicks(engine, 1);
+
+  std::array<char, 1> prefix;
+  readFromSocket(peerSocket, engine, prefix.data(), prefix.size());
+  auto marker = static_cast<uint8_t>(prefix[0]);
+  CPPUNIT_ASSERT(marker != ed2k::PROTO_EDONKEY);
+  CPPUNIT_ASSERT(marker != ed2k::PROTO_PACKED);
+  CPPUNIT_ASSERT(marker != ed2k::PROTO_EMULE);
+
   engine.requestHalt();
 }
 

@@ -53,6 +53,12 @@ bool decodeHexHash(std::string& out, const std::string& value)
   return true;
 }
 
+uint32_t reverseUInt32Bytes(uint32_t value)
+{
+  return ((value & 0x000000ffu) << 24) | ((value & 0x0000ff00u) << 8) |
+         ((value & 0x00ff0000u) >> 8) | ((value & 0xff000000u) >> 24);
+}
+
 } // namespace
 
 KadSearchEntry readKadSearchEntry(const std::string& data, size_t& offset)
@@ -230,13 +236,13 @@ bool extractKadSourceEndpoint(KadSourceEndpoint& source,
       !isSupportedSourceType(sourceType)) {
     return false;
   }
-  source.endpoint.host = ipv4FromEndpoint(ip);
+  source.endpoint.host = ipv4FromEndpoint(reverseUInt32Bytes(ip));
   source.endpoint.port = port;
   source.endpoint.userHash = kadIdToEd2kHash(entry.id);
   source.endpoint.cryptOptions = cryptOptions;
   source.udpPort = udpPort;
   source.sourceType = static_cast<uint8_t>(sourceType);
-  source.buddyIp = buddyIp;
+  source.buddyIp = buddyIp == 0 ? 0 : reverseUInt32Bytes(buddyIp);
   source.buddyPort = buddyPort;
   source.buddyHash = buddyId.empty() ? std::string() : kadIdToEd2kHash(buddyId);
   source.buddyId = std::move(buddyId);
@@ -287,7 +293,7 @@ std::string createKadPublishSourceRequestPayload(const std::string& fileId,
   Tag sourceIp;
   sourceIp.id = 0xfe;
   sourceIp.valueType = TagValueType::UINT;
-  sourceIp.intValue = ipv4ToEndpointValue(source.host);
+  sourceIp.intValue = reverseUInt32Bytes(ipv4ToEndpointValue(source.host));
   entry.tags.push_back(sourceIp);
 
   Tag sourcePort;

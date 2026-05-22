@@ -104,25 +104,6 @@ std::string kadObfuscationKey(const std::string& targetId,
                      digest.size());
 }
 
-std::string packUInt32Be(uint32_t value)
-{
-  std::string out(4, '\0');
-  out[0] = static_cast<char>(value >> 24);
-  out[1] = static_cast<char>(value >> 16);
-  out[2] = static_cast<char>(value >> 8);
-  out[3] = static_cast<char>(value);
-  return out;
-}
-
-uint32_t readUInt32Be(const char* data)
-{
-  auto bytes = reinterpret_cast<const unsigned char*>(data);
-  return (static_cast<uint32_t>(bytes[0]) << 24) |
-         (static_cast<uint32_t>(bytes[1]) << 16) |
-         (static_cast<uint32_t>(bytes[2]) << 8) |
-         static_cast<uint32_t>(bytes[3]);
-}
-
 std::string kadVerifyKeyObfuscationKey(uint32_t receiverVerifyKey,
                                        uint16_t randomKeyPart)
 {
@@ -288,21 +269,14 @@ std::string ed2kHashToKadId(const std::string& hash)
 
 std::string kadIdToEd2kHash(const std::string& id)
 {
-  return ed2kHashToKadId(id);
+  validateHashLength(id);
+  return id;
 }
 
 std::string kadIdToObfuscationKeyBytes(const std::string& id)
 {
   validateHashLength(id);
-  std::string key;
-  key.reserve(HASH_LENGTH);
-  for (size_t i = 0; i < HASH_LENGTH; i += 4) {
-    key.push_back(id[i + 3]);
-    key.push_back(id[i + 2]);
-    key.push_back(id[i + 1]);
-    key.push_back(id[i]);
-  }
-  return key;
+  return id;
 }
 
 KadContact readKadContact(const std::string& data, size_t& offset)
@@ -620,10 +594,10 @@ std::string createKadObfuscatedDatagram(const std::string& datagram,
   out += packUInt16(randomKeyPart);
 
   std::string plain;
-  plain += packUInt32Be(KAD_UDP_SYNC_CLIENT);
+  plain += packUInt32(KAD_UDP_SYNC_CLIENT);
   plain.push_back('\0');
-  plain += packUInt32Be(receiverVerifyKey);
-  plain += packUInt32Be(senderVerifyKey);
+  plain += packUInt32(receiverVerifyKey);
+  plain += packUInt32(senderVerifyKey);
   plain += datagram;
 
   std::string encrypted(plain.size(), '\0');
@@ -681,7 +655,7 @@ bool parseKadObfuscatedDatagram(KadObfuscatedDatagram& parsed,
   std::string decrypted;
   rc4Crypt(decrypted, datagram.substr(3), key.value);
   if (decrypted.size() <= 13 ||
-      readUInt32Be(decrypted.data()) != KAD_UDP_SYNC_CLIENT) {
+      readUInt32(decrypted.data()) != KAD_UDP_SYNC_CLIENT) {
     return false;
   }
   const auto padLen = static_cast<unsigned char>(decrypted[4]);
@@ -689,9 +663,9 @@ bool parseKadObfuscatedDatagram(KadObfuscatedDatagram& parsed,
     return false;
   }
   size_t offset = 5 + padLen;
-  parsed.receiverVerifyKey = readUInt32Be(decrypted.data() + offset);
+  parsed.receiverVerifyKey = readUInt32(decrypted.data() + offset);
   offset += 4;
-  parsed.senderVerifyKey = readUInt32Be(decrypted.data() + offset);
+  parsed.senderVerifyKey = readUInt32(decrypted.data() + offset);
   offset += 4;
   parsed.datagram.assign(decrypted.begin() + offset, decrypted.end());
   return true;

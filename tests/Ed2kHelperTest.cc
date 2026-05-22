@@ -283,7 +283,7 @@ void Ed2kHelperTest::testPacketHelpers()
 void Ed2kHelperTest::testTagParser()
 {
   std::string payload;
-  payload += packUInt32(4);
+  payload += packUInt32(5);
   payload.push_back(static_cast<char>(0x02 | 0x80));
   payload.push_back('\x01');
   payload += packUInt16(9);
@@ -297,10 +297,14 @@ void Ed2kHelperTest::testTagParser()
   payload.push_back(static_cast<char>(0x13 | 0x80));
   payload.push_back('\x03');
   payload += "Vid";
+  payload.push_back(0x03);
+  payload += packUInt16(1);
+  payload.push_back('\xfe');
+  payload += packUInt32(0x6f71c138);
 
   std::vector<Tag> tags;
   CPPUNIT_ASSERT(parseTagList(tags, payload));
-  CPPUNIT_ASSERT_EQUAL((size_t)4, tags.size());
+  CPPUNIT_ASSERT_EQUAL((size_t)5, tags.size());
   CPPUNIT_ASSERT_EQUAL((uint8_t)0x01, tags[0].id);
   CPPUNIT_ASSERT_EQUAL(std::string("video.mkv"), tags[0].stringValue);
   CPPUNIT_ASSERT_EQUAL((uint8_t)0x15, tags[1].id);
@@ -308,6 +312,8 @@ void Ed2kHelperTest::testTagParser()
   CPPUNIT_ASSERT_EQUAL((uint8_t)0x02, tags[2].id);
   CPPUNIT_ASSERT_EQUAL((uint64_t)0x100000005LL, tags[2].intValue);
   CPPUNIT_ASSERT_EQUAL(std::string("Vid"), tags[3].stringValue);
+  CPPUNIT_ASSERT_EQUAL((uint8_t)0xfe, tags[4].id);
+  CPPUNIT_ASSERT_EQUAL((uint64_t)0x6f71c138, tags[4].intValue);
 }
 
 void Ed2kHelperTest::testProtocolPayloads()
@@ -821,7 +827,7 @@ void Ed2kHelperTest::testKadSourceEndpointPreservesUdpAndCryptMetadata()
   Tag sourceIp;
   sourceIp.id = 0xfe;
   sourceIp.valueType = TagValueType::UINT;
-  sourceIp.intValue = ipv4ToEndpointValue("203.0.113.44");
+  sourceIp.intValue = 0xdc84b534;
   entry.tags.push_back(sourceIp);
 
   Tag sourcePort;
@@ -844,14 +850,14 @@ void Ed2kHelperTest::testKadSourceEndpointPreservesUdpAndCryptMetadata()
 
   Endpoint endpoint;
   CPPUNIT_ASSERT(extractKadSourceEndpoint(endpoint, entry));
-  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.44"), endpoint.host);
+  CPPUNIT_ASSERT_EQUAL(std::string("220.132.181.52"), endpoint.host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4662, endpoint.port);
   CPPUNIT_ASSERT_EQUAL(std::string(HASH_LENGTH, '\x44'), endpoint.userHash);
   CPPUNIT_ASSERT_EQUAL((uint16_t)0x03, endpoint.cryptOptions);
 
   KadSourceEndpoint source;
   CPPUNIT_ASSERT(extractKadSourceEndpoint(source, entry));
-  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.44"), source.endpoint.host);
+  CPPUNIT_ASSERT_EQUAL(std::string("220.132.181.52"), source.endpoint.host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4662, source.endpoint.port);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4672, source.udpPort);
   CPPUNIT_ASSERT_EQUAL((uint8_t)1, source.sourceType);
@@ -891,7 +897,7 @@ void Ed2kHelperTest::testKadSourceEndpointPreservesUdpAndCryptMetadata()
   result.entries[0].tags[0] = sourceType;
   endpoints = extractKadSourceEndpoints(result);
   CPPUNIT_ASSERT_EQUAL((size_t)1, endpoints.size());
-  CPPUNIT_ASSERT_EQUAL(std::string("203.0.113.44"), endpoints[0].host);
+  CPPUNIT_ASSERT_EQUAL(std::string("220.132.181.52"), endpoints[0].host);
   CPPUNIT_ASSERT_EQUAL((uint16_t)4662, endpoints[0].port);
 }
 
@@ -1417,7 +1423,7 @@ void Ed2kHelperTest::testKadUInt128ConversionMatchesAMule()
   CPPUNIT_ASSERT_EQUAL(
       std::string("0c7fab2a8d37bed47b551391d0d8241d"),
       util::toHex(kadId));
-  CPPUNIT_ASSERT_EQUAL(fileHash, kadIdToEd2kHash(kadId));
+  CPPUNIT_ASSERT_EQUAL(kadId, kadIdToEd2kHash(kadId));
 }
 
 void Ed2kHelperTest::testKadObfuscatedPacketRoundTrip()
@@ -1432,7 +1438,7 @@ void Ed2kHelperTest::testKadObfuscatedPacketRoundTrip()
   CPPUNIT_ASSERT(static_cast<uint8_t>(obfuscated[0]) != KAD_PROTOCOL);
   CPPUNIT_ASSERT_EQUAL(std::string("3412"),
                        util::toHex(obfuscated.substr(1, 2)));
-  CPPUNIT_ASSERT_EQUAL(std::string("083412b293d03e733b305ca3307690bc81ba"),
+  CPPUNIT_ASSERT_EQUAL(std::string("0834123bfb9093bc2416f3250b68702029b8"),
                        util::toHex(obfuscated));
 
   KadObfuscatedDatagram parsed;
@@ -1442,15 +1448,21 @@ void Ed2kHelperTest::testKadObfuscatedPacketRoundTrip()
   CPPUNIT_ASSERT_EQUAL(datagram, parsed.datagram);
 
   const auto amuleNodeKeyPacket = util::fromHex(
-      std::begin("083412b293d03e733b305ca3307690bc81ba"),
-      std::end("083412b293d03e733b305ca3307690bc81ba") - 1);
+      std::begin("00fce06eda509dbfe1b8784806755e29e169"),
+      std::end("00fce06eda509dbfe1b8784806755e29e169") - 1);
+  const auto amuleNodeId = util::fromHex(
+      std::begin("4115b891e3b4fafa7e5116332d508752"),
+      std::end("4115b891e3b4fafa7e5116332d508752") - 1);
   CPPUNIT_ASSERT(parseKadObfuscatedDatagram(parsed, amuleNodeKeyPacket,
-                                           nodeId));
-  CPPUNIT_ASSERT_EQUAL(datagram, parsed.datagram);
+                                           amuleNodeId));
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0, parsed.receiverVerifyKey);
+  CPPUNIT_ASSERT_EQUAL((uint32_t)0x0c2bca82, parsed.senderVerifyKey);
+  CPPUNIT_ASSERT_EQUAL(createDatagram(KAD_PROTOCOL, 0x60, std::string()),
+                       parsed.datagram);
 
   auto verifyKeyPacket =
       createKadObfuscatedDatagram(datagram, 0x11223344, 0x55667788, 0x1234);
-  CPPUNIT_ASSERT_EQUAL(std::string("0a3412b176a557ea86e681e798844d246823"),
+  CPPUNIT_ASSERT_EQUAL(std::string("0a34124907d4afead3f790b245955cf96823"),
                        util::toHex(verifyKeyPacket));
   CPPUNIT_ASSERT(parseKadObfuscatedDatagram(parsed, verifyKeyPacket,
                                            (uint32_t)0x11223344));

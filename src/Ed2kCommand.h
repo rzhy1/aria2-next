@@ -19,6 +19,7 @@
 #include "ed2k_peer.h"
 
 #include <array>
+#include <memory>
 #include <deque>
 #include <vector>
 #include <cstdint>
@@ -26,6 +27,7 @@
 namespace aria2 {
 
 class SocketCore;
+class ARC4Encryptor;
 
 namespace ed2k {
 struct SharedFile;
@@ -39,6 +41,10 @@ private:
     INIT,
     RESOLVING,
     CONNECTING,
+    OBFUSCATION_WRITE,
+    OBFUSCATION_READ_MAGIC,
+    OBFUSCATION_READ_METHOD,
+    OBFUSCATION_READ_PADDING,
     WRITE,
     READ_HEADER,
     READ_BODY,
@@ -53,6 +59,7 @@ private:
   std::string connectedAddr_;
   uint16_t connectedPort_;
   std::deque<std::string> outbox_;
+  std::deque<bool> outboxEncrypted_;
   std::array<char, 6> headerBuf_;
   size_t headerRead_;
   ed2k::PacketHeader currentHeader_;
@@ -69,8 +76,27 @@ private:
   std::deque<uint32_t> pendingCallbackClientIds_;
   ed2k::EmulePeerInfo localPeerInfo_;
   ed2k::EmulePeerInfo remotePeerInfo_;
+  std::unique_ptr<ARC4Encryptor> obfuscationEncryptor_;
+  std::unique_ptr<ARC4Encryptor> obfuscationDecryptor_;
+  std::string obfuscationWriteBuf_;
+  size_t obfuscationWriteOffset_;
+  std::array<char, 4> obfuscationMagicBuf_;
+  size_t obfuscationMagicRead_;
+  std::array<char, 2> obfuscationMethodBuf_;
+  size_t obfuscationMethodRead_;
+  std::string obfuscationPaddingBuf_;
+  size_t obfuscationPaddingRead_;
+  bool obfuscationEnabled_;
 
   bool isExpectedServerEof() const;
+  bool shouldObfuscatePeerConnection() const;
+  void initPeerObfuscation();
+  bool flushObfuscationHandshake();
+  bool readObfuscationMagic();
+  bool readObfuscationMethod();
+  bool readObfuscationPadding();
+  void encryptPacket(std::string& data);
+  void decryptData(char* data, size_t length);
   void startResolve();
   void startConnect();
   bool flushOutbox();

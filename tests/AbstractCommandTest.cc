@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cppunit/extensions/HelperMacros.h>
 
+#include "CreateRequestCommand.h"
 #include "DownloadContext.h"
 #include "DownloadCommand.h"
 #include "DownloadEngine.h"
@@ -170,6 +171,126 @@ private:
   std::shared_ptr<Piece> piece_;
 };
 
+class OutOfRangePieceStorage : public PieceStorage {
+public:
+  OutOfRangePieceStorage() : piece_(std::make_shared<Piece>(2, 1_k)) {}
+
+  bool hasMissingUnusedPiece() CXX11_OVERRIDE { return true; }
+
+  std::shared_ptr<Piece>
+  getMissingPiece(size_t, const unsigned char*, size_t, cuid_t) CXX11_OVERRIDE
+  {
+    return piece_;
+  }
+
+  std::shared_ptr<Piece> getMissingPiece(size_t, cuid_t) CXX11_OVERRIDE
+  {
+    return piece_;
+  }
+
+  std::shared_ptr<Piece> getPiece(size_t) CXX11_OVERRIDE { return piece_; }
+
+  void completePiece(const std::shared_ptr<Piece>&) CXX11_OVERRIDE {}
+
+  void cancelPiece(const std::shared_ptr<Piece>&, cuid_t) CXX11_OVERRIDE {}
+
+  bool hasPiece(size_t) CXX11_OVERRIDE { return false; }
+
+  bool isPieceUsed(size_t) CXX11_OVERRIDE { return false; }
+
+  int64_t getTotalLength() CXX11_OVERRIDE { return 1_k; }
+
+  int64_t getFilteredTotalLength() CXX11_OVERRIDE { return 1_k; }
+
+  int64_t getCompletedLength() CXX11_OVERRIDE { return 0; }
+
+  int64_t getInFlightCompletedLength() CXX11_OVERRIDE { return 0; }
+
+  int64_t getFilteredCompletedLength() CXX11_OVERRIDE { return 0; }
+
+  int64_t getFilteredInFlightCompletedLength() CXX11_OVERRIDE { return 0; }
+
+  void initStorage() CXX11_OVERRIDE {}
+
+  void setupFileFilter() CXX11_OVERRIDE {}
+
+  void clearFileFilter() CXX11_OVERRIDE {}
+
+  bool downloadFinished() CXX11_OVERRIDE { return false; }
+
+  bool allDownloadFinished() CXX11_OVERRIDE { return false; }
+
+  void setBitfield(const unsigned char*, size_t) CXX11_OVERRIDE {}
+
+  size_t getBitfieldLength() CXX11_OVERRIDE { return 0; }
+
+  const unsigned char* getBitfield() CXX11_OVERRIDE { return nullptr; }
+
+  void setEndGamePieceNum(size_t) CXX11_OVERRIDE {}
+
+  bool isSelectiveDownloadingMode() CXX11_OVERRIDE { return false; }
+
+  bool isEndGame() CXX11_OVERRIDE { return false; }
+
+  void enterEndGame() CXX11_OVERRIDE {}
+
+  std::shared_ptr<DiskAdaptor> getDiskAdaptor() CXX11_OVERRIDE
+  {
+    return nullptr;
+  }
+
+  WrDiskCache* getWrDiskCache() CXX11_OVERRIDE { return nullptr; }
+
+  void flushWrDiskCacheEntry(bool) CXX11_OVERRIDE {}
+
+  int32_t getPieceLength(size_t) CXX11_OVERRIDE { return 1_k; }
+
+  void advertisePiece(cuid_t, size_t, Timer) CXX11_OVERRIDE {}
+
+  uint64_t getAdvertisedPieceIndexes(std::vector<size_t>&, cuid_t,
+                                     uint64_t) CXX11_OVERRIDE
+  {
+    return 0;
+  }
+
+  void removeAdvertisedPiece(const Timer&) CXX11_OVERRIDE {}
+
+  void markAllPiecesDone() CXX11_OVERRIDE {}
+
+  void markPiecesDone(int64_t) CXX11_OVERRIDE {}
+
+  void markPieceMissing(size_t) CXX11_OVERRIDE {}
+
+  void addInFlightPiece(
+      const std::vector<std::shared_ptr<Piece>>&) CXX11_OVERRIDE
+  {
+  }
+
+  size_t countInFlightPiece() CXX11_OVERRIDE { return 0; }
+
+  void getInFlightPieces(std::vector<std::shared_ptr<Piece>>&) CXX11_OVERRIDE
+  {
+  }
+
+  void addPieceStats(size_t) CXX11_OVERRIDE {}
+
+  void addPieceStats(const unsigned char*, size_t) CXX11_OVERRIDE {}
+
+  void subtractPieceStats(const unsigned char*, size_t) CXX11_OVERRIDE {}
+
+  void updatePieceStats(const unsigned char*, size_t,
+                        const unsigned char*) CXX11_OVERRIDE
+  {
+  }
+
+  size_t getNextUsedIndex(size_t) CXX11_OVERRIDE { return 0; }
+
+  void onDownloadIncomplete() CXX11_OVERRIDE {}
+
+private:
+  std::shared_ptr<Piece> piece_;
+};
+
 class ZeroProgressDownloadCommand : public DownloadCommand {
 public:
   ZeroProgressDownloadCommand(cuid_t cuid, const std::shared_ptr<Request>& req,
@@ -199,6 +320,7 @@ class AbstractCommandTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(AbstractCommandTest);
   CPPUNIT_TEST(testGetProxyUri);
   CPPUNIT_TEST(testNativeDownloadProgressTimeout);
+  CPPUNIT_TEST(testCreateRequestCommandRejectsOutOfRangeRestoredSegment);
   CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -208,6 +330,7 @@ public:
 
   void testGetProxyUri();
   void testNativeDownloadProgressTimeout();
+  void testCreateRequestCommandRejectsOutOfRangeRestoredSegment();
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION(AbstractCommandTest);
@@ -282,6 +405,28 @@ void AbstractCommandTest::testNativeDownloadProgressTimeout()
   catch (DlRetryEx& ex) {
     CPPUNIT_ASSERT_EQUAL(error_code::TIME_OUT, ex.getErrorCode());
   }
+}
+
+void AbstractCommandTest::testCreateRequestCommandRejectsOutOfRangeRestoredSegment()
+{
+  auto option = createOption();
+  auto dctx = std::make_shared<DownloadContext>(
+      1_k, 1_k, std::string(A2_TEST_OUT_DIR) + "/restore.bin");
+  auto group = std::make_shared<RequestGroup>(GroupId::create(), option);
+  group->setDownloadContext(dctx);
+  auto storage = std::make_shared<OutOfRangePieceStorage>();
+  group->setPieceStorage(storage);
+  group->setSegmentMan(std::make_shared<SegmentMan>(dctx, storage));
+
+  auto fileEntry = dctx->getFirstFileEntry();
+  fileEntry->addUri("http://example.org/restore.bin");
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option.get());
+
+  CreateRequestCommand command(1, group.get(), &engine);
+  CPPUNIT_ASSERT(command.execute());
+  CPPUNIT_ASSERT(group->isHaltRequested());
 }
 
 } // namespace aria2

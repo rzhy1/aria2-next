@@ -49,6 +49,7 @@
 #include "LogFactory.h"
 #include "wallclock.h"
 #include "DownloadFailureException.h"
+#include "fmt.h"
 
 namespace aria2 {
 
@@ -74,6 +75,17 @@ bool CreateRequestCommand::executeInternal()
     // We assume all segments belongs to same file.
     setFileEntry(getDownloadContext()->findFileEntryByOffset(
         getSegments().front()->getPositionToWrite()));
+  }
+  if (!getFileEntry()) {
+    if (getSegmentMan()) {
+      getSegmentMan()->cancelSegment(getCuid());
+    }
+    throw DOWNLOAD_FAILURE_EXCEPTION2(
+        fmt("Restored segment offset is outside the download file range: %"
+            PRId64,
+            getSegments().empty() ? static_cast<int64_t>(0)
+                                  : getSegments().front()->getPositionToWrite()),
+        error_code::UNKNOWN_ERROR);
   }
   std::vector<std::pair<size_t, std::string>> usedHosts;
   if (getOption()->getAsBool(PREF_SELECT_LEAST_USED_HOST)) {

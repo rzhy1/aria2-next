@@ -310,7 +310,12 @@ void DefaultProgressInfoFile::load()
       piece->setBitfield(pieceBitfield.get(), bitfieldLength);
       piece->setHashType(dctx_->getPieceHashType());
 
-      inFlightPieces.push_back(piece);
+      if (piece->pieceComplete()) {
+        pieceStorage_->completePiece(piece);
+      }
+      else {
+        inFlightPieces.push_back(piece);
+      }
     }
     pieceStorage_->addInFlightPiece(inFlightPieces);
   }

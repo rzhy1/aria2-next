@@ -109,6 +109,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testEd2kSearchResultAppliesLocalFilters);
   CPPUNIT_TEST(testCreateRequestGroupForUri_parameterized);
   CPPUNIT_TEST(testCreateRequestGroupForUriList);
+  CPPUNIT_TEST(testCreateRequestGroupForUriListHttpDirContinue);
 
 #ifdef ENABLE_BITTORRENT
   CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentTorrent);
@@ -184,6 +185,7 @@ public:
   void testEd2kSearchResultAppliesLocalFilters();
   void testCreateRequestGroupForUri_parameterized();
   void testCreateRequestGroupForUriList();
+  void testCreateRequestGroupForUriListHttpDirContinue();
 
 #ifdef ENABLE_BITTORRENT
   void testCreateRequestGroupForUri_LibtorrentTorrent();
@@ -2472,6 +2474,25 @@ void DownloadHelperTest::testCreateRequestGroupForUriList()
       fileISOGroup->getDownloadContext();
   // PREF_OUT in option_ must be ignored.
   CPPUNIT_ASSERT_EQUAL(std::string(), fileISOCtx->getBasePath());
+}
+
+void DownloadHelperTest::testCreateRequestGroupForUriListHttpDirContinue()
+{
+  option_->put(PREF_MAX_CONNECTION_PER_SERVER, "1");
+  option_->put(PREF_SPLIT, "1");
+  option_->put(PREF_INPUT_FILE, A2_TEST_DIR "/input_uris_http_continue.txt");
+  option_->put(PREF_DIR, "/tmp");
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+
+  createRequestGroupForUriList(result, option_);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, result.size());
+  auto dctx = result[0]->getDownloadContext();
+  CPPUNIT_ASSERT_EQUAL(std::string("/restore"), result[0]->getOption()->get(PREF_DIR));
+  CPPUNIT_ASSERT(result[0]->getOption()->getAsBool(PREF_CONTINUE));
+  CPPUNIT_ASSERT(dctx->getFirstRequestedFileEntry());
+  CPPUNIT_ASSERT(dctx->findFileEntryByOffset(0));
 }
 
 

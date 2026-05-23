@@ -8,6 +8,7 @@
 #include "util.h"
 #include "Exception.h"
 #include "MockPieceStorage.h"
+#include "DefaultPieceStorage.h"
 #include "prefs.h"
 #include "DownloadContext.h"
 #include "Piece.h"
@@ -20,6 +21,7 @@ class DefaultProgressInfoFileTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(DefaultProgressInfoFileTest);
   CPPUNIT_TEST(testSave_nonBt);
   CPPUNIT_TEST(testLoad_nonBt);
+  CPPUNIT_TEST(testLoad_nonBtPromotesCompleteInFlightPiece);
 #ifndef WORDS_BIGENDIAN
   CPPUNIT_TEST(testLoad_nonBt_compat);
 #endif // !WORDS_BIGENDIAN
@@ -46,6 +48,7 @@ public:
 
   void testSave_nonBt();
   void testLoad_nonBt();
+  void testLoad_nonBtPromotesCompleteInFlightPiece();
 #ifndef WORDS_BIGENDIAN
   void testLoad_nonBt_compat();
 #endif // !WORDS_BIGENDIAN
@@ -148,6 +151,33 @@ void DefaultProgressInfoFileTest::testLoad_nonBt()
   std::shared_ptr<Piece> piece2 = inFlightPieces[1];
   CPPUNIT_ASSERT_EQUAL((size_t)2, piece2->getIndex());
   CPPUNIT_ASSERT_EQUAL((int64_t)512, piece2->getLength());
+}
+
+void DefaultProgressInfoFileTest::testLoad_nonBtPromotesCompleteInFlightPiece()
+{
+  std::shared_ptr<DownloadContext> dctx(
+      new DownloadContext(1_k, 2_k, A2_TEST_OUT_DIR "/complete-in-flight"));
+  std::shared_ptr<Option> option(new Option());
+  option->put(PREF_DIR, A2_TEST_OUT_DIR);
+
+  std::shared_ptr<DefaultPieceStorage> pieceStorage(
+      new DefaultPieceStorage(dctx, option.get()));
+
+  std::shared_ptr<Piece> piece(new Piece(0, 1_k));
+  piece->setAllBlock();
+  std::vector<std::shared_ptr<Piece>> inFlightPieces;
+  inFlightPieces.push_back(piece);
+  pieceStorage->addInFlightPiece(inFlightPieces);
+
+  DefaultProgressInfoFile infoFile(dctx, pieceStorage, option.get());
+  infoFile.save();
+
+  pieceStorage.reset(new DefaultPieceStorage(dctx, option.get()));
+  DefaultProgressInfoFile restoredInfoFile(dctx, pieceStorage, option.get());
+  restoredInfoFile.load();
+
+  CPPUNIT_ASSERT(pieceStorage->hasPiece(0));
+  CPPUNIT_ASSERT_EQUAL((size_t)0, pieceStorage->countInFlightPiece());
 }
 
 void DefaultProgressInfoFileTest::testLoad_nonBt_pieceLengthShorter()

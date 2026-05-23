@@ -58,6 +58,10 @@ void AsioRuntime::cancel()
 
 void AsioRuntime::scheduleWake(std::chrono::milliseconds delay)
 {
+  if (delay <= std::chrono::milliseconds(0)) {
+    wake();
+    return;
+  }
   wakeTimer_.expires_after(delay);
   wakeTimer_.async_wait([this](const boost::system::error_code& ec) {
     if (!ec) {

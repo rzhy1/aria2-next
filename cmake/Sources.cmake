@@ -97,6 +97,10 @@ set(ARIA2_SOURCES_BASE
   src/cookie_helper.h
   src/CreateRequestCommand.cc
   src/CreateRequestCommand.h
+  src/CurlDownloadCommand.cc
+  src/CurlDownloadCommand.h
+  src/CurlSession.cc
+  src/CurlSession.h
   src/crypto_endian.h
   src/CUIDCounter.cc
   src/CUIDCounter.h

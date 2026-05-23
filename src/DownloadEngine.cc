@@ -76,6 +76,7 @@
 #include "Option.h"
 #include "util_security.h"
 #include "AsioRuntime.h"
+#include "CurlSession.h"
 
 namespace aria2 {
 
@@ -98,6 +99,7 @@ constexpr auto DEFAULT_REFRESH_INTERVAL = 1_s;
 DownloadEngine::DownloadEngine(std::unique_ptr<EventPoll> eventPoll)
     : eventPoll_(std::move(eventPoll)),
       runtime_(make_unique<AsioRuntime>()),
+      curlSession_(make_unique<CurlSession>(this)),
       haltRequested_(0),
       noWait_(true),
       refreshInterval_(DEFAULT_REFRESH_INTERVAL),
@@ -234,6 +236,20 @@ bool DownloadEngine::deleteSocketForWriteCheck(
                                   EventPoll::EVENT_WRITE);
 }
 
+bool DownloadEngine::addRawSocketCheck(sock_t socket, Command* command,
+                                       int events)
+{
+  auto mappedEvents = static_cast<EventPoll::EventType>(events);
+  return eventPoll_->addEvents(socket, command, mappedEvents);
+}
+
+bool DownloadEngine::deleteRawSocketCheck(sock_t socket, Command* command,
+                                          int events)
+{
+  auto mappedEvents = static_cast<EventPoll::EventType>(events);
+  return eventPoll_->deleteEvents(socket, command, mappedEvents);
+}
+
 void DownloadEngine::calculateStatistics()
 {
   if (statCalc_) {
@@ -307,6 +323,8 @@ void DownloadEngine::setNoWait(bool b) { noWait_ = b; }
 
 AsioRuntime& DownloadEngine::getRuntime() { return *runtime_; }
 
+CurlSession& DownloadEngine::getCurlSession() { return *curlSession_; }
+
 void DownloadEngine::wakeRuntime()
 {
   runtime_->wake();
@@ -317,6 +335,7 @@ void DownloadEngine::wakeRuntime()
 void DownloadEngine::scheduleRuntimeWake(std::chrono::milliseconds delay)
 {
   runtime_->scheduleWake(delay);
+  setRefreshInterval(delay);
 }
 
 void DownloadEngine::addRoutineCommand(std::unique_ptr<Command> command)

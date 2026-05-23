@@ -91,3 +91,21 @@ passed with 4 tests. CSV parser check passed for 22 tracker files. `git diff
 --check` passed.
 Remaining: Start CM-005 libcurl transfer foundation.
 Blocked: none.
+
+2026-05-23 CM-005 verified
+Changed: Added CurlSession as the libcurl multi owner with socket and timer
+callbacks bridged through DownloadEngine. Added CurlDownloadCommand for the
+first ordinary URL transfer path. HTTP/HTTPS initiation now routes to the curl
+command while FTP/SFTP remain deferred. The curl data callback writes through
+existing PieceStorage, SegmentMan, and DiskAdaptor boundaries, and completion
+uses existing RequestGroup state.
+Verified: `cmake --preset default` passed. `cmake --build --preset default`
+passed. `build/default/aria2_tests
+'All Tests/aria2::RequestGroupTest/aria2::RequestGroupTest::testInitiateConnectionFactoryUsesCurlForHttp'`
+passed. `build/default/aria2_tests 'All Tests/aria2::DownloadEngineTest'`
+passed with 4 tests. Local HTTP smoke under
+`/Users/sekiro/Desktop/aria2-next-current/cm005-curl-smoke` exited 0 and
+downloaded `curl-smoke-ok`. CSV parser check passed for 22 tracker files. `git
+diff --check` passed.
+Remaining: Start CM-006 HTTP and HTTPS feature migration.
+Blocked: none.

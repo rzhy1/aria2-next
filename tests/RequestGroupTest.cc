@@ -14,6 +14,8 @@
 #include "DownloadResult.h"
 #include "RequestGroupMan.h"
 #include "SelectEventPoll.h"
+#include "CurlDownloadCommand.h"
+#include "InitiateConnectionCommandFactory.h"
 #ifdef ENABLE_BITTORRENT
 #  include "LibtorrentAttribute.h"
 #  include "LibtorrentCommand.h"
@@ -29,6 +31,7 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testTryAutoFileRenaming);
   CPPUNIT_TEST(testCreateDownloadResult);
   CPPUNIT_TEST(testLoadAndOpenFileRestartFromScratch);
+  CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForHttp);
 #ifdef ENABLE_BITTORRENT
   CPPUNIT_TEST(testCreateInitialCommandUsesLibtorrentRuntime);
   CPPUNIT_TEST(testLibtorrentCommandLoadsTorrentMetadata);
@@ -49,6 +52,7 @@ public:
   void testTryAutoFileRenaming();
   void testCreateDownloadResult();
   void testLoadAndOpenFileRestartFromScratch();
+  void testInitiateConnectionFactoryUsesCurlForHttp();
 #ifdef ENABLE_BITTORRENT
   void testCreateInitialCommandUsesLibtorrentRuntime();
   void testLibtorrentCommandLoadsTorrentMetadata();
@@ -200,6 +204,33 @@ void RequestGroupTest::testLoadAndOpenFileRestartFromScratch()
 
   CPPUNIT_ASSERT_EQUAL((int64_t)0, group.getCompletedLength());
   CPPUNIT_ASSERT_EQUAL((int64_t)0, File(path).size());
+}
+
+void RequestGroupTest::testInitiateConnectionFactoryUsesCurlForHttp()
+{
+  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
+  option_->put(PREF_DRY_RUN, A2_V_FALSE);
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  option_->put(PREF_SPLIT, "1");
+
+  auto group = createRequestGroup(1_k, 1_k,
+                                  std::string(A2_TEST_OUT_DIR) +
+                                      "/aria2_RequestGroupTest_curl_http",
+                                  "http://example.test/file", option_);
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setRequestGroupMan(make_unique<RequestGroupMan>(
+      std::vector<std::shared_ptr<RequestGroup>>{}, 1, option_.get()));
+  group->setRequestGroupMan(engine.getRequestGroupMan().get());
+  group->initPieceStorage();
+  auto request = std::make_shared<Request>();
+  CPPUNIT_ASSERT(request->setUri("http://example.test/file"));
+
+  auto command = InitiateConnectionCommandFactory::createInitiateConnectionCommand(
+      engine.newCUID(), request, group->getDownloadContext()->getFirstFileEntry(),
+      group.get(), &engine);
+
+  CPPUNIT_ASSERT(dynamic_cast<CurlDownloadCommand*>(command.get()));
 }
 
 #ifdef ENABLE_BITTORRENT

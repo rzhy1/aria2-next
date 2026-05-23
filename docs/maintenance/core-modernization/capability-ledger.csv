@@ -1,6 +1,6 @@
 capability,decision,current_owner,target_owner,checkpoint,status,verification,notes
-HTTP downloads,migrate,"native Http* command graph and SocketCore","libcurl multi-socket transfer backend",CM-006,pending,Pending,"Includes redirects, headers, range requests, resume, decoding, auth, proxying, low-speed behavior, and completion mapping."
-HTTPS downloads,migrate,"native HTTP plus native TLS abstraction","libcurl with OpenSSL backend",CM-006,pending,Pending,"Certificate handling and TLS policy move to libcurl/OpenSSL."
+HTTP downloads,migrate,"native Http* command graph and SocketCore","libcurl multi-socket transfer backend",CM-006,partial,"CM-005 routes HTTP initiation to CurlDownloadCommand and verifies a local HTTP download through libcurl multi-socket callbacks. Full redirects, headers, resume, decoding, auth, proxying, low-speed behavior, and native HTTP removal remain CM-006.","Foundation verified; feature parity pending."
+HTTPS downloads,migrate,"native HTTP plus native TLS abstraction","libcurl with OpenSSL backend",CM-006,partial,"CM-005 routes HTTPS-capable request creation to the curl path. Certificate handling and full TLS policy remain CM-006.","Certificate handling and TLS policy move to libcurl/OpenSSL."
 FTP downloads,migrate,"native Ftp* command graph","libcurl",CM-007,pending,Pending,"Includes active/passive behavior only where libcurl supports it and the product keeps it."
 FTPS downloads,migrate,"native FTP plus TLS abstraction","libcurl with OpenSSL backend",CM-007,pending,Pending,"Remove native protocol/TLS interleaving."
 SFTP downloads,migrate,"native Sftp* command graph with direct libssh2","libcurl",CM-007,pending,Pending,"Direct libssh2 remains only as libcurl's internal dependency if selected by libcurl packaging."

@@ -34,6 +34,7 @@
 /* copyright --> */
 #include "InitiateConnectionCommandFactory.h"
 #include "HttpInitiateConnectionCommand.h"
+#include "CurlDownloadCommand.h"
 #include "FtpInitiateConnectionCommand.h"
 #include "Request.h"
 #include "RequestGroup.h"
@@ -67,8 +68,8 @@ InitiateConnectionCommandFactory::createInitiateConnectionCommand(
       req->setPipeliningHint(true);
     }
 
-    return make_unique<HttpInitiateConnectionCommand>(cuid, req, fileEntry,
-                                                      requestGroup, e);
+    return make_unique<CurlDownloadCommand>(cuid, req, fileEntry, requestGroup,
+                                            e);
   }
   else if (req->getProtocol() == "ftp"
 #ifdef HAVE_LIBSSH2

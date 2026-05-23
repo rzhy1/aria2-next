@@ -66,6 +66,7 @@ class Request;
 class EventPoll;
 class Command;
 class AsioRuntime;
+class CurlSession;
 #ifdef ENABLE_BITTORRENT
 class LibtorrentSession;
 #endif // ENABLE_BITTORRENT
@@ -93,6 +94,8 @@ private:
   std::unique_ptr<EventPoll> eventPoll_;
 
   std::unique_ptr<AsioRuntime> runtime_;
+
+  std::unique_ptr<CurlSession> curlSession_;
 
   std::unique_ptr<StatCalc> statCalc_;
 
@@ -197,6 +200,8 @@ public:
                               Command* command);
   bool deleteSocketForWriteCheck(const std::shared_ptr<SocketCore>& socket,
                                  Command* command);
+  bool addRawSocketCheck(sock_t socket, Command* command, int events);
+  bool deleteRawSocketCheck(sock_t socket, Command* command, int events);
 
 #ifdef ENABLE_ASYNC_DNS
 
@@ -257,6 +262,8 @@ public:
   void setNoWait(bool b);
 
   AsioRuntime& getRuntime();
+
+  CurlSession& getCurlSession();
 
   void wakeRuntime();
 

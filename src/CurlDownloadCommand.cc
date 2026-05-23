@@ -14,23 +14,34 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
+#include <vector>
 
 #include "CurlSession.h"
 #include "DiskAdaptor.h"
 #include "DownloadContext.h"
 #include "DownloadEngine.h"
 #include "DownloadFailureException.h"
+#include "DlAbortEx.h"
 #include "FileEntry.h"
 #include "LogFactory.h"
 #include "Logger.h"
+#include "Command.h"
 #include "PeerStat.h"
 #include "PieceStorage.h"
+#include "DefaultProgressInfoFile.h"
 #include "NullProgressInfoFile.h"
 #include "Request.h"
 #include "RequestGroup.h"
 #include "Segment.h"
 #include "SegmentMan.h"
 #include "fmt.h"
+#include "Option.h"
+#include "error_code.h"
+#include "message.h"
+#include "prefs.h"
+#include "uri.h"
+#include "util.h"
 
 namespace aria2 {
 
@@ -43,7 +54,10 @@ CurlDownloadCommand::CurlDownloadCommand(
       session_(nullptr),
       initialized_(false),
       finished_(false),
-      expectedLength_(0)
+      metadataProbe_(false),
+      expectedLength_(0),
+      responseLength_(0),
+      headerList_(nullptr)
 {
   std::memset(errorBuffer_, 0, sizeof(errorBuffer_));
   peerStat_ = req->initPeerStat();
@@ -58,6 +72,9 @@ CurlDownloadCommand::~CurlDownloadCommand()
   if (session_ && easy_) {
     session_->remove(easy_);
   }
+  if (headerList_) {
+    curl_slist_free_all(headerList_);
+  }
   if (easy_) {
     curl_easy_cleanup(easy_);
   }
@@ -69,15 +86,6 @@ CurlDownloadCommand::~CurlDownloadCommand()
 
 bool CurlDownloadCommand::execute()
 {
-  if (!getPieceStorage()) {
-    getRequestGroup()->preDownloadProcessing();
-    getRequestGroup()->adjustFilename(
-        std::make_shared<NullProgressInfoFile>());
-    getRequestGroup()->initPieceStorage();
-    getPieceStorage()->getDiskAdaptor()->initAndOpenFile();
-    getSegmentMan()->getSegment(getCuid(), 1);
-  }
-
   return AbstractCommand::execute();
 }
 
@@ -117,6 +125,9 @@ void CurlDownloadCommand::initialize()
   }
 
   curl_easy_setopt(easy_, CURLOPT_URL, getRequest()->getCurrentUri().c_str());
+  curl_easy_setopt(easy_, CURLOPT_HEADERFUNCTION,
+                   &CurlDownloadCommand::headerCallback);
+  curl_easy_setopt(easy_, CURLOPT_HEADERDATA, this);
   curl_easy_setopt(easy_, CURLOPT_WRITEFUNCTION,
                    &CurlDownloadCommand::writeCallback);
   curl_easy_setopt(easy_, CURLOPT_WRITEDATA, this);
@@ -124,6 +135,16 @@ void CurlDownloadCommand::initialize()
   curl_easy_setopt(easy_, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(easy_, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(easy_, CURLOPT_FAILONERROR, 0L);
+  applyRequestOptions();
+
+  metadataProbe_ = !getPieceStorage();
+  if (metadataProbe_) {
+    applyMetadataProbeOptions();
+    session_->add(easy_, this);
+    session_->perform();
+    initialized_ = true;
+    return;
+  }
 
   const auto& segments = getSegments();
   if (!segments.empty() && expectedLength_ > 0) {
@@ -143,6 +164,106 @@ void CurlDownloadCommand::initialize()
   initialized_ = true;
 }
 
+namespace {
+void appendHeaders(curl_slist*& headers,
+                   const std::vector<std::string>& headerValues)
+{
+  for (const auto& header : headerValues) {
+    headers = curl_slist_append(headers, header.c_str());
+  }
+}
+
+std::vector<std::string> splitCumulativeOption(const std::string& value)
+{
+  std::vector<std::string> entries;
+  util::split(value.begin(), value.end(), std::back_inserter(entries), '\n',
+              false, false);
+  return entries;
+}
+} // namespace
+
+void CurlDownloadCommand::applyRequestOptions()
+{
+  auto option = getOption();
+  curl_easy_setopt(easy_, CURLOPT_USERAGENT,
+                   option->get(PREF_USER_AGENT).c_str());
+
+  if (!option->blank(PREF_REFERER)) {
+    curl_easy_setopt(easy_, CURLOPT_REFERER, option->get(PREF_REFERER).c_str());
+  }
+
+  if (getRequest()->getMethod() == Request::METHOD_HEAD) {
+    curl_easy_setopt(easy_, CURLOPT_NOBODY, 1L);
+  }
+
+  curl_easy_setopt(easy_, CURLOPT_ACCEPT_ENCODING,
+                   option->getAsBool(PREF_HTTP_ACCEPT_GZIP) ? "" : "identity");
+
+  curl_easy_setopt(easy_, CURLOPT_CONNECTTIMEOUT,
+                   static_cast<long>(option->getAsInt(PREF_CONNECT_TIMEOUT)));
+  curl_easy_setopt(easy_, CURLOPT_TIMEOUT,
+                   static_cast<long>(option->getAsInt(PREF_TIMEOUT)));
+  if (option->getAsInt(PREF_LOWEST_SPEED_LIMIT) > 0) {
+    curl_easy_setopt(easy_, CURLOPT_LOW_SPEED_LIMIT,
+                     static_cast<long>(option->getAsInt(
+                         PREF_LOWEST_SPEED_LIMIT)));
+    curl_easy_setopt(easy_, CURLOPT_LOW_SPEED_TIME,
+                     static_cast<long>(option->getAsInt(PREF_TIMEOUT)));
+  }
+
+  if (!option->blank(PREF_HTTP_USER)) {
+    std::string userpwd = option->get(PREF_HTTP_USER);
+    userpwd += ":";
+    userpwd += option->get(PREF_HTTP_PASSWD);
+    curl_easy_setopt(easy_, CURLOPT_USERPWD, userpwd.c_str());
+    curl_easy_setopt(easy_, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
+  }
+
+  proxyUri_ = getProxyUri(getRequest()->getProtocol(), option.get());
+  if (!proxyUri_.empty() &&
+      !inNoProxy(getRequest(), option->get(PREF_NO_PROXY))) {
+    curl_easy_setopt(easy_, CURLOPT_PROXY, proxyUri_.c_str());
+    if (option->get(PREF_PROXY_METHOD) == V_TUNNEL) {
+      curl_easy_setopt(easy_, CURLOPT_HTTPPROXYTUNNEL, 1L);
+    }
+  }
+
+  if (getRequest()->getProtocol() == "https") {
+    const auto verify = option->getAsBool(PREF_CHECK_CERTIFICATE) ? 1L : 0L;
+    curl_easy_setopt(easy_, CURLOPT_SSL_VERIFYPEER, verify);
+    curl_easy_setopt(easy_, CURLOPT_SSL_VERIFYHOST, verify ? 2L : 0L);
+    if (!option->blank(PREF_CA_CERTIFICATE)) {
+      curl_easy_setopt(easy_, CURLOPT_CAINFO,
+                       option->get(PREF_CA_CERTIFICATE).c_str());
+    }
+    if (!option->blank(PREF_CERTIFICATE)) {
+      curl_easy_setopt(easy_, CURLOPT_SSLCERT,
+                       option->get(PREF_CERTIFICATE).c_str());
+    }
+    if (!option->blank(PREF_PRIVATE_KEY)) {
+      curl_easy_setopt(easy_, CURLOPT_SSLKEY,
+                       option->get(PREF_PRIVATE_KEY).c_str());
+    }
+  }
+
+  requestHeaders_ = splitCumulativeOption(option->get(PREF_HEADER));
+  if (option->getAsBool(PREF_HTTP_NO_CACHE)) {
+    requestHeaders_.push_back("Cache-Control: no-cache");
+    requestHeaders_.push_back("Pragma: no-cache");
+  }
+  appendHeaders(headerList_, requestHeaders_);
+  if (headerList_) {
+    curl_easy_setopt(easy_, CURLOPT_HTTPHEADER, headerList_);
+  }
+}
+
+void CurlDownloadCommand::applyMetadataProbeOptions()
+{
+  curl_easy_setopt(easy_, CURLOPT_NOBODY, 1L);
+  curl_easy_setopt(easy_, CURLOPT_HTTPGET, 0L);
+  curl_easy_setopt(easy_, CURLOPT_RANGE, nullptr);
+}
+
 void CurlDownloadCommand::finish(CURLcode result)
 {
   finished_ = true;
@@ -159,6 +280,10 @@ void CurlDownloadCommand::finish(CURLcode result)
         fmt("HTTP transfer failed with status %ld.", status));
   }
 
+  if (metadataProbe_ && finishMetadataProbe(status)) {
+    return;
+  }
+
   completeCurrentSegment();
   if (getRequestGroup()->downloadFinished()) {
     getDownloadEngine()->setNoWait(true);
@@ -169,6 +294,85 @@ void CurlDownloadCommand::finish(CURLcode result)
   getDownloadEngine()->addCommand(
       make_unique<CurlDownloadCommand>(getCuid(), getRequest(), getFileEntry(),
                                        getRequestGroup(), getDownloadEngine()));
+}
+
+bool CurlDownloadCommand::finishMetadataProbe(long status)
+{
+  if (status == 304) {
+    prepareKnownLengthStorage(responseLength_);
+    getPieceStorage()->markAllPiecesDone();
+    getDownloadContext()->setChecksumVerified(true);
+    getDownloadEngine()->setNoWait(true);
+    getDownloadEngine()->setRefreshInterval(std::chrono::milliseconds(0));
+    return true;
+  }
+
+  if (getRequest()->getMethod() == Request::METHOD_HEAD) {
+    prepareKnownLengthStorage(responseLength_);
+    getDownloadEngine()->setNoWait(true);
+    getDownloadEngine()->setRefreshInterval(std::chrono::milliseconds(0));
+    return true;
+  }
+
+  if (responseLength_ <= 0) {
+    getDownloadContext()->markTotalLengthIsUnknown();
+    prepareKnownLengthStorage(0);
+    getSegmentMan()->getSegment(getCuid(), 1);
+    return false;
+  }
+
+  prepareKnownLengthStorage(responseLength_);
+  getFileEntry()->poolRequest(getRequest());
+  std::vector<std::unique_ptr<Command>> commands;
+  getRequestGroup()->createNextCommand(commands, getDownloadEngine());
+  getDownloadEngine()->setNoWait(true);
+  getDownloadEngine()->addCommand(std::move(commands));
+  return true;
+}
+
+void CurlDownloadCommand::prepareKnownLengthStorage(int64_t length)
+{
+  if (length < 0) {
+    throw DL_ABORT_EX2("Content-Length must be positive integer",
+                       error_code::HTTP_PROTOCOL_ERROR);
+  }
+  if (length > std::numeric_limits<a2_off_t>::max()) {
+    throw DOWNLOAD_FAILURE_EXCEPTION(fmt(EX_TOO_LARGE_FILE, length));
+  }
+
+  getFileEntry()->setLength(length);
+  if (getFileEntry()->getPath().empty()) {
+    auto suffixPath = util::createSafePath(determineFilename());
+    getFileEntry()->setPath(
+        util::applyDir(getOption()->get(PREF_DIR), suffixPath));
+    getFileEntry()->setSuffixPath(suffixPath);
+  }
+  getRequestGroup()->preDownloadProcessing();
+  getRequestGroup()->adjustFilename(
+      std::make_shared<NullProgressInfoFile>());
+  getRequestGroup()->initPieceStorage();
+  auto progressInfoFile = std::make_shared<DefaultProgressInfoFile>(
+      getDownloadContext(), getPieceStorage(), getOption().get());
+  getRequestGroup()->loadAndOpenFile(progressInfoFile);
+}
+
+std::string CurlDownloadCommand::determineFilename() const
+{
+  auto contentDisposition = util::getContentDispositionFilename(
+      contentDisposition_,
+      getOption()->getAsBool(PREF_CONTENT_DISPOSITION_DEFAULT_UTF8));
+  if (!contentDisposition.empty()) {
+    A2_LOG_INFO(fmt(MSG_CONTENT_DISPOSITION_DETECTED, getCuid(),
+                    contentDisposition.c_str()));
+    return contentDisposition;
+  }
+
+  auto file = getRequest()->getFile();
+  file = util::percentDecode(file.begin(), file.end());
+  if (file.empty()) {
+    return Request::DEFAULT_FILE;
+  }
+  return file;
 }
 
 void CurlDownloadCommand::completeCurrentSegment()
@@ -188,6 +392,13 @@ size_t CurlDownloadCommand::writeCallback(char* ptr, size_t size, size_t nmemb,
   auto self = static_cast<CurlDownloadCommand*>(userdata);
   return self->writeData(reinterpret_cast<const unsigned char*>(ptr),
                          size * nmemb);
+}
+
+size_t CurlDownloadCommand::headerCallback(char* ptr, size_t size, size_t nmemb,
+                                           void* userdata)
+{
+  auto self = static_cast<CurlDownloadCommand*>(userdata);
+  return self->writeHeader(ptr, size * nmemb);
 }
 
 size_t CurlDownloadCommand::writeData(const unsigned char* data, size_t length)
@@ -223,6 +434,34 @@ size_t CurlDownloadCommand::writeData(const unsigned char* data, size_t length)
   }
 
   return length - remaining;
+}
+
+size_t CurlDownloadCommand::writeHeader(const char* data, size_t length)
+{
+  constexpr char CONTENT_LENGTH[] = "content-length:";
+  constexpr char CONTENT_DISPOSITION[] = "content-disposition:";
+
+  std::string line(data, length);
+  while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
+    line.pop_back();
+  }
+
+  auto lower = line;
+  util::lowercase(lower);
+  if (util::startsWith(lower, CONTENT_LENGTH)) {
+    auto value = util::strip(line.substr(sizeof(CONTENT_LENGTH) - 1));
+    int64_t parsed = 0;
+    if (!util::parseLLIntNoThrow(parsed, value) || parsed < 0) {
+      return 0;
+    }
+    responseLength_ = parsed;
+  }
+  else if (util::startsWith(lower, CONTENT_DISPOSITION)) {
+    contentDisposition_ =
+        util::strip(line.substr(sizeof(CONTENT_DISPOSITION) - 1));
+  }
+
+  return length;
 }
 
 } // namespace aria2

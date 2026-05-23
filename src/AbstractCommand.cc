@@ -698,7 +698,6 @@ bool isProxyRequest(const std::string& protocol,
 }
 } // namespace
 
-namespace {
 bool inNoProxy(const std::shared_ptr<Request>& req, const std::string& noProxy)
 {
   std::vector<Scip> entries;
@@ -733,7 +732,6 @@ bool inNoProxy(const std::shared_ptr<Request>& req, const std::string& noProxy)
   }
   return false;
 }
-} // namespace
 
 bool AbstractCommand::isProxyDefined() const
 {

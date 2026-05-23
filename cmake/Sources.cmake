@@ -261,8 +261,6 @@ set(ARIA2_SOURCES_BASE
   src/HttpHeader.h
   src/HttpHeaderProcessor.cc
   src/HttpHeaderProcessor.h
-  src/HttpInitiateConnectionCommand.cc
-  src/HttpInitiateConnectionCommand.h
   src/HttpListenCommand.cc
   src/HttpListenCommand.h
   src/HttpProxyRequestCommand.cc

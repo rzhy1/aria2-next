@@ -17,6 +17,9 @@
 
 #include <curl/curl.h>
 
+#include <string>
+#include <vector>
+
 namespace aria2 {
 
 class CurlSession;
@@ -36,21 +39,35 @@ private:
   bool noCheck() const CXX11_OVERRIDE { return true; }
 
   void initialize();
+  void applyRequestOptions();
+  void applyMetadataProbeOptions();
   void finish(CURLcode result);
+  bool finishMetadataProbe(long status);
   void completeCurrentSegment();
+  void prepareKnownLengthStorage(int64_t length);
+  std::string determineFilename() const;
 
   static size_t writeCallback(char* ptr, size_t size, size_t nmemb,
                               void* userdata);
+  static size_t headerCallback(char* ptr, size_t size, size_t nmemb,
+                               void* userdata);
 
   size_t writeData(const unsigned char* data, size_t length);
+  size_t writeHeader(const char* data, size_t length);
 
   CURL* easy_;
   CurlSession* session_;
   std::shared_ptr<PeerStat> peerStat_;
   bool initialized_;
   bool finished_;
+  bool metadataProbe_;
   int64_t expectedLength_;
+  int64_t responseLength_;
+  std::string contentDisposition_;
   char errorBuffer_[CURL_ERROR_SIZE];
+  std::vector<std::string> requestHeaders_;
+  curl_slist* headerList_;
+  std::string proxyUri_;
 };
 
 } // namespace aria2

@@ -109,3 +109,9 @@ downloaded `curl-smoke-ok`. CSV parser check passed for 22 tracker files. `git
 diff --check` passed.
 Remaining: Start CM-006 HTTP and HTTPS feature migration.
 Blocked: none.
+
+2026-05-23 CM-006 verified
+Changed: Expanded `CurlDownloadCommand` into the HTTP/HTTPS transfer owner for metadata probing, request option mapping, known-length storage setup, range requests, resume, unknown-length fallback, and libcurl error surfacing. Removed direct native HTTP initiation from the command factory and deleted `HttpInitiateConnectionCommand`; retained the remaining old HTTP helper graph only where FTP proxy and RPC server cleanup still own it in later checkpoints.
+Verified: `cmake --build --preset default` passed. `build/default/aria2_tests 'All Tests/aria2::RequestGroupTest/aria2::RequestGroupTest::testInitiateConnectionFactoryUsesCurlForHttp'` passed. `build/default/aria2_tests 'All Tests/aria2::DownloadEngineTest'` passed. Local smokes under `/Users/sekiro/Desktop/aria2-next-current/cm006-final-smoke` verified HEAD metadata, byte-range GETs, resume-only missing ranges, and unknown-length fallback; earlier CM-006 smokes verified option propagation and 404 failure surfacing. CSV parser check passed for 22 tracker files. `git diff --check` passed.
+Remaining: Start CM-007 FTP, FTPS, SFTP, and SCP migration through libcurl, then remove native FTP/SFTP and the temporary FTP proxy HTTP helper dependencies.
+Blocked: none.

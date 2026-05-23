@@ -33,7 +33,6 @@
  */
 /* copyright --> */
 #include "InitiateConnectionCommandFactory.h"
-#include "HttpInitiateConnectionCommand.h"
 #include "CurlDownloadCommand.h"
 #include "FtpInitiateConnectionCommand.h"
 #include "Request.h"

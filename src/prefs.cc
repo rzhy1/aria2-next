@@ -410,10 +410,6 @@ PrefPtr PREF_FTP_PASSWD = makePref("ftp-passwd");
 PrefPtr PREF_FTP_TYPE = makePref("ftp-type");
 // values: true | false
 PrefPtr PREF_FTP_PASV = makePref("ftp-pasv");
-// values: true | false
-PrefPtr PREF_FTP_REUSE_CONNECTION = makePref("ftp-reuse-connection");
-// values: hashType=digest
-PrefPtr PREF_SSH_HOST_KEY_MD = makePref("ssh-host-key-md");
 
 /**
  * HTTP related preferences
@@ -444,8 +440,6 @@ PrefPtr PREF_CA_CERTIFICATE = makePref("ca-certificate");
 PrefPtr PREF_CHECK_CERTIFICATE = makePref("check-certificate");
 // value: true | false
 PrefPtr PREF_USE_HEAD = makePref("use-head");
-// value: true | false
-PrefPtr PREF_HTTP_AUTH_CHALLENGE = makePref("http-auth-challenge");
 // value: true | false
 PrefPtr PREF_HTTP_NO_CACHE = makePref("http-no-cache");
 // value: true | false

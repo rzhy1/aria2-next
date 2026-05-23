@@ -1189,16 +1189,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(new BooleanOptionHandler(
-        PREF_HTTP_AUTH_CHALLENGE, TEXT_HTTP_AUTH_CHALLENGE, A2_V_FALSE,
-        OptionHandler::OPT_ARG));
-    op->addTag(TAG_HTTP);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
     OptionHandler* op(new BooleanOptionHandler(PREF_HTTP_NO_CACHE,
                                                TEXT_HTTP_NO_CACHE, A2_V_FALSE,
                                                OptionHandler::OPT_ARG));
@@ -1329,16 +1319,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(new BooleanOptionHandler(
-        PREF_FTP_REUSE_CONNECTION, TEXT_FTP_REUSE_CONNECTION, A2_V_TRUE,
-        OptionHandler::OPT_ARG));
-    op->addTag(TAG_FTP);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
     OptionHandler* op(new ParameterOptionHandler(
         PREF_FTP_TYPE, TEXT_FTP_TYPE, V_BINARY, {V_BINARY, V_ASCII}));
     op->addTag(TAG_FTP);
@@ -1352,15 +1332,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     op->addTag(TAG_BASIC);
     op->addTag(TAG_FTP);
     op->setEraseAfterParse(true);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new ChecksumOptionHandler(
-        PREF_SSH_HOST_KEY_MD, TEXT_SSH_HOST_KEY_MD, {"sha-1", "md5"}));
-    op->addTag(TAG_FTP);
     op->setInitialOption(true);
     op->setChangeGlobalOption(true);
     op->setChangeOptionForReserved(true);

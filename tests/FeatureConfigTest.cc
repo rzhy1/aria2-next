@@ -62,10 +62,6 @@ void FeatureConfigTest::testFeatureSummary()
 
       "ED2K",
 
-#ifdef HAVE_SQLITE3
-      "Firefox3 Cookie",
-#endif // HAVE_SQLITE3
-
 #ifdef HAVE_ZLIB
       "GZip",
 #endif // HAVE_ZLIB

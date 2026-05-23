@@ -310,12 +310,6 @@
 /* Define to 1 if *_fallocate is available. */
 #cmakedefine HAVE_SOME_FALLOCATE @HAVE_SOME_FALLOCATE@
 
-/* Define to 1 if you have sqlite3. */
-#cmakedefine HAVE_SQLITE3 @HAVE_SQLITE3@
-
-/* Define to 1 if you have the 'sqlite3_open_v2' function. */
-#cmakedefine HAVE_SQLITE3_OPEN_V2 @HAVE_SQLITE3_OPEN_V2@
-
 /* Define to 1 if 'stat' has the bug that it succeeds when given the
    zero-length file name argument. */
 #cmakedefine HAVE_STAT_EMPTY_STRING_BUG @HAVE_STAT_EMPTY_STRING_BUG@

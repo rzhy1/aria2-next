@@ -15,11 +15,10 @@
 #include <algorithm>
 #include <cstring>
 #include <limits>
+#include <string>
 #include <vector>
 
 #include "CurlSession.h"
-#include "AuthConfig.h"
-#include "AuthConfigFactory.h"
 #include "DiskAdaptor.h"
 #include "DownloadContext.h"
 #include "DownloadEngine.h"
@@ -188,6 +187,15 @@ bool isFtpFamily(const std::string& protocol)
   return protocol == "ftp" || protocol == "ftps" || protocol == "sftp" ||
          protocol == "scp";
 }
+
+std::string makeUserPassword(const std::string& user,
+                             const std::string& password)
+{
+  std::string userPassword = user;
+  userPassword += ":";
+  userPassword += password;
+  return userPassword;
+}
 } // namespace
 
 void CurlDownloadCommand::applyRequestOptions()
@@ -225,17 +233,8 @@ void CurlDownloadCommand::applyRequestOptions()
                      static_cast<long>(option->getAsInt(PREF_TIMEOUT)));
   }
 
-  if (!isFtpFamily(protocol) && !option->blank(PREF_HTTP_USER)) {
-    std::string userpwd = option->get(PREF_HTTP_USER);
-    userpwd += ":";
-    userpwd += option->get(PREF_HTTP_PASSWD);
-    curl_easy_setopt(easy_, CURLOPT_USERPWD, userpwd.c_str());
-    curl_easy_setopt(easy_, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
-  }
-
-  if (isFtpFamily(protocol)) {
-    applyFtpFamilyOptions();
-  }
+  applyCredentialOptions();
+  applyCookieAndNetrcOptions();
 
   proxyUri_ = getProxyUri(protocol, option.get());
   if (!proxyUri_.empty() &&
@@ -279,17 +278,69 @@ void CurlDownloadCommand::applyRequestOptions()
   }
 }
 
+void CurlDownloadCommand::applyCredentialOptions()
+{
+  auto option = getOption();
+  const auto& protocol = getRequest()->getProtocol();
+
+  if (protocol == "http" || protocol == "https") {
+    if (!option->blank(PREF_HTTP_USER)) {
+      userPassword_ =
+          makeUserPassword(option->get(PREF_HTTP_USER),
+                           option->get(PREF_HTTP_PASSWD));
+      curl_easy_setopt(easy_, CURLOPT_USERPWD, userPassword_.c_str());
+      curl_easy_setopt(easy_, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
+    }
+    return;
+  }
+
+  if (!isFtpFamily(protocol)) {
+    return;
+  }
+
+  if (!getRequest()->getUsername().empty()) {
+    curl_easy_setopt(easy_, CURLOPT_USERNAME,
+                     getRequest()->getUsername().c_str());
+    curl_easy_setopt(easy_, CURLOPT_PASSWORD,
+                     getRequest()->getPassword().c_str());
+  }
+  else if (!option->blank(PREF_FTP_USER)) {
+    curl_easy_setopt(easy_, CURLOPT_USERNAME,
+                     option->get(PREF_FTP_USER).c_str());
+    curl_easy_setopt(easy_, CURLOPT_PASSWORD,
+                     option->get(PREF_FTP_PASSWD).c_str());
+  }
+}
+
+void CurlDownloadCommand::applyCookieAndNetrcOptions()
+{
+  auto option = getOption();
+
+  curl_easy_setopt(easy_, CURLOPT_COOKIEFILE, "");
+  if (!option->blank(PREF_LOAD_COOKIES)) {
+    curl_easy_setopt(easy_, CURLOPT_COOKIEFILE,
+                     option->get(PREF_LOAD_COOKIES).c_str());
+  }
+  if (!option->blank(PREF_SAVE_COOKIES)) {
+    curl_easy_setopt(easy_, CURLOPT_COOKIEJAR,
+                     option->get(PREF_SAVE_COOKIES).c_str());
+  }
+
+  if (!option->getAsBool(PREF_NO_NETRC)) {
+    curl_easy_setopt(easy_, CURLOPT_NETRC, CURL_NETRC_OPTIONAL);
+    if (!option->blank(PREF_NETRC_PATH)) {
+      curl_easy_setopt(easy_, CURLOPT_NETRC_FILE,
+                       option->get(PREF_NETRC_PATH).c_str());
+    }
+  }
+  else {
+    curl_easy_setopt(easy_, CURLOPT_NETRC, CURL_NETRC_IGNORED);
+  }
+}
+
 void CurlDownloadCommand::applyFtpFamilyOptions()
 {
   auto option = getOption();
-  auto authConfig =
-      getDownloadEngine()->getAuthConfigFactory()->createAuthConfig(
-          getRequest(), option.get());
-  if (authConfig) {
-    curl_easy_setopt(easy_, CURLOPT_USERNAME, authConfig->getUser().c_str());
-    curl_easy_setopt(easy_, CURLOPT_PASSWORD,
-                     authConfig->getPassword().c_str());
-  }
 
   if (option->get(PREF_FTP_TYPE) == V_ASCII) {
     curl_easy_setopt(easy_, CURLOPT_TRANSFERTEXT, 1L);

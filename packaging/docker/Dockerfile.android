@@ -142,7 +142,6 @@ RUN . packaging/scripts/release-size-profile android && \
       -DARIA2_WITH_EXPAT=ON \
       -DARIA2_WITH_CARES=ON \
       -DARIA2_WITH_ZLIB=ON \
-      -DARIA2_WITH_SQLITE3=OFF \
       -DARIA2_WITH_LIBSSH2=ON \
       -DARIA2_RELEASE_SIZE_OPTIMIZED=ON \
       -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \

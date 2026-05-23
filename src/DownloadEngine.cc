@@ -54,10 +54,7 @@
 #include "a2functional.h"
 #include "DlAbortEx.h"
 #include "ServerStatMan.h"
-#include "CookieStorage.h"
 #include "A2STR.h"
-#include "AuthConfigFactory.h"
-#include "AuthConfig.h"
 #include "Request.h"
 #include "EventPoll.h"
 #include "Command.h"
@@ -104,7 +101,6 @@ DownloadEngine::DownloadEngine(std::unique_ptr<EventPoll> eventPoll)
       noWait_(true),
       refreshInterval_(DEFAULT_REFRESH_INTERVAL),
       lastRefresh_(Timer::zero()),
-      cookieStorage_(make_unique<CookieStorage>()),
       dnsCache_(make_unique<DNSCache>()),
       option_(nullptr)
 {
@@ -635,23 +631,6 @@ void DownloadEngine::removeCachedIPAddress(const std::string& hostname,
                                            uint16_t port)
 {
   dnsCache_->remove(hostname, port);
-}
-
-void DownloadEngine::setAuthConfigFactory(
-    std::unique_ptr<AuthConfigFactory> factory)
-{
-  authConfigFactory_ = std::move(factory);
-}
-
-const std::unique_ptr<AuthConfigFactory>&
-DownloadEngine::getAuthConfigFactory() const
-{
-  return authConfigFactory_;
-}
-
-const std::unique_ptr<CookieStorage>& DownloadEngine::getCookieStorage() const
-{
-  return cookieStorage_;
 }
 
 void DownloadEngine::setRefreshInterval(std::chrono::milliseconds interval)

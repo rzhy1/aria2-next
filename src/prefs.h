@@ -363,10 +363,6 @@ extern PrefPtr PREF_FTP_PASSWD;
 extern PrefPtr PREF_FTP_TYPE;
 // values: true | false
 extern PrefPtr PREF_FTP_PASV;
-// values: true | false
-extern PrefPtr PREF_FTP_REUSE_CONNECTION;
-// values: hashType=digest
-extern PrefPtr PREF_SSH_HOST_KEY_MD;
 
 /**
  * HTTP related preferences
@@ -397,8 +393,6 @@ extern PrefPtr PREF_CA_CERTIFICATE;
 extern PrefPtr PREF_CHECK_CERTIFICATE;
 // value: true | false
 extern PrefPtr PREF_USE_HEAD;
-// value: true | false
-extern PrefPtr PREF_HTTP_AUTH_CHALLENGE;
 // value: true | false
 extern PrefPtr PREF_HTTP_NO_CACHE;
 // value: true | false

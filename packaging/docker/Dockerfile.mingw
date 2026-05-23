@@ -28,7 +28,6 @@ COPY packaging/scripts/release-size-profile /deps/packaging/scripts/release-size
 RUN . packaging/dependencies.env && \
     . packaging/scripts/common.sh && \
     curl_fetch "$EXPAT_URL" "$EXPAT_ARCHIVE" "$EXPAT_SHA256" && \
-    curl_fetch "$SQLITE_URL" "$SQLITE_ARCHIVE" "$SQLITE_SHA256" && \
     curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256" && \
     curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256" && \
     curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256" && \
@@ -40,17 +39,6 @@ RUN . packaging/dependencies.env && \
     . packaging/scripts/release-size-profile windows && \
     tar xf "$EXPAT_ARCHIVE" && \
     cd "expat-$EXPAT_VERSION" && \
-    CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-    ./configure \
-      --disable-shared --enable-static \
-      --prefix="$PREFIX" --host="$HOST" \
-      --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" && \
-    make -j"$(nproc)" install
-
-RUN . packaging/dependencies.env && \
-    . packaging/scripts/release-size-profile windows && \
-    tar xf "$SQLITE_ARCHIVE" && \
-    cd "sqlite-autoconf-$SQLITE_AUTOCONF_VERSION" && \
     CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
     ./configure \
       --disable-shared --enable-static \
@@ -141,7 +129,6 @@ RUN . packaging/scripts/release-size-profile windows && \
       -DARIA2_WITH_GNUTLS=OFF \
       -DARIA2_WITH_OPENSSL=OFF \
       -DARIA2_WITH_WINTLS=ON \
-      -DARIA2_WITH_SQLITE3=ON \
       -DARIA2_WITH_LIBXML2=OFF \
       -DARIA2_WITH_EXPAT=ON \
       -DARIA2_WITH_ZLIB=ON \

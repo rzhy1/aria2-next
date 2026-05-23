@@ -253,13 +253,9 @@
     "                              under the maximum defined by the\n" \
     "                              max-concurrent-downloads parameter.")
 #define TEXT_LOAD_COOKIES                                               \
-  _(" --load-cookies=FILE          Load Cookies from FILE using the Firefox3 format\n" \
-    "                              and Mozilla/Firefox(1.x/2.x)/Netscape format.")
+  _(" --load-cookies=FILE          Load cookies from FILE using libcurl.")
 #define TEXT_SAVE_COOKIES                                               \
-  _(" --save-cookies=FILE          Save Cookies to FILE in Mozilla/Firefox(1.x/2.x)/\n" \
-    "                              Netscape format. If FILE already exists, it is\n" \
-    "                              overwritten. Session Cookies are also saved and\n" \
-    "                              their expiry values are treated as 0.")
+  _(" --save-cookies=FILE          Save cookies to FILE using libcurl.")
 #define TEXT_SHOW_FILES                                                 \
   _(" -S, --show-files[=true|false] Print file listing of .torrent, .meta4 and\n" \
     "                              .metalink file and exit. More detailed\n" \
@@ -416,8 +412,6 @@
   _(" -q, --quiet[=true|false]     Make aria2 quiet(no console output).")
 #define TEXT_ASYNC_DNS                                          \
   _(" --async-dns[=true|false]     Enable asynchronous DNS.")
-#define TEXT_FTP_REUSE_CONNECTION                                       \
-  _(" --ftp-reuse-connection[=true|false] Reuse connection in FTP.")
 #define TEXT_SUMMARY_INTERVAL                                           \
   _(" --summary-interval=SEC       Set interval to output download progress summary.\n" \
     "                              Setting 0 suppresses the output.")
@@ -528,14 +522,6 @@
     "                              but not the extended version filename*.")
 #define TEXT_EVENT_POLL                                                 \
   _(" --event-poll=POLL            Specify the method for polling events.")
-#define TEXT_HTTP_AUTH_CHALLENGE                                        \
-  _(" --http-auth-challenge[=true|false] Send HTTP authorization header only when it\n" \
-    "                              is requested by the server. If false is set, then\n" \
-    "                              authorization header is always sent to the server.\n" \
-    "                              There is an exception: if username and password\n" \
-    "                              are embedded in URI, authorization header is\n" \
-    "                              always sent to the server regardless of this\n" \
-    "                              option.")
 #define TEXT_INDEX_OUT                                                  \
   _(" -O, --index-out=INDEX=PATH   Set file path for file with index=INDEX. You can\n" \
     "                              find the file index using the --show-files option.\n" \
@@ -977,16 +963,6 @@
     "                              If true is given, deny legacy BitTorrent\n" \
     "                              handshake and only use Obfuscation handshake and\n" \
     "                              always encrypt message payload.")
-#define TEXT_SSH_HOST_KEY_MD                                            \
-  _(" --ssh-host-key-md=TYPE=DIGEST\n"                                  \
-    "                              Set checksum for SSH host public key. TYPE is\n" \
-    "                              hash type. The supported hash type is sha-1 or\n" \
-    "                              md5. DIGEST is hex digest. For example:\n" \
-    "                              sha-1=b030503d4de4539dc7885e6f0f5e256704edf4c3\n" \
-    "                              This option can be used to validate server's\n" \
-    "                              public key when SFTP is used. If this option is\n" \
-    "                              not set, which is default, no validation takes\n" \
-    "                              place.")
 #define TEXT_SOCKET_RECV_BUFFER_SIZE                                    \
   _(" --socket-recv-buffer-size=SIZE\n"                                 \
     "                              Set the maximum socket receive buffer in bytes.\n" \

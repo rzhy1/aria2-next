@@ -22,18 +22,12 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/UriListParserTest.cc
   tests/HttpHeaderProcessorTest.cc
   tests/RequestTest.cc
-  tests/HttpRequestTest.cc
   tests/RequestGroupManTest.cc
-  tests/AuthConfigFactoryTest.cc
-  tests/NetrcAuthResolverTest.cc
-  tests/DefaultAuthResolverTest.cc
   tests/OptionHandlerTest.cc
   tests/SegmentManTest.cc
   tests/BitfieldManTest.cc
-  tests/NetrcTest.cc
   tests/SingletonHolderTest.cc
   tests/HttpHeaderTest.cc
-  tests/HttpResponseTest.cc
   tests/FileTest.cc
   tests/OptionTest.cc
   tests/DefaultDiskWriterTest.cc
@@ -53,10 +47,7 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/FeedbackURISelectorTest.cc
   tests/InorderURISelectorTest.cc
   tests/ServerStatTest.cc
-  tests/NsCookieParserTest.cc
   tests/DirectDiskAdaptorTest.cc
-  tests/CookieTest.cc
-  tests/CookieStorageTest.cc
   tests/TimeTest.cc
   tests/OptionParserTest.cc
   tests/DNSCacheTest.cc
@@ -75,7 +66,6 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/UriTest.cc
   tests/UriSplitTest.cc
   tests/MockSegment.h
-  tests/CookieHelperTest.cc
   tests/JsonTest.cc
   tests/ValueBaseJsonParserTest.cc
   tests/RpcResponseTest.cc
@@ -120,10 +110,6 @@ set(ARIA2_TEST_SOURCES_HAVE_ZLIB
   tests/GZipEncoderTest.cc
   tests/GZipDecodingStreamFilterTest.cc
   tests/GZipFileTest.cc
-)
-
-set(ARIA2_TEST_SOURCES_HAVE_SQLITE3
-  tests/Sqlite3CookieParserTest.cc
 )
 
 set(ARIA2_TEST_SOURCES_ENABLE_BITTORRENT

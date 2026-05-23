@@ -60,8 +60,6 @@ class Option;
 class RequestGroupMan;
 class StatCalc;
 class SocketCore;
-class CookieStorage;
-class AuthConfigFactory;
 class Request;
 class EventPoll;
 class Command;
@@ -137,8 +135,6 @@ private:
   std::chrono::milliseconds refreshInterval_;
   Timer lastRefresh_;
 
-  std::unique_ptr<CookieStorage> cookieStorage_;
-
 #ifdef ENABLE_BITTORRENT
   std::unique_ptr<LibtorrentSession> libtorrentSession_;
 #endif // ENABLE_BITTORRENT
@@ -146,8 +142,6 @@ private:
   CUIDCounter cuidCounter_;
 
   std::unique_ptr<DNSCache> dnsCache_;
-
-  std::unique_ptr<AuthConfigFactory> authConfigFactory_;
 
 #ifdef ENABLE_WEBSOCKET
   std::unique_ptr<rpc::WebSocketSessionMan> webSocketSessionMan_;
@@ -326,8 +320,6 @@ public:
 
   void evictSocketPool();
 
-  const std::unique_ptr<CookieStorage>& getCookieStorage() const;
-
 #ifdef ENABLE_BITTORRENT
   LibtorrentSession& getLibtorrentSession();
   LibtorrentSession* getInitializedLibtorrentSession() const
@@ -355,10 +347,6 @@ public:
                         uint16_t port);
 
   void removeCachedIPAddress(const std::string& hostname, uint16_t port);
-
-  void setAuthConfigFactory(std::unique_ptr<AuthConfigFactory> factory);
-
-  const std::unique_ptr<AuthConfigFactory>& getAuthConfigFactory() const;
 
   void setRefreshInterval(std::chrono::milliseconds interval);
 

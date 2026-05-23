@@ -2,9 +2,6 @@
 
 #include <cppunit/extensions/HelperMacros.h>
 
-#include "Netrc.h"
-#include "DefaultAuthResolver.h"
-#include "NetrcAuthResolver.h"
 #include "uri.h"
 
 namespace aria2 {

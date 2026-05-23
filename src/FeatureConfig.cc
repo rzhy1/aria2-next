@@ -46,9 +46,6 @@
 #ifdef HAVE_LIBEXPAT
 #  include <expat.h>
 #endif // HAVE_LIBEXPAT
-#ifdef HAVE_SQLITE3
-#  include <sqlite3.h>
-#endif // HAVE_SQLITE3
 #ifdef HAVE_LIBGNUTLS
 #  include <gnutls/gnutls.h>
 #endif // HAVE_LIBGNUTLS
@@ -138,14 +135,6 @@ const char* strSupportedFeature(int feature)
     return "ED2K";
     break;
 
-  case (FEATURE_FF3_COOKIE):
-#ifdef HAVE_SQLITE3
-    return "Firefox3 Cookie";
-#else  // !HAVE_SQLITE3
-    return nullptr;
-#endif // !HAVE_SQLITE3
-    break;
-
   case (FEATURE_GZIP):
 #ifdef HAVE_ZLIB
     return "GZip";
@@ -200,9 +189,6 @@ std::string usedLibs()
   res += fmt("expat/%d.%d.%d ", XML_MAJOR_VERSION, XML_MINOR_VERSION,
              XML_MICRO_VERSION);
 #endif // HAVE_LIBEXPAT
-#ifdef HAVE_SQLITE3
-  res += "sqlite3/" SQLITE_VERSION " ";
-#endif // HAVE_SQLITE3
 #ifdef HAVE_WINTLS
   res += "WinTLS ";
 #endif // HAVE_WINTLS

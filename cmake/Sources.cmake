@@ -9,8 +9,6 @@ set(ARIA2_SOURCES_BASE
   src/A2STR.cc
   src/A2STR.h
   src/a2time.h
-  src/AbstractAuthResolver.cc
-  src/AbstractAuthResolver.h
   src/AbstractCommand.cc
   src/AbstractCommand.h
   src/AbstractDiskWriter.cc
@@ -19,10 +17,6 @@ set(ARIA2_SOURCES_BASE
   src/AbstractHttpServerResponseCommand.h
   src/AbstractOptionHandler.cc
   src/AbstractOptionHandler.h
-  src/AbstractProxyRequestCommand.cc
-  src/AbstractProxyRequestCommand.h
-  src/AbstractProxyResponseCommand.cc
-  src/AbstractProxyResponseCommand.h
   src/AbstractSingleDiskAdaptor.cc
   src/AbstractSingleDiskAdaptor.h
   src/AdaptiveFileAllocationIterator.cc
@@ -33,11 +27,6 @@ set(ARIA2_SOURCES_BASE
   src/array_fun.h
   src/AsioRuntime.cc
   src/AsioRuntime.h
-  src/AuthConfig.cc
-  src/AuthConfig.h
-  src/AuthConfigFactory.cc
-  src/AuthConfigFactory.h
-  src/AuthResolver.h
   src/AutoSaveCommand.cc
   src/AutoSaveCommand.h
   src/BackupIPv4ConnectCommand.h
@@ -89,12 +78,6 @@ set(ARIA2_SOURCES_BASE
   src/ContextAttribute.cc
   src/ContextAttribute.h
   src/ControlChain.h
-  src/Cookie.cc
-  src/Cookie.h
-  src/CookieStorage.cc
-  src/CookieStorage.h
-  src/cookie_helper.cc
-  src/cookie_helper.h
   src/CreateRequestCommand.cc
   src/CreateRequestCommand.h
   src/CurlDownloadCommand.cc
@@ -104,8 +87,6 @@ set(ARIA2_SOURCES_BASE
   src/crypto_endian.h
   src/CUIDCounter.cc
   src/CUIDCounter.h
-  src/DefaultAuthResolver.cc
-  src/DefaultAuthResolver.h
   src/DefaultProgressInfoFile.cc
   src/DefaultProgressInfoFile.h
   src/DefaultDiskWriter.cc
@@ -237,30 +218,12 @@ set(ARIA2_SOURCES_BASE
   src/HaveEraseCommand.h
   src/help_tags.cc
   src/help_tags.h
-  src/HttpConnection.cc
-  src/HttpConnection.h
-  src/HttpDownloadCommand.cc
-  src/HttpDownloadCommand.h
   src/HttpHeader.cc
   src/HttpHeader.h
   src/HttpHeaderProcessor.cc
   src/HttpHeaderProcessor.h
   src/HttpListenCommand.cc
   src/HttpListenCommand.h
-  src/HttpProxyRequestCommand.cc
-  src/HttpProxyRequestCommand.h
-  src/HttpProxyRequestConnectChain.h
-  src/HttpProxyResponseCommand.cc
-  src/HttpProxyResponseCommand.h
-  src/HttpRequest.cc
-  src/HttpRequest.h
-  src/HttpRequestCommand.cc
-  src/HttpRequestCommand.h
-  src/HttpRequestConnectChain.h
-  src/HttpResponse.cc
-  src/HttpResponse.h
-  src/HttpResponseCommand.cc
-  src/HttpResponseCommand.h
   src/HttpServer.cc
   src/HttpServer.h
   src/HttpServerBodyCommand.cc
@@ -269,8 +232,6 @@ set(ARIA2_SOURCES_BASE
   src/HttpServerCommand.h
   src/HttpServerResponseCommand.cc
   src/HttpServerResponseCommand.h
-  src/HttpSkipResponseCommand.cc
-  src/HttpSkipResponseCommand.h
   src/IndexedList.h
   src/InitiateConnectionCommand.cc
   src/InitiateConnectionCommand.h
@@ -321,16 +282,10 @@ set(ARIA2_SOURCES_BASE
   src/MultiUrlRequestInfo.h
   src/NameResolver.cc
   src/NameResolver.h
-  src/Netrc.cc
-  src/Netrc.h
-  src/NetrcAuthResolver.cc
-  src/NetrcAuthResolver.h
   src/NetStat.cc
   src/NetStat.h
   src/Notifier.cc
   src/Notifier.h
-  src/NsCookieParser.cc
-  src/NsCookieParser.h
   src/NullHandle.h
   src/NullOutputFile.h
   src/NullProgressInfoFile.h
@@ -654,13 +609,6 @@ set(ARIA2_SOURCES_HAVE_ZLIB
   src/GZipFile.h
   src/Adler32MessageDigestImpl.cc
   src/Adler32MessageDigestImpl.h
-)
-
-set(ARIA2_SOURCES_HAVE_SQLITE3
-  src/Sqlite3CookieParser.cc
-  src/Sqlite3CookieParser.h
-  src/Sqlite3CookieParserImpl.cc
-  src/Sqlite3CookieParserImpl.h
 )
 
 set(ARIA2_SOURCES_ENABLE_ASYNC_DNS

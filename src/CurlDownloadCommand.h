@@ -40,6 +40,8 @@ private:
 
   void initialize();
   void applyRequestOptions();
+  void applyCredentialOptions();
+  void applyCookieAndNetrcOptions();
   void applyFtpFamilyOptions();
   void applyMetadataProbeOptions();
   void finish(CURLcode result);
@@ -66,6 +68,7 @@ private:
   int64_t responseLength_;
   std::string contentDisposition_;
   char errorBuffer_[CURL_ERROR_SIZE];
+  std::string userPassword_;
   std::vector<std::string> requestHeaders_;
   curl_slist* headerList_;
   std::string proxyUri_;

@@ -52,9 +52,6 @@ void FeatureConfigTest::testFeatureSummary()
 {
   const std::string features[] = {
 
-#ifdef ENABLE_ASYNC_DNS
-      "Async DNS",
-#endif // ENABLE_ASYNC_DNS
 
 #ifdef ENABLE_BITTORRENT
       "BitTorrent",

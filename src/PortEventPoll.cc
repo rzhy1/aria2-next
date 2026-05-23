@@ -48,7 +48,7 @@
 namespace aria2 {
 
 PortEventPoll::KSocketEntry::KSocketEntry(sock_t s)
-    : SocketEntry<KCommandEvent, KADNSEvent>(s)
+    : SocketEntry<KCommandEvent>(s)
 {
 }
 
@@ -61,17 +61,9 @@ PortEventPoll::A2PortEvent PortEventPoll::KSocketEntry::getEvents()
 {
   A2PortEvent portEvent;
   portEvent.socketEntry = this;
-#ifdef ENABLE_ASYNC_DNS
-  portEvent.events =
-      std::accumulate(adnsEvents_.begin(), adnsEvents_.end(),
-                      std::accumulate(commandEvents_.begin(),
-                                      commandEvents_.end(), 0, accumulateEvent),
-                      accumulateEvent);
-#else // !ENABLE_ASYNC_DNS
   portEvent.events = std::accumulate(commandEvents_.begin(),
                                      commandEvents_.end(), 0, accumulateEvent);
 
-#endif // !ENABLE_ASYNC_DNS
   return portEvent;
 }
 
@@ -128,22 +120,7 @@ void PortEventPoll::poll(const struct timeval& tv)
     int errNum = errno;
     A2_LOG_INFO(fmt("port_getn error: %s", util::safeStrerror(errNum).c_str()));
   }
-#ifdef ENABLE_ASYNC_DNS
-  // It turns out that we have to call ares_process_fd before ares's
-  // own timeout and ares may create new sockets or closes socket in
-  // their API. So we call ares_process_fd for all ares_channel and
-  // re-register their sockets.
-  for (KAsyncNameResolverEntrySet::iterator i = nameResolverEntries_.begin(),
-                                            eoi = nameResolverEntries_.end();
-       i != eoi; ++i) {
-    (*i)->processTimeout();
-    (*i)->removeSocketEvents(this);
-    (*i)->addSocketEvents(this);
-  }
-#endif // ENABLE_ASYNC_DNS
 
-  // TODO timeout of name resolver is determined in Command(AbstractCommand,
-  // DHTEntryPoint...Command)
 }
 
 namespace {
@@ -209,13 +186,6 @@ bool PortEventPoll::addEvents(sock_t socket, Command* command,
   return addEvents(socket, KCommandEvent(command, portEvents));
 }
 
-#ifdef ENABLE_ASYNC_DNS
-bool PortEventPoll::addEvents(sock_t socket, Command* command, int events,
-                              const std::shared_ptr<AsyncNameResolver>& rs)
-{
-  return addEvents(socket, KADNSEvent(rs, command, socket, events));
-}
-#endif // ENABLE_ASYNC_DNS
 
 bool PortEventPoll::deleteEvents(sock_t socket,
                                  const PortEventPoll::KEvent& event)
@@ -252,13 +222,6 @@ bool PortEventPoll::deleteEvents(sock_t socket,
   }
 }
 
-#ifdef ENABLE_ASYNC_DNS
-bool PortEventPoll::deleteEvents(sock_t socket, Command* command,
-                                 const std::shared_ptr<AsyncNameResolver>& rs)
-{
-  return deleteEvents(socket, KADNSEvent(rs, command, socket, 0));
-}
-#endif // ENABLE_ASYNC_DNS
 
 bool PortEventPoll::deleteEvents(sock_t socket, Command* command,
                                  EventPoll::EventType events)
@@ -267,36 +230,5 @@ bool PortEventPoll::deleteEvents(sock_t socket, Command* command,
   return deleteEvents(socket, KCommandEvent(command, portEvents));
 }
 
-#ifdef ENABLE_ASYNC_DNS
-bool PortEventPoll::addNameResolver(
-    const std::shared_ptr<AsyncNameResolver>& resolver, Command* command)
-{
-  auto entry = std::make_shared<KAsyncNameResolverEntry>(resolver, command);
-  KAsyncNameResolverEntrySet::iterator itr = nameResolverEntries_.find(entry);
-  if (itr == nameResolverEntries_.end()) {
-    nameResolverEntries_.insert(entry);
-    entry->addSocketEvents(this);
-    return true;
-  }
-  else {
-    return false;
-  }
-}
-
-bool PortEventPoll::deleteNameResolver(
-    const std::shared_ptr<AsyncNameResolver>& resolver, Command* command)
-{
-  auto entry = std::make_shared<KAsyncNameResolverEntry>(resolver, command);
-  KAsyncNameResolverEntrySet::iterator itr = nameResolverEntries_.find(entry);
-  if (itr == nameResolverEntries_.end()) {
-    return false;
-  }
-  else {
-    (*itr)->removeSocketEvents(this);
-    nameResolverEntries_.erase(itr);
-    return true;
-  }
-}
-#endif // ENABLE_ASYNC_DNS
 
 } // namespace aria2

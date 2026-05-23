@@ -92,6 +92,110 @@ install_boost_headers() {
   aria2_copy_tree "boost_${BOOST_VERSION_UNDERSCORE}/boost" "$PREFIX/include/"
 }
 
+build_libssh2_for_curl() {
+  if [ -z "$PREFIX" ]; then
+    echo "build_libssh2_for_curl requires PREFIX" >&2
+    exit 1
+  fi
+
+  tar xf "$LIBSSH2_ARCHIVE"
+  cmake -S "libssh2-$LIBSSH2_VERSION" \
+    -B build/libssh2-for-curl-release -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+    -DCMAKE_PREFIX_PATH="$PREFIX" \
+    -DCMAKE_MODULE_LINKER_FLAGS="${RELEASE_LDFLAGS:-}" \
+    -DCMAKE_SHARED_LINKER_FLAGS="${RELEASE_LDFLAGS:-}" \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_STATIC_LIBS=ON \
+    -DBUILD_EXAMPLES=OFF \
+    -DBUILD_TESTING=OFF \
+    -DCRYPTO_BACKEND=OpenSSL \
+    -DENABLE_ZLIB_COMPRESSION=ON \
+    -DOPENSSL_USE_STATIC_LIBS=ON \
+    -DOPENSSL_ROOT_DIR="$PREFIX" \
+    -DOPENSSL_INCLUDE_DIR="$PREFIX/include" \
+    -DOPENSSL_SSL_LIBRARY="$PREFIX/lib/libssl.a" \
+    -DOPENSSL_CRYPTO_LIBRARY="$PREFIX/lib/libcrypto.a" \
+    -DZLIB_USE_STATIC_LIBS=ON \
+    -DZLIB_ROOT="$PREFIX" \
+    -DZLIB_INCLUDE_DIR="$PREFIX/include" \
+    -DZLIB_LIBRARY="$PREFIX/lib/libz.a" \
+    -DCMAKE_C_FLAGS="${RELEASE_CFLAGS:-}" \
+    -DCMAKE_EXE_LINKER_FLAGS="${RELEASE_LDFLAGS:-}" \
+    "$@"
+  cmake --build build/libssh2-for-curl-release -j"${ARIA2_BUILD_JOBS:-$(getconf _NPROCESSORS_ONLN)}"
+  aria2_cmake_install build/libssh2-for-curl-release
+}
+
+build_curl() {
+  if [ -z "$PREFIX" ]; then
+    echo "build_curl requires PREFIX" >&2
+    exit 1
+  fi
+
+  tar xf "$CURL_ARCHIVE"
+  cmake -S "curl-$CURL_VERSION" \
+    -B build/curl-release -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+    -DCMAKE_PREFIX_PATH="$PREFIX" \
+    -DCMAKE_MODULE_LINKER_FLAGS="${RELEASE_LDFLAGS:-}" \
+    -DCMAKE_SHARED_LINKER_FLAGS="${RELEASE_LDFLAGS:-}" \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_STATIC_LIBS=ON \
+    -DBUILD_CURL_EXE=OFF \
+    -DBUILD_TESTING=OFF \
+    -DBUILD_EXAMPLES=OFF \
+    -DBUILD_LIBCURL_DOCS=OFF \
+    -DBUILD_MISC_DOCS=OFF \
+    -DCURL_USE_PKGCONFIG=OFF \
+    -DCURL_USE_OPENSSL=ON \
+    -DOPENSSL_USE_STATIC_LIBS=ON \
+    -DOPENSSL_ROOT_DIR="$PREFIX" \
+    -DOPENSSL_INCLUDE_DIR="$PREFIX/include" \
+    -DOPENSSL_SSL_LIBRARY="$PREFIX/lib/libssl.a" \
+    -DOPENSSL_CRYPTO_LIBRARY="$PREFIX/lib/libcrypto.a" \
+    -DCURL_ZLIB=ON \
+    -DZLIB_USE_STATIC_LIBS=ON \
+    -DZLIB_ROOT="$PREFIX" \
+    -DZLIB_INCLUDE_DIR="$PREFIX/include" \
+    -DZLIB_LIBRARY="$PREFIX/lib/libz.a" \
+    -DCURL_USE_LIBSSH2=ON \
+    -DLibssh2_ROOT="$PREFIX" \
+    -DUSE_NGHTTP2=OFF \
+    -DUSE_NGTCP2=OFF \
+    -DUSE_NGHTTP3=OFF \
+    -DUSE_QUICHE=OFF \
+    -DUSE_LIBIDN2=OFF \
+    -DCURL_USE_LIBPSL=OFF \
+    -DCURL_BROTLI=OFF \
+    -DCURL_ZSTD=OFF \
+    -DCURL_ENABLE_NTLM=OFF \
+    -DCURL_ENABLE_SMB=OFF \
+    -DCURL_DISABLE_AWS=ON \
+    -DCURL_DISABLE_DOH=ON \
+    -DCURL_DISABLE_FILE=ON \
+    -DCURL_DISABLE_IPFS=ON \
+    -DCURL_DISABLE_LDAP=ON \
+    -DCURL_DISABLE_LDAPS=ON \
+    -DCURL_DISABLE_DICT=ON \
+    -DCURL_DISABLE_GOPHER=ON \
+    -DCURL_DISABLE_IMAP=ON \
+    -DCURL_DISABLE_MQTT=ON \
+    -DCURL_DISABLE_POP3=ON \
+    -DCURL_DISABLE_RTSP=ON \
+    -DCURL_DISABLE_SMTP=ON \
+    -DCURL_DISABLE_TELNET=ON \
+    -DCURL_DISABLE_TFTP=ON \
+    -DCURL_DISABLE_WEBSOCKETS=ON \
+    -DCMAKE_C_FLAGS="${RELEASE_CFLAGS:-}" \
+    -DCMAKE_EXE_LINKER_FLAGS="${RELEASE_LDFLAGS:-}" \
+    "$@"
+  cmake --build build/curl-release -j"${ARIA2_BUILD_JOBS:-$(getconf _NPROCESSORS_ONLN)}"
+  aria2_cmake_install build/curl-release
+}
+
 build_libtorrent_rasterbar() {
   if [ -z "$PREFIX" ]; then
     echo "build_libtorrent_rasterbar requires PREFIX" >&2

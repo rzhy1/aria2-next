@@ -235,6 +235,9 @@ void CurlDownloadCommand::applyRequestOptions()
 
   applyCredentialOptions();
   applyCookieAndNetrcOptions();
+  if (isFtpFamily(protocol)) {
+    applyFtpFamilyOptions();
+  }
 
   proxyUri_ = getProxyUri(protocol, option.get());
   if (!proxyUri_.empty() &&

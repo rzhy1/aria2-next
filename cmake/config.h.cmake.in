@@ -16,7 +16,6 @@
 #cmakedefine DEFAULT_DISK_CACHE "@DEFAULT_DISK_CACHE@"
 
 /* Define to 1 if asynchronous DNS support is enabled. */
-#cmakedefine ENABLE_ASYNC_DNS @ENABLE_ASYNC_DNS@
 
 /* Define to 1 if BitTorrent support is enabled. */
 #cmakedefine ENABLE_BITTORRENT @ENABLE_BITTORRENT@
@@ -162,7 +161,6 @@
 #cmakedefine HAVE_LANGINFO_H @HAVE_LANGINFO_H@
 
 /* Define to 1 if you have libcares. */
-#cmakedefine HAVE_LIBCARES @HAVE_LIBCARES@
 
 /* Define to 1 if you have libcurl. */
 #cmakedefine HAVE_LIBCURL @HAVE_LIBCURL@
@@ -171,8 +169,6 @@
 /* Define to 1 if you have libtorrent-rasterbar. */
 #cmakedefine HAVE_LIBTORRENT_RASTERBAR @HAVE_LIBTORRENT_RASTERBAR@
 
-/* Define to 1 if you have libuv. */
-#cmakedefine HAVE_LIBUV @HAVE_LIBUV@
 
 /* Define to 1 if you have the <limits.h> header file. */
 #cmakedefine HAVE_LIMITS_H @HAVE_LIMITS_H@

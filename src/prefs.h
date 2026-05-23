@@ -92,7 +92,6 @@ extern const std::string V_INORDER;
 extern const std::string A2_V_RANDOM;
 extern const std::string V_FEEDBACK;
 extern const std::string V_ADAPTIVE;
-extern const std::string V_LIBUV;
 extern const std::string V_EPOLL;
 extern const std::string V_KQUEUE;
 extern const std::string V_PORT;
@@ -195,8 +194,6 @@ extern PrefPtr PREF_CONF_PATH;
 extern PrefPtr PREF_STOP;
 // value: true | false
 extern PrefPtr PREF_QUIET;
-// value: true | false
-extern PrefPtr PREF_ASYNC_DNS;
 // value: 1*digit
 extern PrefPtr PREF_SUMMARY_INTERVAL;
 // value: debug, info, notice, warn, error
@@ -263,14 +260,10 @@ extern PrefPtr PREF_MIN_SPLIT_SIZE;
 extern PrefPtr PREF_CONDITIONAL_GET;
 // value: true | false
 extern PrefPtr PREF_SELECT_LEAST_USED_HOST;
-// value: true | false
-extern PrefPtr PREF_ENABLE_ASYNC_DNS6;
 // value: 1*digit
 extern PrefPtr PREF_MAX_DOWNLOAD_RESULT;
 // value: 1*digit
 extern PrefPtr PREF_RETRY_WAIT;
-// value: string
-extern PrefPtr PREF_ASYNC_DNS_SERVER;
 // value: true | false
 extern PrefPtr PREF_SHOW_CONSOLE_READOUT;
 // value: default | inorder | geom

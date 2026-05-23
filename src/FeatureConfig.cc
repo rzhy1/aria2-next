@@ -43,9 +43,6 @@
 #ifdef HAVE_OPENSSL
 #  include <openssl/opensslv.h>
 #endif // HAVE_OPENSSL
-#ifdef HAVE_LIBCARES
-#  include <ares.h>
-#endif // HAVE_LIBCARES
 #ifdef HAVE_SYS_UTSNAME_H
 #  include <sys/utsname.h>
 #endif // HAVE_SYS_UTSNAME_H
@@ -101,11 +98,7 @@ const char* strSupportedFeature(int feature)
 {
   switch (feature) {
   case (FEATURE_ASYNC_DNS):
-#ifdef ENABLE_ASYNC_DNS
-    return "Async DNS";
-#else  // !ENABLE_ASYNC_DNS
     return nullptr;
-#endif // !ENABLE_ASYNC_DNS
     break;
 
   case (FEATURE_BITTORRENT):
@@ -154,9 +147,6 @@ std::string usedLibs()
 #ifdef HAVE_OPENSSL
   res += "OpenSSL/" OPENSSL_VERSION_STR " ";
 #endif // HAVE_OPENSSL
-#ifdef HAVE_LIBCARES
-  res += "c-ares/" ARES_VERSION_STR " ";
-#endif // HAVE_LIBCARES
 
   if (!res.empty()) {
     res.erase(res.length() - 1);

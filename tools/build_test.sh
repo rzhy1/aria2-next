@@ -24,10 +24,8 @@ case "$1" in
   *)
     build default
     build nossl -DARIA2_ENABLE_SSL=OFF
-    build nocares -DARIA2_WITH_CARES=OFF
     build nozlib -DARIA2_WITH_ZLIB=OFF
     build nobt -DARIA2_ENABLE_BITTORRENT=OFF
     build noepoll -DARIA2_ENABLE_EPOLL=OFF
-    build noepoll_nocares -DARIA2_ENABLE_EPOLL=OFF -DARIA2_WITH_CARES=OFF
     ;;
 esac

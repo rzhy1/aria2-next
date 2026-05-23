@@ -506,13 +506,6 @@ set(ARIA2_SOURCES_HAVE_ZLIB
   src/Adler32MessageDigestImpl.h
 )
 
-set(ARIA2_SOURCES_ENABLE_ASYNC_DNS
-  src/AsyncNameResolver.cc
-  src/AsyncNameResolver.h
-  src/AsyncNameResolverMan.cc
-  src/AsyncNameResolverMan.h
-)
-
 set(ARIA2_SOURCES_ENABLE_BITTORRENT
   src/bencode2.cc
   src/bencode2.h
@@ -584,9 +577,4 @@ set(ARIA2_SOURCES_HAVE_PORT_ASSOCIATE
 set(ARIA2_SOURCES_HAVE_KQUEUE
   src/KqueueEventPoll.cc
   src/KqueueEventPoll.h
-)
-
-set(ARIA2_SOURCES_HAVE_LIBUV
-  src/LibuvEventPoll.cc
-  src/LibuvEventPoll.h
 )

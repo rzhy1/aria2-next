@@ -135,7 +135,6 @@ const std::string V_INORDER("inorder");
 const std::string A2_V_RANDOM("random");
 const std::string V_FEEDBACK("feedback");
 const std::string V_ADAPTIVE("adaptive");
-const std::string V_LIBUV("libuv");
 const std::string V_EPOLL("epoll");
 const std::string V_KQUEUE("kqueue");
 const std::string V_PORT("port");
@@ -243,7 +242,6 @@ PrefPtr PREF_STOP = makePref("stop");
 // value: true | false
 PrefPtr PREF_QUIET = makePref("quiet");
 // value: true | false
-PrefPtr PREF_ASYNC_DNS = makePref("async-dns");
 // value: 1*digit
 PrefPtr PREF_SUMMARY_INTERVAL = makePref("summary-interval");
 // value: debug, info, notice, warn, error
@@ -311,13 +309,10 @@ PrefPtr PREF_CONDITIONAL_GET = makePref("conditional-get");
 // value: true | false
 PrefPtr PREF_SELECT_LEAST_USED_HOST = makePref("select-least-used-host");
 // value: true | false
-PrefPtr PREF_ENABLE_ASYNC_DNS6 = makePref("enable-async-dns6");
 // value: 1*digit
 PrefPtr PREF_MAX_DOWNLOAD_RESULT = makePref("max-download-result");
 // value: 1*digit
 PrefPtr PREF_RETRY_WAIT = makePref("retry-wait");
-// value: string
-PrefPtr PREF_ASYNC_DNS_SERVER = makePref("async-dns-server");
 // value: true | false
 PrefPtr PREF_SHOW_CONSOLE_READOUT = makePref("show-console-readout");
 // value: default | inorder

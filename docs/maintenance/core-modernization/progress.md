@@ -202,3 +202,9 @@ found no removed option, handler framework, or public library residue.
 Completion shell syntax and `git diff --check` passed.
 Remaining: Start CM-018 packaging and release dependency closure.
 Blocked: none.
+
+2026-05-23 CM-018 verified
+Changed: Closed release packaging around the modern dependency set. Removed c-ares and libuv active ownership, removed async DNS public options and docs, removed direct libssh2 CMake/build ownership, and added source-built curl 8.20.0 as the ordinary-transfer release dependency. Release and CI paths now build zlib, OpenSSL, libssh2 only as libcurl input, libcurl, Boost headers, and libtorrent-rasterbar before building aria2-next. `CurlDownloadCommand` now applies FTP-family options before starting libcurl transfers.
+Verified: `cmake --preset default` passed. `cmake --build --preset default --target aria2-next aria2_tests` passed. Focused OptionHandler, FeatureConfig, DownloadEngine, RequestGroup, DownloadHelper, and related boundary tests passed. Shell syntax checks passed for maintained scripts. CI and release workflow YAML parsing passed. `git diff --check` passed. Active stale scans found no removed c-ares, libuv, async-DNS, or direct libssh2 CMake/source option residue. Local libcurl closure smoke under `/Users/sekiro/Desktop/aria2-next-current/cm018-curl-helper-smoke` built curl 8.20.0 with static pkg-config output free of Homebrew, Cellar, xz, and nghttp2 leakage.
+Remaining: Start CM-019 final validation.
+Blocked: none.

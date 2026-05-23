@@ -302,19 +302,6 @@ void DownloadEngine::setStatCalc(std::unique_ptr<StatCalc> statCalc)
   statCalc_ = std::move(statCalc);
 }
 
-#ifdef ENABLE_ASYNC_DNS
-bool DownloadEngine::addNameResolverCheck(
-    const std::shared_ptr<AsyncNameResolver>& resolver, Command* command)
-{
-  return eventPoll_->addNameResolver(resolver, command);
-}
-
-bool DownloadEngine::deleteNameResolverCheck(
-    const std::shared_ptr<AsyncNameResolver>& resolver, Command* command)
-{
-  return eventPoll_->deleteNameResolver(resolver, command);
-}
-#endif // ENABLE_ASYNC_DNS
 
 void DownloadEngine::setNoWait(bool b) { noWait_ = b; }
 

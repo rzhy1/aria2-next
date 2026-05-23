@@ -58,9 +58,6 @@
 #include "DownloadContext.h"
 #include "array_fun.h"
 #include "EvictSocketPoolCommand.h"
-#ifdef HAVE_LIBUV
-#  include "LibuvEventPoll.h"
-#endif // HAVE_LIBUV
 #ifdef HAVE_EPOLL
 #  include "EpollEventPoll.h"
 #endif // HAVE_EPOLL
@@ -88,17 +85,6 @@ namespace {
 std::unique_ptr<EventPoll> createEventPoll(Option* op)
 {
   const std::string& pollMethod = op->get(PREF_EVENT_POLL);
-#ifdef HAVE_LIBUV
-  if (pollMethod == V_LIBUV) {
-    auto ep = make_unique<LibuvEventPoll>();
-    if (!ep->good()) {
-      throw DL_ABORT_EX("Initializing LibuvEventPoll failed."
-                        " Try --event-poll=select");
-    }
-    return std::move(ep);
-  }
-  else
-#endif // HAVE_LIBUV
 #ifdef HAVE_EPOLL
       if (pollMethod == V_EPOLL) {
     auto ep = make_unique<EpollEventPoll>();

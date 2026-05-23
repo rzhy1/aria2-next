@@ -114,11 +114,6 @@ set(ARIA2_TEST_SOURCES_ENABLE_BITTORRENT
   tests/LibtorrentSeedPolicyTest.cc
 )
 
-set(ARIA2_TEST_SOURCES_ENABLE_ASYNC_DNS
-  tests/AsyncNameResolverTest.cc
-  tests/AsyncNameResolverManTest.cc
-)
-
 set(ARIA2_TEST_SOURCES_NOT_HAVE_TIMEGM
   tests/TimegmTest.cc
 )

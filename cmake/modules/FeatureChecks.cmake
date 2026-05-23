@@ -298,17 +298,6 @@ if(NOT LIBCURL_FOUND)
 endif()
 set(HAVE_LIBCURL 1)
 
-aria2_pkg_check(LIBCARES "libcares>=${ARIA2_MIN_LIBCARES_VERSION}")
-if(ARIA2_WITH_CARES AND LIBCARES_FOUND)
-  set(HAVE_LIBCARES 1)
-  set(ENABLE_ASYNC_DNS 1)
-endif()
-
-aria2_pkg_check(LIBUV "libuv>=${ARIA2_MIN_LIBUV_VERSION}")
-if(ARIA2_WITH_LIBUV AND LIBUV_FOUND)
-  set(HAVE_LIBUV 1)
-endif()
-
 aria2_pkg_check(OPENSSL "openssl>=${ARIA2_MIN_OPENSSL_VERSION}")
 aria2_pkg_check(LIBTORRENT_RASTERBAR "libtorrent-rasterbar")
 find_package(Boost ${ARIA2_MIN_BOOST_VERSION} REQUIRED COMPONENTS json)

@@ -102,8 +102,8 @@ jobs:
           . packaging/dependencies.env
           . packaging/scripts/common.sh
           curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
-          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+          curl_fetch "$CURL_URL" "$CURL_ARCHIVE" "$CURL_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
@@ -118,16 +118,6 @@ jobs:
           make -j$(nproc)
           sudo make install
 
-      - name: Build c-ares
-        run: |
-          source packaging/dependencies.env
-          . packaging/scripts/release-size-profile linux
-          tar xf "$CARES_ARCHIVE" && cd "c-ares-$CARES_VERSION"
-          CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure --disable-shared --enable-static --prefix=$PREFIX
-          make -j$(nproc)
-          sudo make install
-
       - name: Build OpenSSL
         run: |
           source packaging/dependencies.env
@@ -139,17 +129,19 @@ jobs:
           make -j$(nproc)
           sudo make install_sw
 
-      - name: Build libssh2
+      - name: Build libssh2 for libcurl
         run: |
           source packaging/dependencies.env
+          . packaging/scripts/common.sh
           . packaging/scripts/release-size-profile linux
-          tar xf "$LIBSSH2_ARCHIVE" && cd "libssh2-$LIBSSH2_VERSION"
-          CPPFLAGS="-I$PREFIX/include $RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure --disable-shared --enable-static --prefix=$PREFIX \
-            --with-crypto=openssl --with-libssl-prefix=$PREFIX \
-            PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
-          make -j$(nproc)
-          sudo make install
+          ARIA2_BUILD_JOBS=$(nproc) build_libssh2_for_curl
+
+      - name: Build libcurl
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/common.sh
+          . packaging/scripts/release-size-profile linux
+          ARIA2_BUILD_JOBS=$(nproc) build_curl
 
       - name: Build Boost headers
         run: |
@@ -171,9 +163,7 @@ jobs:
           cmake -S . -B build/release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DARIA2_ENABLE_STATIC=ON \
-            -DARIA2_WITH_CARES=ON \
             -DARIA2_WITH_ZLIB=ON \
-            -DARIA2_WITH_LIBSSH2=ON \
             -DARIA2_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
             -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
@@ -224,8 +214,8 @@ jobs:
           . packaging/dependencies.env
           . packaging/scripts/common.sh
           curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
-          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+          curl_fetch "$CURL_URL" "$CURL_ARCHIVE" "$CURL_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
@@ -240,16 +230,6 @@ jobs:
           make -j$(nproc)
           sudo make install
 
-      - name: Build c-ares
-        run: |
-          source packaging/dependencies.env
-          . packaging/scripts/release-size-profile linux
-          tar xf "$CARES_ARCHIVE" && cd "c-ares-$CARES_VERSION"
-          CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure --disable-shared --enable-static --prefix=$PREFIX
-          make -j$(nproc)
-          sudo make install
-
       - name: Build OpenSSL
         run: |
           source packaging/dependencies.env
@@ -261,17 +241,19 @@ jobs:
           make -j$(nproc)
           sudo make install_sw
 
-      - name: Build libssh2
+      - name: Build libssh2 for libcurl
         run: |
           source packaging/dependencies.env
+          . packaging/scripts/common.sh
           . packaging/scripts/release-size-profile linux
-          tar xf "$LIBSSH2_ARCHIVE" && cd "libssh2-$LIBSSH2_VERSION"
-          CPPFLAGS="-I$PREFIX/include $RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure --disable-shared --enable-static --prefix=$PREFIX \
-            --with-crypto=openssl --with-libssl-prefix=$PREFIX \
-            PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
-          make -j$(nproc)
-          sudo make install
+          ARIA2_BUILD_JOBS=$(nproc) build_libssh2_for_curl
+
+      - name: Build libcurl
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/common.sh
+          . packaging/scripts/release-size-profile linux
+          ARIA2_BUILD_JOBS=$(nproc) build_curl
 
       - name: Build Boost headers
         run: |
@@ -293,9 +275,7 @@ jobs:
           cmake -S . -B build/release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DARIA2_ENABLE_STATIC=ON \
-            -DARIA2_WITH_CARES=ON \
             -DARIA2_WITH_ZLIB=ON \
-            -DARIA2_WITH_LIBSSH2=ON \
             -DARIA2_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
             -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
@@ -344,8 +324,8 @@ jobs:
           . packaging/dependencies.env
           . packaging/scripts/common.sh
           curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
-          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+          curl_fetch "$CURL_URL" "$CURL_ARCHIVE" "$CURL_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
@@ -360,16 +340,6 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
 
-      - name: Build c-ares
-        run: |
-          source packaging/dependencies.env
-          . packaging/scripts/release-size-profile macos
-          tar xf "$CARES_ARCHIVE" && cd "c-ares-$CARES_VERSION"
-          CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure --disable-shared --enable-static --prefix=$PREFIX
-          make -j$(sysctl -n hw.ncpu)
-          make install
-
       - name: Build OpenSSL
         run: |
           source packaging/dependencies.env
@@ -381,17 +351,19 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install_sw
 
-      - name: Build libssh2
+      - name: Build libssh2 for libcurl
         run: |
           source packaging/dependencies.env
+          . packaging/scripts/common.sh
           . packaging/scripts/release-size-profile macos
-          tar xf "$LIBSSH2_ARCHIVE" && cd "libssh2-$LIBSSH2_VERSION"
-          CPPFLAGS="-I$PREFIX/include $RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure --disable-shared --enable-static --prefix=$PREFIX \
-            --with-crypto=openssl --with-libssl-prefix=$PREFIX \
-            PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
-          make -j$(sysctl -n hw.ncpu)
-          make install
+          ARIA2_BUILD_JOBS=$(sysctl -n hw.ncpu) build_libssh2_for_curl
+
+      - name: Build libcurl
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/common.sh
+          . packaging/scripts/release-size-profile macos
+          ARIA2_BUILD_JOBS=$(sysctl -n hw.ncpu) build_curl
 
       - name: Build Boost headers
         run: |
@@ -413,9 +385,7 @@ jobs:
           cmake -S . -B build/release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DARIA2_ENABLE_STATIC=ON \
-            -DARIA2_WITH_CARES=ON \
             -DARIA2_WITH_ZLIB=ON \
-            -DARIA2_WITH_LIBSSH2=ON \
             -DARIA2_CA_BUNDLE=/etc/ssl/cert.pem \
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
             -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
@@ -463,8 +433,8 @@ jobs:
           . packaging/dependencies.env
           . packaging/scripts/common.sh
           curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
-          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+          curl_fetch "$CURL_URL" "$CURL_ARCHIVE" "$CURL_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
@@ -479,16 +449,6 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
 
-      - name: Build c-ares
-        run: |
-          source packaging/dependencies.env
-          . packaging/scripts/release-size-profile macos
-          tar xf "$CARES_ARCHIVE" && cd "c-ares-$CARES_VERSION"
-          CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure --disable-shared --enable-static --prefix=$PREFIX
-          make -j$(sysctl -n hw.ncpu)
-          make install
-
       - name: Build OpenSSL
         run: |
           source packaging/dependencies.env
@@ -500,17 +460,19 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install_sw
 
-      - name: Build libssh2
+      - name: Build libssh2 for libcurl
         run: |
           source packaging/dependencies.env
+          . packaging/scripts/common.sh
           . packaging/scripts/release-size-profile macos
-          tar xf "$LIBSSH2_ARCHIVE" && cd "libssh2-$LIBSSH2_VERSION"
-          CPPFLAGS="-I$PREFIX/include $RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure --disable-shared --enable-static --prefix=$PREFIX \
-            --with-crypto=openssl --with-libssl-prefix=$PREFIX \
-            PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
-          make -j$(sysctl -n hw.ncpu)
-          make install
+          ARIA2_BUILD_JOBS=$(sysctl -n hw.ncpu) build_libssh2_for_curl
+
+      - name: Build libcurl
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/common.sh
+          . packaging/scripts/release-size-profile macos
+          ARIA2_BUILD_JOBS=$(sysctl -n hw.ncpu) build_curl
 
       - name: Build Boost headers
         run: |
@@ -532,9 +494,7 @@ jobs:
           cmake -S . -B build/release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DARIA2_ENABLE_STATIC=ON \
-            -DARIA2_WITH_CARES=ON \
             -DARIA2_WITH_ZLIB=ON \
-            -DARIA2_WITH_LIBSSH2=ON \
             -DARIA2_CA_BUNDLE=/etc/ssl/cert.pem \
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
             -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
@@ -587,8 +547,8 @@ jobs:
           . packaging/dependencies.env
           . packaging/scripts/common.sh
           curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
-          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+          curl_fetch "$CURL_URL" "$CURL_ARCHIVE" "$CURL_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
@@ -608,20 +568,6 @@ jobs:
             --static
           sudo make -j$(nproc) install
 
-      - name: Build c-ares
-        run: |
-          source packaging/dependencies.env
-          . packaging/scripts/release-size-profile windows
-          tar xf "$CARES_ARCHIVE" && cd "c-ares-$CARES_VERSION"
-          CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure \
-            --disable-shared --enable-static --without-random \
-            --prefix=$PREFIX --host=$HOST \
-            --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
-            LIBS="-lws2_32" \
-            ac_cv_func_if_indextoname=no
-          sudo make -j$(nproc) install
-
       - name: Build OpenSSL
         run: |
           source packaging/dependencies.env
@@ -634,21 +580,27 @@ jobs:
           make -j$(nproc)
           sudo make install_sw
 
-      - name: Build libssh2
+      - name: Build libssh2 for libcurl
         run: |
           source packaging/dependencies.env
+          . packaging/scripts/common.sh
           . packaging/scripts/release-size-profile windows
-          tar xf "$LIBSSH2_ARCHIVE" && cd "libssh2-$LIBSSH2_VERSION"
-          CPPFLAGS="-I$PREFIX/include $RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure \
-            --disable-shared --enable-static \
-            --disable-examples-build \
-            --prefix=$PREFIX --host=$HOST \
-            --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
-            --with-crypto=openssl --with-libssl-prefix=$PREFIX \
-            PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" \
-            LIBS="-lws2_32 -lcrypt32"
-          sudo make -j$(nproc) install
+          ARIA2_BUILD_JOBS=$(nproc) build_libssh2_for_curl \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=$HOST-gcc \
+            -DCMAKE_RC_COMPILER=$HOST-windres \
+            -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config
+
+      - name: Build libcurl
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/common.sh
+          . packaging/scripts/release-size-profile windows
+          ARIA2_BUILD_JOBS=$(nproc) build_curl \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=$HOST-gcc \
+            -DCMAKE_RC_COMPILER=$HOST-windres \
+            -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config
 
       - name: Build Boost headers
         run: |
@@ -679,9 +631,7 @@ jobs:
             -DCMAKE_RC_COMPILER=$HOST-windres \
             -DCMAKE_BUILD_TYPE=Release \
             -DARIA2_ENABLE_STATIC=ON \
-            -DARIA2_WITH_CARES=ON \
             -DARIA2_WITH_ZLIB=ON \
-            -DARIA2_WITH_LIBSSH2=ON \
             -DARIA2_RELEASE_SIZE_OPTIMIZED=ON \
             -DCMAKE_PREFIX_PATH="$PREFIX" \
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
@@ -741,8 +691,8 @@ jobs:
           . packaging/dependencies.env
           . packaging/scripts/common.sh
           curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
-          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+          curl_fetch "$CURL_URL" "$CURL_ARCHIVE" "$CURL_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
@@ -762,20 +712,6 @@ jobs:
             --static
           sudo env "PATH=$PATH" make -j$(nproc) install
 
-      - name: Build c-ares
-        run: |
-          source packaging/dependencies.env
-          . packaging/scripts/release-size-profile windows
-          tar xf "$CARES_ARCHIVE" && cd "c-ares-$CARES_VERSION"
-          CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure \
-            --disable-shared --enable-static --without-random \
-            --prefix=$PREFIX --host=$HOST \
-            --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
-            CC="$CC" LIBS="-lws2_32" \
-            ac_cv_func_if_indextoname=no
-          sudo env "PATH=$PATH" make -j$(nproc) install
-
       - name: Build OpenSSL
         run: |
           source packaging/dependencies.env
@@ -788,22 +724,29 @@ jobs:
           env "PATH=$PATH" make -j$(nproc) build_libs
           sudo env "PATH=$PATH" make install_dev
 
-      - name: Build libssh2
+      - name: Build libssh2 for libcurl
         run: |
           source packaging/dependencies.env
+          . packaging/scripts/common.sh
           . packaging/scripts/release-size-profile windows
-          tar xf "$LIBSSH2_ARCHIVE" && cd "libssh2-$LIBSSH2_VERSION"
-          CPPFLAGS="-I$PREFIX/include $RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
-          ./configure \
-            --disable-shared --enable-static \
-            --disable-examples-build \
-            --prefix=$PREFIX --host=$HOST \
-            --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
-            --with-crypto=openssl --with-libssl-prefix=$PREFIX \
-            CC="$CC" \
-            PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" \
-            LIBS="-lws2_32 -lcrypt32"
-          sudo env "PATH=$PATH" make -j$(nproc) install
+          ARIA2_BUILD_JOBS=$(nproc) build_libssh2_for_curl \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=$CC \
+            -DCMAKE_AR=$AR \
+            -DCMAKE_RANLIB=$RANLIB \
+            -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config
+
+      - name: Build libcurl
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/common.sh
+          . packaging/scripts/release-size-profile windows
+          ARIA2_BUILD_JOBS=$(nproc) build_curl \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=$CC \
+            -DCMAKE_AR=$AR \
+            -DCMAKE_RANLIB=$RANLIB \
+            -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config
 
       - name: Build Boost headers
         run: |
@@ -836,9 +779,7 @@ jobs:
             -DCMAKE_RANLIB=$RANLIB \
             -DCMAKE_BUILD_TYPE=Release \
             -DARIA2_ENABLE_STATIC=ON \
-            -DARIA2_WITH_CARES=ON \
             -DARIA2_WITH_ZLIB=ON \
-            -DARIA2_WITH_LIBSSH2=ON \
             -DARIA2_RELEASE_SIZE_OPTIMIZED=ON \
             -DCMAKE_PREFIX_PATH="$PREFIX" \
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \

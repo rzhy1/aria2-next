@@ -84,28 +84,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     op->setChangeOptionForReserved(true);
     handlers.push_back(op);
   }
-#ifdef ENABLE_ASYNC_DNS
-  {
-    OptionHandler* op(new BooleanOptionHandler(PREF_ASYNC_DNS, TEXT_ASYNC_DNS,
-#  if defined(__ANDROID__) || defined(ANDROID)
-                                               A2_V_FALSE,
-#  else  // !__ANDROID__ && !ANDROID
-                                               A2_V_TRUE,
-#  endif // !__ANDROID__ && !ANDROID
-                                               OptionHandler::OPT_ARG));
-    op->addTag(TAG_ADVANCED);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new DefaultOptionHandler(
-        PREF_ASYNC_DNS_SERVER, TEXT_ASYNC_DNS_SERVER, NO_DEFAULT_VALUE));
-    op->addTag(TAG_ADVANCED);
-    handlers.push_back(op);
-  }
-#endif // ENABLE_ASYNC_DNS
   {
     OptionHandler* op(new BooleanOptionHandler(
         PREF_AUTO_FILE_RENAMING, TEXT_AUTO_FILE_RENAMING, A2_V_TRUE,
@@ -344,19 +322,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     op->setChangeGlobalOption(true);
     handlers.push_back(op);
   }
-#ifdef ENABLE_ASYNC_DNS
-  {
-    // TODO Deprecated
-    OptionHandler* op(new DeprecatedOptionHandler(
-        new BooleanOptionHandler(PREF_ENABLE_ASYNC_DNS6, TEXT_ENABLE_ASYNC_DNS6,
-                                 NO_DEFAULT_VALUE, OptionHandler::OPT_ARG)));
-    op->addTag(TAG_ADVANCED);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-#endif // ENABLE_ASYNC_DNS
   {
     OptionHandler* op(new BooleanOptionHandler(PREF_ENABLE_COLOR,
                                                TEXT_ENABLE_COLOR, A2_V_TRUE,
@@ -392,8 +357,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
                                                  V_KQUEUE,
 #elif defined(HAVE_PORT_ASSOCIATE)
                                                  V_PORT,
-#elif defined(HAVE_LIBUV)
-                                                 V_LIBUV,
 #elif defined(HAVE_POLL)
                                                  V_POLL,
 #else  // defined(HAVE_EPOLL)
@@ -409,9 +372,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
 #ifdef HAVE_PORT_ASSOCIATE
                                                      V_PORT,
 #endif // HAVE_PORT_ASSOCIATE
-#ifdef HAVE_LIBUV
-                                                     V_LIBUV,
-#endif // HAVE_LIBUV
 #ifdef HAVE_POLL
                                                      V_POLL,
 #endif // HAVE_POLL

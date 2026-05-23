@@ -50,9 +50,6 @@
 #include "FileAllocationMan.h"
 #include "CheckIntegrityMan.h"
 #include "DNSCache.h"
-#ifdef ENABLE_ASYNC_DNS
-#  include "AsyncNameResolver.h"
-#endif // ENABLE_ASYNC_DNS
 
 namespace aria2 {
 
@@ -200,14 +197,6 @@ public:
   bool addRawSocketCheck(sock_t socket, Command* command, int events);
   bool deleteRawSocketCheck(sock_t socket, Command* command, int events);
 
-#ifdef ENABLE_ASYNC_DNS
-
-  bool addNameResolverCheck(const std::shared_ptr<AsyncNameResolver>& resolver,
-                            Command* command);
-  bool
-  deleteNameResolverCheck(const std::shared_ptr<AsyncNameResolver>& resolver,
-                          Command* command);
-#endif // ENABLE_ASYNC_DNS
 
   void addCommand(std::vector<std::unique_ptr<Command>> commands);
 

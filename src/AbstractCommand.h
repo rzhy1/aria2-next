@@ -57,10 +57,6 @@ class Segment;
 class SocketCore;
 class Option;
 class SocketRecvBuffer;
-#ifdef ENABLE_ASYNC_DNS
-class AsyncNameResolver;
-class AsyncNameResolverMan;
-#endif // ENABLE_ASYNC_DNS
 
 class AbstractCommand : public Command {
 private:
@@ -71,9 +67,6 @@ private:
   std::shared_ptr<SocketCore> readCheckTarget_;
   std::shared_ptr<SocketCore> writeCheckTarget_;
 
-#ifdef ENABLE_ASYNC_DNS
-  std::unique_ptr<AsyncNameResolverMan> asyncNameResolverMan_;
-#endif // ENABLE_ASYNC_DNS
 
   RequestGroup* requestGroup_;
   DownloadEngine* e_;

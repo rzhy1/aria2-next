@@ -127,10 +127,6 @@ needs.
 
 You can disable BitTorrent support with ``-DARIA2_ENABLE_BITTORRENT=OFF``.
 
-To enable async DNS support, you need c-ares.
-
-* c-ares: http://c-ares.haxx.se/
-
 How to build
 ------------
 
@@ -144,7 +140,6 @@ C++17 compiler, and the development packages for the maintained dependency set:
 * libssl-dev       (Required for TLS, crypto, checksums, and ED2K obfuscation)
 * libtorrent-rasterbar-dev (Required for BitTorrent support)
 * libboost-dev     (Required for Boost.JSON, Boost.Beast, Boost.Asio, and BitTorrent)
-* libc-ares-dev    (Required for async DNS support when enabled)
 * zlib1g-dev       (Required for compression and adler32 support when enabled)
 * pkg-config       (Required to detect installed libraries)
 * cppunit          (Required to build the test suite)

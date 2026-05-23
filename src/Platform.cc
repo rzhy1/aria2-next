@@ -44,9 +44,6 @@
 #  include <openssl/ssl.h>
 #endif // HAVE_OPENSSL
 
-#ifdef ENABLE_ASYNC_DNS
-#  include <ares.h>
-#endif // ENABLE_ASYNC_DNS
 
 #include "a2netcompat.h"
 #include "DlAbortEx.h"
@@ -91,13 +88,6 @@ bool Platform::setUp()
   }
 #endif   // HAVE_OPENSSL
 
-#ifdef CARES_HAVE_ARES_LIBRARY_INIT
-  int aresErrorCode;
-  if ((aresErrorCode = ares_library_init(ARES_LIB_INIT_ALL)) != 0) {
-    global::cerr()->printf("ares_library_init() failed:%s\n",
-                           ares_strerror(aresErrorCode));
-  }
-#endif // CARES_HAVE_ARES_LIBRARY_INIT
 
 #ifdef HAVE_WINSOCK2_H
   WSADATA wsaData;
@@ -140,9 +130,6 @@ bool Platform::tearDown()
   }
 #endif   // HAVE_OPENSSL
 
-#ifdef CARES_HAVE_ARES_LIBRARY_CLEANUP
-  ares_library_cleanup();
-#endif // CARES_HAVE_ARES_LIBRARY_CLEANUP
 
 #ifdef HAVE_WINSOCK2_H
   WSACleanup();

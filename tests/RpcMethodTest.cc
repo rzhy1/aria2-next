@@ -1044,7 +1044,8 @@ void RpcMethodTest::testGatherProgressLibtorrentStatus()
   auto dctx = std::make_shared<DownloadContext>(1_k, 100_k, "torrent.bin");
   auto attrs = make_unique<LibtorrentAttribute>(
       LibtorrentAttribute::SourceType::TORRENT_FILE,
-      A2_TEST_DIR "/single.torrent", "", std::vector<std::string>{});
+      A2_TEST_DIR "/single.torrent", "", std::vector<std::string>{},
+      "test_outdir/.aria2-bt/test.aria2");
   attrs->status.hasStatus = true;
   attrs->status.totalLength = 100_k;
   attrs->status.completedLength = 99_k;
@@ -1095,7 +1096,8 @@ void RpcMethodTest::testGatherProgressLibtorrentFilesWithoutNativeBitfield()
 
   auto attrs = make_unique<LibtorrentAttribute>(
       LibtorrentAttribute::SourceType::TORRENT_FILE,
-      A2_TEST_DIR "/test.torrent", "", std::vector<std::string>{});
+      A2_TEST_DIR "/test.torrent", "", std::vector<std::string>{},
+      "test_outdir/.aria2-bt/test.aria2");
   attrs->status.hasStatus = true;
   attrs->status.totalLength = 4_g + 1_m;
   attrs->status.completedLength = 0;
@@ -1127,7 +1129,8 @@ void RpcMethodTest::testChangeOptionLibtorrentSelectFile()
   dctx->setFileEntries(entries.begin(), entries.end());
   auto attrs = make_unique<LibtorrentAttribute>(
       LibtorrentAttribute::SourceType::TORRENT_FILE,
-      A2_TEST_DIR "/test.torrent", "", std::vector<std::string>{});
+      A2_TEST_DIR "/test.torrent", "", std::vector<std::string>{},
+      "test_outdir/.aria2-bt/test.aria2");
   auto attrsPtr = attrs.get();
   dctx->setAttribute(CTX_ATTR_LIBTORRENT, std::move(attrs));
 

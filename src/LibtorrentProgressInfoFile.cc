@@ -33,7 +33,8 @@ constexpr unsigned char FORMAT_VERSION[] = {0x4cu, 0x54u, 0x00u, 0x01u};
 
 std::string createFilename(const std::shared_ptr<DownloadContext>& dctx)
 {
-  return dctx->getBasePath() + ".aria2";
+  auto attrs = getLibtorrentAttrs(dctx);
+  return attrs->controlFilePath;
 }
 
 } // namespace
@@ -88,6 +89,7 @@ void LibtorrentProgressInfoFile::save()
   lastDigest_ = std::move(digest);
 
   A2_LOG_INFO(fmt(MSG_SAVING_SEGMENT_FILE, filename_.c_str()));
+  File(File(filename_).getDirname()).mkdirs();
   auto filenameTemp = filename_ + "__temp";
   {
     BufferedFile fp(filenameTemp.c_str(), BufferedFile::WRITE);

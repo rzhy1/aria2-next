@@ -551,12 +551,33 @@ void applyTrackerOptions(LibtorrentAttribute* attrs,
   }
 }
 
+std::string createBtControlFilePath(const std::shared_ptr<Option>& option,
+                                    const std::string& key)
+{
+  return util::applyDir(option->get(PREF_DIR),
+                        ".aria2-bt/" + key + ".aria2");
+}
+
+std::string
+createBtInfoHashControlFilePath(const std::shared_ptr<Option>& option,
+                                const std::string& infoHash)
+{
+  return createBtControlFilePath(option, "bt-" + util::toHex(infoHash));
+}
+
+std::string createBtGidControlFilePath(const std::shared_ptr<Option>& option,
+                                       const std::shared_ptr<GroupId>& gid)
+{
+  return createBtControlFilePath(option, "gid-" + gid->toHex());
+}
+
 std::shared_ptr<RequestGroup>
 createLibtorrentRequestGroup(LibtorrentAttribute::SourceType sourceType,
                              const std::string& sourceUri,
                              const std::string& torrentData,
                              const std::vector<std::string>& webSeedUris,
-                             const std::shared_ptr<Option>& optionTemplate)
+                             const std::shared_ptr<Option>& optionTemplate,
+                             const std::string& controlFilePath)
 {
   auto option = util::copy(optionTemplate);
   auto gid = getGID(option);
@@ -577,7 +598,11 @@ createLibtorrentRequestGroup(LibtorrentAttribute::SourceType sourceType,
                                   0, 0));
   dctx->setFileEntries(entries.begin(), entries.end());
   auto attrs = make_unique<LibtorrentAttribute>(sourceType, sourceUri,
-                                                torrentData, webSeedUris);
+                                                torrentData, webSeedUris,
+                                                controlFilePath.empty()
+                                                    ? createBtGidControlFilePath(
+                                                          option, gid)
+                                                    : controlFilePath);
   if (option->defined(PREF_SELECT_FILE)) {
     attrs->selectedFiles = option->get(PREF_SELECT_FILE);
   }
@@ -607,18 +632,19 @@ createBtRequestGroup(const std::string& metaInfoUri,
     throw DL_ABORT_EX2("Bencode decoding failed",
                        error_code::BENCODE_PARSE_ERROR);
   }
+  auto torrentDctx = std::make_shared<DownloadContext>();
+  bittorrent::loadFromMemory(torrentData, torrentDctx, optionTemplate,
+                             std::vector<std::string>(),
+                             metaInfoUri.empty() ? "torrent" : metaInfoUri);
+  auto torrentAttrs = bittorrent::getTorrentAttrs(torrentDctx);
   auto rg = createLibtorrentRequestGroup(
       metaInfoUri.empty() ? LibtorrentAttribute::SourceType::TORRENT_DATA
                           : LibtorrentAttribute::SourceType::TORRENT_FILE,
-      metaInfoUri, torrentData, auxUris, optionTemplate);
+      metaInfoUri, torrentData, auxUris, optionTemplate,
+      createBtInfoHashControlFilePath(optionTemplate, torrentAttrs->infoHash));
   auto attrs = getLibtorrentAttrs(rg->getDownloadContext());
   if (adjustAnnounceUri) {
-    auto torrentDctx = std::make_shared<DownloadContext>();
-    bittorrent::loadFromMemory(torrentData, torrentDctx, rg->getOption(),
-                               std::vector<std::string>(),
-                               metaInfoUri.empty() ? "torrent" : metaInfoUri);
-    applyTrackerOptions(attrs, rg->getOption(),
-                        bittorrent::getTorrentAttrs(torrentDctx));
+    applyTrackerOptions(attrs, rg->getOption(), torrentAttrs);
   }
   return rg;
 }
@@ -629,10 +655,11 @@ std::shared_ptr<RequestGroup>
 createBtMagnetRequestGroup(const std::string& magnetLink,
                            const std::shared_ptr<Option>& optionTemplate)
 {
+  auto torrentAttrs = bittorrent::parseMagnet(magnetLink);
   auto rg = createLibtorrentRequestGroup(
       LibtorrentAttribute::SourceType::MAGNET, magnetLink, "", {},
-      optionTemplate);
-  auto torrentAttrs = bittorrent::parseMagnet(magnetLink);
+      optionTemplate,
+      createBtInfoHashControlFilePath(optionTemplate, torrentAttrs->infoHash));
   applyTrackerOptions(getLibtorrentAttrs(rg->getDownloadContext()),
                       rg->getOption(), torrentAttrs.get());
   return rg;

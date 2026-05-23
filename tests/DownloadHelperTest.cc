@@ -46,6 +46,7 @@
 #include "FileEntry.h"
 #ifdef ENABLE_BITTORRENT
 #  include "LibtorrentAttribute.h"
+#  include "LibtorrentProgressInfoFile.h"
 #  include "bittorrent_helper.h"
 #endif // ENABLE_BITTORRENT
 
@@ -116,6 +117,7 @@ class DownloadHelperTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentTorrentSelectFile);
   CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentTorrentTrackers);
   CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentMagnet);
+  CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentMagnetControlFile);
   CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentMagnetTrackers);
 #endif // ENABLE_BITTORRENT
 
@@ -192,6 +194,7 @@ public:
   void testCreateRequestGroupForUri_LibtorrentTorrentSelectFile();
   void testCreateRequestGroupForUri_LibtorrentTorrentTrackers();
   void testCreateRequestGroupForUri_LibtorrentMagnet();
+  void testCreateRequestGroupForUri_LibtorrentMagnetControlFile();
   void testCreateRequestGroupForUri_LibtorrentMagnetTrackers();
 #endif // ENABLE_BITTORRENT
 
@@ -2361,6 +2364,9 @@ void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentTorrent()
     CPPUNIT_ASSERT(btctx->hasAttribute(CTX_ATTR_LIBTORRENT));
     CPPUNIT_ASSERT_EQUAL(std::string(A2_TEST_DIR "/test.torrent"),
                          torrentGroup->getMetadataInfo()->getUri());
+    LibtorrentProgressInfoFile torrentInfoFile(btctx);
+    CPPUNIT_ASSERT(torrentInfoFile.getFilename().find("/.aria2-bt/bt-") !=
+                   std::string::npos);
   }
 }
 
@@ -2420,6 +2426,42 @@ void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentMagnet()
     CPPUNIT_ASSERT(dctx->hasAttribute(CTX_ATTR_LIBTORRENT));
     CPPUNIT_ASSERT_EQUAL(uris[0], group->getMetadataInfo()->getUri());
   }
+}
+
+void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentMagnetControlFile()
+{
+  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
+
+  std::vector<std::shared_ptr<RequestGroup>> alpha;
+  createRequestGroupForUri(
+      alpha, option_,
+      {"magnet:?xt=urn:btih:1111111111111111111111111111111111111111"});
+  std::vector<std::shared_ptr<RequestGroup>> bravo;
+  createRequestGroupForUri(
+      bravo, option_,
+      {"magnet:?xt=urn:btih:2222222222222222222222222222222222222222"});
+
+  LibtorrentProgressInfoFile alphaFile(alpha[0]->getDownloadContext());
+  LibtorrentProgressInfoFile bravoFile(bravo[0]->getDownloadContext());
+
+  CPPUNIT_ASSERT_EQUAL(std::string(A2_TEST_OUT_DIR
+                                   "/.aria2-bt/"
+                                   "bt-1111111111111111111111111111111111111111"
+                                   ".aria2"),
+                       alphaFile.getFilename());
+  CPPUNIT_ASSERT_EQUAL(std::string(A2_TEST_OUT_DIR
+                                   "/.aria2-bt/"
+                                   "bt-2222222222222222222222222222222222222222"
+                                   ".aria2"),
+                       bravoFile.getFilename());
+  CPPUNIT_ASSERT(alphaFile.getFilename() != bravoFile.getFilename());
+
+  getLibtorrentAttrs(alpha[0]->getDownloadContext())
+      ->setResumeData("fast resume");
+  File(alphaFile.getFilename()).remove();
+  alphaFile.save();
+  CPPUNIT_ASSERT(File(alphaFile.getFilename()).isFile());
+  alphaFile.removeFile();
 }
 
 void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentMagnetTrackers()

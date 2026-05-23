@@ -314,7 +314,8 @@ void RequestGroupTest::testCreateInitialCommandUsesLibtorrentRuntime()
       make_unique<LibtorrentAttribute>(
           LibtorrentAttribute::SourceType::MAGNET,
           "magnet:?xt=urn:btih:3D366ED505B977FC61C9A6EE01E96329", "",
-          std::vector<std::string>{}));
+          std::vector<std::string>{},
+          "test_outdir/.aria2-bt/test.aria2"));
 
   RequestGroup group(GroupId::create(), option_);
   group.setDownloadContext(ctx);
@@ -345,7 +346,8 @@ void RequestGroupTest::testLibtorrentCommandLoadsTorrentMetadata()
       CTX_ATTR_LIBTORRENT,
       make_unique<LibtorrentAttribute>(
           LibtorrentAttribute::SourceType::TORRENT_FILE,
-          A2_TEST_DIR "/single.torrent", "", std::vector<std::string>{}));
+          A2_TEST_DIR "/single.torrent", "", std::vector<std::string>{},
+          "test_outdir/.aria2-bt/test.aria2"));
 
   RequestGroup group(GroupId::create(), option_);
   group.setRequestGroupMan(rgmanPtr);
@@ -365,7 +367,8 @@ void RequestGroupTest::testLibtorrentVerifiedProgressOverridesPieceStorage()
   auto ctx = std::make_shared<DownloadContext>(1_k, 100_k, "torrent.bin");
   auto attrs = make_unique<LibtorrentAttribute>(
       LibtorrentAttribute::SourceType::TORRENT_FILE,
-      A2_TEST_DIR "/single.torrent", "", std::vector<std::string>{});
+      A2_TEST_DIR "/single.torrent", "", std::vector<std::string>{},
+      "test_outdir/.aria2-bt/test.aria2");
   auto attrsPtr = attrs.get();
   ctx->setAttribute(CTX_ATTR_LIBTORRENT, std::move(attrs));
 
@@ -388,7 +391,8 @@ void RequestGroupTest::testLibtorrentAllDownloadFinishedUsesSeedingStatus()
   auto ctx = std::make_shared<DownloadContext>(1_k, 100_k, "torrent.bin");
   auto attrs = make_unique<LibtorrentAttribute>(
       LibtorrentAttribute::SourceType::TORRENT_FILE,
-      A2_TEST_DIR "/single.torrent", "", std::vector<std::string>{});
+      A2_TEST_DIR "/single.torrent", "", std::vector<std::string>{},
+      "test_outdir/.aria2-bt/test.aria2");
   auto attrsPtr = attrs.get();
   ctx->setAttribute(CTX_ATTR_LIBTORRENT, std::move(attrs));
 
@@ -412,7 +416,8 @@ void RequestGroupTest::testLibtorrentResumeDataRoundTrip()
   auto attrs = make_unique<LibtorrentAttribute>(
       LibtorrentAttribute::SourceType::MAGNET,
       "magnet:?xt=urn:btih:0101010101010101010101010101010101010101", "",
-      std::vector<std::string>{});
+      std::vector<std::string>{},
+      "test_outdir/.aria2-bt/test.aria2");
   auto attrsPtr = attrs.get();
   ctx->setAttribute(CTX_ATTR_LIBTORRENT, std::move(attrs));
 
@@ -444,7 +449,8 @@ void RequestGroupTest::testLibtorrentSessionTracksActiveTorrent()
       make_unique<LibtorrentAttribute>(
           LibtorrentAttribute::SourceType::MAGNET,
           "magnet:?xt=urn:btih:0101010101010101010101010101010101010101", "",
-          std::vector<std::string>{}));
+          std::vector<std::string>{},
+          "test_outdir/.aria2-bt/test.aria2"));
 
   RequestGroup group(GroupId::create(), option_);
   group.setDownloadContext(ctx);

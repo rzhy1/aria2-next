@@ -54,10 +54,12 @@ struct LibtorrentAttribute : public ContextAttribute {
   bool filePrioritiesApplied = false;
   Status status;
   std::string resumeData;
+  std::string controlFilePath;
 
   LibtorrentAttribute(SourceType sourceType, std::string sourceUri,
                       std::string torrentData,
-                      std::vector<std::string> webSeedUris);
+                      std::vector<std::string> webSeedUris,
+                      std::string controlFilePath);
   ~LibtorrentAttribute();
 
   LibtorrentAttribute(const LibtorrentAttribute&) = delete;

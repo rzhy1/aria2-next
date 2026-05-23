@@ -61,7 +61,7 @@
 #include "download_handlers.h"
 #include "RequestGroupCriteria.h"
 #ifdef ENABLE_BITTORRENT
-#  include "BtDependency.h"
+#  include "MetalinkTorrentDependency.h"
 #  include "download_helper.h"
 #endif // ENABLE_BITTORRENT
 #include "Checksum.h"
@@ -334,7 +334,7 @@ void Metalink2RequestGroup::createRequestGroup(
     // Inject dependency between rg and torrentRg here if
     // torrentRg is true
     if (torrentRg) {
-      auto dep = std::make_shared<BtDependency>(rg.get(), torrentRg);
+      auto dep = std::make_shared<MetalinkTorrentDependency>(rg.get(), torrentRg);
       rg->dependsOn(dep);
       torrentRg->belongsTo(rg->getGID());
       // metadata download may take very long time. If URIs are

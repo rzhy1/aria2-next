@@ -80,6 +80,13 @@ createAddTorrentParams(const LibtorrentAttribute* attrs, const Option* option)
       resumeParams.save_path = option->get(PREF_DIR);
       resumeParams.url_seeds.assign(attrs->webSeedUris.begin(),
                                     attrs->webSeedUris.end());
+      resumeParams.trackers.assign(attrs->trackerUris.begin(),
+                                   attrs->trackerUris.end());
+      resumeParams.tracker_tiers.assign(attrs->trackerTiers.begin(),
+                                        attrs->trackerTiers.end());
+      if (!attrs->trackerUris.empty()) {
+        resumeParams.flags |= lt::torrent_flags::override_trackers;
+      }
       params = std::move(resumeParams);
     }
     else {
@@ -90,9 +97,30 @@ createAddTorrentParams(const LibtorrentAttribute* attrs, const Option* option)
 
   params.save_path = option->get(PREF_DIR);
   params.url_seeds.assign(attrs->webSeedUris.begin(), attrs->webSeedUris.end());
+  params.trackers.assign(attrs->trackerUris.begin(), attrs->trackerUris.end());
+  params.tracker_tiers.assign(attrs->trackerTiers.begin(),
+                              attrs->trackerTiers.end());
   params.file_priorities.assign(attrs->filePriorities.begin(),
                                 attrs->filePriorities.end());
   params.flags |= lt::torrent_flags::duplicate_is_error;
+  if (!option->getAsBool(PREF_ENABLE_DHT)) {
+    params.flags |= lt::torrent_flags::disable_dht;
+  }
+  if (!option->getAsBool(PREF_BT_ENABLE_LPD)) {
+    params.flags |= lt::torrent_flags::disable_lsd;
+  }
+  if (!option->getAsBool(PREF_ENABLE_PEER_EXCHANGE)) {
+    params.flags |= lt::torrent_flags::disable_pex;
+  }
+  if (!attrs->trackerUris.empty()) {
+    params.flags |= lt::torrent_flags::override_trackers;
+  }
+  if (option->defined(PREF_DHT_ENTRY_POINT_HOST) &&
+      option->defined(PREF_DHT_ENTRY_POINT_PORT)) {
+    params.dht_nodes.push_back(
+        {option->get(PREF_DHT_ENTRY_POINT_HOST),
+         option->getAsInt(PREF_DHT_ENTRY_POINT_PORT)});
+  }
   params.flags &= ~lt::torrent_flags::paused;
   params.flags &= ~lt::torrent_flags::auto_managed;
   return params;

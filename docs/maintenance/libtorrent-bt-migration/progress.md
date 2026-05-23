@@ -147,3 +147,20 @@ Changed: Added libtorrent seed-policy mapping for `--seed-time` and `--seed-rati
 Verified: `testStopsWhenSeedTimeElapsed`, `testStopsWhenShareRatioReached`, `testKeepsSeedingWhenRatioDisabled`, and `testLibtorrentAllDownloadFinishedUsesSeedingStatus` cover the new behavior. `build/libtorrent-positive/aria2_tests` passed with `OK (1148)`. `git diff --check CMakeLists.txt cmake src tests docs/maintenance/libtorrent-bt-migration` passed. CSV parser check passed with `CSV OK 13`.
 Remaining: Start BTM-008 native BitTorrent cleanup and obsolete test removal.
 Blocked: none.
+
+2026-05-23 BTM-008 verified
+Changed: Removed the obsolete native BitTorrent engine source graph, including
+native peer protocol, DHT, tracker, PEX, LPD, MSE, metadata, endgame, scheduler,
+resume, and stale internal tests. Removed native-only CLI options from the
+option parser, usage text, manual, API option lists, and regenerated bash
+completion. Kept only shared parser and metadata helpers required by torrent,
+magnet, Metalink, and libtorrent ingress. Added libtorrent-backed tracker,
+DHT bootstrap, PEX, LPD, encryption, file-priority, limit, and seed-policy
+option mapping where retained options still have real behavior.
+Verified: `cmake --build build/libtorrent-positive --target aria2-next
+aria2_tests -- -j2` succeeded. `build/libtorrent-positive/aria2_tests` passed
+with `OK (819)`. Removed-option scan over help output, completion, source, and
+manual returned no matches. Native BT residue scan over source, tests, and CMake
+returned no matches. CSV parser check passed with `CSV OK 13`.
+Remaining: Start BTM-009 non-BitTorrent 0B or 99 percent stall watchdog.
+Blocked: none.

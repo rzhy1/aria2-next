@@ -43,8 +43,6 @@ namespace aria2 {
 
 class DownloadContext;
 class PieceStorage;
-class PeerStorage;
-class BtRuntime;
 class Option;
 class IOFile;
 
@@ -52,10 +50,6 @@ class DefaultBtProgressInfoFile : public BtProgressInfoFile {
 private:
   std::shared_ptr<DownloadContext> dctx_;
   std::shared_ptr<PieceStorage> pieceStorage_;
-#ifdef ENABLE_BITTORRENT
-  std::shared_ptr<PeerStorage> peerStorage_;
-  std::shared_ptr<BtRuntime> btRuntime_;
-#endif // ENABLE_BITTORRENT
   const Option* option_;
   std::string filename_;
   // Last SHA1 digest value of the content written.  Initially, this
@@ -63,7 +57,6 @@ private:
   // repeatedly, which could wake up disk that may be sleeping.
   std::string lastDigest_;
 
-  bool isTorrentDownload();
   void save(IOFile& fp);
 
 public:
@@ -85,13 +78,6 @@ public:
 
   // re-set filename using current dctx_.
   virtual void updateFilename() CXX11_OVERRIDE;
-
-#ifdef ENABLE_BITTORRENT
-  // for torrents
-  void setPeerStorage(const std::shared_ptr<PeerStorage>& peerStorage);
-
-  void setBtRuntime(const std::shared_ptr<BtRuntime>& btRuntime);
-#endif // ENABLE_BITTORRENT
 
   static const std::string& getSuffix()
   {

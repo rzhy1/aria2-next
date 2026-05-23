@@ -110,7 +110,9 @@ class DownloadHelperTest : public CppUnit::TestFixture {
 #ifdef ENABLE_BITTORRENT
   CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentTorrent);
   CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentTorrentSelectFile);
+  CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentTorrentTrackers);
   CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentMagnet);
+  CPPUNIT_TEST(testCreateRequestGroupForUri_LibtorrentMagnetTrackers);
 #endif // ENABLE_BITTORRENT
 
 #ifdef ENABLE_METALINK
@@ -185,7 +187,9 @@ public:
 #ifdef ENABLE_BITTORRENT
   void testCreateRequestGroupForUri_LibtorrentTorrent();
   void testCreateRequestGroupForUri_LibtorrentTorrentSelectFile();
+  void testCreateRequestGroupForUri_LibtorrentTorrentTrackers();
   void testCreateRequestGroupForUri_LibtorrentMagnet();
+  void testCreateRequestGroupForUri_LibtorrentMagnetTrackers();
 #endif // ENABLE_BITTORRENT
 
 #ifdef ENABLE_METALINK
@@ -2294,7 +2298,6 @@ void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentTorrent()
     std::shared_ptr<RequestGroup> torrentGroup = result[1];
     std::shared_ptr<DownloadContext> btctx = torrentGroup->getDownloadContext();
     CPPUNIT_ASSERT(btctx->hasAttribute(CTX_ATTR_LIBTORRENT));
-    CPPUNIT_ASSERT(!btctx->hasAttribute(CTX_ATTR_BT));
     CPPUNIT_ASSERT_EQUAL(std::string(A2_TEST_DIR "/test.torrent"),
                          torrentGroup->getMetadataInfo()->getUri());
   }
@@ -2318,6 +2321,29 @@ void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentTorrentSelectFil
   CPPUNIT_ASSERT_EQUAL(4, attrs->filePriorities[1]);
 }
 
+void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentTorrentTrackers()
+{
+  std::vector<std::string> uris{A2_TEST_DIR "/test.torrent"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_BT_EXCLUDE_TRACKER, "*");
+  option_->put(PREF_BT_TRACKER,
+               "udp://tracker.example:6969/announce,"
+               "https://tracker.example/announce");
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, result.size());
+  auto attrs = getLibtorrentAttrs(result[0]->getDownloadContext());
+  CPPUNIT_ASSERT_EQUAL((size_t)2, attrs->trackerUris.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("udp://tracker.example:6969/announce"),
+                       attrs->trackerUris[0]);
+  CPPUNIT_ASSERT_EQUAL(std::string("https://tracker.example/announce"),
+                       attrs->trackerUris[1]);
+  CPPUNIT_ASSERT_EQUAL(0, attrs->trackerTiers[0]);
+  CPPUNIT_ASSERT_EQUAL(1, attrs->trackerTiers[1]);
+}
+
 void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentMagnet()
 {
   std::vector<std::string> uris{
@@ -2332,9 +2358,28 @@ void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentMagnet()
     auto group = result[0];
     auto dctx = group->getDownloadContext();
     CPPUNIT_ASSERT(dctx->hasAttribute(CTX_ATTR_LIBTORRENT));
-    CPPUNIT_ASSERT(!dctx->hasAttribute(CTX_ATTR_BT));
     CPPUNIT_ASSERT_EQUAL(uris[0], group->getMetadataInfo()->getUri());
   }
+}
+
+void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentMagnetTrackers()
+{
+  std::vector<std::string> uris{
+      "magnet:?xt=urn:btih:248D0A1CD08284299DE78D5C1ED359BB46717D8C"
+      "&dn=aria2-test&tr=http%3A%2F%2Fold.example%2Fannounce"};
+  option_->put(PREF_DIR, "/tmp");
+  option_->put(PREF_BT_EXCLUDE_TRACKER, "http://old.example/announce");
+  option_->put(PREF_BT_TRACKER, "udp://new.example:6969/announce");
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, result.size());
+  auto attrs = getLibtorrentAttrs(result[0]->getDownloadContext());
+  CPPUNIT_ASSERT_EQUAL((size_t)1, attrs->trackerUris.size());
+  CPPUNIT_ASSERT_EQUAL(std::string("udp://new.example:6969/announce"),
+                       attrs->trackerUris[0]);
+  CPPUNIT_ASSERT_EQUAL(0, attrs->trackerTiers[0]);
 }
 #endif // ENABLE_BITTORRENT
 

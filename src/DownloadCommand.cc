@@ -67,9 +67,6 @@
 #include "DownloadFailureException.h"
 #include "MessageDigest.h"
 #include "message_digest_helper.h"
-#ifdef ENABLE_BITTORRENT
-#  include "bittorrent_helper.h"
-#endif // ENABLE_BITTORRENT
 
 namespace aria2 {
 
@@ -245,13 +242,7 @@ bool DownloadCommand::executeInternal()
         const std::string& expectedPieceHash =
             getDownloadContext()->getPieceHash(segment->getIndex());
         if (pieceHashValidationEnabled_ && !expectedPieceHash.empty()) {
-          if (
-#ifdef ENABLE_BITTORRENT
-              // TODO Is this necessary?
-              (!getPieceStorage()->isEndGame() ||
-               !getDownloadContext()->hasAttribute(CTX_ATTR_BT)) &&
-#endif // ENABLE_BITTORRENT
-              segment->isHashCalculated()) {
+          if (segment->isHashCalculated()) {
             A2_LOG_DEBUG(fmt("Hash is available! index=%lu",
                              static_cast<unsigned long>(segment->getIndex())));
             validatePieceHash(segment, expectedPieceHash, segment->getDigest());

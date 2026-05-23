@@ -407,9 +407,7 @@ Other things should be noted
   and UDP.
 * aria2 doesn't configure port-forwarding automatically. Please
   configure your router or firewall manually.
-* The maximum number of peers is 55. This limit may be exceeded when
-  the download rate is low. This download rate can be adjusted using
-  ``--bt-request-peer-speed-limit`` option.
+* The default maximum number of peers per torrent is 55.
 * As of release 0.10.0, aria2 stops sending request messages after
   selective download completes.
 

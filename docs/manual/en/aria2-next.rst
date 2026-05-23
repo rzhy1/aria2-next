@@ -711,14 +711,6 @@ BitTorrent Specific Options
   queue gets started. But be aware that seeding item is still
   recognized as active download in RPC method.  Default: ``false``
 
-.. option:: --bt-enable-hook-after-hash-check [true|false]
-
-  Allow hook command invocation after hash check (see :option:`-V`
-  option) in BitTorrent download. By default, when hash check
-  succeeds, the command given by :option:`--on-bt-download-complete`
-  is executed. To disable this action, give ``false`` to this option.
-  Default: ``true``
-
 .. option:: --bt-enable-lpd [true|false]
 
   Enable Local Peer Discovery.  If a private flag is set in a torrent,
@@ -733,46 +725,10 @@ BitTorrent Specific Options
   command-line, don't forget to escape or quote it.  See also
   :option:`--bt-tracker` option.
 
-.. option:: --bt-external-ip=<IPADDRESS>
-
-  Specify the external IP address to use in BitTorrent download and DHT.
-  It may be sent to BitTorrent tracker. For DHT, this option should be
-  set to report that local node is downloading a particular torrent.
-  This is critical to use DHT in a private network. Although this
-  function is named ``external``, it can accept any kind of IP
-  addresses.
-
 .. option:: --bt-force-encryption [true|false]
 
-  Requires BitTorrent message payload encryption with arc4.  This is a
-  shorthand of :option:`--bt-require-crypto`
-  :option:`--bt-min-crypto-level`\=arc4.  This option does not change
-  the option value of those options.  If ``true`` is given, deny
-  legacy BitTorrent handshake and only use Obfuscation handshake and
-  always encrypt message payload.  Default: ``false``
-
-.. option:: --bt-hash-check-seed [true|false]
-
- If ``true`` is given, after hash check using :option:`--check-integrity <-V>` option and
- file is complete, continue to seed file. If you want to check file
- and download it only when it is damaged or incomplete, set this
- option to ``false``.  This option has effect only on BitTorrent download.
- Default: ``true``
-
-.. option:: --bt-load-saved-metadata [true|false]
-
-  Before getting torrent metadata from DHT when downloading with
-  magnet link, first try to read file saved by
-  :option:`--bt-save-metadata` option.  If it is successful, then skip
-  downloading metadata from DHT.
-  Default: ``false``
-
-.. option:: --bt-lpd-interface=<INTERFACE>
-
-  Use given interface for Local Peer Discovery. If this option is not
-  specified, the default interface is chosen. You can specify
-  interface name and IP address.  Possible Values: interface, IP
-  address
+  Require BitTorrent message payload encryption. If ``true`` is given,
+  aria2-next only uses encrypted peer connections. Default: ``false``
 
 .. option:: --bt-max-open-files=<NUM>
 
@@ -782,72 +738,14 @@ BitTorrent Specific Options
 
 .. option:: --bt-max-peers=<NUM>
 
-  Specify the maximum number of peers per torrent.  ``0`` means
-  unlimited.  See also :option:`--bt-request-peer-speed-limit` option.
+  Specify the maximum number of peers per torrent.  ``0`` means unlimited.
   Default: ``55``
-
-.. option:: --bt-metadata-only [true|false]
-
-  Download metadata only. The file(s) described in metadata will not
-  be downloaded. This option has effect only when BitTorrent Magnet
-  URI is used. See also :option:`--bt-save-metadata` option.  Default: ``false``
-
-.. option:: --bt-min-crypto-level=plain|arc4
-
-  Set minimum level of encryption method.
-  If several encryption methods are provided by a peer, aria2 chooses the lowest
-  one which satisfies the given level.
-  Default: ``plain``
-
-.. option:: --bt-prioritize-piece=head[=<SIZE>],tail[=<SIZE>]
-
-  Try to download first and last pieces of each file first. This is
-  useful for previewing files. The argument can contain 2 keywords:
-  ``head`` and ``tail``. To include both keywords, they must be separated
-  by comma. These keywords can take one parameter, SIZE. For example,
-  if ``head=<SIZE>`` is specified, pieces in the range of first SIZE bytes
-  of each file get higher priority.  ``tail=<SIZE>`` means the range of
-  last SIZE bytes of each file. SIZE can include ``K`` or ``M`` (1K = 1024,
-  1M = 1024K). If SIZE is omitted, SIZE=1M is used.
-
-.. option:: --bt-remove-unselected-file [true|false]
-
-   Removes the unselected files when download is completed in
-   BitTorrent. To select files, use
-   :option:`--select-file` option. If it is
-   not used, all files are assumed to be selected. Please use this
-   option with care because it will actually remove files from your
-   disk.
-   Default: ``false``
 
 .. option:: --bt-require-crypto [true|false]
 
   If ``true`` is given, aria2 doesn't accept and establish connection with legacy
   BitTorrent handshake(\\19BitTorrent protocol).
   Thus aria2 always uses Obfuscation handshake.
-  Default: ``false``
-
-.. option:: --bt-request-peer-speed-limit=<SPEED>
-
-  If the whole download speed of every torrent is lower than SPEED,
-  aria2 temporarily increases the number of peers to try for more
-  download speed. Configuring this option with your preferred download
-  speed can increase your download speed in some cases.
-  You can append ``K`` or ``M`` (1K = 1024, 1M = 1024K).
-  Default: ``50K``
-
-.. option:: --bt-save-metadata [true|false]
-
-  Save metadata as ".torrent" file. This option has effect only when
-  BitTorrent Magnet URI is used.  The file name is hex encoded info
-  hash with suffix ".torrent". The directory to be saved is the same
-  directory where download file is saved. If the same file already
-  exists, metadata is not saved. See also :option:`--bt-metadata-only`
-  option. Default: ``false``
-
-.. option:: --bt-seed-unverified [true|false]
-
-  Seed previously downloaded files without verifying piece hashes.
   Default: ``false``
 
 .. option:: --bt-stop-timeout=<SEC>
@@ -862,49 +760,9 @@ BitTorrent Specific Options
   because they are added after URIs in :option:`--bt-exclude-tracker` option are
   removed.
 
-.. option:: --bt-tracker-connect-timeout=<SEC>
-
-  Set the connect timeout in seconds to establish connection to
-  tracker. After the connection is established, this option makes no
-  effect and :option:`--bt-tracker-timeout` option is used instead.  Default:
-  ``60``
-
-.. option:: --bt-tracker-interval=<SEC>
-
-  Set the interval in seconds between tracker requests. This
-  completely overrides interval value and aria2 just uses this value
-  and ignores the min interval and interval value in the response of
-  tracker. If ``0`` is set, aria2 determines interval based on the
-  response of tracker and the download progress.  Default: ``0``
-
-.. option:: --bt-tracker-timeout=<SEC>
-
-  Set timeout in seconds. Default: ``60``
-
 .. option:: --dht-entry-point=<HOST>:<PORT>
 
   Set host and port as an entry point to IPv4 DHT network.
-
-.. option:: --dht-entry-point6=<HOST>:<PORT>
-
-  Set host and port as an entry point to IPv6 DHT network.
-
-.. option:: --dht-file-path=<PATH>
-
-  Change the IPv4 DHT routing table file to PATH.
-  Default: ``$HOME/.aria2/dht.dat`` if present, otherwise
-  ``$XDG_CACHE_HOME/aria2/dht.dat``.
-
-.. option:: --dht-file-path6=<PATH>
-
-  Change the IPv6 DHT routing table file to PATH.
-  Default: ``$HOME/.aria2/dht6.dat`` if present, otherwise
-  ``$XDG_CACHE_HOME/aria2/dht6.dat``.
-
-.. option:: --dht-listen-addr6=<ADDR>
-
-  Specify address to bind socket for IPv6 DHT.  It should be a global
-  unicast IPv6 address of the host.
 
 .. option:: --dht-listen-port=<PORT>...
 
@@ -918,22 +776,11 @@ BitTorrent Specific Options
 
     Make sure that the specified ports are open for incoming UDP traffic.
 
-.. option:: --dht-message-timeout=<SEC>
-
-  Set timeout in seconds. Default: ``10``
-
 .. option:: --enable-dht [true|false]
 
-  Enable IPv4 DHT functionality. It also enables UDP tracker
-  support. If a private flag is set in a torrent, aria2 doesn't use
-  DHT for that download even if ``true`` is given.  Default: ``true``
-
-.. option:: --enable-dht6 [true|false]
-
-   Enable IPv6 DHT functionality. If a private flag is set in a
-   torrent, aria2 doesn't use DHT for that download even if ``true`` is
-   given. Use :option:`--dht-listen-port` option to specify port number to
-   listen on. See also :option:`--dht-listen-addr6` option.
+  Enable DHT functionality. If a private flag is set in a torrent, aria2-next
+  does not use DHT for that download even if ``true`` is given. Default:
+  ``true``
 
 .. option:: --enable-peer-exchange [true|false]
 
@@ -987,27 +834,6 @@ BitTorrent Specific Options
   You can append ``K`` or ``M`` (1K = 1024, 1M = 1024K).
   To limit the overall upload speed, use :option:`--max-overall-upload-limit` option.
   Default: ``0``
-
-.. option:: --peer-id-prefix=<PEER_ID_PREFIX>
-
-  Specify the prefix of peer ID. The peer ID in
-  BitTorrent is 20 byte length. If more than 20
-  bytes are specified, only first 20 bytes are
-  used. If less than 20 bytes are specified, random
-  byte data are added to make its length 20 bytes.
-
-  Default: ``A2-$MAJOR-$MINOR-$PATCH-``, $MAJOR, $MINOR and $PATCH are
-  replaced by major, minor and patch version number respectively.  For
-  instance, aria2 version 1.18.8 has prefix ID ``A2-1-18-8-``.
-
-.. option:: --peer-agent=<PEER_AGENT>
-
-  Specify the string used during the bitorrent extended handshake
-  for the peer's client version.
-
-  Default: ``aria2-next/$MAJOR.$MINOR.$PATCH``, $MAJOR, $MINOR and $PATCH are
-  replaced by major, minor and patch version number respectively.  For
-  instance, Aria2 Next version 2.0.5 has peer agent ``aria2-next/2.0.5``.
 
 .. option:: --seed-ratio=<RATIO>
 
@@ -2045,8 +1871,6 @@ user's home directory:
 
 * :option:`ca-certificate <--ca-certificate>`
 * :option:`certificate <--certificate>`
-* :option:`dht-file-path <--dht-file-path>`
-* :option:`dht-file-path6 <--dht-file-path6>`
 * :option:`dir <--dir>`
 * :option:`input-file <--input-file>`
 * :option:`load-cookies <--load-cookies>`
@@ -2158,27 +1982,13 @@ of URIs. These optional lines must start with white space(s).
   * :option:`always-resume <--always-resume>`
   * :option:`async-dns <--async-dns>`
   * :option:`auto-file-renaming <--auto-file-renaming>`
-  * :option:`bt-enable-hook-after-hash-check <--bt-enable-hook-after-hash-check>`
   * :option:`bt-enable-lpd <--bt-enable-lpd>`
   * :option:`bt-exclude-tracker <--bt-exclude-tracker>`
-  * :option:`bt-external-ip <--bt-external-ip>`
   * :option:`bt-force-encryption <--bt-force-encryption>`
-  * :option:`bt-hash-check-seed <--bt-hash-check-seed>`
-  * :option:`bt-load-saved-metadata <--bt-load-saved-metadata>`
   * :option:`bt-max-peers <--bt-max-peers>`
-  * :option:`bt-metadata-only <--bt-metadata-only>`
-  * :option:`bt-min-crypto-level <--bt-min-crypto-level>`
-  * :option:`bt-prioritize-piece <--bt-prioritize-piece>`
-  * :option:`bt-remove-unselected-file <--bt-remove-unselected-file>`
-  * :option:`bt-request-peer-speed-limit <--bt-request-peer-speed-limit>`
   * :option:`bt-require-crypto <--bt-require-crypto>`
-  * :option:`bt-save-metadata <--bt-save-metadata>`
-  * :option:`bt-seed-unverified <--bt-seed-unverified>`
   * :option:`bt-stop-timeout <--bt-stop-timeout>`
   * :option:`bt-tracker <--bt-tracker>`
-  * :option:`bt-tracker-connect-timeout <--bt-tracker-connect-timeout>`
-  * :option:`bt-tracker-interval <--bt-tracker-interval>`
-  * :option:`bt-tracker-timeout <--bt-tracker-timeout>`
   * :option:`check-integrity <-V>`
   * :option:`checksum <--checksum>`
   * :option:`conditional-get <--conditional-get>`
@@ -3467,8 +3277,6 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   aria2, and no user intervention is required):
 
   * :option:`bt-max-peers <--bt-max-peers>`
-  * :option:`bt-request-peer-speed-limit <--bt-request-peer-speed-limit>`
-  * :option:`bt-remove-unselected-file <--bt-remove-unselected-file>`
   * :option:`force-save <--force-save>`
   * :option:`max-download-limit <--max-download-limit>`
   * :option:`max-upload-limit <-u>`
@@ -4415,16 +4223,6 @@ Enable IPv4 DHT
   DHT uses UDP. Since aria2 doesn't configure firewalls or routers for port
   forwarding, it's up to you to do it manually.
 
-Enable IPv6 DHT
-^^^^^^^^^^^^^^^
-.. code-block:: console
-
-  $ aria2-next --enable-dht6 --dht-listen-port=6881 --dht-listen-addr6=YOUR_GLOBAL_UNICAST_IPV6_ADDR
-
-.. note::
-
-  aria2 uses the same ports as IPv4 for IPv6.
-
 Add and remove tracker URIs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -4604,7 +4402,7 @@ Encrypt the whole payload using ARC4 (obfuscation):
 
 .. code-block:: console
 
-  $ aria2-next --bt-min-crypto-level=arc4 --bt-require-crypto=true file.torrent
+  $ aria2-next --bt-force-encryption=true file.torrent
 
 
 SEE ALSO

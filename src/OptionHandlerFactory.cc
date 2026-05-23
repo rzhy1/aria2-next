@@ -1551,17 +1551,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(
-        new BooleanOptionHandler(PREF_BT_ENABLE_HOOK_AFTER_HASH_CHECK,
-                                 TEXT_BT_ENABLE_HOOK_AFTER_HASH_CHECK,
-                                 A2_V_TRUE, OptionHandler::OPT_ARG));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
     OptionHandler* op(new BooleanOptionHandler(PREF_BT_ENABLE_LPD,
                                                TEXT_BT_ENABLE_LPD, A2_V_FALSE,
                                                OptionHandler::OPT_ARG));
@@ -1583,16 +1572,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(
-        new DefaultOptionHandler(PREF_BT_EXTERNAL_IP, TEXT_BT_EXTERNAL_IP,
-                                 NO_DEFAULT_VALUE, "a numeric IP address"));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
     OptionHandler* op(new BooleanOptionHandler(
         PREF_BT_FORCE_ENCRYPTION, TEXT_BT_FORCE_ENCRYPTION, A2_V_FALSE,
         OptionHandler::OPT_ARG));
@@ -1600,40 +1579,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     op->setInitialOption(true);
     op->setChangeGlobalOption(true);
     op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new NumberOptionHandler(PREF_BT_KEEP_ALIVE_INTERVAL,
-                                              NO_DESCRIPTION, "120", 1, 120));
-    op->hide();
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new BooleanOptionHandler(
-        PREF_BT_HASH_CHECK_SEED, TEXT_BT_HASH_CHECK_SEED, A2_V_TRUE,
-        OptionHandler::OPT_ARG));
-    op->addTag(TAG_BITTORRENT);
-    op->addTag(TAG_CHECKSUM);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new BooleanOptionHandler(
-        PREF_BT_LOAD_SAVED_METADATA, TEXT_BT_LOAD_SAVED_METADATA, A2_V_FALSE,
-        OptionHandler::OPT_ARG));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new DefaultOptionHandler(
-        PREF_BT_LPD_INTERFACE, TEXT_BT_LPD_INTERFACE, NO_DEFAULT_VALUE,
-        "interface, IP address", OptionHandler::REQ_ARG));
-    op->addTag(TAG_BITTORRENT);
     handlers.push_back(op);
   }
   {
@@ -1655,84 +1600,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
   }
   {
     OptionHandler* op(
-        new BooleanOptionHandler(PREF_BT_METADATA_ONLY, TEXT_BT_METADATA_ONLY,
-                                 A2_V_FALSE, OptionHandler::OPT_ARG));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new ParameterOptionHandler(PREF_BT_MIN_CRYPTO_LEVEL,
-                                                 TEXT_BT_MIN_CRYPTO_LEVEL,
-                                                 V_PLAIN, {V_PLAIN, V_ARC4}));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new PrioritizePieceOptionHandler(
-        PREF_BT_PRIORITIZE_PIECE, TEXT_BT_PRIORITIZE_PIECE));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new BooleanOptionHandler(
-        PREF_BT_REMOVE_UNSELECTED_FILE, TEXT_BT_REMOVE_UNSELECTED_FILE,
-        A2_V_FALSE, OptionHandler::OPT_ARG));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new UnitNumberOptionHandler(
-        PREF_BT_REQUEST_PEER_SPEED_LIMIT, TEXT_BT_REQUEST_PEER_SPEED_LIMIT,
-        "50K", 0));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(
         new BooleanOptionHandler(PREF_BT_REQUIRE_CRYPTO, TEXT_BT_REQUIRE_CRYPTO,
-                                 A2_V_FALSE, OptionHandler::OPT_ARG));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new NumberOptionHandler(PREF_BT_REQUEST_TIMEOUT,
-                                              NO_DESCRIPTION, "60", 1, 600));
-    op->hide();
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new BooleanOptionHandler(
-        PREF_BT_SEED_UNVERIFIED, TEXT_BT_SEED_UNVERIFIED, A2_V_FALSE,
-        OptionHandler::OPT_ARG));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(
-        new BooleanOptionHandler(PREF_BT_SAVE_METADATA, TEXT_BT_SAVE_METADATA,
                                  A2_V_FALSE, OptionHandler::OPT_ARG));
     op->addTag(TAG_BITTORRENT);
     op->setInitialOption(true);
@@ -1750,42 +1618,8 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(new NumberOptionHandler(PREF_BT_TIMEOUT, NO_DESCRIPTION,
-                                              "180", 1, 600));
-    op->hide();
-    handlers.push_back(op);
-  }
-  {
     OptionHandler* op(new DefaultOptionHandler(PREF_BT_TRACKER, TEXT_BT_TRACKER,
                                                NO_DESCRIPTION, "URI,..."));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new NumberOptionHandler(PREF_BT_TRACKER_CONNECT_TIMEOUT,
-                                              TEXT_BT_TRACKER_CONNECT_TIMEOUT,
-                                              "60", 1, 600));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new NumberOptionHandler(
-        PREF_BT_TRACKER_INTERVAL, TEXT_BT_TRACKER_INTERVAL, "0", 0));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new NumberOptionHandler(
-        PREF_BT_TRACKER_TIMEOUT, TEXT_BT_TRACKER_TIMEOUT, "60", 1, 600));
     op->addTag(TAG_BITTORRENT);
     op->setInitialOption(true);
     op->setChangeGlobalOption(true);
@@ -1800,42 +1634,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(new HostPortOptionHandler(
-        PREF_DHT_ENTRY_POINT6, TEXT_DHT_ENTRY_POINT6, NO_DEFAULT_VALUE,
-        PREF_DHT_ENTRY_POINT_HOST6, PREF_DHT_ENTRY_POINT_PORT6));
-    op->addTag(TAG_BITTORRENT);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new LocalFilePathOptionHandler(
-        PREF_DHT_FILE_PATH, TEXT_DHT_FILE_PATH, util::getDHTFile(false),
-        /* acceptStdin = */ false, 0, /* mustExist = */ false));
-    op->addTag(TAG_BITTORRENT);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new LocalFilePathOptionHandler(
-        PREF_DHT_FILE_PATH6, TEXT_DHT_FILE_PATH6, util::getDHTFile(true),
-        /* acceptStdin = */ false, 0, /* mustExist = */ false));
-    op->addTag(TAG_BITTORRENT);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new DefaultOptionHandler(
-        PREF_DHT_LISTEN_ADDR, NO_DESCRIPTION, NO_DEFAULT_VALUE));
-    op->hide();
-    op->addTag(TAG_BASIC);
-    op->addTag(TAG_BITTORRENT);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new DefaultOptionHandler(
-        PREF_DHT_LISTEN_ADDR6, TEXT_DHT_LISTEN_ADDR6, NO_DEFAULT_VALUE));
-    op->addTag(TAG_BASIC);
-    op->addTag(TAG_BITTORRENT);
-    handlers.push_back(op);
-  }
-  {
     OptionHandler* op(new IntegerRangeOptionHandler(
         PREF_DHT_LISTEN_PORT, TEXT_DHT_LISTEN_PORT, "6881-6999", 1024,
         UINT16_MAX));
@@ -1844,22 +1642,8 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(new NumberOptionHandler(
-        PREF_DHT_MESSAGE_TIMEOUT, TEXT_DHT_MESSAGE_TIMEOUT, "10", 1, 60));
-    op->addTag(TAG_BITTORRENT);
-    handlers.push_back(op);
-  }
-  {
     OptionHandler* op(new BooleanOptionHandler(
         PREF_ENABLE_DHT, TEXT_ENABLE_DHT, A2_V_TRUE, OptionHandler::OPT_ARG));
-    op->addTag(TAG_BASIC);
-    op->addTag(TAG_BITTORRENT);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new BooleanOptionHandler(PREF_ENABLE_DHT6,
-                                               TEXT_ENABLE_DHT6, A2_V_FALSE,
-                                               OptionHandler::OPT_ARG));
     op->addTag(TAG_BASIC);
     op->addTag(TAG_BITTORRENT);
     handlers.push_back(op);
@@ -1927,28 +1711,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
         PATH_TO_COMMAND));
     op->addTag(TAG_ADVANCED);
     op->addTag(TAG_HOOK);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new NumberOptionHandler(PREF_PEER_CONNECTION_TIMEOUT,
-                                              NO_DESCRIPTION, "20", 1, 600));
-    op->hide();
-    handlers.push_back(op);
-  }
-  {
-    int major, minor, micro;
-    sscanf(PACKAGE_VERSION, "%d.%d.%d", &major, &minor, &micro);
-    char prefix[21];
-    snprintf(prefix, sizeof(prefix), "A2-%d-%d-%d-", major, minor, micro);
-    OptionHandler* op(new DefaultOptionHandler(PREF_PEER_ID_PREFIX,
-                                               TEXT_PEER_ID_PREFIX, prefix));
-    op->addTag(TAG_BITTORRENT);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new DefaultOptionHandler(PREF_PEER_AGENT, TEXT_PEER_AGENT,
-                                               "aria2-next/" PACKAGE_VERSION));
-    op->addTag(TAG_BITTORRENT);
     handlers.push_back(op);
   }
   {

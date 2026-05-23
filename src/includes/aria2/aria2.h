@@ -404,8 +404,6 @@ int unpauseDownload(Session* session, A2Gid gid);
  * :c:macro:`DOWNLOAD_ACTIVE` status:
  *
  * * :option:`bt-max-peers <--bt-max-peers>`
- * * :option:`bt-request-peer-speed-limit <--bt-request-peer-speed-limit>`
- * * :option:`bt-remove-unselected-file <--bt-remove-unselected-file>`
  * * :option:`force-save <--force-save>`
  * * :option:`max-download-limit <--max-download-limit>`
  * * :option:`max-upload-limit <-u>`

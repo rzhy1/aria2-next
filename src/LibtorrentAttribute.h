@@ -47,6 +47,8 @@ struct LibtorrentAttribute : public ContextAttribute {
   std::string sourceUri;
   std::string torrentData;
   std::vector<std::string> webSeedUris;
+  std::vector<std::string> trackerUris;
+  std::vector<int> trackerTiers;
   std::vector<int> filePriorities;
   bool filePrioritiesApplied = false;
   Status status;

@@ -90,7 +90,6 @@ _aria2_next()
     for long_opt in ['--ftp-type',
                      '--proxy-method',
                      '--metalink-preferred-protocol',
-                     '--bt-min-crypto-level',
                      '--follow-metalink',
                      '--file-allocation',
                      '--log-level',

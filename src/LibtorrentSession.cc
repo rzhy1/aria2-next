@@ -16,6 +16,9 @@
 #include "prefs.h"
 #include "util.h"
 #include "SegList.h"
+#include "a2functional.h"
+
+#include <vector>
 
 #include <libtorrent/add_torrent_params.hpp>
 #include <libtorrent/alert.hpp>
@@ -36,6 +39,23 @@ int firstPort(const Option* option, PrefPtr pref)
     return 0;
   }
   return ports.next();
+}
+
+void appendBootstrapNode(std::vector<std::string>& nodes, const Option* option,
+                         PrefPtr hostPref, PrefPtr portPref)
+{
+  if (!option->defined(hostPref) || !option->defined(portPref)) {
+    return;
+  }
+  nodes.push_back(option->get(hostPref) + ":" + option->get(portPref));
+}
+
+std::string bootstrapNodes(const Option* option)
+{
+  std::vector<std::string> nodes;
+  appendBootstrapNode(nodes, option, PREF_DHT_ENTRY_POINT_HOST,
+                      PREF_DHT_ENTRY_POINT_PORT);
+  return strjoin(nodes.begin(), nodes.end(), ",");
 }
 
 std::string listenInterfaces(const Option* option)
@@ -68,6 +88,8 @@ LibtorrentSession::LibtorrentSession(const Option* option)
   lt::settings_pack settings;
   settings.set_str(lt::settings_pack::listen_interfaces,
                    listenInterfaces(option));
+  settings.set_str(lt::settings_pack::dht_bootstrap_nodes,
+                   bootstrapNodes(option));
   settings.set_bool(lt::settings_pack::enable_dht,
                     option->getAsBool(PREF_ENABLE_DHT));
   settings.set_bool(lt::settings_pack::enable_lsd,

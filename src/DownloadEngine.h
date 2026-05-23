@@ -66,7 +66,6 @@ class Request;
 class EventPoll;
 class Command;
 #ifdef ENABLE_BITTORRENT
-class BtRegistry;
 class LibtorrentSession;
 #endif // ENABLE_BITTORRENT
 #ifdef ENABLE_WEBSOCKET
@@ -133,7 +132,6 @@ private:
   std::unique_ptr<CookieStorage> cookieStorage_;
 
 #ifdef ENABLE_BITTORRENT
-  std::unique_ptr<BtRegistry> btRegistry_;
   std::unique_ptr<LibtorrentSession> libtorrentSession_;
 #endif // ENABLE_BITTORRENT
 
@@ -313,11 +311,6 @@ public:
   const std::unique_ptr<CookieStorage>& getCookieStorage() const;
 
 #ifdef ENABLE_BITTORRENT
-  const std::unique_ptr<BtRegistry>& getBtRegistry() const
-  {
-    return btRegistry_;
-  }
-
   LibtorrentSession& getLibtorrentSession();
   LibtorrentSession* getInitializedLibtorrentSession() const
   {

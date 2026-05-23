@@ -57,12 +57,6 @@
 #include "DownloadContext.h"
 #include "BufferedFile.h"
 #include "SHA1IOFile.h"
-#include "BtConstants.h"
-#ifdef ENABLE_BITTORRENT
-#  include "PeerStorage.h"
-#  include "BtRuntime.h"
-#  include "bittorrent_helper.h"
-#endif // ENABLE_BITTORRENT
 
 namespace aria2 {
 
@@ -93,15 +87,6 @@ void DefaultBtProgressInfoFile::updateFilename()
   filename_ = createFilename(dctx_, getSuffix());
 }
 
-bool DefaultBtProgressInfoFile::isTorrentDownload()
-{
-#ifdef ENABLE_BITTORRENT
-  return btRuntime_.get();
-#else  // !ENABLE_BITTORRENT
-  return false;
-#endif // !ENABLE_BITTORRENT
-}
-
 #define WRITE_CHECK(fp, ptr, count)                                            \
   if (fp.write((ptr), (count)) != (count)) {                                   \
     throw DL_ABORT_EX(fmt(EX_SEGMENT_FILE_WRITE, filename_.c_str()));          \
@@ -110,11 +95,6 @@ bool DefaultBtProgressInfoFile::isTorrentDownload()
 // Since version 0001, Integers are saved in binary form, network byte order.
 void DefaultBtProgressInfoFile::save(IOFile& fp)
 {
-#ifdef ENABLE_BITTORRENT
-  bool torrentDownload = isTorrentDownload();
-#else  // !ENABLE_BITTORRENT
-  bool torrentDownload = false;
-#endif // !ENABLE_BITTORRENT
   // file version: 16 bits
   // values: '1'
   char version[] = {0x00u, 0x01u};
@@ -124,27 +104,9 @@ void DefaultBtProgressInfoFile::save(IOFile& fp)
   // Otherwise, 0x00000000
   char extension[4];
   memset(extension, 0, sizeof(extension));
-  if (torrentDownload) {
-    extension[3] = 1;
-  }
   WRITE_CHECK(fp, extension, sizeof(extension));
-  if (torrentDownload) {
-#ifdef ENABLE_BITTORRENT
-    // infoHashLength:
-    // length: 32 bits
-    const unsigned char* infoHash = bittorrent::getInfoHash(dctx_);
-    uint32_t infoHashLengthNL = htonl(INFO_HASH_LENGTH);
-    WRITE_CHECK(fp, &infoHashLengthNL, sizeof(infoHashLengthNL));
-    // infoHash:
-    WRITE_CHECK(fp, infoHash, INFO_HASH_LENGTH);
-#endif // ENABLE_BITTORRENT
-  }
-  else {
-    // infoHashLength:
-    // length: 32 bits
-    uint32_t infoHashLength = 0;
-    WRITE_CHECK(fp, &infoHashLength, sizeof(infoHashLength));
-  }
+  uint32_t infoHashLength = 0;
+  WRITE_CHECK(fp, &infoHashLength, sizeof(infoHashLength));
   // pieceLength: 32 bits
   uint32_t pieceLengthNL = htonl(dctx_->getPieceLength());
   WRITE_CHECK(fp, &pieceLengthNL, sizeof(pieceLengthNL));
@@ -153,12 +115,6 @@ void DefaultBtProgressInfoFile::save(IOFile& fp)
   WRITE_CHECK(fp, &totalLengthNL, sizeof(totalLengthNL));
   // uploadLength: 64 bits
   uint64_t uploadLengthNL = 0;
-#ifdef ENABLE_BITTORRENT
-  if (torrentDownload) {
-    uploadLengthNL = hton64(btRuntime_->getUploadLengthAtStartup() +
-                            dctx_->getNetStat().getSessionUploadLength());
-  }
-#endif // ENABLE_BITTORRENT
   WRITE_CHECK(fp, &uploadLengthNL, sizeof(uploadLengthNL));
   // bitfieldLength: 32 bits
   uint32_t bitfieldLengthNL = htonl(pieceStorage_->getBitfieldLength());
@@ -254,10 +210,8 @@ void DefaultBtProgressInfoFile::load()
   }
   unsigned char extension[4];
   READ_CHECK(fp, extension, sizeof(extension));
-  bool infoHashCheckEnabled = false;
-  if (extension[3] & 1 && isTorrentDownload()) {
-    infoHashCheckEnabled = true;
-    A2_LOG_DEBUG("InfoHash checking enabled.");
+  if (extension[3] & 1) {
+    A2_LOG_DEBUG("Ignoring obsolete BitTorrent control-file info hash.");
   }
 
   uint32_t infoHashLength;
@@ -265,24 +219,12 @@ void DefaultBtProgressInfoFile::load()
   if (version >= 1) {
     infoHashLength = ntohl(infoHashLength);
   }
-  if (infoHashLength > INFO_HASH_LENGTH ||
-      (infoHashLength != INFO_HASH_LENGTH && infoHashCheckEnabled)) {
+  if (infoHashLength > 20) {
     throw DL_ABORT_EX(fmt("Invalid info hash length: %d", infoHashLength));
   }
   if (infoHashLength > 0) {
-    std::array<unsigned char, INFO_HASH_LENGTH> savedInfoHash;
+    std::array<unsigned char, 20> savedInfoHash;
     READ_CHECK(fp, savedInfoHash.data(), infoHashLength);
-#ifdef ENABLE_BITTORRENT
-    if (infoHashCheckEnabled) {
-      const unsigned char* infoHash = bittorrent::getInfoHash(dctx_);
-      if (memcmp(savedInfoHash.data(), infoHash, INFO_HASH_LENGTH) != 0) {
-        throw DL_ABORT_EX(
-            fmt("info hash mismatch. expected: %s, actual: %s",
-                util::toHex(infoHash, INFO_HASH_LENGTH).c_str(),
-                util::toHex(savedInfoHash.data(), infoHashLength).c_str()));
-      }
-    }
-#endif // ENABLE_BITTORRENT
   }
 
   uint32_t pieceLength;
@@ -310,11 +252,6 @@ void DefaultBtProgressInfoFile::load()
   if (version >= 1) {
     uploadLength = ntoh64(uploadLength);
   }
-#ifdef ENABLE_BITTORRENT
-  if (isTorrentDownload()) {
-    btRuntime_->setUploadLengthAtStartup(uploadLength);
-  }
-#endif // ENABLE_BITTORRENT
   // TODO implement the conversion mechanism between different piece length.
   uint32_t bitfieldLength;
   READ_CHECK(fp, &bitfieldLength, sizeof(bitfieldLength));
@@ -422,19 +359,5 @@ bool DefaultBtProgressInfoFile::exists()
     return false;
   }
 }
-
-#ifdef ENABLE_BITTORRENT
-void DefaultBtProgressInfoFile::setPeerStorage(
-    const std::shared_ptr<PeerStorage>& peerStorage)
-{
-  peerStorage_ = peerStorage;
-}
-
-void DefaultBtProgressInfoFile::setBtRuntime(
-    const std::shared_ptr<BtRuntime>& btRuntime)
-{
-  btRuntime_ = btRuntime;
-}
-#endif // ENABLE_BITTORRENT
 
 } // namespace aria2

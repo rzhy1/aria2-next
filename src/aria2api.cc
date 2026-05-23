@@ -63,7 +63,7 @@
 #include "Notifier.h"
 #include "ApiCallbackDownloadEventListener.h"
 #ifdef ENABLE_BITTORRENT
-#  include "bittorrent_helper.h"
+#  include "LibtorrentAttribute.h"
 #endif // ENABLE_BITTORRENT
 
 namespace aria2 {
@@ -703,8 +703,8 @@ struct RequestGroupDH : public DownloadHandle {
   virtual const std::string& getInfoHash() CXX11_OVERRIDE
   {
 #ifdef ENABLE_BITTORRENT
-    if (group->getDownloadContext()->hasAttribute(CTX_ATTR_BT)) {
-      return bittorrent::getTorrentAttrs(group->getDownloadContext())->infoHash;
+    if (group->getDownloadContext()->hasAttribute(CTX_ATTR_LIBTORRENT)) {
+      return getLibtorrentAttrs(group->getDownloadContext())->status.infoHash;
     }
 #endif // ENABLE_BITTORRENT
     return A2STR::NIL;
@@ -764,18 +764,12 @@ struct RequestGroupDH : public DownloadHandle {
   {
     BtMetaInfoData res;
 #ifdef ENABLE_BITTORRENT
-    if (group->getDownloadContext()->hasAttribute(CTX_ATTR_BT)) {
-      auto torrentAttrs =
-          bittorrent::getTorrentAttrs(group->getDownloadContext());
-      res.announceList = torrentAttrs->announceList;
-      res.comment = torrentAttrs->comment;
-      res.creationDate = torrentAttrs->creationDate;
-      res.mode = torrentAttrs->mode;
-      if (!torrentAttrs->metadata.empty()) {
-        res.name = torrentAttrs->name;
-      }
+    if (group->getDownloadContext()->hasAttribute(CTX_ATTR_LIBTORRENT)) {
+      res.creationDate = 0;
+      res.mode = BT_FILE_MODE_NONE;
+      res.name = getLibtorrentAttrs(group->getDownloadContext())->status.name;
+      return res;
     }
-    else
 #endif // ENABLE_BITTORRENT
     {
       res.creationDate = 0;

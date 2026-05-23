@@ -68,7 +68,6 @@
 #include "fmt.h"
 #include "wallclock.h"
 #ifdef ENABLE_BITTORRENT
-#  include "BtRegistry.h"
 #  include "LibtorrentSession.h"
 #endif // ENABLE_BITTORRENT
 #ifdef ENABLE_WEBSOCKET
@@ -102,9 +101,6 @@ DownloadEngine::DownloadEngine(std::unique_ptr<EventPoll> eventPoll)
       refreshInterval_(DEFAULT_REFRESH_INTERVAL),
       lastRefresh_(Timer::zero()),
       cookieStorage_(make_unique<CookieStorage>()),
-#ifdef ENABLE_BITTORRENT
-      btRegistry_(make_unique<BtRegistry>()),
-#endif // ENABLE_BITTORRENT
       dnsCache_(make_unique<DNSCache>()),
       option_(nullptr)
 {

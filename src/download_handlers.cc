@@ -41,9 +41,7 @@
 #  include "MetalinkPostDownloadHandler.h"
 #endif // ENABLE_METALINK
 #ifdef ENABLE_BITTORRENT
-#  include "BtPostDownloadHandler.h"
 #  include "MemoryBencodePreDownloadHandler.h"
-#  include "UTMetadataPostDownloadHandler.h"
 #endif // ENABLE_BITTORRENT
 
 namespace aria2 {
@@ -94,8 +92,6 @@ const PostDownloadHandler* getMetalinkPostDownloadHandler()
 
 namespace {
 std::unique_ptr<PreDownloadHandler> btPreDownloadHandler;
-std::unique_ptr<PostDownloadHandler> btPostDownloadHandler;
-std::unique_ptr<PostDownloadHandler> btMetadataPostDownloadHandler;
 } // namespace
 
 const PreDownloadHandler* getBtPreDownloadHandler()
@@ -108,23 +104,6 @@ const PreDownloadHandler* getBtPreDownloadHandler()
                                                      getBtExtensions()));
   }
   return btPreDownloadHandler.get();
-}
-
-const PostDownloadHandler* getBtPostDownloadHandler()
-{
-  if (!btPostDownloadHandler) {
-    btPostDownloadHandler = make_unique<BtPostDownloadHandler>();
-  }
-  return btPostDownloadHandler.get();
-}
-
-const PostDownloadHandler* getUTMetadataPostDownloadHandler()
-{
-  if (!btMetadataPostDownloadHandler) {
-    btMetadataPostDownloadHandler =
-        make_unique<UTMetadataPostDownloadHandler>();
-  }
-  return btMetadataPostDownloadHandler.get();
 }
 
 #endif // ENABLE_BITTORRENT

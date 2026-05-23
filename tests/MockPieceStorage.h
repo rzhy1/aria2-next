@@ -43,59 +43,6 @@ public:
 
   virtual ~MockPieceStorage() {}
 
-#ifdef ENABLE_BITTORRENT
-
-  virtual bool hasMissingPiece(const std::shared_ptr<Peer>& peer) CXX11_OVERRIDE
-  {
-    return false;
-  }
-
-  virtual void getMissingPiece(std::vector<std::shared_ptr<Piece>>& pieces,
-                               size_t minMissingBlocks,
-                               const std::shared_ptr<Peer>& peer,
-                               cuid_t cuid) CXX11_OVERRIDE
-  {
-  }
-
-  virtual void getMissingPiece(std::vector<std::shared_ptr<Piece>>& pieces,
-                               size_t minMissingBlocks,
-                               const std::shared_ptr<Peer>& peer,
-                               const std::vector<size_t>& excludedIndexes,
-                               cuid_t cuid) CXX11_OVERRIDE
-  {
-  }
-
-  virtual void getMissingFastPiece(std::vector<std::shared_ptr<Piece>>& pieces,
-                                   size_t minMissingBlocks,
-                                   const std::shared_ptr<Peer>& peer,
-                                   cuid_t cuid) CXX11_OVERRIDE
-  {
-  }
-
-  virtual void getMissingFastPiece(std::vector<std::shared_ptr<Piece>>& pieces,
-                                   size_t minMissingBlocks,
-                                   const std::shared_ptr<Peer>& peer,
-                                   const std::vector<size_t>& excludedIndexes,
-                                   cuid_t cuid) CXX11_OVERRIDE
-  {
-  }
-
-  virtual std::shared_ptr<Piece>
-  getMissingPiece(const std::shared_ptr<Peer>& peer, cuid_t cuid) CXX11_OVERRIDE
-  {
-    return std::shared_ptr<Piece>(new Piece());
-  }
-
-  virtual std::shared_ptr<Piece>
-  getMissingPiece(const std::shared_ptr<Peer>& peer,
-                  const std::vector<size_t>& excludedIndexes,
-                  cuid_t cuid) CXX11_OVERRIDE
-  {
-    return std::shared_ptr<Piece>(new Piece());
-  }
-
-#endif // ENABLE_BITTORRENT
-
   virtual bool hasMissingUnusedPiece() CXX11_OVERRIDE { return false; }
 
   virtual std::shared_ptr<Piece>

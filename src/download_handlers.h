@@ -58,8 +58,6 @@ const PostDownloadHandler* getMetalinkPostDownloadHandler();
 #ifdef ENABLE_BITTORRENT
 
 const PreDownloadHandler* getBtPreDownloadHandler();
-const PostDownloadHandler* getBtPostDownloadHandler();
-const PostDownloadHandler* getUTMetadataPostDownloadHandler();
 
 #endif // ENABLE_BITTORRENT
 

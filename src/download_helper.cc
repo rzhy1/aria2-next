@@ -542,6 +542,21 @@ std::shared_ptr<MetadataInfo> createMetadataInfoDataOnly()
 #ifdef ENABLE_BITTORRENT
 
 namespace {
+void applyTrackerOptions(LibtorrentAttribute* attrs,
+                         const std::shared_ptr<Option>& option,
+                         TorrentAttribute* torrentAttrs)
+{
+  bittorrent::adjustAnnounceUri(torrentAttrs, option);
+  int tier = 0;
+  for (auto& trackerTier : torrentAttrs->announceList) {
+    for (auto& uri : trackerTier) {
+      attrs->trackerUris.push_back(uri);
+      attrs->trackerTiers.push_back(tier);
+    }
+    ++tier;
+  }
+}
+
 void setLibtorrentFilePriorities(LibtorrentAttribute* attrs,
                                  const std::shared_ptr<Option>& option,
                                  const ValueBase* torrent)
@@ -620,6 +635,13 @@ createBtRequestGroup(const std::string& metaInfoUri,
       metaInfoUri, torrentData, auxUris, optionTemplate);
   auto attrs = getLibtorrentAttrs(rg->getDownloadContext());
   setLibtorrentFilePriorities(attrs, rg->getOption(), torrent);
+  if (adjustAnnounceUri) {
+    auto torrentDctx = std::make_shared<DownloadContext>();
+    bittorrent::loadFromMemory(torrent, torrentDctx, rg->getOption(), {},
+                               metaInfoUri.empty() ? "torrent" : metaInfoUri);
+    applyTrackerOptions(attrs, rg->getOption(),
+                        bittorrent::getTorrentAttrs(torrentDctx));
+  }
   return rg;
 }
 } // namespace
@@ -629,8 +651,13 @@ std::shared_ptr<RequestGroup>
 createBtMagnetRequestGroup(const std::string& magnetLink,
                            const std::shared_ptr<Option>& optionTemplate)
 {
-  return createLibtorrentRequestGroup(LibtorrentAttribute::SourceType::MAGNET,
-                                      magnetLink, "", {}, optionTemplate);
+  auto rg = createLibtorrentRequestGroup(
+      LibtorrentAttribute::SourceType::MAGNET, magnetLink, "", {},
+      optionTemplate);
+  auto torrentAttrs = bittorrent::parseMagnet(magnetLink);
+  applyTrackerOptions(getLibtorrentAttrs(rg->getDownloadContext()),
+                      rg->getOption(), torrentAttrs.get());
+  return rg;
 }
 } // namespace
 

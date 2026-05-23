@@ -14,7 +14,9 @@
 #define D_LIBTORRENT_SESSION_H
 
 #include "common.h"
+#include "GroupId.h"
 
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -33,6 +35,7 @@ class Option;
 class LibtorrentSession {
 private:
   std::unique_ptr<libtorrent::session> session_;
+  std::map<a2_gid_t, libtorrent::torrent_handle> handles_;
 
 public:
   explicit LibtorrentSession(const Option* option);
@@ -42,9 +45,13 @@ public:
   LibtorrentSession& operator=(const LibtorrentSession&) = delete;
 
   libtorrent::torrent_handle
-  addTorrent(libtorrent::add_torrent_params params);
+  addTorrent(a2_gid_t gid, libtorrent::add_torrent_params params);
 
-  void removeTorrent(const libtorrent::torrent_handle& handle);
+  void removeTorrent(a2_gid_t gid);
+  bool hasTorrent(a2_gid_t gid) const;
+  void setTorrentDownloadLimit(a2_gid_t gid, int limit);
+  void setTorrentUploadLimit(a2_gid_t gid, int limit);
+  void setTorrentMaxConnections(a2_gid_t gid, int limit);
 
   void pollAlerts(std::vector<libtorrent::alert*>& alerts);
 

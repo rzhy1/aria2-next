@@ -17,6 +17,7 @@
 #ifdef ENABLE_BITTORRENT
 #  include "LibtorrentAttribute.h"
 #  include "LibtorrentCommand.h"
+#  include "LibtorrentSession.h"
 #endif // ENABLE_BITTORRENT
 
 namespace aria2 {
@@ -33,6 +34,7 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testLibtorrentCommandLoadsTorrentMetadata);
   CPPUNIT_TEST(testLibtorrentVerifiedProgressOverridesPieceStorage);
   CPPUNIT_TEST(testLibtorrentResumeDataRoundTrip);
+  CPPUNIT_TEST(testLibtorrentSessionTracksActiveTorrent);
 #endif // ENABLE_BITTORRENT
   CPPUNIT_TEST_SUITE_END();
 
@@ -51,6 +53,7 @@ public:
   void testLibtorrentCommandLoadsTorrentMetadata();
   void testLibtorrentVerifiedProgressOverridesPieceStorage();
   void testLibtorrentResumeDataRoundTrip();
+  void testLibtorrentSessionTracksActiveTorrent();
 #endif // ENABLE_BITTORRENT
 };
 
@@ -305,6 +308,42 @@ void RequestGroupTest::testLibtorrentResumeDataRoundTrip()
   attrsPtr->setResumeData(saved);
   CPPUNIT_ASSERT(attrsPtr->hasResumeData());
   CPPUNIT_ASSERT_EQUAL(resumeData, attrsPtr->getResumeData());
+}
+
+void RequestGroupTest::testLibtorrentSessionTracksActiveTorrent()
+{
+  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
+  option_->put(PREF_DRY_RUN, A2_V_FALSE);
+  option_->put(PREF_LISTEN_PORT, "0");
+  option_->put(PREF_DHT_LISTEN_PORT, "0");
+
+  auto ctx = std::make_shared<DownloadContext>(1_k, 0, "magnet");
+  ctx->markTotalLengthIsUnknown();
+  ctx->setAttribute(
+      CTX_ATTR_LIBTORRENT,
+      make_unique<LibtorrentAttribute>(
+          LibtorrentAttribute::SourceType::MAGNET,
+          "magnet:?xt=urn:btih:0101010101010101010101010101010101010101", "",
+          std::vector<std::string>{}));
+
+  RequestGroup group(GroupId::create(), option_);
+  group.setDownloadContext(ctx);
+
+  auto eventPoll = make_unique<SelectEventPoll>();
+  auto engine = make_unique<DownloadEngine>(std::move(eventPoll));
+  engine->setOption(option_.get());
+
+  auto command = make_unique<LibtorrentCommand>(engine->newCUID(), &group,
+                                                engine.get());
+  command->preProcess();
+  auto& session = engine->getLibtorrentSession();
+  CPPUNIT_ASSERT(session.hasTorrent(group.getGID()));
+
+  session.setTorrentDownloadLimit(group.getGID(), 100_k);
+  session.setTorrentUploadLimit(group.getGID(), 50_k);
+  session.setTorrentMaxConnections(group.getGID(), 40);
+  command.reset();
+  CPPUNIT_ASSERT(!session.hasTorrent(group.getGID()));
 }
 #endif // ENABLE_BITTORRENT
 

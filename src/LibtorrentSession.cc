@@ -108,20 +108,58 @@ LibtorrentSession::LibtorrentSession(const Option* option)
 
 LibtorrentSession::~LibtorrentSession() = default;
 
-lt::torrent_handle LibtorrentSession::addTorrent(lt::add_torrent_params params)
+lt::torrent_handle LibtorrentSession::addTorrent(a2_gid_t gid,
+                                                 lt::add_torrent_params params)
 {
   lt::error_code ec;
   auto handle = session_->add_torrent(std::move(params), ec);
   if (ec) {
     throw DL_ABORT_EX(ec.message());
   }
+  handles_[gid] = handle;
   return handle;
 }
 
-void LibtorrentSession::removeTorrent(const lt::torrent_handle& handle)
+void LibtorrentSession::removeTorrent(a2_gid_t gid)
 {
+  auto itr = handles_.find(gid);
+  if (itr == handles_.end()) {
+    return;
+  }
+  auto handle = itr->second;
+  handles_.erase(itr);
   if (handle.is_valid()) {
     session_->remove_torrent(handle);
+  }
+}
+
+bool LibtorrentSession::hasTorrent(a2_gid_t gid) const
+{
+  auto itr = handles_.find(gid);
+  return itr != handles_.end() && itr->second.is_valid();
+}
+
+void LibtorrentSession::setTorrentDownloadLimit(a2_gid_t gid, int limit)
+{
+  auto itr = handles_.find(gid);
+  if (itr != handles_.end() && itr->second.is_valid()) {
+    itr->second.set_download_limit(limit);
+  }
+}
+
+void LibtorrentSession::setTorrentUploadLimit(a2_gid_t gid, int limit)
+{
+  auto itr = handles_.find(gid);
+  if (itr != handles_.end() && itr->second.is_valid()) {
+    itr->second.set_upload_limit(limit);
+  }
+}
+
+void LibtorrentSession::setTorrentMaxConnections(a2_gid_t gid, int limit)
+{
+  auto itr = handles_.find(gid);
+  if (itr != handles_.end() && itr->second.is_valid()) {
+    itr->second.set_max_connections(limit == 0 ? -1 : limit);
   }
 }
 

@@ -150,7 +150,7 @@ LibtorrentCommand::LibtorrentCommand(cuid_t cuid, RequestGroup* requestGroup,
 LibtorrentCommand::~LibtorrentCommand()
 {
   if (torrentAdded_) {
-    session_->removeTorrent(handle_);
+    session_->removeTorrent(requestGroup_->getGID());
   }
   requestGroup_->decreaseNumCommand();
 }
@@ -190,7 +190,13 @@ void LibtorrentCommand::addTorrent()
 {
   auto attrs = getLibtorrentAttrs(requestGroup_->getDownloadContext());
   auto params = createAddTorrentParams(attrs, requestGroup_->getOption().get());
-  handle_ = session_->addTorrent(std::move(params));
+  handle_ = session_->addTorrent(requestGroup_->getGID(), std::move(params));
+  auto option = requestGroup_->getOption();
+  handle_.set_download_limit(option->getAsInt(PREF_MAX_DOWNLOAD_LIMIT));
+  handle_.set_upload_limit(option->getAsInt(PREF_MAX_UPLOAD_LIMIT));
+  handle_.set_max_connections(option->getAsInt(PREF_BT_MAX_PEERS) == 0
+                                  ? -1
+                                  : option->getAsInt(PREF_BT_MAX_PEERS));
   torrentAdded_ = true;
   A2_LOG_INFO(fmt("GID#%s - Added BitTorrent download to libtorrent.",
                   requestGroup_->getGroupId()->toHex().c_str()));

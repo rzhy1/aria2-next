@@ -77,6 +77,7 @@
 #  include "bittorrent_helper.h"
 #  include "BtRegistry.h"
 #  include "LibtorrentAttribute.h"
+#  include "LibtorrentSession.h"
 #  include "PeerStorage.h"
 #  include "Peer.h"
 #  include "BtRuntime.h"
@@ -1937,11 +1938,34 @@ void changeOption(const std::shared_ptr<RequestGroup>& group,
   if (option.defined(PREF_MAX_DOWNLOAD_LIMIT)) {
     group->setMaxDownloadSpeedLimit(
         grOption->getAsInt(PREF_MAX_DOWNLOAD_LIMIT));
+#ifdef ENABLE_BITTORRENT
+    if (dctx && dctx->hasAttribute(CTX_ATTR_LIBTORRENT)) {
+      if (auto session = e->getInitializedLibtorrentSession()) {
+        session->setTorrentDownloadLimit(
+            group->getGID(), grOption->getAsInt(PREF_MAX_DOWNLOAD_LIMIT));
+      }
+    }
+#endif // ENABLE_BITTORRENT
   }
   if (option.defined(PREF_MAX_UPLOAD_LIMIT)) {
     group->setMaxUploadSpeedLimit(grOption->getAsInt(PREF_MAX_UPLOAD_LIMIT));
+#ifdef ENABLE_BITTORRENT
+    if (dctx && dctx->hasAttribute(CTX_ATTR_LIBTORRENT)) {
+      if (auto session = e->getInitializedLibtorrentSession()) {
+        session->setTorrentUploadLimit(
+            group->getGID(), grOption->getAsInt(PREF_MAX_UPLOAD_LIMIT));
+      }
+    }
+#endif // ENABLE_BITTORRENT
   }
 #ifdef ENABLE_BITTORRENT
+  if (dctx && dctx->hasAttribute(CTX_ATTR_LIBTORRENT) &&
+      option.defined(PREF_BT_MAX_PEERS)) {
+    if (auto session = e->getInitializedLibtorrentSession()) {
+      session->setTorrentMaxConnections(group->getGID(),
+                                        grOption->getAsInt(PREF_BT_MAX_PEERS));
+    }
+  }
   auto btObject = e->getBtRegistry()->get(group->getGID());
   if (btObject) {
     if (option.defined(PREF_BT_MAX_PEERS)) {

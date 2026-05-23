@@ -319,6 +319,10 @@ public:
   }
 
   LibtorrentSession& getLibtorrentSession();
+  LibtorrentSession* getInitializedLibtorrentSession() const
+  {
+    return libtorrentSession_.get();
+  }
 #endif // ENABLE_BITTORRENT
 
   cuid_t newCUID();

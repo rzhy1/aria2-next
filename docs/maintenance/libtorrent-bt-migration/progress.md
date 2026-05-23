@@ -110,3 +110,20 @@ with `OK (1141)`.
 Remaining: Run magnet-metadata smoke when practical, then remove obsolete
 native BT progress persistence in BTM-006.3 or BTM-008.
 Blocked: none.
+
+2026-05-23 BTM-007 active
+Changed: Added GID-indexed libtorrent torrent-handle tracking, mapped active
+per-download download limit, upload limit, and maximum peer changes to the
+libtorrent handle, applied stored group options when the torrent is added, and
+kept option-only updates from creating an unused libtorrent session.
+Verified: `testLibtorrentSessionTracksActiveTorrent`,
+`testChangeOption`, `All Tests/aria2::rpc::RpcMethodTest`, and
+`All Tests/aria2::RequestGroupTest` passed. `cmake --build
+build/libtorrent-positive --target aria2_tests -- -j2` succeeded.
+`build/libtorrent-positive/aria2_tests` passed with `OK (1142)`.
+`git diff --check CMakeLists.txt cmake src tests
+docs/maintenance/libtorrent-bt-migration` passed. CSV parser check passed with
+`CSV OK 13`.
+Remaining: Map file priorities, pause/resume/remove details, and seed ratio or
+seed time policy before closing BTM-007.
+Blocked: none.

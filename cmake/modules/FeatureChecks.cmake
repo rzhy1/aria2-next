@@ -24,7 +24,7 @@ if(NOT ARIA2_CA_BUNDLE AND NOT WIN32)
       /etc/ssl/cert.pem)
     if(EXISTS "${aria2_ca_bundle_candidate}")
       set(ARIA2_CA_BUNDLE "${aria2_ca_bundle_candidate}" CACHE FILEPATH
-          "CA bundle fallback path for OpenSSL and GnuTLS builds" FORCE)
+          "CA bundle fallback path for OpenSSL builds" FORCE)
       break()
     endif()
   endforeach()
@@ -285,6 +285,18 @@ if(ARIA2_WITH_ZLIB AND ZLIB_FOUND)
   check_function_exists(gzsetparams HAVE_GZSETPARAMS)
   cmake_pop_check_state()
 endif()
+if(ARIA2_WITH_ZLIB AND NOT ZLIB_FOUND)
+  message(FATAL_ERROR
+    "aria2-next requires zlib ${ARIA2_MIN_ZLIB_VERSION} or newer.")
+endif()
+
+aria2_pkg_check(LIBCURL "libcurl>=${ARIA2_MIN_LIBCURL_VERSION}")
+if(NOT LIBCURL_FOUND)
+  message(FATAL_ERROR
+    "aria2-next requires libcurl ${ARIA2_MIN_LIBCURL_VERSION} or newer. "
+    "Install libcurl development files.")
+endif()
+set(HAVE_LIBCURL 1)
 
 aria2_pkg_check(LIBXML2 "libxml-2.0>=${ARIA2_MIN_LIBXML2_VERSION}")
 if(ARIA2_WITH_LIBXML2 AND LIBXML2_FOUND)
@@ -323,55 +335,17 @@ if(ARIA2_WITH_LIBUV AND LIBUV_FOUND)
   set(HAVE_LIBUV 1)
 endif()
 
-aria2_pkg_check(LIBGNUTLS "gnutls>=${ARIA2_MIN_GNUTLS_VERSION}")
 aria2_pkg_check(OPENSSL "openssl>=${ARIA2_MIN_OPENSSL_VERSION}")
-aria2_pkg_check(LIBNETTLE "nettle>=${ARIA2_MIN_LIBNETTLE_VERSION}")
-aria2_pkg_check(LIBGCRYPT "libgcrypt>=${ARIA2_MIN_LIBGCRYPT_VERSION}")
 aria2_pkg_check(LIBTORRENT_RASTERBAR "libtorrent-rasterbar")
-find_package(Boost QUIET)
+find_package(Boost ${ARIA2_MIN_BOOST_VERSION} REQUIRED COMPONENTS json)
 
-if(LIBNETTLE_FOUND)
-  cmake_push_check_state(RESET)
-  set(CMAKE_REQUIRED_LIBRARIES PkgConfig::LIBNETTLE)
-  check_cxx_source_compiles("
-#include <nettle/nettle-meta.h>
-int main() {
-  nettle_sha1.digest(0, 0);
-  return 0;
-}" HAVE_NETTLE_HASH_DIGEST_WITHOUT_LENGTH)
-  cmake_pop_check_state()
-endif()
-
-set(have_native_tls OFF)
-if(ARIA2_ENABLE_SSL AND WIN32 AND ARIA2_WITH_WINTLS)
-  cmake_push_check_state(RESET)
-  check_cxx_source_compiles("
-#include <winsock2.h>
-#include <windows.h>
-#include <security.h>
-#include <schnlsp.h>
-int main() {
-  SCH_CREDENTIALS credentials;
-  TLS_PARAMETERS tls_parameters;
-  credentials.dwVersion = SCH_CREDENTIALS_VERSION;
-  credentials.cTlsParameters = 1;
-  credentials.pTlsParameters = &tls_parameters;
-  return 0;
-}" HAVE_SCH_CREDENTIALS)
-  cmake_pop_check_state()
-  set(HAVE_WINTLS 1)
-  set(ENABLE_SSL 1)
-  set(have_native_tls ON)
-elseif(ARIA2_ENABLE_SSL AND ARIA2_WITH_OPENSSL AND OPENSSL_FOUND)
+if(ARIA2_ENABLE_SSL AND OPENSSL_FOUND)
   set(HAVE_OPENSSL 1)
   set(ENABLE_SSL 1)
-elseif(ARIA2_ENABLE_SSL AND ARIA2_WITH_GNUTLS AND LIBGNUTLS_FOUND)
-  set(HAVE_LIBGNUTLS 1)
-  set(ENABLE_SSL 1)
-  cmake_push_check_state(RESET)
-  set(CMAKE_REQUIRED_LIBRARIES PkgConfig::LIBGNUTLS)
-  check_function_exists(gnutls_certificate_set_x509_system_trust HAVE_GNUTLS_CERTIFICATE_SET_X509_SYSTEM_TRUST)
-  cmake_pop_check_state()
+elseif(ARIA2_ENABLE_SSL)
+  message(FATAL_ERROR
+    "SSL/TLS support requires OpenSSL ${ARIA2_MIN_OPENSSL_VERSION} or newer. "
+    "Install OpenSSL development files or configure with -DARIA2_ENABLE_SSL=OFF.")
 endif()
 
 if(HAVE_OPENSSL)
@@ -384,39 +358,8 @@ if(HAVE_OPENSSL)
   cmake_pop_check_state()
 endif()
 
-if(ARIA2_WITH_LIBNETTLE AND LIBNETTLE_FOUND AND NOT HAVE_OPENSSL AND NOT have_native_tls)
-  set(HAVE_LIBNETTLE 1)
-endif()
-
-if(ARIA2_WITH_GMP AND ARIA2_ENABLE_BITTORRENT AND NOT HAVE_OPENSSL AND (HAVE_LIBNETTLE OR have_native_tls))
-  check_library_exists(gmp __gmpz_init "" HAVE_LIBGMP)
-  if(HAVE_LIBGMP)
-    check_library_exists(gmp __gmpz_powm_sec "" HAVE___GMPZ_POWM_SEC)
-    if(HAVE___GMPZ_POWM_SEC)
-      set(HAVE_GMP_SEC 1)
-    endif()
-  endif()
-endif()
-
-if(ARIA2_WITH_LIBGCRYPT AND LIBGCRYPT_FOUND AND NOT HAVE_OPENSSL AND NOT HAVE_LIBNETTLE AND NOT have_native_tls)
-  set(HAVE_LIBGCRYPT 1)
-endif()
-
 if(HAVE_OPENSSL)
   set(USE_OPENSSL_MD 1)
-elseif(HAVE_LIBNETTLE)
-  set(USE_LIBNETTLE_MD 1)
-elseif(HAVE_LIBGCRYPT)
-  set(USE_LIBGCRYPT_MD 1)
-else()
-  set(USE_INTERNAL_MD 1)
-endif()
-
-if(NOT HAVE_LIBGMP AND NOT HAVE_LIBGCRYPT AND NOT HAVE_OPENSSL)
-  set(USE_INTERNAL_BIGNUM 1)
-endif()
-if(NOT HAVE_LIBNETTLE AND NOT HAVE_LIBGCRYPT AND NOT HAVE_OPENSSL)
-  set(USE_INTERNAL_ARC4 1)
 endif()
 
 if(ARIA2_ENABLE_BITTORRENT)
@@ -447,7 +390,4 @@ if(ARIA2_ENABLE_WEBSOCKET)
 endif()
 if(ARIA2_ENABLE_LIBARIA2)
   set(ENABLE_LIBARIA2 1)
-endif()
-if(ARIA2_WITH_GNUTLS_SYSTEM_CRYPTO_POLICY)
-  set(USE_GNUTLS_SYSTEM_CRYPTO_POLICY 1)
 endif()

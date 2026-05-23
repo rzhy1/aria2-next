@@ -94,7 +94,7 @@ cmake --build build/default
 ctest --test-dir build/default --output-on-failure
 ```
 
-Common options include `ARIA2_ENABLE_BITTORRENT`, `ARIA2_ENABLE_METALINK`, `ARIA2_ENABLE_WEBSOCKET`, `ARIA2_ENABLE_LIBARIA2`, `ARIA2_ENABLE_STATIC`, `ARIA2_RELEASE_SIZE_OPTIMIZED`, `ARIA2_RELEASE_LTO`, `ARIA2_WITH_WINTLS`, `ARIA2_WITH_OPENSSL`, `ARIA2_WITH_GNUTLS`, `ARIA2_WITH_LIBXML2`, `ARIA2_WITH_EXPAT`, `ARIA2_WITH_CARES`, `ARIA2_WITH_ZLIB`, `ARIA2_WITH_SQLITE3`, and `ARIA2_WITH_LIBSSH2`.
+Common options include `ARIA2_ENABLE_BITTORRENT`, `ARIA2_ENABLE_METALINK`, `ARIA2_ENABLE_WEBSOCKET`, `ARIA2_ENABLE_LIBARIA2`, `ARIA2_ENABLE_STATIC`, `ARIA2_RELEASE_SIZE_OPTIMIZED`, `ARIA2_RELEASE_LTO`, `ARIA2_WITH_LIBXML2`, `ARIA2_WITH_EXPAT`, `ARIA2_WITH_CARES`, `ARIA2_WITH_ZLIB`, `ARIA2_WITH_SQLITE3`, and `ARIA2_WITH_LIBSSH2`.
 
 Async DNS builds require c-ares 1.34.6 or newer.
 
@@ -114,7 +114,7 @@ Prebuilt artifacts are published on the [GitHub Releases](https://github.com/AnI
 
 Linux and macOS downloads are executable files. If your browser clears the executable bit, run `chmod +x ./aria2-next-<version>-<platform>`.
 
-Release binaries verify HTTPS certificates by default. Windows releases use WinTLS and the Windows trust store. OpenSSL and GnuTLS builds use system CA loading first, then a detected or explicitly configured CA bundle fallback. Official release builds also enable the size-optimized release profile so standalone artifacts keep the current dependency baseline without carrying avoidable dead code.
+Release binaries verify HTTPS certificates by default. OpenSSL builds use system CA loading first, then a detected or explicitly configured CA bundle fallback. Official release builds also enable the size-optimized release profile so standalone artifacts keep the current dependency baseline without carrying avoidable dead code.
 
 ## Maintenance Audit
 

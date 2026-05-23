@@ -61,3 +61,19 @@ README.md. The tracker records that legacy CMake options, source lists, README
 claims, and packaging dependencies still exist before CM-003+ migration work.
 Remaining: Start CM-003 build baseline.
 Blocked: none.
+
+2026-05-23 CM-003 verified
+Changed: Raised the project build baseline to C++17, added required CMake gates
+for libcurl, Boost.JSON, OpenSSL for SSL, zlib when enabled, and
+libtorrent-rasterbar for BitTorrent, linked aria2_core against the target
+dependency set, removed obsolete WinTLS, GnuTLS, nettle, GMP, libgcrypt, and
+GnuTLS policy build switches and generated-config defines, and updated README
+build option and TLS wording.
+Verified: `cmake --preset default` passed and reported SSL=1, OpenSSL=1,
+libcurl=1, Boost.JSON=1, BitTorrent=1, and libtorrent-rasterbar=1.
+`cmake --build --preset default` passed and linked aria2-next and aria2_tests.
+Stale build-option scan over cmake/modules, cmake/config.h.cmake.in, and
+README.md found no removed WinTLS/GnuTLS/nettle/GMP/libgcrypt option or
+generated-config names.
+Remaining: Start CM-004 runtime foundation.
+Blocked: none.

@@ -221,3 +221,15 @@ three completed ISO files had SHA-256
 `95838884f5ea6c82421dfe6baaa5a639dbbe6756c1e380f9fe7a7cb0c1949d2a`.
 Remaining: Run the final completion audit against the original goal contract.
 Blocked: none.
+
+2026-05-23 BTM-011 verified
+Changed: Added maintainer-selected KNOPPIX 9.1 DVD torrent smoke evidence to
+the final validation checkpoint.
+Verified: Sequential 90 second smoke under
+`/Users/sekiro/Desktop/aria2-next-current/knoppix-90s-smoke-143139` used
+`/Users/sekiro/Desktop/Test Torrents/KNOPPIX_V9.1DVD-2021-01-25-DE.torrent`.
+At 90 seconds, aria2-next reported 9,531,780 B/s and 869,269,504 bytes
+complete; reference aria2c reported 11,705,750 B/s and 1,014,476,647 bytes
+complete. Both remained active as expected for this larger torrent.
+Remaining: Run the final completion audit against the original goal contract.
+Blocked: none.

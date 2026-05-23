@@ -19,10 +19,13 @@
 #include "FileEntry.h"
 #include "LibtorrentAttribute.h"
 #include "LibtorrentSession.h"
+#include "LibtorrentSeedPolicy.h"
 #include "LogFactory.h"
+#include "Notifier.h"
 #include "Option.h"
 #include "PieceStorage.h"
 #include "RequestGroup.h"
+#include "SingletonHolder.h"
 #include "error_code.h"
 #include "fmt.h"
 #include "prefs.h"
@@ -160,7 +163,8 @@ LibtorrentCommand::LibtorrentCommand(cuid_t cuid, RequestGroup* requestGroup,
       uploadedLength_(0),
       resumeDataRequestTimer_(Timer::zero()),
       resumeDataRequested_(false),
-      torrentAdded_(false)
+      torrentAdded_(false),
+      btCompleteNotified_(false)
 {
   setStatusActive();
   requestGroup_->increaseNumCommand();
@@ -272,7 +276,7 @@ void LibtorrentCommand::updateStatus()
 
   auto attrs = getLibtorrentAttrs(requestGroup_->getDownloadContext());
   attrs->status.hasStatus = true;
-  attrs->status.complete = status.is_finished || status.is_seeding;
+  attrs->status.complete = false;
   attrs->status.seeding = status.is_seeding;
   attrs->status.hasMetadata = status.has_metadata;
   attrs->status.totalLength = status.total_wanted;
@@ -306,9 +310,24 @@ void LibtorrentCommand::updateStatus()
     requestGroup_->getPieceStorage()->markPiecesDone(status.total_wanted_done);
   }
 
-  if (status.is_seeding || status.is_finished) {
+  if (status.is_finished && !status.is_seeding) {
+    reportBtDownloadComplete();
+    attrs->status.complete = true;
     requestResumeData();
     finishDownload();
+  }
+  else if (status.is_seeding) {
+    reportBtDownloadComplete();
+    requestGroup_->enableSeedOnly();
+    requestResumeData();
+    if (!hasLibtorrentSeedLimit(requestGroup_->getOption().get()) ||
+        shouldStopLibtorrentSeeding(requestGroup_->getOption().get(),
+                                    status.total_wanted,
+                                    status.all_time_upload,
+                                    status.seeding_duration)) {
+      attrs->status.complete = true;
+      finishDownload();
+    }
   }
 }
 
@@ -333,6 +352,21 @@ void LibtorrentCommand::storeResumeData(const lt::add_torrent_params& params)
   auto data = lt::write_resume_data_buf(params);
   attrs->setResumeData(std::string(data.begin(), data.end()));
   resumeDataRequested_ = false;
+}
+
+void LibtorrentCommand::reportBtDownloadComplete()
+{
+  if (btCompleteNotified_) {
+    return;
+  }
+  auto option = requestGroup_->getOption();
+  util::executeHookByOptName(requestGroup_, option.get(),
+                             PREF_ON_BT_DOWNLOAD_COMPLETE);
+  if (SingletonHolder<Notifier>::instance()) {
+    SingletonHolder<Notifier>::instance()->notifyDownloadEvent(
+        EVENT_ON_BT_DOWNLOAD_COMPLETE, requestGroup_);
+  }
+  btCompleteNotified_ = true;
 }
 
 void LibtorrentCommand::finishDownload()

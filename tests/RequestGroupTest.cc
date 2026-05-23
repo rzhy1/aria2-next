@@ -33,6 +33,7 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCreateInitialCommandUsesLibtorrentRuntime);
   CPPUNIT_TEST(testLibtorrentCommandLoadsTorrentMetadata);
   CPPUNIT_TEST(testLibtorrentVerifiedProgressOverridesPieceStorage);
+  CPPUNIT_TEST(testLibtorrentAllDownloadFinishedUsesSeedingStatus);
   CPPUNIT_TEST(testLibtorrentResumeDataRoundTrip);
   CPPUNIT_TEST(testLibtorrentSessionTracksActiveTorrent);
 #endif // ENABLE_BITTORRENT
@@ -52,6 +53,7 @@ public:
   void testCreateInitialCommandUsesLibtorrentRuntime();
   void testLibtorrentCommandLoadsTorrentMetadata();
   void testLibtorrentVerifiedProgressOverridesPieceStorage();
+  void testLibtorrentAllDownloadFinishedUsesSeedingStatus();
   void testLibtorrentResumeDataRoundTrip();
   void testLibtorrentSessionTracksActiveTorrent();
 #endif // ENABLE_BITTORRENT
@@ -284,6 +286,29 @@ void RequestGroupTest::testLibtorrentVerifiedProgressOverridesPieceStorage()
   CPPUNIT_ASSERT(!group.downloadFinished());
   CPPUNIT_ASSERT_EQUAL((int64_t)100_k, group.getTotalLength());
   CPPUNIT_ASSERT_EQUAL((int64_t)99_k, group.getCompletedLength());
+}
+
+void RequestGroupTest::testLibtorrentAllDownloadFinishedUsesSeedingStatus()
+{
+  auto ctx = std::make_shared<DownloadContext>(1_k, 100_k, "torrent.bin");
+  auto attrs = make_unique<LibtorrentAttribute>(
+      LibtorrentAttribute::SourceType::TORRENT_FILE,
+      A2_TEST_DIR "/single.torrent", "", std::vector<std::string>{});
+  auto attrsPtr = attrs.get();
+  ctx->setAttribute(CTX_ATTR_LIBTORRENT, std::move(attrs));
+
+  RequestGroup group(GroupId::create(), option_);
+  group.setDownloadContext(ctx);
+  group.initPieceStorage();
+  group.getPieceStorage()->markAllPiecesDone();
+
+  attrsPtr->status.hasStatus = true;
+  attrsPtr->status.complete = true;
+  attrsPtr->status.seeding = false;
+  CPPUNIT_ASSERT(!group.allDownloadFinished());
+
+  attrsPtr->status.seeding = true;
+  CPPUNIT_ASSERT(group.allDownloadFinished());
 }
 
 void RequestGroupTest::testLibtorrentResumeDataRoundTrip()

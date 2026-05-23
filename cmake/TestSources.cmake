@@ -159,6 +159,7 @@ set(ARIA2_TEST_SOURCES_ENABLE_BITTORRENT
   tests/PeerTest.cc
   tests/PeerSessionResourceTest.cc
   tests/ShareRatioSeedCriteriaTest.cc
+  tests/LibtorrentSeedPolicyTest.cc
   tests/BtRegistryTest.cc
   tests/BtDependencyTest.cc
   tests/TimeSeedCriteriaTest.cc

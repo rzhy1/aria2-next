@@ -141,3 +141,9 @@ Verified: `testCreateRequestGroupForUri_LibtorrentTorrentSelectFile`,
 Remaining: Map pause/resume/remove details and seed ratio or seed time policy
 before closing BTM-007.
 Blocked: none.
+
+2026-05-23 BTM-007 verified
+Changed: Added libtorrent seed-policy mapping for `--seed-time` and `--seed-ratio`, kept selected-file completion separate from full-torrent seeding, routed `on-bt-download-complete` through the libtorrent command path once per download, and made `RequestGroup::allDownloadFinished()` use libtorrent seeding status for migrated BT downloads.
+Verified: `testStopsWhenSeedTimeElapsed`, `testStopsWhenShareRatioReached`, `testKeepsSeedingWhenRatioDisabled`, and `testLibtorrentAllDownloadFinishedUsesSeedingStatus` cover the new behavior. `build/libtorrent-positive/aria2_tests` passed with `OK (1148)`. `git diff --check CMakeLists.txt cmake src tests docs/maintenance/libtorrent-bt-migration` passed. CSV parser check passed with `CSV OK 13`.
+Remaining: Start BTM-008 native BitTorrent cleanup and obsolete test removal.
+Blocked: none.

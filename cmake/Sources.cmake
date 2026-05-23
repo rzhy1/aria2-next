@@ -438,6 +438,8 @@ set(ARIA2_SOURCES_BASE
   src/LibtorrentCommand.h
   src/LibtorrentProgressInfoFile.cc
   src/LibtorrentProgressInfoFile.h
+  src/LibtorrentSeedPolicy.cc
+  src/LibtorrentSeedPolicy.h
   src/LibtorrentSession.cc
   src/LibtorrentSession.h
   src/Signature.cc

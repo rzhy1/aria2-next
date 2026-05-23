@@ -34,12 +34,14 @@ private:
   Timer resumeDataRequestTimer_;
   bool resumeDataRequested_;
   bool torrentAdded_;
+  bool btCompleteNotified_;
 
   void addTorrent();
   void pollAlerts();
   void updateStatus();
   void requestResumeData();
   void storeResumeData(const libtorrent::add_torrent_params& params);
+  void reportBtDownloadComplete();
   void finishDownload();
   void failDownload(const std::string& message);
 

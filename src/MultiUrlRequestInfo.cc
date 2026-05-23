@@ -177,28 +177,6 @@ int MultiUrlRequestInfo::prepare()
   try {
     SingletonHolder<Notifier>::instance(make_unique<Notifier>());
 
-#ifdef ENABLE_SSL
-    if (option_->getAsBool(PREF_ENABLE_RPC) &&
-        option_->getAsBool(PREF_RPC_SECURE)) {
-      if (option_->blank(PREF_RPC_CERTIFICATE)) {
-        throw DL_ABORT_EX("Specify --rpc-certificate and --rpc-private-key "
-                          "options in order to use secure RPC.");
-      }
-      // We set server TLS context to the SocketCore before creating
-      // DownloadEngine instance.
-      auto minTLSVer = util::toTLSVersion(option_->get(PREF_MIN_TLS_VERSION));
-      std::shared_ptr<TLSContext> svTlsContext(
-          TLSContext::make(TLS_SERVER, minTLSVer));
-      if (!svTlsContext->addCredentialFile(
-              option_->get(PREF_RPC_CERTIFICATE),
-              option_->get(PREF_RPC_PRIVATE_KEY))) {
-        throw DL_ABORT_EX("Loading private key and/or certificate for secure "
-                          "RPC failed.");
-      }
-      SocketCore::setServerTLSContext(svTlsContext);
-    }
-#endif // ENABLE_SSL
-
     // RequestGroups will be transferred to DownloadEngine
     e_ = DownloadEngineFactory().newDownloadEngine(option_.get(),
                                                    std::move(requestGroups_));

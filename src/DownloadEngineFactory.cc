@@ -76,8 +76,9 @@
 #include "SelectEventPoll.h"
 #include "DlAbortEx.h"
 #include "FileAllocationEntry.h"
-#include "HttpListenCommand.h"
+#include "AsioPumpCommand.h"
 #include "LogFactory.h"
+#include "RpcBeastServer.h"
 
 namespace aria2 {
 
@@ -194,30 +195,23 @@ std::unique_ptr<DownloadEngine> DownloadEngineFactory::newDownloadEngine(
         make_unique<WatchProcessCommand>(e->newCUID(), e.get(), pid));
   }
   if (op->getAsBool(PREF_ENABLE_RPC)) {
-    if (op->get(PREF_RPC_SECRET).empty() && op->get(PREF_RPC_USER).empty()) {
-      A2_LOG_WARN("Neither --rpc-secret nor a combination of --rpc-user and "
-                  "--rpc-passwd is set. This is insecure. It is extremely "
-                  "recommended to specify --rpc-secret with the adequate "
-                  "secrecy or now deprecated --rpc-user and --rpc-passwd.");
+    if (op->get(PREF_RPC_SECRET).empty()) {
+      A2_LOG_WARN("No --rpc-secret is set. JSON-RPC requests are unauthenticated.");
     }
     bool ok = false;
-    bool secure = op->getAsBool(PREF_RPC_SECURE);
-    if (secure) {
-      A2_LOG_NOTICE("RPC transport will be encrypted.");
-    }
     static int families[] = {AF_INET, AF_INET6};
     size_t familiesLength = op->getAsBool(PREF_DISABLE_IPV6) ? 1 : 2;
     for (size_t i = 0; i < familiesLength; ++i) {
-      auto httpListenCommand = make_unique<HttpListenCommand>(
-          e->newCUID(), e.get(), families[i], secure);
-      if (httpListenCommand->bindPort(op->getAsInt(PREF_RPC_LISTEN_PORT))) {
-        e->addCommand(std::move(httpListenCommand));
+      auto server = std::make_shared<RpcBeastServer>(e.get(), families[i]);
+      if (server->bindPort(op->getAsInt(PREF_RPC_LISTEN_PORT))) {
+        e->addRpcServer(std::move(server));
         ok = true;
       }
     }
     if (!ok) {
       throw DL_ABORT_EX("Failed to setup RPC server.");
     }
+    e->addCommand(make_unique<AsioPumpCommand>(e->newCUID(), e.get()));
   }
   return e;
 }

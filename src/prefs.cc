@@ -268,22 +268,12 @@ PrefPtr PREF_EVENT_POLL = makePref("event-poll");
 PrefPtr PREF_ENABLE_RPC = makePref("enable-rpc");
 // value: 1*digit
 PrefPtr PREF_RPC_LISTEN_PORT = makePref("rpc-listen-port");
-// value: string
-PrefPtr PREF_RPC_USER = makePref("rpc-user");
-// value: string
-PrefPtr PREF_RPC_PASSWD = makePref("rpc-passwd");
 // value: 1*digit
 PrefPtr PREF_RPC_MAX_REQUEST_SIZE = makePref("rpc-max-request-size");
 // value: true | false
 PrefPtr PREF_RPC_LISTEN_ALL = makePref("rpc-listen-all");
 // value: true | false
 PrefPtr PREF_RPC_ALLOW_ORIGIN_ALL = makePref("rpc-allow-origin-all");
-// value: string that your file system recognizes as a file name.
-PrefPtr PREF_RPC_CERTIFICATE = makePref("rpc-certificate");
-// value: string that your file system recognizes as a file name.
-PrefPtr PREF_RPC_PRIVATE_KEY = makePref("rpc-private-key");
-// value: true | false
-PrefPtr PREF_RPC_SECURE = makePref("rpc-secure");
 // value: true | false
 PrefPtr PREF_RPC_SAVE_UPLOAD_METADATA = makePref("rpc-save-upload-metadata");
 // value: true | false

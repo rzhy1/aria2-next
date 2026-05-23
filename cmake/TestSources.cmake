@@ -70,8 +70,8 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/ValueBaseJsonParserTest.cc
   tests/RpcResponseTest.cc
   tests/RpcMethodTest.cc
+  tests/RpcHttpHandlerTest.cc
   tests/WebSocketSessionManTest.cc
-  tests/HttpServerTest.cc
   tests/BufferedFileTest.cc
   tests/GeomStreamPieceSelectorTest.cc
   tests/SegListTest.cc

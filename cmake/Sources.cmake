@@ -13,8 +13,6 @@ set(ARIA2_SOURCES_BASE
   src/AbstractCommand.h
   src/AbstractDiskWriter.cc
   src/AbstractDiskWriter.h
-  src/AbstractHttpServerResponseCommand.cc
-  src/AbstractHttpServerResponseCommand.h
   src/AbstractOptionHandler.cc
   src/AbstractOptionHandler.h
   src/AbstractSingleDiskAdaptor.cc
@@ -25,6 +23,8 @@ set(ARIA2_SOURCES_BASE
   src/AdaptiveURISelector.h
   src/AnonDiskWriterFactory.h
   src/array_fun.h
+  src/AsioPumpCommand.cc
+  src/AsioPumpCommand.h
   src/AsioRuntime.cc
   src/AsioRuntime.h
   src/AutoSaveCommand.cc
@@ -222,16 +222,6 @@ set(ARIA2_SOURCES_BASE
   src/HttpHeader.h
   src/HttpHeaderProcessor.cc
   src/HttpHeaderProcessor.h
-  src/HttpListenCommand.cc
-  src/HttpListenCommand.h
-  src/HttpServer.cc
-  src/HttpServer.h
-  src/HttpServerBodyCommand.cc
-  src/HttpServerBodyCommand.h
-  src/HttpServerCommand.cc
-  src/HttpServerCommand.h
-  src/HttpServerResponseCommand.cc
-  src/HttpServerResponseCommand.h
   src/IndexedList.h
   src/InitiateConnectionCommand.cc
   src/InitiateConnectionCommand.h
@@ -357,6 +347,10 @@ set(ARIA2_SOURCES_BASE
   src/RpcRequest.h
   src/RpcResponse.cc
   src/RpcResponse.h
+  src/RpcBeastServer.cc
+  src/RpcBeastServer.h
+  src/RpcHttpHandler.cc
+  src/RpcHttpHandler.h
   src/rpc_helper.cc
   src/rpc_helper.h
   src/SaveSessionCommand.h
@@ -480,8 +474,6 @@ set(ARIA2_SOURCES_MINGW_BUILD
 set(ARIA2_SOURCES_ENABLE_WEBSOCKET
   src/WebSocketInteractionCommand.cc
   src/WebSocketInteractionCommand.h
-  src/WebSocketResponseCommand.cc
-  src/WebSocketResponseCommand.h
   src/WebSocketSession.cc
   src/WebSocketSession.h
   src/WebSocketSessionMan.cc

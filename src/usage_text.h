@@ -723,14 +723,6 @@
   _(" --rpc-max-request-size=SIZE  Set max size of JSON-RPC/XML-RPC request. If aria2\n" \
     "                              detects the request is more than SIZE bytes, it\n" \
     "                              drops connection.")
-#define TEXT_RPC_USER                               \
-  _(" --rpc-user=USER              Set JSON-RPC/XML-RPC user. This option will be\n" \
-    "                              deprecated in the future release. Migrate to\n" \
-    "                              --rpc-secret option as soon as possible.")
-#define TEXT_RPC_PASSWD                                     \
-  _(" --rpc-passwd=PASSWD          Set JSON-RPC/XML-RPC password. This option will\n" \
-    "                              be deprecated in the future release. Migrate to\n" \
-    "                              --rpc-secret option as soon as possible.")
 #define TEXT_RPC_LISTEN_ALL                                         \
   _(" --rpc-listen-all[=true|false] Listen incoming JSON-RPC/XML-RPC requests on all\n" \
     "                              network interfaces. If false is given, listen only\n" \
@@ -834,24 +826,6 @@
     "                              options at startup.")
 #define TEXT_ENABLE_MMAP                        \
   _(" --enable-mmap[=true|false]   Map files into memory.")
-#define TEXT_RPC_CERTIFICATE                                            \
-  _(" --rpc-certificate=FILE       Use the certificate in FILE for RPC server.\n" \
-    "                              The certificate must be in PEM format.\n" \
-    "                              Use --rpc-private-key option to specify the\n" \
-    "                              private key. Use --rpc-secure option to enable\n" \
-    "                              encryption.")
-#define TEXT_RPC_PRIVATE_KEY                                            \
-  _(" --rpc-private-key=FILE       Use the private key in FILE for RPC server.\n" \
-    "                              The private key must be decrypted and in PEM\n" \
-    "                              format. Use --rpc-secure option to enable\n" \
-    "                              encryption. See also --rpc-certificate option.")
-#define TEXT_RPC_SECURE                         \
-  _(" --rpc-secure[=true|false]    RPC transport will be encrypted by SSL/TLS.\n" \
-    "                              The RPC clients must use https scheme to access\n" \
-    "                              the server. For WebSocket client, use wss\n" \
-    "                              scheme. Use --rpc-certificate and\n" \
-    "                              --rpc-private-key options to specify the\n" \
-    "                              server certificate and private key.")
 #define TEXT_RPC_SAVE_UPLOAD_METADATA                                   \
   _(" --rpc-save-upload-metadata[=true|false] Save the uploaded torrent or\n" \
     "                              metalink metadata in the directory specified\n" \

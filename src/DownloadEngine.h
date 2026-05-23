@@ -65,6 +65,7 @@ class EventPoll;
 class Command;
 class AsioRuntime;
 class CurlSession;
+class RpcBeastServer;
 #ifdef ENABLE_BITTORRENT
 class LibtorrentSession;
 #endif // ENABLE_BITTORRENT
@@ -94,6 +95,8 @@ private:
   std::unique_ptr<AsioRuntime> runtime_;
 
   std::unique_ptr<CurlSession> curlSession_;
+
+  std::vector<std::shared_ptr<RpcBeastServer>> rpcServers_;
 
   std::unique_ptr<StatCalc> statCalc_;
 
@@ -262,6 +265,8 @@ public:
   void wakeRuntime();
 
   void scheduleRuntimeWake(std::chrono::milliseconds delay);
+
+  void addRpcServer(std::shared_ptr<RpcBeastServer> server);
 
   void addRoutineCommand(std::unique_ptr<Command> command);
 

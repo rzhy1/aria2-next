@@ -848,12 +848,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(new LocalFilePathOptionHandler(
-        PREF_RPC_CERTIFICATE, TEXT_RPC_CERTIFICATE, NO_DEFAULT_VALUE, false));
-    op->addTag(TAG_RPC);
-    handlers.push_back(op);
-  }
-  {
     OptionHandler* op(new BooleanOptionHandler(PREF_RPC_LISTEN_ALL,
                                                TEXT_RPC_LISTEN_ALL, A2_V_FALSE,
                                                OptionHandler::OPT_ARG));
@@ -873,12 +867,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(new LocalFilePathOptionHandler(
-        PREF_RPC_PRIVATE_KEY, TEXT_RPC_PRIVATE_KEY, NO_DEFAULT_VALUE, false));
-    op->addTag(TAG_RPC);
-    handlers.push_back(op);
-  }
-  {
     OptionHandler* op(new BooleanOptionHandler(
         PREF_RPC_SAVE_UPLOAD_METADATA, TEXT_RPC_SAVE_UPLOAD_METADATA, A2_V_TRUE,
         OptionHandler::OPT_ARG));
@@ -892,28 +880,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     op->addTag(TAG_RPC);
     op->setEraseAfterParse(true);
     op->setAllowEmpty(false);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new BooleanOptionHandler(
-        PREF_RPC_SECURE, TEXT_RPC_SECURE, A2_V_FALSE, OptionHandler::OPT_ARG));
-    op->addTag(TAG_RPC);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new DeprecatedOptionHandler(
-        new DefaultOptionHandler(PREF_RPC_USER, TEXT_RPC_USER), nullptr, true,
-        "Migrate to --rpc-secret option as soon as possible."));
-    op->addTag(TAG_RPC);
-    op->setEraseAfterParse(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new DeprecatedOptionHandler(
-        new DefaultOptionHandler(PREF_RPC_PASSWD, TEXT_RPC_PASSWD), nullptr,
-        true));
-    op->addTag(TAG_RPC);
-    op->setEraseAfterParse(true);
     handlers.push_back(op);
   }
   // HTTP/FTP options

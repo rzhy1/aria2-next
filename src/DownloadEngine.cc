@@ -71,6 +71,7 @@
 #  include "WebSocketSessionMan.h"
 #endif // ENABLE_WEBSOCKET
 #include "Option.h"
+#include "RpcBeastServer.h"
 #include "util_security.h"
 #include "AsioRuntime.h"
 #include "CurlSession.h"
@@ -332,6 +333,11 @@ void DownloadEngine::scheduleRuntimeWake(std::chrono::milliseconds delay)
 {
   runtime_->scheduleWake(delay);
   setRefreshInterval(delay);
+}
+
+void DownloadEngine::addRpcServer(std::shared_ptr<RpcBeastServer> server)
+{
+  rpcServers_.push_back(std::move(server));
 }
 
 void DownloadEngine::addRoutineCommand(std::unique_ptr<Command> command)

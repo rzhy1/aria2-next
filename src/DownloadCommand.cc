@@ -78,7 +78,9 @@ DownloadCommand::DownloadCommand(
     : AbstractCommand(cuid, req, fileEntry, requestGroup, e, s,
                       socketRecvBuffer),
       startupIdleTime_(10),
+      progressCheckPoint_(global::wallclock()),
       lowestDownloadSpeedLimit_(0),
+      progressLength_(0),
       pieceHashValidationEnabled_(false)
 {
   {
@@ -272,11 +274,13 @@ bool DownloadCommand::executeInternal()
       // [FileEntry->getLastOffset(), FileEntry->getLastOffset())
       getSegmentMan()->cancelSegment(getCuid(), segment);
     }
+    checkProgressTimeout();
     checkLowestDownloadSpeed();
     // this unit is going to download another segment.
     return prepareForNextSegment();
   }
   else {
+    checkProgressTimeout();
     checkLowestDownloadSpeed();
     setWriteCheckSocketIf(getSocket(), shouldEnableWriteCheck());
     checkSocketRecvBuffer();
@@ -302,6 +306,24 @@ void DownloadCommand::checkLowestDownloadSpeed() const
                              getRequest()->getHost().c_str()),
                          error_code::TOO_SLOW_DOWNLOAD_SPEED);
     }
+  }
+}
+
+void DownloadCommand::checkProgressTimeout()
+{
+  if (getRequestGroup()->downloadFinished()) {
+    return;
+  }
+
+  const auto length = peerStat_->getSessionDownloadLength();
+  if (length > progressLength_) {
+    progressLength_ = length;
+    progressCheckPoint_ = global::wallclock();
+    return;
+  }
+
+  if (progressCheckPoint_.difference(global::wallclock()) >= getTimeout()) {
+    throw DL_RETRY_EX2(EX_TIME_OUT, error_code::TIME_OUT);
   }
 }
 

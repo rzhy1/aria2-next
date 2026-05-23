@@ -55,7 +55,11 @@ private:
 
   std::chrono::seconds startupIdleTime_;
 
+  Timer progressCheckPoint_;
+
   int lowestDownloadSpeedLimit_;
+
+  uint64_t progressLength_;
 
   bool pieceHashValidationEnabled_;
 
@@ -75,6 +79,8 @@ protected:
   virtual bool noCheck() const CXX11_OVERRIDE;
 
   virtual bool prepareForNextSegment();
+
+  void checkProgressTimeout();
 
   // This is file local offset
   virtual int64_t getRequestEndOffset() const = 0;

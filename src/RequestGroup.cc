@@ -1016,6 +1016,11 @@ void RequestGroup::setPieceStorage(
   pieceStorage_ = pieceStorage;
 }
 
+void RequestGroup::setSegmentMan(const std::shared_ptr<SegmentMan>& segmentMan)
+{
+  segmentMan_ = segmentMan;
+}
+
 void RequestGroup::setProgressInfoFile(
     const std::shared_ptr<BtProgressInfoFile>& progressInfoFile)
 {

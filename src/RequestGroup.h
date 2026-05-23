@@ -289,6 +289,8 @@ public:
 
   void setPieceStorage(const std::shared_ptr<PieceStorage>& pieceStorage);
 
+  void setSegmentMan(const std::shared_ptr<SegmentMan>& segmentMan);
+
   void setProgressInfoFile(
       const std::shared_ptr<BtProgressInfoFile>& progressInfoFile);
 

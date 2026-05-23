@@ -164,3 +164,19 @@ manual returned no matches. Native BT residue scan over source, tests, and CMake
 returned no matches. CSV parser check passed with `CSV OK 13`.
 Remaining: Start BTM-009 non-BitTorrent 0B or 99 percent stall watchdog.
 Blocked: none.
+
+2026-05-23 BTM-009 verified
+Changed: Added a focused native transfer progress watchdog to `DownloadCommand`
+for HTTP, FTP, and SFTP download commands. The watchdog tracks payload progress
+through `PeerStat` session bytes, resets on real payload advancement, and raises
+the existing timeout retry path when socket activity continues without download
+progress. This keeps the separate non-BitTorrent 0B or 99 percent stall path out
+of libtorrent and avoids broad timeout behavior in `AbstractCommand`.
+Verified: `build/libtorrent-positive/aria2_tests 'All
+Tests/aria2::AbstractCommandTest'` passed with `OK (2)`.
+`build/libtorrent-positive/aria2_tests 'All Tests/aria2::RequestGroupTest'`
+passed with `OK (10)`. `build/libtorrent-positive/aria2_tests 'All
+Tests/aria2::rpc::RpcMethodTest'` passed with `OK (46)`.
+`build/libtorrent-positive/aria2_tests` passed with `OK (820)`.
+Remaining: Start BTM-010 docs, completion, packaging, and release-path updates.
+Blocked: none.

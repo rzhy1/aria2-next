@@ -60,6 +60,9 @@
 #include "ed2k_kad.h"
 #include "ed2k_link.h"
 #include "ed2k_server.h"
+#ifdef ENABLE_BITTORRENT
+#  include "LibtorrentAttribute.h"
+#endif // ENABLE_BITTORRENT
 
 #if HAVE_ZLIB
 #  include "GZipFile.h"
@@ -244,7 +247,31 @@ bool writeUri(IOFile& fp, InputIterator first, InputIterator last,
 //  GID of torrent download itself is persisted.
 
 namespace {
-bool writeDownloadResult(IOFile& fp, std::set<a2_gid_t>& metainfoCache,
+struct SessionIdentityCache {
+  std::set<a2_gid_t> metainfo;
+  std::set<std::string> btInfoHashes;
+};
+} // namespace
+
+namespace {
+std::string getBtInfoHash(const std::shared_ptr<DownloadResult>& dr)
+{
+#ifdef ENABLE_BITTORRENT
+  if (!dr->infoHash.empty()) {
+    return dr->infoHash;
+  }
+  if (dr->attrs.size() > CTX_ATTR_LIBTORRENT && dr->attrs[CTX_ATTR_LIBTORRENT]) {
+    auto attrs =
+        static_cast<LibtorrentAttribute*>(dr->attrs[CTX_ATTR_LIBTORRENT].get());
+    return !attrs->infoHash.empty() ? attrs->infoHash : attrs->status.infoHash;
+  }
+#endif // ENABLE_BITTORRENT
+  return {};
+}
+} // namespace
+
+namespace {
+bool writeDownloadResult(IOFile& fp, SessionIdentityCache& identityCache,
                          const std::shared_ptr<DownloadResult>& dr,
                          bool pauseRequested)
 {
@@ -252,14 +279,21 @@ bool writeDownloadResult(IOFile& fp, std::set<a2_gid_t>& metainfoCache,
   if (dr->belongsTo != 0 || (mi && mi->dataOnly()) || !dr->followedBy.empty()) {
     return true;
   }
+  const auto btInfoHash = getBtInfoHash(dr);
+  if (!btInfoHash.empty()) {
+    if (identityCache.btInfoHashes.count(btInfoHash) != 0) {
+      return true;
+    }
+    identityCache.btInfoHashes.insert(btInfoHash);
+  }
   if (!mi) {
     // With --force-save option, same gid may be saved twice when a metadata
     // download and its generated content download are both persisted.
-    if (metainfoCache.count(dr->gid->getNumericId()) != 0) {
+    if (identityCache.metainfo.count(dr->gid->getNumericId()) != 0) {
       return true;
     }
     else {
-      metainfoCache.insert(dr->gid->getNumericId());
+      identityCache.metainfo.insert(dr->gid->getNumericId());
     }
     // only save first file entry
     if (dr->fileEntries.empty()) {
@@ -338,11 +372,11 @@ bool writeDownloadResult(IOFile& fp, std::set<a2_gid_t>& metainfoCache,
     }
   }
   else {
-    if (metainfoCache.count(mi->getGID()) != 0) {
+    if (identityCache.metainfo.count(mi->getGID()) != 0) {
       return true;
     }
     else {
-      metainfoCache.insert(mi->getGID());
+      identityCache.metainfo.insert(mi->getGID());
       if (fp.write(mi->getUri().c_str(), mi->getUri().size()) !=
               mi->getUri().size() ||
           fp.write("\n", 1) != 1) {
@@ -369,7 +403,7 @@ bool writeDownloadResult(IOFile& fp, std::set<a2_gid_t>& metainfoCache,
 
 namespace {
 template <typename InputIt>
-bool saveDownloadResult(IOFile& fp, std::set<a2_gid_t>& metainfoCache,
+bool saveDownloadResult(IOFile& fp, SessionIdentityCache& identityCache,
                         InputIt first, InputIt last, bool saveInProgress,
                         bool saveError)
 {
@@ -388,11 +422,14 @@ bool saveDownloadResult(IOFile& fp, std::set<a2_gid_t>& metainfoCache,
     case error_code::MAX_FILE_NOT_FOUND:
       save = saveError && dr->option->getAsBool(PREF_SAVE_NOT_FOUND);
       break;
+    case error_code::DUPLICATE_INFO_HASH:
+      save = false;
+      break;
     default:
       save = saveError;
       break;
     }
-    if (save && !writeDownloadResult(fp, metainfoCache, dr, false)) {
+    if (save && !writeDownloadResult(fp, identityCache, dr, false)) {
       return false;
     }
   }
@@ -402,7 +439,7 @@ bool saveDownloadResult(IOFile& fp, std::set<a2_gid_t>& metainfoCache,
 
 bool SessionSerializer::save(IOFile& fp) const
 {
-  std::set<a2_gid_t> metainfoCache;
+  SessionIdentityCache identityCache;
 
   if (!writeEd2kSharedStore(fp, rgman_->getEd2kSharedStore())) {
     return false;
@@ -412,14 +449,14 @@ bool SessionSerializer::save(IOFile& fp) const
   }
 
   const auto& unfinishedResults = rgman_->getUnfinishedDownloadResult();
-  if (!saveDownloadResult(fp, metainfoCache, std::begin(unfinishedResults),
+  if (!saveDownloadResult(fp, identityCache, std::begin(unfinishedResults),
                           std::end(unfinishedResults), saveInProgress_,
                           saveError_)) {
     return false;
   }
 
   const auto& results = rgman_->getDownloadResults();
-  if (!saveDownloadResult(fp, metainfoCache, std::begin(results),
+  if (!saveDownloadResult(fp, identityCache, std::begin(results),
                           std::end(results), saveInProgress_, saveError_)) {
     return false;
   }
@@ -433,7 +470,7 @@ bool SessionSerializer::save(IOFile& fp) const
                      dr->result == error_code::REMOVED;
       if ((!stopped && saveInProgress_) ||
           (stopped && dr->option->getAsBool(PREF_FORCE_SAVE))) {
-        if (!writeDownloadResult(fp, metainfoCache, dr,
+        if (!writeDownloadResult(fp, identityCache, dr,
                                  rg->isPauseRequested())) {
           return false;
         }
@@ -444,7 +481,7 @@ bool SessionSerializer::save(IOFile& fp) const
     const auto& groups = rgman_->getReservedGroups();
     for (const auto& rg : groups) {
       auto result = rg->createDownloadResult();
-      if (!writeDownloadResult(fp, metainfoCache, result,
+      if (!writeDownloadResult(fp, identityCache, result,
                                rg->isPauseRequested())) {
         return false;
       }

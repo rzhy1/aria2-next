@@ -25,16 +25,23 @@
 #include "Option.h"
 #include "PieceStorage.h"
 #include "RequestGroup.h"
+#include "RecoverableException.h"
 #include "SingletonHolder.h"
 #include "error_code.h"
 #include "fmt.h"
 #include "prefs.h"
 #include "util.h"
 
+#include <algorithm>
+#include <cstring>
+
 #include <libtorrent/add_torrent_params.hpp>
 #include <libtorrent/alert_types.hpp>
+#include <libtorrent/announce_entry.hpp>
+#include <libtorrent/info_hash.hpp>
 #include <libtorrent/load_torrent.hpp>
 #include <libtorrent/magnet_uri.hpp>
+#include <libtorrent/peer_info.hpp>
 #include <libtorrent/read_resume_data.hpp>
 #include <libtorrent/sha1_hash.hpp>
 #include <libtorrent/torrent_flags.hpp>
@@ -46,8 +53,36 @@ namespace aria2 {
 namespace lt = libtorrent;
 
 namespace {
+std::string getV1InfoHash(const lt::add_torrent_params& params)
+{
+  if (params.info_hashes.has_v1()) {
+    return params.info_hashes.v1.to_string();
+  }
+  if (params.ti) {
+    auto hashes = params.ti->info_hashes();
+    if (hashes.has_v1()) {
+      return hashes.v1.to_string();
+    }
+  }
+  return {};
+}
+
+bool matchesExpectedInfoHash(const lt::add_torrent_params& params,
+                             const std::string& expected)
+{
+  auto actual = getV1InfoHash(params);
+  return expected.empty() || (!actual.empty() && actual == expected);
+}
+
+bool matchesExpectedInfoHashForSave(const lt::add_torrent_params& params,
+                                    const std::string& expected)
+{
+  auto actual = getV1InfoHash(params);
+  return expected.empty() || actual.empty() || actual == expected;
+}
+
 lt::add_torrent_params
-createAddTorrentParams(const LibtorrentAttribute* attrs, const Option* option)
+createAddTorrentParams(LibtorrentAttribute* attrs, const Option* option)
 {
   lt::add_torrent_params params;
   lt::error_code ec;
@@ -76,7 +111,7 @@ createAddTorrentParams(const LibtorrentAttribute* attrs, const Option* option)
         lt::span<char const>(attrs->getResumeData().data(),
                              static_cast<int>(attrs->getResumeData().size())),
         ec);
-    if (!ec) {
+    if (!ec && matchesExpectedInfoHash(resumeParams, attrs->infoHash)) {
       resumeParams.save_path = option->get(PREF_DIR);
       resumeParams.url_seeds.assign(attrs->webSeedUris.begin(),
                                     attrs->webSeedUris.end());
@@ -89,9 +124,15 @@ createAddTorrentParams(const LibtorrentAttribute* attrs, const Option* option)
       }
       params = std::move(resumeParams);
     }
+    else if (!ec) {
+      A2_LOG_WARN(
+          "Ignoring libtorrent resume data with mismatched infoHash.");
+      attrs->setResumeData("");
+    }
     else {
       A2_LOG_WARN(fmt("Ignoring invalid libtorrent resume data: %s",
                       ec.message().c_str()));
+      attrs->setResumeData("");
     }
   }
 
@@ -124,6 +165,155 @@ createAddTorrentParams(const LibtorrentAttribute* attrs, const Option* option)
   params.flags &= ~lt::torrent_flags::paused;
   params.flags &= ~lt::torrent_flags::auto_managed;
   return params;
+}
+
+std::vector<std::vector<std::string>>
+createAnnounceList(const std::vector<lt::announce_entry>& trackers)
+{
+  std::vector<std::vector<std::string>> result;
+  for (const auto& tracker : trackers) {
+    if (tracker.url.empty()) {
+      continue;
+    }
+    if (result.size() <= tracker.tier) {
+      result.resize(static_cast<size_t>(tracker.tier) + 1);
+    }
+    result[tracker.tier].push_back(tracker.url);
+  }
+  return result;
+}
+
+void storeAnnounceList(LibtorrentAttribute* attrs,
+                       const std::vector<std::vector<std::string>>& tiers)
+{
+  attrs->trackerUris.clear();
+  attrs->trackerTiers.clear();
+  for (size_t tier = 0; tier < tiers.size(); ++tier) {
+    for (const auto& uri : tiers[tier]) {
+      attrs->trackerUris.push_back(uri);
+      attrs->trackerTiers.push_back(static_cast<int>(tier));
+    }
+  }
+}
+
+std::string peerAddress(const lt::peer_info& peer)
+{
+  auto address = peer.ip.address();
+  if (address.is_v4()) {
+    return address.to_v4().to_string();
+  }
+  if (address.is_v6()) {
+    return address.to_v6().to_string();
+  }
+  return {};
+}
+
+std::string peerBitfield(const lt::peer_info& peer)
+{
+  std::string bitfield;
+  if (peer.pieces.empty()) {
+    return bitfield;
+  }
+  bitfield.resize(peer.pieces.num_bytes());
+  std::memcpy(&bitfield[0], peer.pieces.data(), bitfield.size());
+  return bitfield;
+}
+
+std::vector<LibtorrentAttribute::Peer>
+createPeerList(const std::vector<lt::peer_info>& peers)
+{
+  std::vector<LibtorrentAttribute::Peer> result;
+  result.reserve(peers.size());
+  for (const auto& peer : peers) {
+    LibtorrentAttribute::Peer entry;
+    auto id = peer.pid.to_string();
+    entry.peerId.assign(id.begin(), id.end());
+    entry.ip = peerAddress(peer);
+    entry.port = peer.ip.port();
+    entry.bitfield = peerBitfield(peer);
+    entry.downloadSpeed = peer.payload_down_speed;
+    entry.uploadSpeed = peer.payload_up_speed;
+    entry.amChoking = bool(peer.flags & lt::peer_info::choked);
+    entry.peerChoking = bool(peer.flags & lt::peer_info::remote_choked);
+    entry.seeder = bool(peer.flags & lt::peer_info::seed);
+    result.push_back(std::move(entry));
+  }
+  return result;
+}
+
+bool isPartialSelection(const lt::torrent_status& status)
+{
+  return status.has_metadata && status.total_wanted < status.total;
+}
+
+bool isSharing(const lt::torrent_status& status)
+{
+  return status.is_seeding || (status.is_finished && isPartialSelection(status));
+}
+
+std::string bitfieldBytes(const lt::typed_bitfield<lt::piece_index_t>& pieces)
+{
+  std::string bitfield;
+  if (pieces.empty()) {
+    return bitfield;
+  }
+  bitfield.resize(pieces.num_bytes());
+  std::memcpy(&bitfield[0], pieces.data(), bitfield.size());
+  return bitfield;
+}
+
+int64_t calculateWantedLength(const lt::add_torrent_params& params)
+{
+  if (!params.ti) {
+    return 0;
+  }
+  const auto& files = params.ti->files();
+  int64_t total = 0;
+  for (auto i = 0; i < files.num_files(); ++i) {
+    if (!params.file_priorities.empty() &&
+        static_cast<size_t>(i) < params.file_priorities.size() &&
+        params.file_priorities[static_cast<size_t>(i)] == lt::dont_download) {
+      continue;
+    }
+    total += files.file_size(lt::file_index_t(i));
+  }
+  return total;
+}
+
+int64_t calculateCompletedLength(const lt::add_torrent_params& params)
+{
+  if (!params.ti || params.have_pieces.empty()) {
+    return 0;
+  }
+  const auto& files = params.ti->files();
+  const auto pieceLength = params.ti->piece_length();
+  int64_t total = 0;
+  for (auto i = 0; i < files.num_files(); ++i) {
+    if (!params.file_priorities.empty() &&
+        static_cast<size_t>(i) < params.file_priorities.size() &&
+        params.file_priorities[static_cast<size_t>(i)] == lt::dont_download) {
+      continue;
+    }
+    const auto file = lt::file_index_t(i);
+    const auto fileBegin = files.file_offset(file);
+    const auto fileEnd = fileBegin + files.file_size(file);
+    if (fileEnd <= fileBegin || pieceLength <= 0) {
+      continue;
+    }
+    const auto firstPiece = static_cast<int>(fileBegin / pieceLength);
+    const auto lastPiece = static_cast<int>((fileEnd - 1) / pieceLength);
+    for (auto pieceIndex = firstPiece; pieceIndex <= lastPiece; ++pieceIndex) {
+      auto piece = lt::piece_index_t(pieceIndex);
+      if (params.have_pieces[piece]) {
+        const auto pieceBegin = static_cast<int64_t>(pieceIndex) * pieceLength;
+        const auto pieceEnd = pieceBegin + params.ti->piece_size(piece);
+        total += std::max<int64_t>(
+            0, std::min(fileEnd, pieceEnd) - std::max(fileBegin, pieceBegin));
+      }
+    }
+  }
+  auto wanted = calculateWantedLength(params);
+  return std::min(total, wanted);
 }
 
 std::vector<lt::download_priority_t>
@@ -218,9 +408,12 @@ LibtorrentCommand::LibtorrentCommand(cuid_t cuid, RequestGroup* requestGroup,
       completedLength_(0),
       uploadedLength_(0),
       resumeDataRequestTimer_(Timer::zero()),
+      sharingTimer_(Timer::zero()),
       resumeDataRequested_(false),
       torrentAdded_(false),
-      btCompleteNotified_(false)
+      btCompleteNotified_(false),
+      sharingTimerStarted_(false),
+      resumeDataSynced_(false)
 {
   setStatusActive();
   requestGroup_->increaseNumCommand();
@@ -246,6 +439,7 @@ void LibtorrentCommand::preProcess()
         resumeDataRequestTimer_.difference() < std::chrono::seconds(3)) {
       return;
     }
+    syncResumeDataOnExit();
     enableExit();
     return;
   }
@@ -269,7 +463,16 @@ void LibtorrentCommand::addTorrent()
 {
   auto attrs = getLibtorrentAttrs(requestGroup_->getDownloadContext());
   auto params = createAddTorrentParams(attrs, requestGroup_->getOption().get());
-  handle_ = session_->addTorrent(requestGroup_->getGID(), std::move(params));
+  if (attrs->hasResumeData()) {
+    storeResumeStatus(params);
+  }
+  try {
+    handle_ = session_->addTorrent(requestGroup_->getGID(), std::move(params));
+  }
+  catch (const RecoverableException& ex) {
+    failDownload(ex.getErrorCode(), ex.what());
+    return;
+  }
   if (!attrs->filePriorities.empty()) {
     attrs->filePrioritiesApplied = true;
   }
@@ -286,33 +489,27 @@ void LibtorrentCommand::addTorrent()
 
 void LibtorrentCommand::pollAlerts()
 {
-  std::vector<lt::alert*> alerts;
-  session_->pollAlerts(alerts);
-  for (auto alert : alerts) {
-    if (auto addAlert = lt::alert_cast<lt::add_torrent_alert>(alert)) {
-      if (addAlert->error) {
-        failDownload(addAlert->error.message());
-      }
-    }
-    else if (auto errAlert = lt::alert_cast<lt::torrent_error_alert>(alert)) {
-      failDownload(errAlert->error.message());
-    }
-    else if (auto fileAlert = lt::alert_cast<lt::file_error_alert>(alert)) {
-      failDownload(fileAlert->error.message());
-    }
-    else if (auto resumeAlert =
-                 lt::alert_cast<lt::save_resume_data_alert>(alert)) {
-      storeResumeData(resumeAlert->params);
-    }
-    else if (auto resumeError =
-                 lt::alert_cast<lt::save_resume_data_failed_alert>(alert)) {
+  std::vector<LibtorrentEvent> events;
+  session_->pollEvents(requestGroup_->getGID(), events);
+  for (const auto& event : events) {
+    switch (event.type) {
+    case LibtorrentEvent::Type::AddTorrentError:
+    case LibtorrentEvent::Type::TorrentError:
+    case LibtorrentEvent::Type::FileError:
+      failDownload(event.errorCode, event.message);
+      break;
+    case LibtorrentEvent::Type::SaveResumeData:
+      storeResumeData(event.resumeParams);
+      break;
+    case LibtorrentEvent::Type::SaveResumeDataFailed:
       resumeDataRequested_ = false;
       A2_LOG_WARN(fmt("Failed to save libtorrent resume data: %s",
-                      resumeError->error.message().c_str()));
-    }
-    else if (lt::alert_cast<lt::metadata_received_alert>(alert)) {
+                      event.message.c_str()));
+      break;
+    case LibtorrentEvent::Type::MetadataReceived:
       A2_LOG_INFO(fmt("GID#%s - BitTorrent metadata received by libtorrent.",
                       requestGroup_->getGroupId()->toHex().c_str()));
+      break;
     }
   }
 }
@@ -333,7 +530,11 @@ void LibtorrentCommand::updateStatus()
   auto attrs = getLibtorrentAttrs(requestGroup_->getDownloadContext());
   attrs->status.hasStatus = true;
   attrs->status.complete = false;
+  attrs->status.checking =
+      status.state == lt::torrent_status::checking_resume_data ||
+      status.state == lt::torrent_status::checking_files;
   attrs->status.seeding = status.is_seeding;
+  attrs->status.sharing = isSharing(status);
   attrs->status.hasMetadata = status.has_metadata;
   attrs->status.totalLength = status.total_wanted;
   attrs->status.completedLength = status.total_wanted_done;
@@ -341,7 +542,12 @@ void LibtorrentCommand::updateStatus()
   attrs->status.downloadSpeed = status.download_payload_rate;
   attrs->status.uploadSpeed = status.upload_payload_rate;
   attrs->status.connections = status.num_peers;
+  attrs->status.seeders = status.num_seeds;
   attrs->status.name = status.name;
+  if (attrs->status.sharing && !sharingTimerStarted_) {
+    sharingTimer_.reset();
+    sharingTimerStarted_ = true;
+  }
   if (!status.info_hashes.v1.is_all_zeros()) {
     auto hash = status.info_hashes.v1.to_string();
     attrs->status.infoHash.assign(hash.begin(), hash.end());
@@ -349,6 +555,15 @@ void LibtorrentCommand::updateStatus()
   if (!status.pieces.empty()) {
     attrs->status.bitfield.assign(status.pieces.data(),
                                   status.pieces.num_bytes());
+  }
+  try {
+    storeAnnounceList(attrs, createAnnounceList(handle_.trackers()));
+    std::vector<lt::peer_info> peers;
+    handle_.get_peer_info(peers);
+    attrs->peers = createPeerList(peers);
+  }
+  catch (const std::exception& ex) {
+    A2_LOG_DEBUG(fmt("Failed to refresh libtorrent RPC state: %s", ex.what()));
   }
 
   if (status.total_wanted_done > completedLength_) {
@@ -366,24 +581,45 @@ void LibtorrentCommand::updateStatus()
     requestGroup_->getPieceStorage()->markPiecesDone(status.total_wanted_done);
   }
 
-  if (status.is_finished && !status.is_seeding) {
+  if (status.is_finished && !status.is_seeding && isPartialSelection(status)) {
     reportBtDownloadComplete();
-    attrs->status.complete = true;
     requestResumeData();
-    finishDownload();
   }
   else if (status.is_seeding) {
     reportBtDownloadComplete();
     requestGroup_->enableSeedOnly();
     requestResumeData();
-    if (!hasLibtorrentSeedLimit(requestGroup_->getOption().get()) ||
-        shouldStopLibtorrentSeeding(requestGroup_->getOption().get(),
-                                    status.total_wanted,
-                                    status.all_time_upload,
-                                    status.seeding_duration)) {
-      attrs->status.complete = true;
-      finishDownload();
-    }
+  }
+  if (isSharing(status) && !resumeDataSynced_) {
+    syncResumeData();
+  }
+  if (isSharing(status) &&
+      shouldStopLibtorrentSharing(requestGroup_->getOption().get(),
+                                  status.total_wanted,
+                                  status.all_time_upload,
+                                  std::chrono::duration_cast<
+                                      std::chrono::seconds>(
+                                      sharingTimer_.difference()))) {
+    attrs->status.complete = true;
+    attrs->status.sharing = false;
+    finishDownload();
+  }
+}
+
+void LibtorrentCommand::storeResumeStatus(const lt::add_torrent_params& params)
+{
+  auto attrs = getLibtorrentAttrs(requestGroup_->getDownloadContext());
+  attrs->status.hasStatus = true;
+  attrs->status.checking = true;
+  auto& status = attrs->resumeStatus;
+  status.hasStatus = true;
+  status.hasMetadata = bool(params.ti);
+  status.totalLength = calculateWantedLength(params);
+  status.completedLength = calculateCompletedLength(params);
+  status.bitfield = bitfieldBytes(params.have_pieces);
+  status.infoHash = getV1InfoHash(params);
+  if (params.ti) {
+    status.name = params.ti->name();
   }
 }
 
@@ -402,12 +638,47 @@ void LibtorrentCommand::requestResumeData()
   }
 }
 
+void LibtorrentCommand::syncResumeDataOnExit()
+{
+  if (!handle_.is_valid() || !resumeDataRequested_) {
+    return;
+  }
+  syncResumeData();
+}
+
+void LibtorrentCommand::syncResumeData()
+{
+  if (!handle_.is_valid()) {
+    return;
+  }
+  try {
+    storeResumeData(handle_.get_resume_data());
+    resumeDataSynced_ = true;
+  }
+  catch (const std::exception& ex) {
+    A2_LOG_WARN(fmt("Failed to synchronously save libtorrent resume data: %s",
+                    ex.what()));
+  }
+}
+
 void LibtorrentCommand::storeResumeData(const lt::add_torrent_params& params)
 {
   auto attrs = getLibtorrentAttrs(requestGroup_->getDownloadContext());
+  if (!matchesExpectedInfoHashForSave(params, attrs->infoHash)) {
+    A2_LOG_WARN(
+        "Ignoring libtorrent resume data with mismatched infoHash.");
+    resumeDataRequested_ = false;
+    return;
+  }
   auto data = lt::write_resume_data_buf(params);
   attrs->setResumeData(std::string(data.begin(), data.end()));
   resumeDataRequested_ = false;
+  try {
+    requestGroup_->saveControlFile();
+  }
+  catch (const RecoverableException& ex) {
+    A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, ex);
+  }
 }
 
 void LibtorrentCommand::reportBtDownloadComplete()
@@ -434,9 +705,10 @@ void LibtorrentCommand::finishDownload()
   enableExit();
 }
 
-void LibtorrentCommand::failDownload(const std::string& message)
+void LibtorrentCommand::failDownload(error_code::Value code,
+                                     const std::string& message)
 {
-  requestGroup_->setLastErrorCode(error_code::UNKNOWN_ERROR, message.c_str());
+  requestGroup_->setLastErrorCode(code, message.c_str());
   requestGroup_->setHaltRequested(true);
   A2_LOG_ERROR(fmt("GID#%s - libtorrent error: %s",
                    requestGroup_->getGroupId()->toHex().c_str(),

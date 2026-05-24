@@ -27,10 +27,19 @@ bool shouldStopLibtorrentSeeding(const Option* option, int64_t completedLength,
                                  int64_t uploadLength,
                                  std::chrono::seconds seedingDuration)
 {
+  return hasLibtorrentSeedLimit(option) &&
+         shouldStopLibtorrentSharing(option, completedLength, uploadLength,
+                                     seedingDuration);
+}
+
+bool shouldStopLibtorrentSharing(const Option* option, int64_t completedLength,
+                                 int64_t uploadLength,
+                                 std::chrono::seconds sharingDuration)
+{
   if (option->defined(PREF_SEED_TIME)) {
     auto seedTime = std::chrono::seconds(
         static_cast<int>(option->getAsDouble(PREF_SEED_TIME) * 60));
-    if (seedingDuration >= seedTime) {
+    if (sharingDuration >= seedTime) {
       return true;
     }
   }

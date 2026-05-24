@@ -42,6 +42,8 @@ public:
 
   void remove(CURL* easy);
 
+  bool takeDoneResult(CURL* easy, CURLcode& result);
+
   int runningHandles() const { return runningHandles_; }
 
 private:
@@ -56,10 +58,13 @@ private:
 
   void clearSocket(curl_socket_t socket);
 
+  void drainMessages();
+
   DownloadEngine* engine_;
   CURLM* multi_;
   int runningHandles_;
   std::map<curl_socket_t, std::pair<Command*, int>> sockets_;
+  std::map<CURL*, CURLcode> doneResults_;
 };
 
 } // namespace aria2

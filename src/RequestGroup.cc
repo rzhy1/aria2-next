@@ -82,6 +82,19 @@
 
 namespace aria2 {
 
+#ifdef ENABLE_BITTORRENT
+namespace {
+bool shouldUseLibtorrentResumeStatus(const LibtorrentAttribute* attrs)
+{
+  return attrs->resumeStatus.hasStatus &&
+         (!attrs->status.hasStatus || attrs->status.checking ||
+          (attrs->status.totalLength == 0 &&
+           attrs->status.completedLength == 0 && !attrs->status.complete &&
+           attrs->resumeStatus.totalLength > 0));
+}
+} // namespace
+#endif // ENABLE_BITTORRENT
+
 RequestGroup::RequestGroup(const std::shared_ptr<GroupId>& gid,
                            const std::shared_ptr<Option>& option)
     : belongsToGID_(0),
@@ -145,13 +158,24 @@ bool RequestGroup::allDownloadFinished() const
 #ifdef ENABLE_BITTORRENT
   if (downloadContext_->hasAttribute(CTX_ATTR_LIBTORRENT)) {
     auto attrs = getLibtorrentAttrs(downloadContext_);
-    return attrs->status.hasStatus && attrs->status.seeding;
+    return attrs->status.hasStatus && attrs->status.complete &&
+           !attrs->status.seeding;
   }
 #endif // ENABLE_BITTORRENT
   if (!pieceStorage_) {
     return false;
   }
   return pieceStorage_->allDownloadFinished();
+}
+
+bool RequestGroup::shouldRemoveControlFileOnFinish() const
+{
+#ifdef ENABLE_BITTORRENT
+  if (downloadContext_->hasAttribute(CTX_ATTR_LIBTORRENT)) {
+    return allDownloadFinished();
+  }
+#endif // ENABLE_BITTORRENT
+  return allDownloadFinished() && !option_->getAsBool(PREF_FORCE_SAVE);
 }
 
 std::pair<error_code::Value, std::string> RequestGroup::downloadResult() const
@@ -738,6 +762,9 @@ int64_t RequestGroup::getTotalLength() const
 #ifdef ENABLE_BITTORRENT
   if (downloadContext_->hasAttribute(CTX_ATTR_LIBTORRENT)) {
     auto attrs = getLibtorrentAttrs(downloadContext_);
+    if (shouldUseLibtorrentResumeStatus(attrs)) {
+      return attrs->resumeStatus.totalLength;
+    }
     if (attrs->status.hasStatus || attrs->status.totalLength > 0) {
       return attrs->status.totalLength;
     }
@@ -759,6 +786,9 @@ int64_t RequestGroup::getCompletedLength() const
 #ifdef ENABLE_BITTORRENT
   if (downloadContext_->hasAttribute(CTX_ATTR_LIBTORRENT)) {
     auto attrs = getLibtorrentAttrs(downloadContext_);
+    if (shouldUseLibtorrentResumeStatus(attrs)) {
+      return attrs->resumeStatus.completedLength;
+    }
     if (attrs->status.hasStatus || attrs->status.completedLength > 0) {
       return attrs->status.completedLength;
     }
@@ -1119,7 +1149,7 @@ bool RequestGroup::isSeeder() const
 #ifdef ENABLE_BITTORRENT
   if (downloadContext_->hasAttribute(CTX_ATTR_LIBTORRENT)) {
     auto attrs = getLibtorrentAttrs(downloadContext_);
-    return attrs->status.hasStatus && attrs->status.seeding;
+    return attrs->status.hasStatus && attrs->status.sharing;
   }
   return false;
 #else  // !ENABLE_BITTORRENT

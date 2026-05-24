@@ -227,6 +227,9 @@ public:
 
   bool isSameFileBeingDownloaded(RequestGroup* requestGroup) const;
 
+  bool isSameLibtorrentInfoHashBeingDownloaded(
+      const RequestGroup* requestGroup) const;
+
   TransferStat calculateStat();
 
   class DownloadStat {

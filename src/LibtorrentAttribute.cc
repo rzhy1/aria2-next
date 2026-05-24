@@ -22,12 +22,14 @@ LibtorrentAttribute::LibtorrentAttribute(SourceType sourceType,
                                          std::string sourceUri,
                                          std::string torrentData,
                                          std::vector<std::string> webSeedUris,
-                                         std::string controlFilePath)
+                                         std::string controlFilePath,
+                                         std::string infoHash)
     : sourceType(sourceType),
       sourceUri(std::move(sourceUri)),
       torrentData(std::move(torrentData)),
       webSeedUris(std::move(webSeedUris)),
-      controlFilePath(std::move(controlFilePath))
+      controlFilePath(std::move(controlFilePath)),
+      infoHash(std::move(infoHash))
 {
 }
 

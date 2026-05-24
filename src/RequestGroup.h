@@ -224,6 +224,8 @@ public:
 
   bool allDownloadFinished() const;
 
+  bool shouldRemoveControlFileOnFinish() const;
+
   void closeFile();
 
   std::string getFirstFilePath() const;

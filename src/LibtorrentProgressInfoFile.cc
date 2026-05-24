@@ -24,7 +24,11 @@
 #include "message.h"
 #include "util.h"
 
+#include <algorithm>
 #include <cstring>
+
+#include <libtorrent/add_torrent_params.hpp>
+#include <libtorrent/read_resume_data.hpp>
 
 namespace aria2 {
 
@@ -35,6 +39,113 @@ std::string createFilename(const std::shared_ptr<DownloadContext>& dctx)
 {
   auto attrs = getLibtorrentAttrs(dctx);
   return attrs->controlFilePath;
+}
+
+std::string getV1InfoHash(const libtorrent::add_torrent_params& params)
+{
+  if (params.info_hashes.has_v1()) {
+    return params.info_hashes.v1.to_string();
+  }
+  if (params.ti) {
+    auto hashes = params.ti->info_hashes();
+    if (hashes.has_v1()) {
+      return hashes.v1.to_string();
+    }
+  }
+  return {};
+}
+
+std::string bitfieldBytes(
+    const libtorrent::typed_bitfield<libtorrent::piece_index_t>& pieces)
+{
+  std::string bitfield;
+  if (pieces.empty()) {
+    return bitfield;
+  }
+  bitfield.resize(pieces.num_bytes());
+  std::memcpy(&bitfield[0], pieces.data(), bitfield.size());
+  return bitfield;
+}
+
+int64_t calculateWantedLength(const libtorrent::add_torrent_params& params)
+{
+  if (!params.ti) {
+    return 0;
+  }
+  const auto& files = params.ti->files();
+  int64_t total = 0;
+  for (auto i = 0; i < files.num_files(); ++i) {
+    if (!params.file_priorities.empty() &&
+        static_cast<size_t>(i) < params.file_priorities.size() &&
+        params.file_priorities[static_cast<size_t>(i)] ==
+            libtorrent::dont_download) {
+      continue;
+    }
+    total += files.file_size(libtorrent::file_index_t(i));
+  }
+  return total;
+}
+
+int64_t calculateCompletedLength(const libtorrent::add_torrent_params& params)
+{
+  if (!params.ti || params.have_pieces.empty()) {
+    return 0;
+  }
+  const auto& files = params.ti->files();
+  const auto pieceLength = params.ti->piece_length();
+  int64_t total = 0;
+  for (auto i = 0; i < files.num_files(); ++i) {
+    if (!params.file_priorities.empty() &&
+        static_cast<size_t>(i) < params.file_priorities.size() &&
+        params.file_priorities[static_cast<size_t>(i)] ==
+            libtorrent::dont_download) {
+      continue;
+    }
+    const auto file = libtorrent::file_index_t(i);
+    const auto fileBegin = files.file_offset(file);
+    const auto fileEnd = fileBegin + files.file_size(file);
+    if (fileEnd <= fileBegin || pieceLength <= 0) {
+      continue;
+    }
+    const auto firstPiece = static_cast<int>(fileBegin / pieceLength);
+    const auto lastPiece = static_cast<int>((fileEnd - 1) / pieceLength);
+    for (auto pieceIndex = firstPiece; pieceIndex <= lastPiece; ++pieceIndex) {
+      auto piece = libtorrent::piece_index_t(pieceIndex);
+      if (params.have_pieces[piece]) {
+        const auto pieceBegin = static_cast<int64_t>(pieceIndex) * pieceLength;
+        const auto pieceEnd = pieceBegin + params.ti->piece_size(piece);
+        total += std::max<int64_t>(
+            0, std::min(fileEnd, pieceEnd) - std::max(fileBegin, pieceBegin));
+      }
+    }
+  }
+  auto wanted = calculateWantedLength(params);
+  return std::min(total, wanted);
+}
+
+void storeResumeStatus(LibtorrentAttribute* attrs, const std::string& data)
+{
+  libtorrent::error_code ec;
+  auto params = libtorrent::read_resume_data(
+      libtorrent::span<char const>(data.data(), static_cast<int>(data.size())),
+      ec);
+  if (ec) {
+    return;
+  }
+  if (!attrs->infoHash.empty() &&
+      getV1InfoHash(params) != attrs->infoHash) {
+    return;
+  }
+  auto& status = attrs->resumeStatus;
+  status.hasStatus = true;
+  status.hasMetadata = bool(params.ti);
+  status.totalLength = calculateWantedLength(params);
+  status.completedLength = calculateCompletedLength(params);
+  status.bitfield = bitfieldBytes(params.have_pieces);
+  status.infoHash = getV1InfoHash(params);
+  if (params.ti) {
+    status.name = params.ti->name();
+  }
 }
 
 } // namespace
@@ -79,6 +190,13 @@ void LibtorrentProgressInfoFile::save(IOFile& fp)
 
 void LibtorrentProgressInfoFile::save()
 {
+  auto attrs = getLibtorrentAttrs(dctx_);
+  if (!attrs->hasResumeData()) {
+    A2_LOG_INFO(fmt("Skipping empty libtorrent control file: %s",
+                    filename_.c_str()));
+    return;
+  }
+
   SHA1IOFile sha1io;
   save(sha1io);
 
@@ -131,7 +249,9 @@ void LibtorrentProgressInfoFile::load()
   if (!data.empty()) {
     READ_CHECK(fp, &data[0], data.size());
   }
-  getLibtorrentAttrs(dctx_)->setResumeData(std::move(data));
+  auto attrs = getLibtorrentAttrs(dctx_);
+  storeResumeStatus(attrs, data);
+  attrs->setResumeData(std::move(data));
   A2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
 }
 

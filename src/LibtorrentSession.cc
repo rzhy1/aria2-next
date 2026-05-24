@@ -13,6 +13,7 @@
 #include "LibtorrentSession.h"
 
 #include "Option.h"
+#include "DlAbortEx.h"
 #include "prefs.h"
 #include "util.h"
 #include "SegList.h"
@@ -22,7 +23,10 @@
 
 #include <libtorrent/add_torrent_params.hpp>
 #include <libtorrent/alert.hpp>
+#include <libtorrent/alert_types.hpp>
 #include <libtorrent/download_priority.hpp>
+#include <libtorrent/error_code.hpp>
+#include <libtorrent/info_hash.hpp>
 #include <libtorrent/settings_pack.hpp>
 #include <libtorrent/session_params.hpp>
 
@@ -81,6 +85,14 @@ std::string listenInterfaces(const Option* option)
   }
   return spec;
 }
+
+error_code::Value mapLibtorrentError(const lt::error_code& ec)
+{
+  if (ec == lt::errors::duplicate_torrent) {
+    return error_code::DUPLICATE_INFO_HASH;
+  }
+  return error_code::UNKNOWN_ERROR;
+}
 } // namespace
 
 LibtorrentSession::LibtorrentSession(const Option* option)
@@ -137,7 +149,9 @@ lt::torrent_handle LibtorrentSession::addTorrent(a2_gid_t gid,
   lt::error_code ec;
   auto handle = session_->add_torrent(std::move(params), ec);
   if (ec) {
-    throw DL_ABORT_EX(ec.message());
+    throw DL_ABORT_EX2(ec.message(), ec == lt::errors::duplicate_torrent
+                                         ? error_code::DUPLICATE_INFO_HASH
+                                         : error_code::UNKNOWN_ERROR);
   }
   handles_[gid] = handle;
   return handle;
@@ -154,6 +168,7 @@ void LibtorrentSession::removeTorrent(a2_gid_t gid)
   if (handle.is_valid()) {
     session_->remove_torrent(handle);
   }
+  events_.erase(gid);
 }
 
 bool LibtorrentSession::hasTorrent(a2_gid_t gid) const
@@ -202,9 +217,87 @@ void LibtorrentSession::setTorrentFilePriorities(
   itr->second.prioritize_files(mapped);
 }
 
-void LibtorrentSession::pollAlerts(std::vector<lt::alert*>& alerts)
+void LibtorrentSession::collectAlerts()
 {
+  std::vector<lt::alert*> alerts;
   session_->pop_alerts(&alerts);
+
+  for (auto alert : alerts) {
+    auto torrentAlert = lt::alert_cast<lt::torrent_alert>(alert);
+    if (!torrentAlert || !torrentAlert->handle.is_valid()) {
+      continue;
+    }
+
+    auto gid = a2_gid_t();
+    auto mapped = false;
+    for (const auto& entry : handles_) {
+      if (entry.second == torrentAlert->handle) {
+        gid = entry.first;
+        mapped = true;
+        break;
+      }
+    }
+    if (!mapped) {
+      continue;
+    }
+
+    if (auto addAlert = lt::alert_cast<lt::add_torrent_alert>(alert)) {
+      if (addAlert->error) {
+        LibtorrentEvent event;
+        event.type = LibtorrentEvent::Type::AddTorrentError;
+        event.errorCode = mapLibtorrentError(addAlert->error);
+        event.message = addAlert->error.message();
+        events_[gid].push_back(std::move(event));
+      }
+    }
+    else if (auto errAlert = lt::alert_cast<lt::torrent_error_alert>(alert)) {
+      LibtorrentEvent event;
+      event.type = LibtorrentEvent::Type::TorrentError;
+      event.errorCode = mapLibtorrentError(errAlert->error);
+      event.message = errAlert->error.message();
+      events_[gid].push_back(std::move(event));
+    }
+    else if (auto fileAlert = lt::alert_cast<lt::file_error_alert>(alert)) {
+      LibtorrentEvent event;
+      event.type = LibtorrentEvent::Type::FileError;
+      event.errorCode = mapLibtorrentError(fileAlert->error);
+      event.message = fileAlert->error.message();
+      events_[gid].push_back(std::move(event));
+    }
+    else if (auto resumeAlert =
+                 lt::alert_cast<lt::save_resume_data_alert>(alert)) {
+      LibtorrentEvent event;
+      event.type = LibtorrentEvent::Type::SaveResumeData;
+      event.resumeParams = resumeAlert->params;
+      events_[gid].push_back(std::move(event));
+    }
+    else if (auto resumeError =
+                 lt::alert_cast<lt::save_resume_data_failed_alert>(alert)) {
+      LibtorrentEvent event;
+      event.type = LibtorrentEvent::Type::SaveResumeDataFailed;
+      event.message = resumeError->error.message();
+      events_[gid].push_back(std::move(event));
+    }
+    else if (lt::alert_cast<lt::metadata_received_alert>(alert)) {
+      LibtorrentEvent event;
+      event.type = LibtorrentEvent::Type::MetadataReceived;
+      events_[gid].push_back(std::move(event));
+    }
+  }
+}
+
+void LibtorrentSession::pollEvents(a2_gid_t gid,
+                                   std::vector<LibtorrentEvent>& events)
+{
+  collectAlerts();
+
+  auto itr = events_.find(gid);
+  if (itr == events_.end()) {
+    events.clear();
+    return;
+  }
+  events.swap(itr->second);
+  events_.erase(itr);
 }
 
 } // namespace aria2

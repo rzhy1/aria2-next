@@ -51,6 +51,7 @@ void CurlSession::perform()
     throw DOWNLOAD_FAILURE_EXCEPTION(
         fmt("libcurl multi perform failed: %s", curl_multi_strerror(rc)));
   }
+  drainMessages();
 }
 
 void CurlSession::add(CURL* easy, Command* command)
@@ -68,7 +69,19 @@ void CurlSession::remove(CURL* easy)
   if (!easy) {
     return;
   }
+  doneResults_.erase(easy);
   curl_multi_remove_handle(multi_, easy);
+}
+
+bool CurlSession::takeDoneResult(CURL* easy, CURLcode& result)
+{
+  auto i = doneResults_.find(easy);
+  if (i == doneResults_.end()) {
+    return false;
+  }
+  result = i->second;
+  doneResults_.erase(i);
+  return true;
 }
 
 int CurlSession::socketCallback(CURL* easy, curl_socket_t socket, int action,
@@ -131,6 +144,16 @@ void CurlSession::clearSocket(curl_socket_t socket)
   }
   deleteSocket(socket, i->second.first, i->second.second);
   sockets_.erase(i);
+}
+
+void CurlSession::drainMessages()
+{
+  int queued = 0;
+  while (auto msg = curl_multi_info_read(multi_, &queued)) {
+    if (msg->msg == CURLMSG_DONE) {
+      doneResults_[msg->easy_handle] = msg->data.result;
+    }
+  }
 }
 
 } // namespace aria2

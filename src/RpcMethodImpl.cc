@@ -76,6 +76,7 @@
 #ifdef ENABLE_BITTORRENT
 #  include "LibtorrentAttribute.h"
 #  include "LibtorrentSession.h"
+#  include <map>
 #endif // ENABLE_BITTORRENT
 #include "CheckIntegrityEntry.h"
 
@@ -181,6 +182,13 @@ std::unique_ptr<ValueBase>
 addRequestGroup(const std::shared_ptr<RequestGroup>& group, DownloadEngine* e,
                 bool posGiven, int pos)
 {
+#ifdef ENABLE_BITTORRENT
+  if (e->getRequestGroupMan()->isSameLibtorrentInfoHashBeingDownloaded(
+          group.get())) {
+    throw DL_ABORT_EX2("Already downloading this torrent",
+                       error_code::DUPLICATE_INFO_HASH);
+  }
+#endif // ENABLE_BITTORRENT
   if (posGiven) {
     e->getRequestGroupMan()->insertReservedGroup(pos, group);
   }
@@ -676,6 +684,63 @@ bool requested_key(const std::vector<std::string>& keys, const std::string& k)
 }
 } // namespace
 
+#ifdef ENABLE_BITTORRENT
+namespace {
+const LibtorrentAttribute::Status*
+selectLibtorrentStatus(const LibtorrentAttribute* attrs)
+{
+  if (attrs->resumeStatus.hasStatus &&
+      (!attrs->status.hasStatus || attrs->status.checking ||
+       (attrs->status.totalLength == 0 &&
+        attrs->status.completedLength == 0 && !attrs->status.complete &&
+        attrs->resumeStatus.totalLength > 0))) {
+    return &attrs->resumeStatus;
+  }
+  return &attrs->status;
+}
+
+std::unique_ptr<List> createLibtorrentAnnounceList(
+    const std::vector<std::string>& trackerUris,
+    const std::vector<int>& trackerTiers)
+{
+  auto announceList = List::g();
+  std::map<int, std::vector<std::string>> tiers;
+  for (size_t i = 0; i < trackerUris.size(); ++i) {
+    auto tier = i < trackerTiers.size() ? trackerTiers[i] : 0;
+    tiers[tier].push_back(trackerUris[i]);
+  }
+  for (const auto& tier : tiers) {
+    auto list = List::g();
+    for (const auto& uri : tier.second) {
+      list->append(uri);
+    }
+    announceList->append(std::move(list));
+  }
+  return announceList;
+}
+
+std::unique_ptr<List>
+createLibtorrentPeerList(const std::vector<LibtorrentAttribute::Peer>& peers)
+{
+  auto list = List::g();
+  for (const auto& peer : peers) {
+    auto entry = Dict::g();
+    entry->put(KEY_PEER_ID, peer.peerId);
+    entry->put(KEY_IP, peer.ip);
+    entry->put(KEY_PORT, util::itos(peer.port));
+    entry->put(KEY_BITFIELD, util::toHex(peer.bitfield));
+    entry->put(KEY_AM_CHOKING, peer.amChoking ? VLB_TRUE : VLB_FALSE);
+    entry->put(KEY_PEER_CHOKING, peer.peerChoking ? VLB_TRUE : VLB_FALSE);
+    entry->put(KEY_DOWNLOAD_SPEED, util::itos(peer.downloadSpeed));
+    entry->put(KEY_UPLOAD_SPEED, util::itos(peer.uploadSpeed));
+    entry->put(KEY_SEEDER, peer.seeder ? VLB_TRUE : VLB_FALSE);
+    list->append(std::move(entry));
+  }
+  return list;
+}
+} // namespace
+#endif // ENABLE_BITTORRENT
+
 namespace {
 size_t countEd2kConnectedServers(const Ed2kAttribute* attrs)
 {
@@ -859,9 +924,9 @@ void gatherProgressCommon(Dict* entryDict,
   if (requested_key(keys, KEY_BITFIELD)) {
 #ifdef ENABLE_BITTORRENT
     if (libtorrentAttrs) {
-      if (!libtorrentAttrs->status.bitfield.empty()) {
-        entryDict->put(KEY_BITFIELD,
-                       util::toHex(libtorrentAttrs->status.bitfield));
+      auto ltStatus = selectLibtorrentStatus(libtorrentAttrs);
+      if (!ltStatus->bitfield.empty()) {
+        entryDict->put(KEY_BITFIELD, util::toHex(ltStatus->bitfield));
       }
     }
     else
@@ -903,10 +968,11 @@ void gatherProgressCommon(Dict* entryDict,
     auto files = List::g();
 #ifdef ENABLE_BITTORRENT
     if (libtorrentAttrs) {
+      auto ltStatus = selectLibtorrentStatus(libtorrentAttrs);
       createFileEntry(files.get(), std::begin(dctx->getFileEntries()),
                       std::end(dctx->getFileEntries()),
-                      libtorrentAttrs->status.totalLength,
-                      dctx->getPieceLength(), libtorrentAttrs->status.bitfield);
+                      ltStatus->totalLength, dctx->getPieceLength(),
+                      ltStatus->bitfield);
     }
     else
 #endif // ENABLE_BITTORRENT
@@ -930,10 +996,10 @@ void gatherProgressCommon(Dict* entryDict,
   }
 #ifdef ENABLE_BITTORRENT
   if (libtorrentAttrs) {
+    auto ltStatus = selectLibtorrentStatus(libtorrentAttrs);
     if (requested_key(keys, KEY_INFO_HASH) &&
-        !libtorrentAttrs->status.infoHash.empty()) {
-      entryDict->put(KEY_INFO_HASH,
-                     util::toHex(libtorrentAttrs->status.infoHash));
+        !ltStatus->infoHash.empty()) {
+      entryDict->put(KEY_INFO_HASH, util::toHex(ltStatus->infoHash));
     }
     if (requested_key(keys, KEY_NUM_SEEDERS)) {
       entryDict->put(KEY_NUM_SEEDERS,
@@ -941,15 +1007,21 @@ void gatherProgressCommon(Dict* entryDict,
     }
     if (requested_key(keys, KEY_SEEDER)) {
       entryDict->put(KEY_SEEDER,
-                     libtorrentAttrs->status.seeding ? VLB_TRUE : VLB_FALSE);
+                     libtorrentAttrs->status.sharing ? VLB_TRUE : VLB_FALSE);
     }
     if (requested_key(keys, KEY_BITTORRENT)) {
       auto btDict = Dict::g();
       auto infoDict = Dict::g();
-      if (!libtorrentAttrs->status.name.empty()) {
-        infoDict->put(KEY_NAME, libtorrentAttrs->status.name);
+      if (!ltStatus->name.empty()) {
+        infoDict->put(KEY_NAME, ltStatus->name);
       }
       btDict->put(KEY_INFO, std::move(infoDict));
+      if (!libtorrentAttrs->trackerUris.empty()) {
+        btDict->put(KEY_ANNOUNCE_LIST,
+                    createLibtorrentAnnounceList(
+                        libtorrentAttrs->trackerUris,
+                        libtorrentAttrs->trackerTiers));
+      }
       entryDict->put(KEY_BITTORRENT, std::move(btDict));
     }
   }
@@ -1142,7 +1214,11 @@ std::unique_ptr<ValueBase> GetPeersRpcMethod::process(const RpcRequest& req,
     throw DL_ABORT_EX(fmt("No peer data is available for GID#%s",
                           GroupId::toHex(gid).c_str()));
   }
-  return List::g();
+  auto dctx = group->getDownloadContext();
+  if (!dctx->hasAttribute(CTX_ATTR_LIBTORRENT)) {
+    return List::g();
+  }
+  return createLibtorrentPeerList(getLibtorrentAttrs(dctx)->peers);
 }
 #endif // ENABLE_BITTORRENT
 

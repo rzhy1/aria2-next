@@ -26,6 +26,10 @@ bool shouldStopLibtorrentSeeding(const Option* option, int64_t completedLength,
                                  int64_t uploadLength,
                                  std::chrono::seconds seedingDuration);
 
+bool shouldStopLibtorrentSharing(const Option* option, int64_t completedLength,
+                                 int64_t uploadLength,
+                                 std::chrono::seconds sharingDuration);
+
 } // namespace aria2
 
 #endif // D_LIBTORRENT_SEED_POLICY_H

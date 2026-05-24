@@ -2365,7 +2365,9 @@ void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentTorrent()
     CPPUNIT_ASSERT_EQUAL(std::string(A2_TEST_DIR "/test.torrent"),
                          torrentGroup->getMetadataInfo()->getUri());
     LibtorrentProgressInfoFile torrentInfoFile(btctx);
-    CPPUNIT_ASSERT(torrentInfoFile.getFilename().find("/.aria2-bt/bt-") !=
+    CPPUNIT_ASSERT(torrentInfoFile.getFilename().find("/test.torrent.") ==
+                   std::string::npos);
+    CPPUNIT_ASSERT(torrentInfoFile.getFilename().find(".aria2") !=
                    std::string::npos);
   }
 }
@@ -2445,13 +2447,11 @@ void DownloadHelperTest::testCreateRequestGroupForUri_LibtorrentMagnetControlFil
   LibtorrentProgressInfoFile bravoFile(bravo[0]->getDownloadContext());
 
   CPPUNIT_ASSERT_EQUAL(std::string(A2_TEST_OUT_DIR
-                                   "/.aria2-bt/"
-                                   "bt-1111111111111111111111111111111111111111"
+                                   "/1111111111111111111111111111111111111111"
                                    ".aria2"),
                        alphaFile.getFilename());
   CPPUNIT_ASSERT_EQUAL(std::string(A2_TEST_OUT_DIR
-                                   "/.aria2-bt/"
-                                   "bt-2222222222222222222222222222222222222222"
+                                   "/2222222222222222222222222222222222222222"
                                    ".aria2"),
                        bravoFile.getFilename());
   CPPUNIT_ASSERT(alphaFile.getFilename() != bravoFile.getFilename());

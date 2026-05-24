@@ -15,6 +15,7 @@
 
 #include "TimeBasedCommand.h"
 #include "TimerA2.h"
+#include "error_code.h"
 
 #include <libtorrent/torrent_handle.hpp>
 
@@ -32,18 +33,24 @@ private:
   int64_t completedLength_;
   int64_t uploadedLength_;
   Timer resumeDataRequestTimer_;
+  Timer sharingTimer_;
   bool resumeDataRequested_;
   bool torrentAdded_;
   bool btCompleteNotified_;
+  bool sharingTimerStarted_;
+  bool resumeDataSynced_;
 
   void addTorrent();
   void pollAlerts();
   void updateStatus();
   void requestResumeData();
+  void syncResumeData();
+  void syncResumeDataOnExit();
   void storeResumeData(const libtorrent::add_torrent_params& params);
+  void storeResumeStatus(const libtorrent::add_torrent_params& params);
   void reportBtDownloadComplete();
   void finishDownload();
-  void failDownload(const std::string& message);
+  void failDownload(error_code::Value code, const std::string& message);
 
 public:
   LibtorrentCommand(cuid_t cuid, RequestGroup* requestGroup,

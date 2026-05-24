@@ -87,6 +87,9 @@
 #include "OpenedFileCounter.h"
 #include "wallclock.h"
 #include "RpcMethodImpl.h"
+#ifdef ENABLE_BITTORRENT
+#  include "LibtorrentAttribute.h"
+#endif // ENABLE_BITTORRENT
 
 namespace aria2 {
 
@@ -388,8 +391,7 @@ public:
                  !group->getDownloadContext()->isChecksumVerificationNeeded()) {
           group->applyLastModifiedTimeToLocalFiles();
           group->reportDownloadFinished();
-          if (group->allDownloadFinished() &&
-              !group->getOption()->getAsBool(PREF_FORCE_SAVE)) {
+          if (group->shouldRemoveControlFileOnFinish()) {
             group->removeControlFile();
             saveSignature(group);
           }
@@ -538,6 +540,11 @@ void RequestGroupMan::fillRequestGroupFromReserver(DownloadEngine* e)
     configureRequestGroup(groupToAdd);
     groupToAdd->setRequestGroupMan(this);
     groupToAdd->setState(RequestGroup::STATE_ACTIVE);
+    if (isSameLibtorrentInfoHashBeingDownloaded(groupToAdd.get())) {
+      A2_LOG_WARN(fmt("GID#%s - Skipping duplicate BitTorrent infohash.",
+                      groupToAdd->getGroupId()->toHex().c_str()));
+      continue;
+    }
     ++numActive_;
     requestGroups_.push_back(groupToAdd->getGID(), groupToAdd);
     try {
@@ -606,9 +613,8 @@ void RequestGroupMan::reduceActiveDownloadsToLimit(DownloadEngine* e)
 void RequestGroupMan::save()
 {
   for (auto& rg : requestGroups_) {
-    if (rg->allDownloadFinished() &&
-        !rg->getDownloadContext()->isChecksumVerificationNeeded() &&
-        !rg->getOption()->getAsBool(PREF_FORCE_SAVE)) {
+    if (rg->shouldRemoveControlFileOnFinish() &&
+        !rg->getDownloadContext()->isChecksumVerificationNeeded()) {
       rg->removeControlFile();
     }
     else {
@@ -892,6 +898,55 @@ bool RequestGroupMan::isSameFileBeingDownloaded(
       requestGroup->getDownloadContext()->getFileEntries();
   return sameFilePathExists(files.begin(), files.end(), entries.begin(),
                             entries.end());
+}
+
+namespace {
+std::string getLibtorrentInfoHash(const std::shared_ptr<RequestGroup>& group)
+{
+#ifdef ENABLE_BITTORRENT
+  auto dctx = group->getDownloadContext();
+  if (!dctx || !dctx->hasAttribute(CTX_ATTR_LIBTORRENT)) {
+    return {};
+  }
+  auto attrs = getLibtorrentAttrs(dctx);
+  return !attrs->infoHash.empty() ? attrs->infoHash : attrs->status.infoHash;
+#else  // !ENABLE_BITTORRENT
+  return {};
+#endif // !ENABLE_BITTORRENT
+}
+} // namespace
+
+bool RequestGroupMan::isSameLibtorrentInfoHashBeingDownloaded(
+    const RequestGroup* requestGroup) const
+{
+#ifdef ENABLE_BITTORRENT
+  if (!requestGroup) {
+    return false;
+  }
+  auto dctx = requestGroup->getDownloadContext();
+  if (!dctx || !dctx->hasAttribute(CTX_ATTR_LIBTORRENT)) {
+    return false;
+  }
+  auto attrs = getLibtorrentAttrs(dctx);
+  const auto& infoHash =
+      !attrs->infoHash.empty() ? attrs->infoHash : attrs->status.infoHash;
+  if (infoHash.empty()) {
+    return false;
+  }
+  for (const auto& group : requestGroups_) {
+    if (group.get() != requestGroup && getLibtorrentInfoHash(group) == infoHash) {
+      return true;
+    }
+  }
+  for (const auto& group : reservedGroups_) {
+    if (group.get() != requestGroup && getLibtorrentInfoHash(group) == infoHash) {
+      return true;
+    }
+  }
+  return false;
+#else  // !ENABLE_BITTORRENT
+  return false;
+#endif // !ENABLE_BITTORRENT
 }
 
 void RequestGroupMan::halt()

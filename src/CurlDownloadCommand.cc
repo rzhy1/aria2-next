@@ -98,12 +98,10 @@ bool CurlDownloadCommand::executeInternal()
 
   session_->perform();
 
-  int queued = 0;
-  while (auto msg = curl_multi_info_read(session_->multi(), &queued)) {
-    if (msg->msg == CURLMSG_DONE && msg->easy_handle == easy_) {
-      finish(msg->data.result);
-      return true;
-    }
+  CURLcode result = CURLE_OK;
+  if (session_->takeDoneResult(easy_, result)) {
+    finish(result);
+    return true;
   }
 
   addCommandSelf();
@@ -223,15 +221,12 @@ void CurlDownloadCommand::applyRequestOptions()
 
   curl_easy_setopt(easy_, CURLOPT_CONNECTTIMEOUT,
                    static_cast<long>(option->getAsInt(PREF_CONNECT_TIMEOUT)));
-  curl_easy_setopt(easy_, CURLOPT_TIMEOUT,
+
+  const auto lowestSpeedLimit = option->getAsInt(PREF_LOWEST_SPEED_LIMIT);
+  curl_easy_setopt(easy_, CURLOPT_LOW_SPEED_LIMIT,
+                   static_cast<long>(std::max(lowestSpeedLimit, 1)));
+  curl_easy_setopt(easy_, CURLOPT_LOW_SPEED_TIME,
                    static_cast<long>(option->getAsInt(PREF_TIMEOUT)));
-  if (option->getAsInt(PREF_LOWEST_SPEED_LIMIT) > 0) {
-    curl_easy_setopt(easy_, CURLOPT_LOW_SPEED_LIMIT,
-                     static_cast<long>(option->getAsInt(
-                         PREF_LOWEST_SPEED_LIMIT)));
-    curl_easy_setopt(easy_, CURLOPT_LOW_SPEED_TIME,
-                     static_cast<long>(option->getAsInt(PREF_TIMEOUT)));
-  }
 
   applyCredentialOptions();
   applyCookieAndNetrcOptions();

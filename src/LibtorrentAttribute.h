@@ -26,10 +26,24 @@ class DownloadContext;
 struct LibtorrentAttribute : public ContextAttribute {
   enum class SourceType { TORRENT_FILE, TORRENT_DATA, MAGNET };
 
+  struct Peer {
+    std::string peerId;
+    std::string ip;
+    int port = 0;
+    std::string bitfield;
+    int downloadSpeed = 0;
+    int uploadSpeed = 0;
+    bool amChoking = false;
+    bool peerChoking = false;
+    bool seeder = false;
+  };
+
   struct Status {
     bool hasStatus = false;
     bool complete = false;
     bool seeding = false;
+    bool sharing = false;
+    bool checking = false;
     bool hasMetadata = false;
     int64_t totalLength = 0;
     int64_t completedLength = 0;
@@ -53,13 +67,16 @@ struct LibtorrentAttribute : public ContextAttribute {
   std::vector<int> filePriorities;
   bool filePrioritiesApplied = false;
   Status status;
+  Status resumeStatus;
+  std::vector<Peer> peers;
   std::string resumeData;
   std::string controlFilePath;
+  std::string infoHash;
 
   LibtorrentAttribute(SourceType sourceType, std::string sourceUri,
                       std::string torrentData,
                       std::vector<std::string> webSeedUris,
-                      std::string controlFilePath);
+                      std::string controlFilePath, std::string infoHash = "");
   ~LibtorrentAttribute();
 
   LibtorrentAttribute(const LibtorrentAttribute&) = delete;

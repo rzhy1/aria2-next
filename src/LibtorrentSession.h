@@ -14,28 +14,49 @@
 #define D_LIBTORRENT_SESSION_H
 
 #include "common.h"
+#include "error_code.h"
 #include "GroupId.h"
 
 #include <map>
 #include <memory>
+#include <string>
 #include <vector>
 
+#include <libtorrent/add_torrent_params.hpp>
 #include <libtorrent/session.hpp>
 #include <libtorrent/torrent_handle.hpp>
 
 namespace libtorrent {
 struct alert;
-struct add_torrent_params;
 } // namespace libtorrent
 
 namespace aria2 {
 
 class Option;
 
+struct LibtorrentEvent {
+  enum class Type {
+    AddTorrentError,
+    TorrentError,
+    FileError,
+    SaveResumeData,
+    SaveResumeDataFailed,
+    MetadataReceived
+  };
+
+  Type type;
+  error_code::Value errorCode = error_code::UNKNOWN_ERROR;
+  std::string message;
+  libtorrent::add_torrent_params resumeParams;
+};
+
 class LibtorrentSession {
 private:
   std::unique_ptr<libtorrent::session> session_;
   std::map<a2_gid_t, libtorrent::torrent_handle> handles_;
+  std::map<a2_gid_t, std::vector<LibtorrentEvent>> events_;
+
+  void collectAlerts();
 
 public:
   explicit LibtorrentSession(const Option* option);
@@ -55,7 +76,7 @@ public:
   void setTorrentFilePriorities(a2_gid_t gid,
                                 const std::vector<int>& priorities);
 
-  void pollAlerts(std::vector<libtorrent::alert*>& alerts);
+  void pollEvents(a2_gid_t gid, std::vector<LibtorrentEvent>& events);
 
   libtorrent::session& nativeSession() { return *session_; }
 };

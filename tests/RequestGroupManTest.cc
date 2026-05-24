@@ -26,6 +26,9 @@
 #include "SelectEventPoll.h"
 #include "UriListParser.h"
 #include "Command.h"
+#ifdef ENABLE_BITTORRENT
+#  include "LibtorrentAttribute.h"
+#endif // ENABLE_BITTORRENT
 
 namespace aria2 {
 
@@ -61,6 +64,7 @@ class RequestGroupManTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testChangeReservedGroupPosition);
   CPPUNIT_TEST(testFillRequestGroupFromReserver);
   CPPUNIT_TEST(testFillRequestGroupFromReserver_uriParser);
+  CPPUNIT_TEST(testFillRequestGroupFromReserverSkipsDuplicateBtInfoHash);
   CPPUNIT_TEST(testReduceMaxConcurrentDownloads);
   CPPUNIT_TEST(testUserRemoveDoesNotKeepControlFile);
   CPPUNIT_TEST(testInsertReservedGroup);
@@ -96,6 +100,7 @@ public:
   void testChangeReservedGroupPosition();
   void testFillRequestGroupFromReserver();
   void testFillRequestGroupFromReserver_uriParser();
+  void testFillRequestGroupFromReserverSkipsDuplicateBtInfoHash();
   void testReduceMaxConcurrentDownloads();
   void testUserRemoveDoesNotKeepControlFile();
   void testInsertReservedGroup();
@@ -272,6 +277,39 @@ void RequestGroupManTest::testFillRequestGroupFromReserver_uriParser()
   itr = rgman_->getReservedGroups().begin();
   CPPUNIT_ASSERT_EQUAL(rgs[0]->getGID(), (*itr)->getGID());
   CPPUNIT_ASSERT_EQUAL((size_t)3, rgman_->getRequestGroups().size());
+}
+
+void RequestGroupManTest::testFillRequestGroupFromReserverSkipsDuplicateBtInfoHash()
+{
+#ifdef ENABLE_BITTORRENT
+  option_->put(PREF_LISTEN_PORT, "0");
+  option_->put(PREF_DHT_LISTEN_PORT, "0");
+  option_->put(PREF_MAX_CONCURRENT_DOWNLOADS, "2");
+  auto createBtGroup = [this]() {
+    auto dctx = std::make_shared<DownloadContext>(1_k, 0, "magnet");
+    dctx->markTotalLengthIsUnknown();
+    dctx->setAttribute(
+        CTX_ATTR_LIBTORRENT,
+        make_unique<LibtorrentAttribute>(
+            LibtorrentAttribute::SourceType::MAGNET,
+            "magnet:?xt=urn:btih:0101010101010101010101010101010101010101",
+            "", std::vector<std::string>{},
+            A2_TEST_OUT_DIR "/0101010101010101010101010101010101010101.aria2",
+            std::string(20, '\x11')));
+    auto group = std::make_shared<RequestGroup>(GroupId::create(),
+                                                util::copy(option_));
+    group->setDownloadContext(dctx);
+    return group;
+  };
+
+  rgman_->addReservedGroup(createBtGroup());
+  rgman_->addReservedGroup(createBtGroup());
+  rgman_->fillRequestGroupFromReserver(e_.get());
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, rgman_->getRequestGroups().size());
+  CPPUNIT_ASSERT_EQUAL((size_t)0, rgman_->getReservedGroups().size());
+  CPPUNIT_ASSERT(rgman_->getDownloadResults().empty());
+#endif // ENABLE_BITTORRENT
 }
 
 void RequestGroupManTest::testReduceMaxConcurrentDownloads()

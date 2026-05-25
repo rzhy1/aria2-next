@@ -471,6 +471,19 @@ bool shouldFinishContent(const LibtorrentAttribute* attrs,
   return attrs->sourceType != LibtorrentAttribute::SourceType::MAGNET ||
          attrs->contentStarted || !attrs->pauseAfterMetadata;
 }
+
+LibtorrentAttribute::MetadataState
+createMetadataState(const lt::torrent_status& status)
+{
+  if (status.has_metadata) {
+    return LibtorrentAttribute::MetadataState::READY;
+  }
+  if (status.state == lt::torrent_status::downloading_metadata ||
+      !status.has_metadata) {
+    return LibtorrentAttribute::MetadataState::DOWNLOADING;
+  }
+  return LibtorrentAttribute::MetadataState::UNKNOWN;
+}
 } // namespace
 
 LibtorrentCommand::LibtorrentCommand(cuid_t cuid, RequestGroup* requestGroup,
@@ -614,6 +627,8 @@ void LibtorrentCommand::updateStatus()
     attrs->status.seeding = false;
     attrs->status.sharing = false;
     attrs->status.hasMetadata = true;
+    attrs->status.metadataState =
+        LibtorrentAttribute::MetadataState::READY;
     attrs->status.totalLength = status.total_wanted;
     attrs->status.completedLength = status.total_wanted_done;
     attrs->status.uploadedLength = status.all_time_upload;
@@ -651,6 +666,8 @@ void LibtorrentCommand::updateStatus()
       attrs->status.seeding = false;
       attrs->status.sharing = false;
       attrs->status.hasMetadata = true;
+      attrs->status.metadataState =
+          LibtorrentAttribute::MetadataState::READY;
       attrs->status.totalLength = 0;
       attrs->status.completedLength = 0;
       attrs->status.uploadedLength = status.all_time_upload;
@@ -675,6 +692,7 @@ void LibtorrentCommand::updateStatus()
   attrs->status.seeding = status.is_seeding;
   attrs->status.sharing = isSharing(status);
   attrs->status.hasMetadata = status.has_metadata;
+  attrs->status.metadataState = createMetadataState(status);
   attrs->status.totalLength = status.total_wanted;
   attrs->status.completedLength = status.total_wanted_done;
   attrs->status.uploadedLength = status.all_time_upload;
@@ -754,6 +772,9 @@ void LibtorrentCommand::storeResumeStatus(const lt::add_torrent_params& params)
   auto& status = attrs->resumeStatus;
   status.hasStatus = true;
   status.hasMetadata = bool(params.ti);
+  status.metadataState = params.ti
+                             ? LibtorrentAttribute::MetadataState::READY
+                             : LibtorrentAttribute::MetadataState::DOWNLOADING;
   status.totalLength = calculateWantedLength(params);
   status.completedLength = calculateCompletedLength(params);
   status.bitfield = bitfieldBytes(params.have_pieces);

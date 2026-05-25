@@ -25,6 +25,7 @@ class DownloadContext;
 
 struct LibtorrentAttribute : public ContextAttribute {
   enum class SourceType { TORRENT_FILE, TORRENT_DATA, MAGNET };
+  enum class MetadataState { UNKNOWN, DOWNLOADING, READY };
 
   struct Peer {
     std::string peerId;
@@ -45,6 +46,7 @@ struct LibtorrentAttribute : public ContextAttribute {
     bool sharing = false;
     bool checking = false;
     bool hasMetadata = false;
+    MetadataState metadataState = MetadataState::UNKNOWN;
     int64_t totalLength = 0;
     int64_t completedLength = 0;
     int64_t uploadedLength = 0;

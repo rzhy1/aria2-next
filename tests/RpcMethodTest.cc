@@ -73,6 +73,8 @@ class RpcMethodTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testGatherProgressEd2kStatus);
 #ifdef ENABLE_BITTORRENT
   CPPUNIT_TEST(testGatherProgressLibtorrentStatus);
+  CPPUNIT_TEST(testGatherProgressLibtorrentMetadataDownloading);
+  CPPUNIT_TEST(testGatherProgressLibtorrentMetadataReady);
   CPPUNIT_TEST(testGatherProgressLibtorrentUsesResumeFallbackWhileChecking);
   CPPUNIT_TEST(testGatherProgressLibtorrentUsesResumeFallbackBeforeStatus);
   CPPUNIT_TEST(testGatherProgressLibtorrentUsesResumeFallbackForEmptyLiveStatus);
@@ -148,6 +150,8 @@ public:
   void testGatherProgressEd2kStatus();
 #ifdef ENABLE_BITTORRENT
   void testGatherProgressLibtorrentStatus();
+  void testGatherProgressLibtorrentMetadataDownloading();
+  void testGatherProgressLibtorrentMetadataReady();
   void testGatherProgressLibtorrentUsesResumeFallbackWhileChecking();
   void testGatherProgressLibtorrentUsesResumeFallbackBeforeStatus();
   void testGatherProgressLibtorrentUsesResumeFallbackForEmptyLiveStatus();
@@ -1125,6 +1129,65 @@ void RpcMethodTest::testGatherProgressLibtorrentStatus()
   auto infoDict = downcast<Dict>(btDict->get("info"));
   CPPUNIT_ASSERT_EQUAL(std::string("torrent.bin"),
                        downcast<String>(infoDict->get("name"))->s());
+}
+
+void RpcMethodTest::testGatherProgressLibtorrentMetadataDownloading()
+{
+  auto dctx = std::make_shared<DownloadContext>(0, 0, "magnet");
+  auto attrs = make_unique<LibtorrentAttribute>(
+      LibtorrentAttribute::SourceType::MAGNET,
+      "magnet:?xt=urn:btih:0101010101010101010101010101010101010101", "",
+      std::vector<std::string>{},
+      "test_outdir/0101010101010101010101010101010101010101.aria2");
+  attrs->status.hasStatus = true;
+  attrs->status.hasMetadata = false;
+  attrs->status.name = "display-name-from-dn";
+  dctx->setAttribute(CTX_ATTR_LIBTORRENT, std::move(attrs));
+
+  auto group =
+      std::make_shared<RequestGroup>(GroupId::create(), util::copy(option_));
+  group->setDownloadContext(dctx);
+
+  auto entry = Dict::g();
+  gatherProgressCommon(entry.get(), group, {"bittorrent"});
+
+  auto btDict = downcast<Dict>(entry->get("bittorrent"));
+  auto infoDict = downcast<Dict>(btDict->get("info"));
+  CPPUNIT_ASSERT(btDict->containsKey("metadata"));
+  auto metadataDict = downcast<Dict>(btDict->get("metadata"));
+  CPPUNIT_ASSERT_EQUAL(std::string("display-name-from-dn"),
+                       downcast<String>(infoDict->get("name"))->s());
+  CPPUNIT_ASSERT_EQUAL(std::string("downloading"),
+                       downcast<String>(metadataDict->get("state"))->s());
+  CPPUNIT_ASSERT(!downcast<Bool>(metadataDict->get("hasMetadata"))->val());
+}
+
+void RpcMethodTest::testGatherProgressLibtorrentMetadataReady()
+{
+  auto dctx = std::make_shared<DownloadContext>(1_k, 100_k, "torrent.bin");
+  auto attrs = make_unique<LibtorrentAttribute>(
+      LibtorrentAttribute::SourceType::MAGNET,
+      "magnet:?xt=urn:btih:0101010101010101010101010101010101010101", "",
+      std::vector<std::string>{},
+      "test_outdir/0101010101010101010101010101010101010101.aria2");
+  attrs->status.hasStatus = true;
+  attrs->status.hasMetadata = true;
+  attrs->status.name = "torrent.bin";
+  dctx->setAttribute(CTX_ATTR_LIBTORRENT, std::move(attrs));
+
+  auto group =
+      std::make_shared<RequestGroup>(GroupId::create(), util::copy(option_));
+  group->setDownloadContext(dctx);
+
+  auto entry = Dict::g();
+  gatherProgressCommon(entry.get(), group, {"bittorrent"});
+
+  auto btDict = downcast<Dict>(entry->get("bittorrent"));
+  CPPUNIT_ASSERT(btDict->containsKey("metadata"));
+  auto metadataDict = downcast<Dict>(btDict->get("metadata"));
+  CPPUNIT_ASSERT_EQUAL(std::string("ready"),
+                       downcast<String>(metadataDict->get("state"))->s());
+  CPPUNIT_ASSERT(downcast<Bool>(metadataDict->get("hasMetadata"))->val());
 }
 
 void RpcMethodTest::testGatherProgressLibtorrentUsesResumeFallbackWhileChecking()

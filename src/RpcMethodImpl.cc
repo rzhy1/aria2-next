@@ -138,6 +138,9 @@ const char KEY_URIS[] = "uris";
 const char KEY_BITTORRENT[] = "bittorrent";
 const char KEY_ED2K[] = "ed2k";
 const char KEY_INFO[] = "info";
+const char KEY_METADATA[] = "metadata";
+const char KEY_STATE[] = "state";
+const char KEY_HAS_METADATA[] = "hasMetadata";
 const char KEY_NAME[] = "name";
 const char KEY_ANNOUNCE_LIST[] = "announceList";
 const char KEY_COMMENT[] = "comment";
@@ -719,6 +722,27 @@ std::unique_ptr<List> createLibtorrentAnnounceList(
   return announceList;
 }
 
+const char* getLibtorrentMetadataStateName(
+    LibtorrentAttribute::MetadataState state, bool hasMetadata)
+{
+  if (hasMetadata || state == LibtorrentAttribute::MetadataState::READY) {
+    return "ready";
+  }
+  return "downloading";
+}
+
+std::unique_ptr<Dict>
+createLibtorrentMetadataEntry(const LibtorrentAttribute::Status* status)
+{
+  auto metadataDict = Dict::g();
+  metadataDict->put(KEY_STATE,
+                    getLibtorrentMetadataStateName(status->metadataState,
+                                                   status->hasMetadata));
+  metadataDict->put(KEY_HAS_METADATA, status->hasMetadata ? Bool::gTrue()
+                                                          : Bool::gFalse());
+  return metadataDict;
+}
+
 std::unique_ptr<List>
 createLibtorrentPeerList(const std::vector<LibtorrentAttribute::Peer>& peers)
 {
@@ -1020,6 +1044,7 @@ void gatherProgressCommon(Dict* entryDict,
         infoDict->put(KEY_NAME, ltStatus->name);
       }
       btDict->put(KEY_INFO, std::move(infoDict));
+      btDict->put(KEY_METADATA, createLibtorrentMetadataEntry(ltStatus));
       if (!libtorrentAttrs->trackerUris.empty()) {
         btDict->put(KEY_ANNOUNCE_LIST,
                     createLibtorrentAnnounceList(

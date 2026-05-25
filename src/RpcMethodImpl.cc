@@ -1039,11 +1039,14 @@ void gatherProgressCommon(Dict* entryDict,
     }
     if (requested_key(keys, KEY_BITTORRENT)) {
       auto btDict = Dict::g();
-      auto infoDict = Dict::g();
-      if (!ltStatus->name.empty()) {
+      if (!ltStatus->name.empty() &&
+          (ltStatus->hasMetadata ||
+           libtorrentAttrs->sourceType !=
+               LibtorrentAttribute::SourceType::MAGNET)) {
+        auto infoDict = Dict::g();
         infoDict->put(KEY_NAME, ltStatus->name);
+        btDict->put(KEY_INFO, std::move(infoDict));
       }
-      btDict->put(KEY_INFO, std::move(infoDict));
       btDict->put(KEY_METADATA, createLibtorrentMetadataEntry(ltStatus));
       if (!libtorrentAttrs->trackerUris.empty()) {
         btDict->put(KEY_ANNOUNCE_LIST,

@@ -1141,7 +1141,6 @@ void RpcMethodTest::testGatherProgressLibtorrentMetadataDownloading()
       "test_outdir/0101010101010101010101010101010101010101.aria2");
   attrs->status.hasStatus = true;
   attrs->status.hasMetadata = false;
-  attrs->status.name = "display-name-from-dn";
   dctx->setAttribute(CTX_ATTR_LIBTORRENT, std::move(attrs));
 
   auto group =
@@ -1152,11 +1151,9 @@ void RpcMethodTest::testGatherProgressLibtorrentMetadataDownloading()
   gatherProgressCommon(entry.get(), group, {"bittorrent"});
 
   auto btDict = downcast<Dict>(entry->get("bittorrent"));
-  auto infoDict = downcast<Dict>(btDict->get("info"));
+  CPPUNIT_ASSERT(!btDict->containsKey("info"));
   CPPUNIT_ASSERT(btDict->containsKey("metadata"));
   auto metadataDict = downcast<Dict>(btDict->get("metadata"));
-  CPPUNIT_ASSERT_EQUAL(std::string("display-name-from-dn"),
-                       downcast<String>(infoDict->get("name"))->s());
   CPPUNIT_ASSERT_EQUAL(std::string("downloading"),
                        downcast<String>(metadataDict->get("state"))->s());
   CPPUNIT_ASSERT(!downcast<Bool>(metadataDict->get("hasMetadata"))->val());
@@ -1183,6 +1180,9 @@ void RpcMethodTest::testGatherProgressLibtorrentMetadataReady()
   gatherProgressCommon(entry.get(), group, {"bittorrent"});
 
   auto btDict = downcast<Dict>(entry->get("bittorrent"));
+  auto infoDict = downcast<Dict>(btDict->get("info"));
+  CPPUNIT_ASSERT_EQUAL(std::string("torrent.bin"),
+                       downcast<String>(infoDict->get("name"))->s());
   CPPUNIT_ASSERT(btDict->containsKey("metadata"));
   auto metadataDict = downcast<Dict>(btDict->get("metadata"));
   CPPUNIT_ASSERT_EQUAL(std::string("ready"),

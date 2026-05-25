@@ -6,8 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Expected release version, with or without leading v. Leave empty to use CMakeLists.txt."
+        description: "Expected release version, with or without leading v. Use latest for the current CMakeLists.txt version."
         required: false
+        default: latest
         type: string
 
 permissions:
@@ -49,6 +50,15 @@ jobs:
 
           if [ -n "$REQUESTED_VERSION" ]; then
             REQUESTED_VERSION="${REQUESTED_VERSION#v}"
+
+            case "$REQUESTED_VERSION" in
+              latest)
+                REQUESTED_VERSION=
+                ;;
+            esac
+          fi
+
+          if [ -n "$REQUESTED_VERSION" ]; then
 
             if ! printf '%s\n' "$REQUESTED_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
               echo "Invalid workflow_dispatch version: $REQUESTED_VERSION" >&2

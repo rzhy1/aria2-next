@@ -1397,6 +1397,17 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
   }
   {
     OptionHandler* op(new ParameterOptionHandler(
+        PREF_PROXY_MODE, TEXT_PROXY_MODE, V_AUTO, {V_AUTO, V_DIRECT, V_MANUAL}));
+    op->addTag(TAG_FTP);
+    op->addTag(TAG_HTTP);
+    op->addTag(TAG_HTTPS);
+    op->setInitialOption(true);
+    op->setChangeGlobalOption(true);
+    op->setChangeOptionForReserved(true);
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new ParameterOptionHandler(
         PREF_PROXY_METHOD, TEXT_PROXY_METHOD, V_GET, {V_GET, V_TUNNEL}));
     op->addTag(TAG_FTP);
     op->addTag(TAG_HTTP);

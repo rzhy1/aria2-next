@@ -33,8 +33,7 @@ public:
   ~CurlDownloadCommand() CXX11_OVERRIDE;
 
   static long platformSslTrustOptions();
-  static bool shouldDisableCurlProxy(const std::string& protocol,
-                                     const Option* option);
+  static bool shouldDisableCurlProxy(const Option* option);
 
 private:
   bool execute() CXX11_OVERRIDE;

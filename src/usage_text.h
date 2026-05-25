@@ -97,6 +97,12 @@
   _(" --http-passwd=PASSWD         Set HTTP password. This affects all URLs.")
 #define TEXT_PROXY_METHOD                                               \
   _(" --proxy-method=METHOD        Set the method to use in proxy request.")
+#define TEXT_PROXY_MODE                                                 \
+  _(" --proxy-mode=MODE            Set proxy resolution mode: auto, direct or\n" \
+    "                              manual. auto uses configured and environment\n" \
+    "                              proxy options. direct disables proxy use.\n" \
+    "                              manual only uses explicitly configured proxy\n" \
+    "                              options.")
 #define TEXT_REFERER                                                    \
   _(" --referer=REFERER            Set an http referrer (Referer). This affects\n" \
     "                              all http/https downloads. If \"*\" is given,\n" \

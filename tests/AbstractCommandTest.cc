@@ -319,6 +319,7 @@ class AbstractCommandTest : public CppUnit::TestFixture {
 
   CPPUNIT_TEST_SUITE(AbstractCommandTest);
   CPPUNIT_TEST(testGetProxyUri);
+  CPPUNIT_TEST(testResolveProxyUri);
   CPPUNIT_TEST(testNativeDownloadProgressTimeout);
   CPPUNIT_TEST(testCreateRequestCommandRejectsOutOfRangeRestoredSegment);
   CPPUNIT_TEST_SUITE_END();
@@ -329,6 +330,7 @@ public:
   void tearDown() {}
 
   void testGetProxyUri();
+  void testResolveProxyUri();
   void testNativeDownloadProgressTimeout();
   void testCreateRequestCommandRejectsOutOfRangeRestoredSegment();
 };
@@ -373,6 +375,34 @@ void AbstractCommandTest::testGetProxyUri()
   op.put(PREF_HTTP_PROXY_USER, "");
   CPPUNIT_ASSERT_EQUAL(std::string("http://httpproxy/"),
                        getProxyUri("http", &op));
+}
+
+void AbstractCommandTest::testResolveProxyUri()
+{
+  auto req = std::make_shared<Request>();
+  CPPUNIT_ASSERT(req->setUri("https://example.org/file"));
+
+  auto parent = std::make_shared<Option>();
+  parent->put(PREF_PROXY_MODE, V_AUTO);
+  parent->put(PREF_ALL_PROXY, "http://env-proxy:8080/");
+
+  Option op;
+  op.setParent(parent);
+  CPPUNIT_ASSERT_EQUAL(std::string("http://env-proxy:8080/"),
+                       resolveProxyUri(req, &op));
+
+  op.put(PREF_PROXY_MODE, V_DIRECT);
+  CPPUNIT_ASSERT_EQUAL(std::string(), resolveProxyUri(req, &op));
+
+  op.put(PREF_PROXY_MODE, V_MANUAL);
+  CPPUNIT_ASSERT_EQUAL(std::string(), resolveProxyUri(req, &op));
+
+  op.put(PREF_HTTPS_PROXY, "http://manual-proxy:8080/");
+  CPPUNIT_ASSERT_EQUAL(std::string("http://manual-proxy:8080/"),
+                       resolveProxyUri(req, &op));
+
+  op.put(PREF_NO_PROXY, "example.org");
+  CPPUNIT_ASSERT_EQUAL(std::string(), resolveProxyUri(req, &op));
 }
 
 void AbstractCommandTest::testNativeDownloadProgressTimeout()

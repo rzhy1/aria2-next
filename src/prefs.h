@@ -101,6 +101,9 @@ extern const std::string V_BINARY;
 extern const std::string V_ASCII;
 extern const std::string V_GET;
 extern const std::string V_TUNNEL;
+extern const std::string V_AUTO;
+extern const std::string V_DIRECT;
+extern const std::string V_MANUAL;
 extern const std::string V_PLAIN;
 extern const std::string V_ARC4;
 extern const std::string V_HTTP;
@@ -394,6 +397,8 @@ extern PrefPtr PREF_FTP_PROXY;
 extern PrefPtr PREF_ALL_PROXY;
 // values: comma separated hostname or domain
 extern PrefPtr PREF_NO_PROXY;
+// values: auto | direct | manual
+extern PrefPtr PREF_PROXY_MODE;
 // values: get | tunnel
 extern PrefPtr PREF_PROXY_METHOD;
 extern PrefPtr PREF_HTTP_PROXY_USER;

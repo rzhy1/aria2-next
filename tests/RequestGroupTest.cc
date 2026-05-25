@@ -40,7 +40,7 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testLoadAndOpenFileRestartFromScratch);
   CPPUNIT_TEST(testCompletedLengthReportsVerifiedStorageOnly);
   CPPUNIT_TEST(testCurlTlsTrustOptions);
-  CPPUNIT_TEST(testCurlExplicitEmptyProxyDisablesEnvironmentProxy);
+  CPPUNIT_TEST(testCurlProxyModeControlsEnvironmentProxy);
   CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForHttp);
   CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForFtpFamily);
 #ifdef ENABLE_BITTORRENT
@@ -75,7 +75,7 @@ public:
   void testLoadAndOpenFileRestartFromScratch();
   void testCompletedLengthReportsVerifiedStorageOnly();
   void testCurlTlsTrustOptions();
-  void testCurlExplicitEmptyProxyDisablesEnvironmentProxy();
+  void testCurlProxyModeControlsEnvironmentProxy();
   void testInitiateConnectionFactoryUsesCurlForHttp();
   void testInitiateConnectionFactoryUsesCurlForFtpFamily();
 #ifdef ENABLE_BITTORRENT
@@ -274,23 +274,24 @@ void RequestGroupTest::testCurlTlsTrustOptions()
 #endif // !defined(_WIN32) || !defined(CURLSSLOPT_NATIVE_CA)
 }
 
-void RequestGroupTest::testCurlExplicitEmptyProxyDisablesEnvironmentProxy()
+void RequestGroupTest::testCurlProxyModeControlsEnvironmentProxy()
 {
   auto parent = std::make_shared<Option>();
+  parent->put(PREF_PROXY_MODE, V_AUTO);
   parent->put(PREF_ALL_PROXY, "http://proxy.example:8080/");
 
   Option op;
   op.setParent(parent);
-  CPPUNIT_ASSERT(!CurlDownloadCommand::shouldDisableCurlProxy("https", &op));
+  CPPUNIT_ASSERT(!CurlDownloadCommand::shouldDisableCurlProxy(&op));
 
-  op.put(PREF_ALL_PROXY, "");
-  CPPUNIT_ASSERT(CurlDownloadCommand::shouldDisableCurlProxy("https", &op));
-  CPPUNIT_ASSERT(CurlDownloadCommand::shouldDisableCurlProxy("http", &op));
+  op.put(PREF_PROXY_MODE, V_DIRECT);
+  CPPUNIT_ASSERT(CurlDownloadCommand::shouldDisableCurlProxy(&op));
 
-  op.put(PREF_ALL_PROXY, "http://proxy.example:8080/");
-  op.put(PREF_HTTPS_PROXY, "");
-  CPPUNIT_ASSERT(CurlDownloadCommand::shouldDisableCurlProxy("https", &op));
-  CPPUNIT_ASSERT(!CurlDownloadCommand::shouldDisableCurlProxy("http", &op));
+  op.put(PREF_PROXY_MODE, V_MANUAL);
+  CPPUNIT_ASSERT(CurlDownloadCommand::shouldDisableCurlProxy(&op));
+
+  op.put(PREF_HTTPS_PROXY, "http://manual.example:8080/");
+  CPPUNIT_ASSERT(CurlDownloadCommand::shouldDisableCurlProxy(&op));
 }
 
 void RequestGroupTest::testInitiateConnectionFactoryUsesCurlForHttp()

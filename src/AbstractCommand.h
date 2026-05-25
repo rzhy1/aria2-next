@@ -234,6 +234,10 @@ public:
 // then returns an empty string.
 std::string getProxyUri(const std::string& protocol, const Option* option);
 
+// Returns the effective proxy URI after applying proxy-mode and no-proxy.
+std::string resolveProxyUri(const std::shared_ptr<Request>& req,
+                            const Option* option);
+
 bool inNoProxy(const std::shared_ptr<Request>& req, const std::string& noProxy);
 
 } // namespace aria2

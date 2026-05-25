@@ -144,6 +144,9 @@ const std::string V_BINARY("binary");
 const std::string V_ASCII("ascii");
 const std::string V_GET("get");
 const std::string V_TUNNEL("tunnel");
+const std::string V_AUTO("auto");
+const std::string V_DIRECT("direct");
+const std::string V_MANUAL("manual");
 const std::string V_PLAIN("plain");
 const std::string V_ARC4("arc4");
 const std::string V_HTTP("http");
@@ -444,6 +447,8 @@ PrefPtr PREF_FTP_PROXY = makePref("ftp-proxy");
 PrefPtr PREF_ALL_PROXY = makePref("all-proxy");
 // values: comma separated hostname or domain
 PrefPtr PREF_NO_PROXY = makePref("no-proxy");
+// values: auto | direct | manual
+PrefPtr PREF_PROXY_MODE = makePref("proxy-mode");
 // values: get | tunnel
 PrefPtr PREF_PROXY_METHOD = makePref("proxy-method");
 PrefPtr PREF_HTTP_PROXY_USER = makePref("http-proxy-user");

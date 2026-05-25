@@ -624,6 +624,27 @@ std::string makeProxyUri(PrefPtr proxyPref, PrefPtr proxyUser,
   }
   return uri::construct(us);
 }
+
+std::string makeLocalProxyUri(PrefPtr proxyPref, PrefPtr proxyUser,
+                              PrefPtr proxyPasswd, const Option* option)
+{
+  if (!option->definedLocal(proxyPref)) {
+    return "";
+  }
+
+  uri::UriStruct us;
+  if (!uri::parse(us, option->get(proxyPref))) {
+    return "";
+  }
+  if (option->definedLocal(proxyUser)) {
+    us.username = option->get(proxyUser);
+  }
+  if (option->definedLocal(proxyPasswd)) {
+    us.password = option->get(proxyPasswd);
+    us.hasPassword = true;
+  }
+  return uri::construct(us);
+}
 } // namespace
 
 namespace {
@@ -635,6 +656,18 @@ std::string getProxyOptionFor(PrefPtr proxyPref, PrefPtr proxyUser,
   if (uri.empty()) {
     return makeProxyUri(PREF_ALL_PROXY, PREF_ALL_PROXY_USER,
                         PREF_ALL_PROXY_PASSWD, option);
+  }
+
+  return uri;
+}
+
+std::string getLocalProxyOptionFor(PrefPtr proxyPref, PrefPtr proxyUser,
+                                   PrefPtr proxyPasswd, const Option* option)
+{
+  std::string uri = makeLocalProxyUri(proxyPref, proxyUser, proxyPasswd, option);
+  if (uri.empty()) {
+    return makeLocalProxyUri(PREF_ALL_PROXY, PREF_ALL_PROXY_USER,
+                             PREF_ALL_PROXY_PASSWD, option);
   }
 
   return uri;
@@ -664,13 +697,24 @@ std::string getProxyUri(const std::string& protocol, const Option* option)
 }
 
 namespace {
-// Returns true if proxy is defined for the given protocol. Otherwise
-// returns false.
-bool isProxyRequest(const std::string& protocol,
-                    const std::shared_ptr<Option>& option)
+std::string getLocalProxyUri(const std::string& protocol, const Option* option)
 {
-  std::string proxyUri = getProxyUri(protocol, option.get());
-  return !proxyUri.empty();
+  if (protocol == "http") {
+    return getLocalProxyOptionFor(PREF_HTTP_PROXY, PREF_HTTP_PROXY_USER,
+                                  PREF_HTTP_PROXY_PASSWD, option);
+  }
+
+  if (protocol == "https") {
+    return getLocalProxyOptionFor(PREF_HTTPS_PROXY, PREF_HTTPS_PROXY_USER,
+                                  PREF_HTTPS_PROXY_PASSWD, option);
+  }
+
+  if (protocol == "ftp" || protocol == "sftp") {
+    return getLocalProxyOptionFor(PREF_FTP_PROXY, PREF_FTP_PROXY_USER,
+                                  PREF_FTP_PROXY_PASSWD, option);
+  }
+
+  return A2STR::NIL;
 }
 } // namespace
 
@@ -709,20 +753,31 @@ bool inNoProxy(const std::shared_ptr<Request>& req, const std::string& noProxy)
   return false;
 }
 
+std::string resolveProxyUri(const std::shared_ptr<Request>& req,
+                            const Option* option)
+{
+  if (option->get(PREF_PROXY_MODE) == V_DIRECT ||
+      inNoProxy(req, option->get(PREF_NO_PROXY))) {
+    return A2STR::NIL;
+  }
+
+  if (option->get(PREF_PROXY_MODE) == V_MANUAL) {
+    return getLocalProxyUri(req->getProtocol(), option);
+  }
+
+  return getProxyUri(req->getProtocol(), option);
+}
+
 bool AbstractCommand::isProxyDefined() const
 {
-  return isProxyRequest(req_->getProtocol(), getOption()) &&
-         !inNoProxy(req_, getOption()->get(PREF_NO_PROXY));
+  return !resolveProxyUri(req_, getOption().get()).empty();
 }
 
 std::shared_ptr<Request> AbstractCommand::createProxyRequest() const
 {
   std::shared_ptr<Request> proxyRequest;
-  if (inNoProxy(req_, getOption()->get(PREF_NO_PROXY))) {
-    return proxyRequest;
-  }
 
-  std::string proxy = getProxyUri(req_->getProtocol(), getOption().get());
+  std::string proxy = resolveProxyUri(req_, getOption().get());
   if (!proxy.empty()) {
     proxyRequest = std::make_shared<Request>();
     if (proxyRequest->setUri(proxy)) {
@@ -801,7 +856,7 @@ bool AbstractCommand::checkIfConnectionEstablished(
     e_->removeCachedIPAddress(connectedHostname, connectedPort);
     // Don't set error if proxy server is used and its method is GET.
     if (resolveProxyMethod(req_->getProtocol()) != V_GET ||
-        !isProxyRequest(req_->getProtocol(), getOption())) {
+        !isProxyDefined()) {
       e_->getRequestGroupMan()
           ->getOrCreateServerStat(req_->getHost(), req_->getProtocol())
           ->setError();

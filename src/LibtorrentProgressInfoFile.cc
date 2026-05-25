@@ -29,6 +29,7 @@
 
 #include <libtorrent/add_torrent_params.hpp>
 #include <libtorrent/read_resume_data.hpp>
+#include <libtorrent/write_resume_data.hpp>
 
 namespace aria2 {
 
@@ -148,6 +149,14 @@ void storeResumeStatus(LibtorrentAttribute* attrs, const std::string& data)
   }
 }
 
+bool shouldRejectResumeData(LibtorrentAttribute* attrs,
+                            const libtorrent::add_torrent_params& params)
+{
+  return attrs->sourceType == LibtorrentAttribute::SourceType::MAGNET &&
+         attrs->pauseAfterMetadata && !params.ti &&
+         (params.completed_time != 0 || params.finished_time != 0);
+}
+
 } // namespace
 
 #define WRITE_CHECK(fp, ptr, count)                                            \
@@ -250,10 +259,38 @@ void LibtorrentProgressInfoFile::load()
     READ_CHECK(fp, &data[0], data.size());
   }
   auto attrs = getLibtorrentAttrs(dctx_);
+  if (!data.empty()) {
+    libtorrent::error_code ec;
+    auto params = libtorrent::read_resume_data(
+        libtorrent::span<char const>(data.data(),
+                                     static_cast<int>(data.size())),
+        ec);
+    if (!ec && !attrs->infoHash.empty() &&
+        getV1InfoHash(params) != attrs->infoHash) {
+      ec = make_error_code(libtorrent::errors::mismatching_info_hash);
+    }
+    if (ec || shouldRejectResumeData(attrs, params)) {
+      A2_LOG_WARN(fmt("Ignoring unusable libtorrent control file: %s",
+                      filename_.c_str()));
+      attrs->resumeStatus = LibtorrentAttribute::Status();
+      attrs->metadataPauseApplied = false;
+      attrs->contentStarted = false;
+      attrs->setResumeData("");
+      A2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
+      return;
+    }
+    if (!attrs->selectedFiles.empty() && !params.piece_priorities.empty()) {
+      params.piece_priorities.clear();
+      auto sanitized = libtorrent::write_resume_data_buf(params);
+      data.assign(sanitized.begin(), sanitized.end());
+    }
+  }
   storeResumeStatus(attrs, data);
   if (attrs->sourceType == LibtorrentAttribute::SourceType::MAGNET &&
-      attrs->pauseAfterMetadata && attrs->resumeStatus.hasMetadata) {
-    attrs->metadataPauseApplied = true;
+      attrs->pauseAfterMetadata) {
+    attrs->metadataPauseApplied = attrs->resumeStatus.hasMetadata;
+    attrs->contentStarted = attrs->resumeStatus.hasMetadata &&
+                            !attrs->selectedFiles.empty();
   }
   attrs->setResumeData(std::move(data));
   A2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);

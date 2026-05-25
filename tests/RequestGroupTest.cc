@@ -23,6 +23,9 @@
 #  include "LibtorrentProgressInfoFile.h"
 #  include "LibtorrentSession.h"
 #  include <libtorrent/load_torrent.hpp>
+#  include <libtorrent/magnet_uri.hpp>
+#  include <libtorrent/read_resume_data.hpp>
+#  include <libtorrent/torrent_flags.hpp>
 #  include <libtorrent/write_resume_data.hpp>
 #endif // ENABLE_BITTORRENT
 
@@ -54,6 +57,7 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testLibtorrentSessionTracksActiveTorrent);
   CPPUNIT_TEST(testLibtorrentDuplicateTorrentFailsOnlySecondGroup);
   CPPUNIT_TEST(testLibtorrentMagnetPauseMetadataStopsAfterMetadata);
+  CPPUNIT_TEST(testLibtorrentSelectedMagnetRestartsAfterMetadata);
 #endif // ENABLE_BITTORRENT
   CPPUNIT_TEST_SUITE_END();
 
@@ -86,6 +90,7 @@ public:
   void testLibtorrentSessionTracksActiveTorrent();
   void testLibtorrentDuplicateTorrentFailsOnlySecondGroup();
   void testLibtorrentMagnetPauseMetadataStopsAfterMetadata();
+  void testLibtorrentSelectedMagnetRestartsAfterMetadata();
 #endif // ENABLE_BITTORRENT
 };
 
@@ -559,7 +564,7 @@ void RequestGroupTest::testLibtorrentEmptyResumeDataDoesNotOverwriteControlFile(
 {
   const std::string controlPath =
       std::string(A2_TEST_OUT_DIR) +
-      "/0101010101010101010101010101010101010101.aria2";
+      "/empty-resume-data.aria2";
   File(controlPath).remove();
 
   auto ctx = std::make_shared<DownloadContext>(1_k, 100_k, "torrent.bin");
@@ -570,7 +575,9 @@ void RequestGroupTest::testLibtorrentEmptyResumeDataDoesNotOverwriteControlFile(
   auto attrsPtr = attrs.get();
   ctx->setAttribute(CTX_ATTR_LIBTORRENT, std::move(attrs));
 
-  const std::string resumeData("valid libtorrent resume data");
+  auto torrentParams = lt::load_torrent_file(A2_TEST_DIR "/single.torrent");
+  auto resumeBuf = lt::write_resume_data_buf(torrentParams);
+  const std::string resumeData(resumeBuf.begin(), resumeBuf.end());
   attrsPtr->setResumeData(resumeData);
   RequestGroup group(GroupId::create(), option_);
   group.setDownloadContext(ctx);
@@ -783,6 +790,82 @@ void RequestGroupTest::testLibtorrentMagnetPauseMetadataStopsAfterMetadata()
   CPPUNIT_ASSERT(attrsPtr->metadataPauseApplied);
   CPPUNIT_ASSERT(group.isPauseRequested());
   CPPUNIT_ASSERT(command.execute());
+
+  lt::error_code ec;
+  auto params = lt::read_resume_data(
+      lt::span<char const>(attrsPtr->getResumeData().data(),
+                           static_cast<int>(attrsPtr->getResumeData().size())),
+      ec);
+  CPPUNIT_ASSERT(!ec);
+  CPPUNIT_ASSERT(params.ti);
+}
+
+void RequestGroupTest::testLibtorrentSelectedMagnetRestartsAfterMetadata()
+{
+  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
+  option_->put(PREF_DRY_RUN, A2_V_FALSE);
+  option_->put(PREF_LISTEN_PORT, "0");
+  option_->put(PREF_DHT_LISTEN_PORT, "0");
+
+  auto torrentParams = lt::load_torrent_file(A2_TEST_DIR "/test.torrent");
+  auto magnet = "magnet:?xt=urn:btih:" +
+                util::toHex(torrentParams.ti->info_hashes().v1.to_string());
+  auto metadataOnly = lt::parse_magnet_uri(magnet);
+  metadataOnly.flags |= lt::torrent_flags::upload_mode;
+  metadataOnly.flags |= lt::torrent_flags::default_dont_download;
+  auto resumeData = lt::write_resume_data_buf(metadataOnly);
+
+  auto ctx = std::make_shared<DownloadContext>(0, 0, "magnet");
+  ctx->markTotalLengthIsUnknown();
+  auto attrs = make_unique<LibtorrentAttribute>(
+      LibtorrentAttribute::SourceType::MAGNET, magnet, "",
+      std::vector<std::string>{},
+      A2_TEST_OUT_DIR "/0101010101010101010101010101010101010101.aria2",
+      torrentParams.ti->info_hashes().v1.to_string());
+  auto attrsPtr = attrs.get();
+  attrsPtr->pauseAfterMetadata = true;
+  attrsPtr->metadataPauseApplied = true;
+  attrsPtr->selectedFiles = "2";
+  attrsPtr->setResumeData(std::string(resumeData.begin(), resumeData.end()));
+  ctx->setAttribute(CTX_ATTR_LIBTORRENT, std::move(attrs));
+
+  RequestGroup group(GroupId::create(), option_);
+  group.setDownloadContext(ctx);
+  group.setState(RequestGroup::STATE_ACTIVE);
+
+  auto engine = make_unique<DownloadEngine>(make_unique<SelectEventPoll>());
+  engine->setOption(option_.get());
+
+  LibtorrentCommand command(engine->newCUID(), &group, engine.get());
+  command.preProcess();
+  auto handle = engine->getLibtorrentSession().nativeSession().find_torrent(
+      torrentParams.ti->info_hashes().v1);
+  CPPUNIT_ASSERT(handle.is_valid());
+  handle.set_metadata(lt::span<char const>(torrentParams.ti->metadata().get(),
+                                           torrentParams.ti->metadata_size()));
+  command.preProcess();
+  for (int i = 0; i < 10 && attrsPtr->filePrioritiesPending; ++i) {
+    command.preProcess();
+  }
+  command.preProcess();
+
+  CPPUNIT_ASSERT(!group.isPauseRequested());
+  CPPUNIT_ASSERT(!group.isRestartRequested());
+
+  lt::error_code ec;
+  auto params = lt::read_resume_data(
+      lt::span<char const>(attrsPtr->getResumeData().data(),
+                           static_cast<int>(attrsPtr->getResumeData().size())),
+      ec);
+  CPPUNIT_ASSERT(!ec);
+  CPPUNIT_ASSERT(params.ti);
+  CPPUNIT_ASSERT(params.piece_priorities.empty());
+  CPPUNIT_ASSERT_EQUAL((size_t)2, attrsPtr->filePriorities.size());
+  CPPUNIT_ASSERT_EQUAL(0, attrsPtr->filePriorities[0]);
+  CPPUNIT_ASSERT_EQUAL(4, attrsPtr->filePriorities[1]);
+  CPPUNIT_ASSERT(attrsPtr->contentStarted);
+  CPPUNIT_ASSERT(attrsPtr->status.totalLength > 0);
+  CPPUNIT_ASSERT_EQUAL((int64_t)0, attrsPtr->status.completedLength);
 }
 #endif // ENABLE_BITTORRENT
 

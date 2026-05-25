@@ -144,7 +144,8 @@ bool RequestGroup::downloadFinished() const
 #ifdef ENABLE_BITTORRENT
   if (downloadContext_->hasAttribute(CTX_ATTR_LIBTORRENT)) {
     auto attrs = getLibtorrentAttrs(downloadContext_);
-    return attrs->status.hasStatus && attrs->status.complete;
+    return attrs->status.hasStatus && attrs->status.complete &&
+           !attrs->status.sharing;
   }
 #endif // ENABLE_BITTORRENT
   if (!pieceStorage_) {

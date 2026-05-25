@@ -41,7 +41,8 @@ struct LibtorrentEvent {
     FileError,
     SaveResumeData,
     SaveResumeDataFailed,
-    MetadataReceived
+    MetadataReceived,
+    FilePrioritiesChanged
   };
 
   Type type;

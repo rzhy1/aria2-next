@@ -81,6 +81,9 @@ bool matchesExpectedInfoHashForSave(const lt::add_torrent_params& params,
   return expected.empty() || actual.empty() || actual == expected;
 }
 
+std::vector<int> createSelectedFilePriorities(const std::string& selectedFiles,
+                                              int numFiles);
+
 lt::add_torrent_params
 createAddTorrentParams(LibtorrentAttribute* attrs, const Option* option)
 {
@@ -141,8 +144,12 @@ createAddTorrentParams(LibtorrentAttribute* attrs, const Option* option)
   params.trackers.assign(attrs->trackerUris.begin(), attrs->trackerUris.end());
   params.tracker_tiers.assign(attrs->trackerTiers.begin(),
                               attrs->trackerTiers.end());
-  params.file_priorities.assign(attrs->filePriorities.begin(),
-                                attrs->filePriorities.end());
+  if (!attrs->selectedFiles.empty() && attrs->filePriorities.empty() &&
+      params.ti) {
+    attrs->filePriorities =
+        createSelectedFilePriorities(attrs->selectedFiles,
+                                     params.ti->files().num_files());
+  }
   params.flags |= lt::torrent_flags::duplicate_is_error;
   if (!option->getAsBool(PREF_ENABLE_DHT)) {
     params.flags |= lt::torrent_flags::disable_dht;
@@ -165,7 +172,22 @@ createAddTorrentParams(LibtorrentAttribute* attrs, const Option* option)
   params.flags &= ~lt::torrent_flags::paused;
   params.flags &= ~lt::torrent_flags::auto_managed;
   if (attrs->sourceType == LibtorrentAttribute::SourceType::MAGNET &&
-      attrs->pauseAfterMetadata && !attrs->metadataPauseApplied) {
+      attrs->pauseAfterMetadata && params.ti && attrs->metadataPauseApplied) {
+    if (attrs->filePriorities.empty()) {
+      attrs->filePriorities.assign(
+          static_cast<size_t>(params.ti->files().num_files()), 4);
+    }
+    params.file_priorities.assign(attrs->filePriorities.begin(),
+                                  attrs->filePriorities.end());
+    params.flags &= ~lt::torrent_flags::upload_mode;
+    params.flags &= ~lt::torrent_flags::default_dont_download;
+  }
+  else {
+    params.file_priorities.assign(attrs->filePriorities.begin(),
+                                  attrs->filePriorities.end());
+  }
+  if (attrs->sourceType == LibtorrentAttribute::SourceType::MAGNET &&
+      attrs->pauseAfterMetadata && !attrs->contentStarted) {
     params.flags |= lt::torrent_flags::upload_mode;
     params.flags |= lt::torrent_flags::default_dont_download;
   }
@@ -332,10 +354,29 @@ createFilePriorities(const std::vector<int>& priorities)
   return result;
 }
 
+bool filePrioritiesMatch(const lt::torrent_handle& handle,
+                         const std::vector<int>& priorities)
+{
+  if (priorities.empty()) {
+    return true;
+  }
+  auto current = handle.get_file_priorities();
+  if (current.size() < priorities.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < priorities.size(); ++i) {
+    if (current[i] !=
+        static_cast<lt::download_priority_t>(priorities[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::vector<int> createSelectedFilePriorities(const std::string& selectedFiles,
                                               int numFiles)
 {
-  if (selectedFiles.empty() || numFiles <= 1) {
+  if (selectedFiles.empty() || numFiles <= 0) {
     return {};
   }
 
@@ -379,6 +420,7 @@ void refreshFileShape(RequestGroup* requestGroup, const lt::torrent_status& st)
   if (!attrs->filePriorities.empty() && !attrs->filePrioritiesApplied) {
     st.handle.prioritize_files(createFilePriorities(attrs->filePriorities));
     attrs->filePrioritiesApplied = true;
+    attrs->filePrioritiesPending = true;
   }
   const auto& files = ti->files();
   std::vector<std::shared_ptr<FileEntry>> entries;
@@ -411,6 +453,24 @@ bool shouldApplyMetadataPause(const LibtorrentAttribute* attrs,
          attrs->pauseAfterMetadata && !attrs->metadataPauseApplied &&
          status.has_metadata;
 }
+
+bool shouldStartPausedMagnetContent(const LibtorrentAttribute* attrs,
+                                    const lt::torrent_status& status)
+{
+  return attrs->sourceType == LibtorrentAttribute::SourceType::MAGNET &&
+         attrs->pauseAfterMetadata && attrs->metadataPauseApplied &&
+         !attrs->contentStarted && status.has_metadata;
+}
+
+bool shouldFinishContent(const LibtorrentAttribute* attrs,
+                         const lt::torrent_status& status)
+{
+  if (!status.has_metadata || status.total_wanted <= 0) {
+    return false;
+  }
+  return attrs->sourceType != LibtorrentAttribute::SourceType::MAGNET ||
+         attrs->contentStarted || !attrs->pauseAfterMetadata;
+}
 } // namespace
 
 LibtorrentCommand::LibtorrentCommand(cuid_t cuid, RequestGroup* requestGroup,
@@ -420,7 +480,6 @@ LibtorrentCommand::LibtorrentCommand(cuid_t cuid, RequestGroup* requestGroup,
       session_(&engine->getLibtorrentSession()),
       completedLength_(0),
       uploadedLength_(0),
-      resumeDataRequestTimer_(Timer::zero()),
       sharingTimer_(Timer::zero()),
       resumeDataRequested_(false),
       torrentAdded_(false),
@@ -445,14 +504,9 @@ void LibtorrentCommand::preProcess()
   if (requestGroup_->isHaltRequested() || getDownloadEngine()->isHaltRequested()) {
     if (handle_.is_valid()) {
       handle_.pause(lt::torrent_handle::graceful_pause);
-      requestResumeData();
+      syncResumeData();
     }
     pollAlerts();
-    if (resumeDataRequested_ &&
-        resumeDataRequestTimer_.difference() < std::chrono::seconds(3)) {
-      return;
-    }
-    syncResumeDataOnExit();
     enableExit();
     return;
   }
@@ -489,6 +543,9 @@ void LibtorrentCommand::addTorrent()
   if (!attrs->filePriorities.empty()) {
     attrs->filePrioritiesApplied = true;
   }
+  attrs->contentStarted =
+      attrs->sourceType != LibtorrentAttribute::SourceType::MAGNET ||
+      (attrs->metadataPauseApplied && attrs->resumeStatus.hasMetadata);
   auto option = requestGroup_->getOption();
   handle_.set_download_limit(option->getAsInt(PREF_MAX_DOWNLOAD_LIMIT));
   handle_.set_upload_limit(option->getAsInt(PREF_MAX_UPLOAD_LIMIT));
@@ -522,6 +579,10 @@ void LibtorrentCommand::pollAlerts()
     case LibtorrentEvent::Type::MetadataReceived:
       A2_LOG_INFO(fmt("GID#%s - BitTorrent metadata received by libtorrent.",
                       requestGroup_->getGroupId()->toHex().c_str()));
+      break;
+    case LibtorrentEvent::Type::FilePrioritiesChanged:
+      getLibtorrentAttrs(requestGroup_->getDownloadContext())
+          ->filePrioritiesPending = false;
       break;
     }
   }
@@ -566,8 +627,44 @@ void LibtorrentCommand::updateStatus()
       attrs->status.infoHash.assign(hash.begin(), hash.end());
     }
     syncResumeData();
+    attrs->contentStarted = false;
+    requestGroup_->setHaltRequested(true, RequestGroup::NONE);
+    requestGroup_->setPauseRequested(true);
     enableExit();
     return;
+  }
+
+  if (shouldStartPausedMagnetContent(attrs, status)) {
+    if (!attrs->filePriorities.empty() && !attrs->filePrioritiesApplied) {
+      handle_.prioritize_files(createFilePriorities(attrs->filePriorities));
+      attrs->filePrioritiesApplied = true;
+      attrs->filePrioritiesPending = true;
+    }
+    if (attrs->filePrioritiesPending &&
+        filePrioritiesMatch(handle_, attrs->filePriorities)) {
+      attrs->filePrioritiesPending = false;
+    }
+    if (attrs->filePrioritiesPending) {
+      attrs->status.hasStatus = true;
+      attrs->status.complete = false;
+      attrs->status.checking = false;
+      attrs->status.seeding = false;
+      attrs->status.sharing = false;
+      attrs->status.hasMetadata = true;
+      attrs->status.totalLength = 0;
+      attrs->status.completedLength = 0;
+      attrs->status.uploadedLength = status.all_time_upload;
+      attrs->status.downloadSpeed = 0;
+      attrs->status.uploadSpeed = status.upload_payload_rate;
+      attrs->status.connections = status.num_peers;
+      attrs->status.seeders = status.num_seeds;
+      attrs->status.name = status.name;
+      return;
+    }
+    handle_.unset_flags(lt::torrent_flags::upload_mode |
+                        lt::torrent_flags::default_dont_download);
+    attrs->contentStarted = true;
+    syncResumeData();
   }
 
   attrs->status.hasStatus = true;
@@ -623,11 +720,12 @@ void LibtorrentCommand::updateStatus()
     requestGroup_->getPieceStorage()->markPiecesDone(status.total_wanted_done);
   }
 
-  if (status.is_finished && !status.is_seeding && isPartialSelection(status)) {
+  if (shouldFinishContent(attrs, status) && status.is_finished &&
+      !status.is_seeding && isPartialSelection(status)) {
     reportBtDownloadComplete();
     requestResumeData();
   }
-  else if (status.is_seeding) {
+  else if (shouldFinishContent(attrs, status) && status.is_seeding) {
     reportBtDownloadComplete();
     requestGroup_->enableSeedOnly();
     requestResumeData();
@@ -635,7 +733,7 @@ void LibtorrentCommand::updateStatus()
   if (isSharing(status) && !resumeDataSynced_) {
     syncResumeData();
   }
-  if (isSharing(status) &&
+  if (shouldFinishContent(attrs, status) && isSharing(status) &&
       shouldStopLibtorrentSharing(requestGroup_->getOption().get(),
                                   status.total_wanted,
                                   status.all_time_upload,
@@ -671,21 +769,12 @@ void LibtorrentCommand::requestResumeData()
     return;
   }
   try {
-    handle_.save_resume_data();
+    handle_.save_resume_data(lt::torrent_handle::save_info_dict);
     resumeDataRequested_ = true;
-    resumeDataRequestTimer_.reset();
   }
   catch (const std::exception& ex) {
     A2_LOG_WARN(fmt("Failed to request libtorrent resume data: %s", ex.what()));
   }
-}
-
-void LibtorrentCommand::syncResumeDataOnExit()
-{
-  if (!handle_.is_valid() || !resumeDataRequested_) {
-    return;
-  }
-  syncResumeData();
 }
 
 void LibtorrentCommand::syncResumeData()
@@ -694,7 +783,8 @@ void LibtorrentCommand::syncResumeData()
     return;
   }
   try {
-    storeResumeData(handle_.get_resume_data());
+    storeResumeData(
+        handle_.get_resume_data(lt::torrent_handle::save_info_dict));
     resumeDataSynced_ = true;
   }
   catch (const std::exception& ex) {
@@ -706,13 +796,25 @@ void LibtorrentCommand::syncResumeData()
 void LibtorrentCommand::storeResumeData(const lt::add_torrent_params& params)
 {
   auto attrs = getLibtorrentAttrs(requestGroup_->getDownloadContext());
-  if (!matchesExpectedInfoHashForSave(params, attrs->infoHash)) {
+  auto resumeParams = params;
+  if (!matchesExpectedInfoHashForSave(resumeParams, attrs->infoHash)) {
     A2_LOG_WARN(
         "Ignoring libtorrent resume data with mismatched infoHash.");
     resumeDataRequested_ = false;
     return;
   }
-  auto data = lt::write_resume_data_buf(params);
+  if (attrs->sourceType == LibtorrentAttribute::SourceType::MAGNET &&
+      attrs->pauseAfterMetadata && attrs->metadataPauseApplied &&
+      !resumeParams.ti) {
+    A2_LOG_WARN(
+        "Ignoring libtorrent resume data without metadata for paused magnet.");
+    resumeDataRequested_ = false;
+    return;
+  }
+  if (!attrs->selectedFiles.empty()) {
+    resumeParams.piece_priorities.clear();
+  }
+  auto data = lt::write_resume_data_buf(resumeParams);
   attrs->setResumeData(std::string(data.begin(), data.end()));
   resumeDataRequested_ = false;
   try {

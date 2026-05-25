@@ -32,7 +32,6 @@ private:
   libtorrent::torrent_handle handle_;
   int64_t completedLength_;
   int64_t uploadedLength_;
-  Timer resumeDataRequestTimer_;
   Timer sharingTimer_;
   bool resumeDataRequested_;
   bool torrentAdded_;
@@ -45,7 +44,6 @@ private:
   void updateStatus();
   void requestResumeData();
   void syncResumeData();
-  void syncResumeDataOnExit();
   void storeResumeData(const libtorrent::add_torrent_params& params);
   void storeResumeStatus(const libtorrent::add_torrent_params& params);
   void reportBtDownloadComplete();

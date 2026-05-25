@@ -997,9 +997,13 @@ void gatherProgressCommon(Dict* entryDict,
 #ifdef ENABLE_BITTORRENT
   if (libtorrentAttrs) {
     auto ltStatus = selectLibtorrentStatus(libtorrentAttrs);
-    if (requested_key(keys, KEY_INFO_HASH) &&
-        !ltStatus->infoHash.empty()) {
-      entryDict->put(KEY_INFO_HASH, util::toHex(ltStatus->infoHash));
+    if (requested_key(keys, KEY_INFO_HASH)) {
+      if (!ltStatus->infoHash.empty()) {
+        entryDict->put(KEY_INFO_HASH, util::toHex(ltStatus->infoHash));
+      }
+      else if (!libtorrentAttrs->infoHash.empty()) {
+        entryDict->put(KEY_INFO_HASH, util::toHex(libtorrentAttrs->infoHash));
+      }
     }
     if (requested_key(keys, KEY_NUM_SEEDERS)) {
       entryDict->put(KEY_NUM_SEEDERS,
@@ -1799,7 +1803,7 @@ void changeOption(const std::shared_ptr<RequestGroup>& group,
       attrs->selectedFiles = grOption->get(PREF_SELECT_FILE);
       attrs->filePriorities.clear();
       auto& entries = dctx->getFileEntries();
-      if (entries.size() > 1) {
+      if (!entries.empty()) {
         attrs->filePriorities.assign(entries.size(), 0);
         for (size_t i = 0; i < entries.size(); ++i) {
           if (entries[i]->isRequested()) {

@@ -283,6 +283,11 @@ void LibtorrentSession::collectAlerts()
       event.type = LibtorrentEvent::Type::MetadataReceived;
       events_[gid].push_back(std::move(event));
     }
+    else if (lt::alert_cast<lt::file_prio_alert>(alert)) {
+      LibtorrentEvent event;
+      event.type = LibtorrentEvent::Type::FilePrioritiesChanged;
+      events_[gid].push_back(std::move(event));
+    }
   }
 }
 

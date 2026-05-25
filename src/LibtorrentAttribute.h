@@ -74,6 +74,8 @@ struct LibtorrentAttribute : public ContextAttribute {
   std::string infoHash;
   bool pauseAfterMetadata = false;
   bool metadataPauseApplied = false;
+  bool contentStarted = false;
+  bool filePrioritiesPending = false;
 
   LibtorrentAttribute(SourceType sourceType, std::string sourceUri,
                       std::string torrentData,

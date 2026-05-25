@@ -176,7 +176,12 @@ jobs:
           ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps linux build/release/aria2-next
           packaging/scripts/size-audit linux build/release/aria2-next
-          build/release/aria2-next --dry-run=true https://down-tencent.huorong.cn/sysdiag-all-x64-6.0.10.0-2026.05.15.1.exe
+          printf 'aria2-next release smoke\n' > release-smoke.txt
+          python3 -m http.server 18080 --bind 127.0.0.1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          build/release/aria2-next --dir=release-smoke-out --out=release-smoke.txt http://127.0.0.1:18080/release-smoke.txt
+          test "$(cat release-smoke-out/release-smoke.txt)" = "aria2-next release smoke"
 
       - name: Package
         run: |
@@ -288,7 +293,12 @@ jobs:
           ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps linux build/release/aria2-next
           packaging/scripts/size-audit linux build/release/aria2-next
-          build/release/aria2-next --dry-run=true https://down-tencent.huorong.cn/sysdiag-all-x64-6.0.10.0-2026.05.15.1.exe
+          printf 'aria2-next release smoke\n' > release-smoke.txt
+          python3 -m http.server 18080 --bind 127.0.0.1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          build/release/aria2-next --dir=release-smoke-out --out=release-smoke.txt http://127.0.0.1:18080/release-smoke.txt
+          test "$(cat release-smoke-out/release-smoke.txt)" = "aria2-next release smoke"
 
       - name: Package
         run: |
@@ -397,7 +407,12 @@ jobs:
           ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps macos build/release/aria2-next
           packaging/scripts/size-audit macos build/release/aria2-next
-          build/release/aria2-next --dry-run=true https://down-tencent.huorong.cn/sysdiag-all-x64-6.0.10.0-2026.05.15.1.exe
+          printf 'aria2-next release smoke\n' > release-smoke.txt
+          python3 -m http.server 18080 --bind 127.0.0.1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          build/release/aria2-next --dir=release-smoke-out --out=release-smoke.txt http://127.0.0.1:18080/release-smoke.txt
+          test "$(cat release-smoke-out/release-smoke.txt)" = "aria2-next release smoke"
 
       - name: Package
         run: |
@@ -506,7 +521,12 @@ jobs:
           ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps macos build/release/aria2-next
           packaging/scripts/size-audit macos build/release/aria2-next
-          build/release/aria2-next --dry-run=true https://down-tencent.huorong.cn/sysdiag-all-x64-6.0.10.0-2026.05.15.1.exe
+          printf 'aria2-next release smoke\n' > release-smoke.txt
+          python3 -m http.server 18080 --bind 127.0.0.1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          build/release/aria2-next --dir=release-smoke-out --out=release-smoke.txt http://127.0.0.1:18080/release-smoke.txt
+          test "$(cat release-smoke-out/release-smoke.txt)" = "aria2-next release smoke"
 
       - name: Package
         run: |
@@ -540,7 +560,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             make binutils cmake ninja-build \
             patch ca-certificates pkg-config curl dpkg-dev lzip \
-            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+            gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix
 
       - name: Download dependencies
         run: |
@@ -684,7 +704,15 @@ jobs:
           . packaging/scripts/common.sh
           curl_fetch "$LLVM_MINGW_URL" "$LLVM_MINGW_ARCHIVE" "$LLVM_MINGW_SHA256"
           tar xf "$LLVM_MINGW_ARCHIVE"
-          echo "$PWD/llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64/bin" >> "$GITHUB_PATH"
+          toolchain="$PWD/llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64/bin"
+          echo "$toolchain" >> "$GITHUB_PATH"
+          {
+            echo "CC=$toolchain/aarch64-w64-mingw32-clang"
+            echo "CXX=$toolchain/aarch64-w64-mingw32-clang++"
+            echo "AR=$toolchain/aarch64-w64-mingw32-ar"
+            echo "RANLIB=$toolchain/aarch64-w64-mingw32-ranlib"
+            echo "STRIP=$toolchain/aarch64-w64-mingw32-strip"
+          } >> "$GITHUB_ENV"
 
       - name: Download dependencies
         run: |

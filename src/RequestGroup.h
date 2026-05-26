@@ -234,6 +234,11 @@ public:
   void createNextCommand(std::vector<std::unique_ptr<Command>>& commands,
                          DownloadEngine* e);
 
+  int countNextCommandForCompletedStream() const;
+
+  void createNextCommandForCompletedStream(
+      std::vector<std::unique_ptr<Command>>& commands, DownloadEngine* e);
+
   void noteHttpSegmentSuccess(
       const std::shared_ptr<Request>& request = nullptr);
 

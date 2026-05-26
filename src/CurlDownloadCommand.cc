@@ -459,9 +459,22 @@ void CurlDownloadCommand::finish(CURLcode result)
     return;
   }
 
+  auto numNext = getRequestGroup()->countNextCommandForCompletedStream();
+  if (numNext <= 0) {
+    getFileEntry()->poolRequest(getRequest());
+    return;
+  }
+
   getDownloadEngine()->addCommand(
       make_unique<CurlDownloadCommand>(getCuid(), getRequest(), getFileEntry(),
                                        getRequestGroup(), getDownloadEngine()));
+  --numNext;
+  if (numNext > 0) {
+    std::vector<std::unique_ptr<Command>> commands;
+    getRequestGroup()->createNextCommand(commands, getDownloadEngine(),
+                                         numNext);
+    getDownloadEngine()->addCommand(std::move(commands));
+  }
 }
 
 bool CurlDownloadCommand::finishMetadataProbe(long status)
@@ -492,7 +505,8 @@ bool CurlDownloadCommand::finishMetadataProbe(long status)
   prepareKnownLengthStorage(responseLength_);
   getFileEntry()->poolRequest(getRequest());
   std::vector<std::unique_ptr<Command>> commands;
-  getRequestGroup()->createNextCommand(commands, getDownloadEngine());
+  getRequestGroup()->createNextCommandForCompletedStream(commands,
+                                                         getDownloadEngine());
   getDownloadEngine()->setNoWait(true);
   getDownloadEngine()->addCommand(std::move(commands));
   return true;

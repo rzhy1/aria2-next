@@ -63,6 +63,8 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForHttp);
   CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForFtpFamily);
   CPPUNIT_TEST(testHttpAdaptiveCommandLimit);
+  CPPUNIT_TEST(testHttpAdaptiveInitialHandoffFillsWindow);
+  CPPUNIT_TEST(testHttpAdaptiveSuccessFillsExpandedWindow);
   CPPUNIT_TEST(testHttpRangeDowngradeDisablesRangedConcurrency);
   CPPUNIT_TEST(testHttpRangeDowngradeRejectsExtraActiveStreamRetries);
   CPPUNIT_TEST(testFtpDoesNotUseHttpAdaptiveCommandLimit);
@@ -103,6 +105,8 @@ public:
   void testInitiateConnectionFactoryUsesCurlForHttp();
   void testInitiateConnectionFactoryUsesCurlForFtpFamily();
   void testHttpAdaptiveCommandLimit();
+  void testHttpAdaptiveInitialHandoffFillsWindow();
+  void testHttpAdaptiveSuccessFillsExpandedWindow();
   void testHttpRangeDowngradeDisablesRangedConcurrency();
   void testHttpRangeDowngradeRejectsExtraActiveStreamRetries();
   void testFtpDoesNotUseHttpAdaptiveCommandLimit();
@@ -426,6 +430,54 @@ void RequestGroupTest::testHttpAdaptiveCommandLimit()
   group->noteHttpSegmentFailure();
   group->createNextCommand(commands, &engine);
   CPPUNIT_ASSERT_EQUAL((size_t)4, commands.size());
+}
+
+void RequestGroupTest::testHttpAdaptiveInitialHandoffFillsWindow()
+{
+  option_->put(PREF_SPLIT, "64");
+  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
+
+  auto group = createRequestGroup(
+      1_k, 64_k,
+      std::string(A2_TEST_OUT_DIR) +
+          "/aria2_RequestGroupTest_http_adaptive_initial_handoff",
+      "https://example.test/file", option_);
+  group->setNumConcurrentCommand(64);
+  group->initPieceStorage();
+  group->increaseStreamCommand();
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+
+  std::vector<std::unique_ptr<Command>> commands;
+  group->createNextCommandForCompletedStream(commands, &engine);
+  CPPUNIT_ASSERT_EQUAL((size_t)4, commands.size());
+}
+
+void RequestGroupTest::testHttpAdaptiveSuccessFillsExpandedWindow()
+{
+  option_->put(PREF_SPLIT, "64");
+  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
+
+  auto group = createRequestGroup(
+      1_k, 64_k,
+      std::string(A2_TEST_OUT_DIR) +
+          "/aria2_RequestGroupTest_http_adaptive_success_fill",
+      "https://example.test/file", option_);
+  group->setNumConcurrentCommand(64);
+  group->initPieceStorage();
+  group->increaseStreamCommand();
+  group->increaseStreamCommand();
+  group->increaseStreamCommand();
+  group->increaseStreamCommand();
+  group->noteHttpSegmentSuccess();
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+
+  std::vector<std::unique_ptr<Command>> commands;
+  group->createNextCommandForCompletedStream(commands, &engine);
+  CPPUNIT_ASSERT_EQUAL((size_t)5, commands.size());
 }
 
 void RequestGroupTest::testHttpRangeDowngradeDisablesRangedConcurrency()

@@ -755,6 +755,27 @@ void RequestGroup::createNextCommand(
   }
 }
 
+int RequestGroup::countNextCommandForCompletedStream() const
+{
+  int activeAfterCurrent = std::max(0, numStreamCommand_ - 1);
+  int target;
+  if (getTotalLength() == 0) {
+    target = 1;
+  }
+  else {
+    target = static_cast<int>(
+        std::min(downloadContext_->getNumPieces(),
+                 static_cast<size_t>(getEffectiveStreamCommandLimit())));
+  }
+  return std::max(0, target - activeAfterCurrent);
+}
+
+void RequestGroup::createNextCommandForCompletedStream(
+    std::vector<std::unique_ptr<Command>>& commands, DownloadEngine* e)
+{
+  createNextCommand(commands, e, countNextCommandForCompletedStream());
+}
+
 void RequestGroup::createNextCommand(
     std::vector<std::unique_ptr<Command>>& commands, DownloadEngine* e,
     int numCommand)

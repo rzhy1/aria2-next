@@ -22,6 +22,7 @@
 #  include "LibtorrentCommand.h"
 #  include "LibtorrentProgressInfoFile.h"
 #  include "LibtorrentSession.h"
+#  include <libtorrent/bdecode.hpp>
 #  include <libtorrent/load_torrent.hpp>
 #  include <libtorrent/magnet_uri.hpp>
 #  include <libtorrent/read_resume_data.hpp>
@@ -30,6 +31,23 @@
 #endif // ENABLE_BITTORRENT
 
 namespace aria2 {
+
+#ifdef ENABLE_BITTORRENT
+namespace {
+std::string loadTorrentInfoMetadata(const std::string& path)
+{
+  auto data = readFile(path);
+  lt::error_code ec;
+  auto root = lt::bdecode(
+      lt::span<char const>(data.data(), static_cast<int>(data.size())), ec);
+  CPPUNIT_ASSERT(!ec);
+  auto info = root.dict_find_dict("info");
+  CPPUNIT_ASSERT(info);
+  auto section = info.data_section();
+  return std::string(section.data(), section.size());
+}
+} // namespace
+#endif // ENABLE_BITTORRENT
 
 class RequestGroupTest : public CppUnit::TestFixture {
 
@@ -882,7 +900,9 @@ void RequestGroupTest::testLibtorrentMagnetPauseMetadataStopsAfterMetadata()
   option_->put(PREF_LISTEN_PORT, "0");
   option_->put(PREF_DHT_LISTEN_PORT, "0");
 
-  auto torrentParams = lt::load_torrent_file(A2_TEST_DIR "/single.torrent");
+  const std::string torrentPath = A2_TEST_DIR "/single.torrent";
+  auto torrentParams = lt::load_torrent_file(torrentPath);
+  auto metadata = loadTorrentInfoMetadata(torrentPath);
   auto magnet = "magnet:?xt=urn:btih:" +
                 util::toHex(torrentParams.ti->info_hashes().v1.to_string());
   auto ctx = std::make_shared<DownloadContext>(0, 0, "magnet");
@@ -912,8 +932,8 @@ void RequestGroupTest::testLibtorrentMagnetPauseMetadataStopsAfterMetadata()
   auto handle = engine->getLibtorrentSession().nativeSession().find_torrent(
       torrentParams.ti->info_hashes().v1);
   CPPUNIT_ASSERT(handle.is_valid());
-  handle.set_metadata(lt::span<char const>(torrentParams.ti->metadata().get(),
-                                           torrentParams.ti->metadata_size()));
+  handle.set_metadata(lt::span<char const>(
+      metadata.data(), static_cast<int>(metadata.size())));
   command.preProcess();
 
   CPPUNIT_ASSERT(ctx->knowsTotalLength());
@@ -939,7 +959,9 @@ void RequestGroupTest::testLibtorrentSelectedMagnetRestartsAfterMetadata()
   option_->put(PREF_LISTEN_PORT, "0");
   option_->put(PREF_DHT_LISTEN_PORT, "0");
 
-  auto torrentParams = lt::load_torrent_file(A2_TEST_DIR "/test.torrent");
+  const std::string torrentPath = A2_TEST_DIR "/test.torrent";
+  auto torrentParams = lt::load_torrent_file(torrentPath);
+  auto metadata = loadTorrentInfoMetadata(torrentPath);
   auto magnet = "magnet:?xt=urn:btih:" +
                 util::toHex(torrentParams.ti->info_hashes().v1.to_string());
   auto metadataOnly = lt::parse_magnet_uri(magnet);
@@ -973,8 +995,8 @@ void RequestGroupTest::testLibtorrentSelectedMagnetRestartsAfterMetadata()
   auto handle = engine->getLibtorrentSession().nativeSession().find_torrent(
       torrentParams.ti->info_hashes().v1);
   CPPUNIT_ASSERT(handle.is_valid());
-  handle.set_metadata(lt::span<char const>(torrentParams.ti->metadata().get(),
-                                           torrentParams.ti->metadata_size()));
+  handle.set_metadata(lt::span<char const>(
+      metadata.data(), static_cast<int>(metadata.size())));
   command.preProcess();
   for (int i = 0; i < 10 && attrsPtr->filePrioritiesPending; ++i) {
     command.preProcess();

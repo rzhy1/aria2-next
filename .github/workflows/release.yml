@@ -10,6 +10,14 @@ on:
         required: false
         default: latest
         type: string
+      build_profile:
+        description: "Manual validation build profile. Official releases always use release."
+        required: false
+        default: release
+        type: choice
+        options:
+          - release
+          - debug
 
 permissions:
   contents: write
@@ -24,6 +32,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
+      build_profile: ${{ steps.resolve.outputs.build_profile }}
+      cmake_build_type: ${{ steps.resolve.outputs.cmake_build_type }}
+      artifact_suffix: ${{ steps.resolve.outputs.artifact_suffix }}
+      strip_binary: ${{ steps.resolve.outputs.strip_binary }}
+      windows_debug_map_flags: ${{ steps.resolve.outputs.windows_debug_map_flags }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -35,6 +48,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           REQUESTED_VERSION: ${{ github.event.inputs.version }}
+          REQUESTED_BUILD_PROFILE: ${{ github.event.inputs.build_profile }}
         run: |
           VERSION=$(sed -n 's/^  VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | head -n 1)
 
@@ -72,6 +86,7 @@ jobs:
           fi
 
           if [ "$EVENT_NAME" = "release" ]; then
+            BUILD_PROFILE=release
             TAG_VERSION="${RELEASE_TAG#v}"
 
             if ! printf '%s\n' "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -83,9 +98,35 @@ jobs:
               echo "Release tag $RELEASE_TAG does not match CMake project version $VERSION" >&2
               exit 1
             fi
+          else
+            BUILD_PROFILE="${REQUESTED_BUILD_PROFILE:-release}"
           fi
 
+          case "$BUILD_PROFILE" in
+            release)
+              CMAKE_BUILD_TYPE=Release
+              ARTIFACT_SUFFIX=
+              STRIP_BINARY=true
+              WINDOWS_DEBUG_MAP_FLAGS=
+              ;;
+            debug)
+              CMAKE_BUILD_TYPE=RelWithDebInfo
+              ARTIFACT_SUFFIX=-debug
+              STRIP_BINARY=false
+              WINDOWS_DEBUG_MAP_FLAGS="-Wl,-Map,aria2-next.map"
+              ;;
+            *)
+              echo "Invalid build profile: $BUILD_PROFILE" >&2
+              exit 1
+              ;;
+          esac
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_profile=$BUILD_PROFILE" >> "$GITHUB_OUTPUT"
+          echo "cmake_build_type=$CMAKE_BUILD_TYPE" >> "$GITHUB_OUTPUT"
+          echo "artifact_suffix=$ARTIFACT_SUFFIX" >> "$GITHUB_OUTPUT"
+          echo "strip_binary=$STRIP_BINARY" >> "$GITHUB_OUTPUT"
+          echo "windows_debug_map_flags=$WINDOWS_DEBUG_MAP_FLAGS" >> "$GITHUB_OUTPUT"
 
   # ---------------------------------------------------------------------------
   # Linux x86_64 (static)
@@ -95,7 +136,11 @@ jobs:
     needs: resolve-release
     runs-on: ubuntu-22.04
     env:
+      ARTIFACT_SUFFIX: ${{ needs.resolve-release.outputs.artifact_suffix }}
+      ARIA2_BUILD_PROFILE: ${{ needs.resolve-release.outputs.build_profile }}
+      CMAKE_BUILD_TYPE: ${{ needs.resolve-release.outputs.cmake_build_type }}
       PREFIX: /usr/local
+      STRIP_BINARY: ${{ needs.resolve-release.outputs.strip_binary }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -171,7 +216,7 @@ jobs:
           . packaging/scripts/release-size-profile linux
           PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" \
           cmake -S . -B build/release -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
             -DARIA2_ENABLE_STATIC=ON \
             -DARIA2_WITH_ZLIB=ON \
             -DARIA2_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
@@ -182,7 +227,9 @@ jobs:
             -DCMAKE_PREFIX_PATH="$PREFIX" \
             -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config
           cmake --build build/release -j$(nproc)
-          strip build/release/aria2-next
+          if [ "$STRIP_BINARY" = true ]; then
+            strip build/release/aria2-next
+          fi
           ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps linux build/release/aria2-next
           packaging/scripts/size-audit linux build/release/aria2-next
@@ -196,12 +243,12 @@ jobs:
       - name: Package
         run: |
           VERSION="${{ needs.resolve-release.outputs.version }}"
-          cp build/release/aria2-next "aria2-next-${VERSION}-linux-x86_64"
+          cp build/release/aria2-next "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-linux-x86_64"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: linux-x86_64
-          path: aria2-next-${{ needs.resolve-release.outputs.version }}-linux-x86_64
+          name: linux-x86_64${{ needs.resolve-release.outputs.artifact_suffix }}
+          path: aria2-next-${{ needs.resolve-release.outputs.version }}${{ needs.resolve-release.outputs.artifact_suffix }}-linux-x86_64
           archive: false
 
   # ---------------------------------------------------------------------------
@@ -212,7 +259,11 @@ jobs:
     needs: resolve-release
     runs-on: ubuntu-22.04-arm
     env:
+      ARTIFACT_SUFFIX: ${{ needs.resolve-release.outputs.artifact_suffix }}
+      ARIA2_BUILD_PROFILE: ${{ needs.resolve-release.outputs.build_profile }}
+      CMAKE_BUILD_TYPE: ${{ needs.resolve-release.outputs.cmake_build_type }}
       PREFIX: /usr/local
+      STRIP_BINARY: ${{ needs.resolve-release.outputs.strip_binary }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -288,7 +339,7 @@ jobs:
           . packaging/scripts/release-size-profile linux
           PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" \
           cmake -S . -B build/release -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
             -DARIA2_ENABLE_STATIC=ON \
             -DARIA2_WITH_ZLIB=ON \
             -DARIA2_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
@@ -299,7 +350,9 @@ jobs:
             -DCMAKE_PREFIX_PATH="$PREFIX" \
             -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config
           cmake --build build/release -j$(nproc)
-          strip build/release/aria2-next
+          if [ "$STRIP_BINARY" = true ]; then
+            strip build/release/aria2-next
+          fi
           ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps linux build/release/aria2-next
           packaging/scripts/size-audit linux build/release/aria2-next
@@ -313,12 +366,12 @@ jobs:
       - name: Package
         run: |
           VERSION="${{ needs.resolve-release.outputs.version }}"
-          cp build/release/aria2-next "aria2-next-${VERSION}-linux-aarch64"
+          cp build/release/aria2-next "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-linux-aarch64"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: linux-aarch64
-          path: aria2-next-${{ needs.resolve-release.outputs.version }}-linux-aarch64
+          name: linux-aarch64${{ needs.resolve-release.outputs.artifact_suffix }}
+          path: aria2-next-${{ needs.resolve-release.outputs.version }}${{ needs.resolve-release.outputs.artifact_suffix }}-linux-aarch64
           archive: false
 
   # ---------------------------------------------------------------------------
@@ -329,7 +382,11 @@ jobs:
     needs: resolve-release
     runs-on: macos-15
     env:
+      ARTIFACT_SUFFIX: ${{ needs.resolve-release.outputs.artifact_suffix }}
+      ARIA2_BUILD_PROFILE: ${{ needs.resolve-release.outputs.build_profile }}
+      CMAKE_BUILD_TYPE: ${{ needs.resolve-release.outputs.cmake_build_type }}
       PREFIX: ${{ github.workspace }}/packaging/build-deps
+      STRIP_BINARY: ${{ needs.resolve-release.outputs.strip_binary }}
       MACOSX_VERSION_MIN: "11.0"
     steps:
       - uses: actions/checkout@v6
@@ -403,7 +460,7 @@ jobs:
           . packaging/scripts/release-size-profile macos
           PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" \
           cmake -S . -B build/release -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
             -DARIA2_ENABLE_STATIC=ON \
             -DARIA2_WITH_ZLIB=ON \
             -DARIA2_CA_BUNDLE=/etc/ssl/cert.pem \
@@ -413,7 +470,9 @@ jobs:
             -DARIA2_RELEASE_SIZE_OPTIMIZED=ON \
             -DCMAKE_PREFIX_PATH="$PREFIX"
           cmake --build build/release -j$(sysctl -n hw.ncpu)
-          strip build/release/aria2-next
+          if [ "$STRIP_BINARY" = true ]; then
+            strip build/release/aria2-next
+          fi
           ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps macos build/release/aria2-next
           packaging/scripts/size-audit macos build/release/aria2-next
@@ -427,12 +486,12 @@ jobs:
       - name: Package
         run: |
           VERSION="${{ needs.resolve-release.outputs.version }}"
-          cp build/release/aria2-next "aria2-next-${VERSION}-macos-arm64"
+          cp build/release/aria2-next "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-macos-arm64"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: macos-arm64
-          path: aria2-next-${{ needs.resolve-release.outputs.version }}-macos-arm64
+          name: macos-arm64${{ needs.resolve-release.outputs.artifact_suffix }}
+          path: aria2-next-${{ needs.resolve-release.outputs.version }}${{ needs.resolve-release.outputs.artifact_suffix }}-macos-arm64
           archive: false
 
   # ---------------------------------------------------------------------------
@@ -443,7 +502,11 @@ jobs:
     needs: resolve-release
     runs-on: macos-15-intel
     env:
+      ARTIFACT_SUFFIX: ${{ needs.resolve-release.outputs.artifact_suffix }}
+      ARIA2_BUILD_PROFILE: ${{ needs.resolve-release.outputs.build_profile }}
+      CMAKE_BUILD_TYPE: ${{ needs.resolve-release.outputs.cmake_build_type }}
       PREFIX: ${{ github.workspace }}/packaging/build-deps
+      STRIP_BINARY: ${{ needs.resolve-release.outputs.strip_binary }}
       MACOSX_VERSION_MIN: "11.0"
     steps:
       - uses: actions/checkout@v6
@@ -517,7 +580,7 @@ jobs:
           . packaging/scripts/release-size-profile macos
           PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" \
           cmake -S . -B build/release -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
             -DARIA2_ENABLE_STATIC=ON \
             -DARIA2_WITH_ZLIB=ON \
             -DARIA2_CA_BUNDLE=/etc/ssl/cert.pem \
@@ -527,7 +590,9 @@ jobs:
             -DARIA2_RELEASE_SIZE_OPTIMIZED=ON \
             -DCMAKE_PREFIX_PATH="$PREFIX"
           cmake --build build/release -j$(sysctl -n hw.ncpu)
-          strip build/release/aria2-next
+          if [ "$STRIP_BINARY" = true ]; then
+            strip build/release/aria2-next
+          fi
           ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps macos build/release/aria2-next
           packaging/scripts/size-audit macos build/release/aria2-next
@@ -541,12 +606,12 @@ jobs:
       - name: Package
         run: |
           VERSION="${{ needs.resolve-release.outputs.version }}"
-          cp build/release/aria2-next "aria2-next-${VERSION}-macos-x86_64"
+          cp build/release/aria2-next "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-macos-x86_64"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: macos-x86_64
-          path: aria2-next-${{ needs.resolve-release.outputs.version }}-macos-x86_64
+          name: macos-x86_64${{ needs.resolve-release.outputs.artifact_suffix }}
+          path: aria2-next-${{ needs.resolve-release.outputs.version }}${{ needs.resolve-release.outputs.artifact_suffix }}-macos-x86_64
           archive: false
 
   # ---------------------------------------------------------------------------
@@ -557,8 +622,13 @@ jobs:
     needs: resolve-release
     runs-on: ubuntu-24.04
     env:
+      ARTIFACT_SUFFIX: ${{ needs.resolve-release.outputs.artifact_suffix }}
+      ARIA2_BUILD_PROFILE: ${{ needs.resolve-release.outputs.build_profile }}
+      CMAKE_BUILD_TYPE: ${{ needs.resolve-release.outputs.cmake_build_type }}
       HOST: x86_64-w64-mingw32
       PREFIX: /usr/local/x86_64-w64-mingw32
+      STRIP_BINARY: ${{ needs.resolve-release.outputs.strip_binary }}
+      WINDOWS_DEBUG_MAP_FLAGS: ${{ needs.resolve-release.outputs.windows_debug_map_flags }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -659,29 +729,42 @@ jobs:
             -DCMAKE_C_COMPILER=$HOST-gcc \
             -DCMAKE_CXX_COMPILER=$HOST-g++ \
             -DCMAKE_RC_COMPILER=$HOST-windres \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
             -DARIA2_ENABLE_STATIC=ON \
             -DARIA2_WITH_ZLIB=ON \
             -DARIA2_RELEASE_SIZE_OPTIMIZED=ON \
             -DCMAKE_PREFIX_PATH="$PREFIX" \
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
             -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$RELEASE_LDFLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$RELEASE_LDFLAGS $WINDOWS_DEBUG_MAP_FLAGS" \
             -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config
           cmake --build build/release -j$(nproc)
-          $HOST-strip build/release/aria2-next.exe
+          if [ "$STRIP_BINARY" = true ]; then
+            $HOST-strip build/release/aria2-next.exe
+          fi
           packaging/scripts/check-runtime-deps windows-x86_64 build/release/aria2-next.exe
           packaging/scripts/size-audit windows-x86_64 build/release/aria2-next.exe
 
       - name: Package
         run: |
           VERSION="${{ needs.resolve-release.outputs.version }}"
-          cp build/release/aria2-next.exe "aria2-next-${VERSION}-windows-x86_64.exe"
+          cp build/release/aria2-next.exe "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-windows-x86_64.exe"
+          if [ -f build/release/aria2-next.map ]; then
+            cp build/release/aria2-next.map "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-windows-x86_64.map"
+          fi
 
       - uses: actions/upload-artifact@v7
         with:
-          name: windows-x86_64
-          path: aria2-next-${{ needs.resolve-release.outputs.version }}-windows-x86_64.exe
+          name: windows-x86_64${{ needs.resolve-release.outputs.artifact_suffix }}
+          path: aria2-next-${{ needs.resolve-release.outputs.version }}${{ needs.resolve-release.outputs.artifact_suffix }}-windows-x86_64.exe
+          archive: false
+
+      - uses: actions/upload-artifact@v7
+        if: needs.resolve-release.outputs.build_profile == 'debug'
+        with:
+          name: windows-x86_64-debug-map
+          path: aria2-next-${{ needs.resolve-release.outputs.version }}${{ needs.resolve-release.outputs.artifact_suffix }}-windows-x86_64.map
+          if-no-files-found: error
           archive: false
 
   # ---------------------------------------------------------------------------
@@ -692,8 +775,13 @@ jobs:
     needs: resolve-release
     runs-on: ubuntu-24.04
     env:
+      ARTIFACT_SUFFIX: ${{ needs.resolve-release.outputs.artifact_suffix }}
+      ARIA2_BUILD_PROFILE: ${{ needs.resolve-release.outputs.build_profile }}
+      CMAKE_BUILD_TYPE: ${{ needs.resolve-release.outputs.cmake_build_type }}
       HOST: aarch64-w64-mingw32
       PREFIX: /usr/local/aarch64-w64-mingw32
+      STRIP_BINARY: ${{ needs.resolve-release.outputs.strip_binary }}
+      WINDOWS_DEBUG_MAP_FLAGS: ${{ needs.resolve-release.outputs.windows_debug_map_flags }}
       CC: aarch64-w64-mingw32-clang
       CXX: aarch64-w64-mingw32-clang++
       AR: aarch64-w64-mingw32-ar
@@ -815,29 +903,42 @@ jobs:
             -DCMAKE_CXX_COMPILER=$CXX \
             -DCMAKE_AR=$AR \
             -DCMAKE_RANLIB=$RANLIB \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
             -DARIA2_ENABLE_STATIC=ON \
             -DARIA2_WITH_ZLIB=ON \
             -DARIA2_RELEASE_SIZE_OPTIMIZED=ON \
             -DCMAKE_PREFIX_PATH="$PREFIX" \
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
             -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$RELEASE_LDFLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$RELEASE_LDFLAGS $WINDOWS_DEBUG_MAP_FLAGS" \
             -DPKG_CONFIG_EXECUTABLE=/usr/bin/pkg-config
           cmake --build build/release -j$(nproc)
-          $STRIP build/release/aria2-next.exe
+          if [ "$STRIP_BINARY" = true ]; then
+            $STRIP build/release/aria2-next.exe
+          fi
           packaging/scripts/check-runtime-deps windows-arm64 build/release/aria2-next.exe
           packaging/scripts/size-audit windows-arm64 build/release/aria2-next.exe
 
       - name: Package
         run: |
           VERSION="${{ needs.resolve-release.outputs.version }}"
-          cp build/release/aria2-next.exe "aria2-next-${VERSION}-windows-arm64.exe"
+          cp build/release/aria2-next.exe "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-windows-arm64.exe"
+          if [ -f build/release/aria2-next.map ]; then
+            cp build/release/aria2-next.map "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-windows-arm64.map"
+          fi
 
       - uses: actions/upload-artifact@v7
         with:
-          name: windows-arm64
-          path: aria2-next-${{ needs.resolve-release.outputs.version }}-windows-arm64.exe
+          name: windows-arm64${{ needs.resolve-release.outputs.artifact_suffix }}
+          path: aria2-next-${{ needs.resolve-release.outputs.version }}${{ needs.resolve-release.outputs.artifact_suffix }}-windows-arm64.exe
+          archive: false
+
+      - uses: actions/upload-artifact@v7
+        if: needs.resolve-release.outputs.build_profile == 'debug'
+        with:
+          name: windows-arm64-debug-map
+          path: aria2-next-${{ needs.resolve-release.outputs.version }}${{ needs.resolve-release.outputs.artifact_suffix }}-windows-arm64.map
+          if-no-files-found: error
           archive: false
 
   # ---------------------------------------------------------------------------
@@ -855,6 +956,7 @@ jobs:
       - build-windows-arm64
     runs-on: ubuntu-latest
     env:
+      ARTIFACT_SUFFIX: ${{ needs.resolve-release.outputs.artifact_suffix }}
       VERSION: ${{ needs.resolve-release.outputs.version }}
     steps:
       - uses: actions/checkout@v6
@@ -871,7 +973,7 @@ jobs:
           cd artifacts
           sha256sum aria2-next-* > ../checksums.sha256
           cd ..
-          mv checksums.sha256 "artifacts/aria2-next-${VERSION}-checksums.sha256"
+          mv checksums.sha256 "artifacts/aria2-next-${VERSION}${ARTIFACT_SUFFIX}-checksums.sha256"
 
       - name: List release assets
         run: ls -lhR artifacts/
@@ -887,7 +989,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
-          name: aria2-next-${{ needs.resolve-release.outputs.version }}-release-assets
+          name: aria2-next-${{ needs.resolve-release.outputs.version }}${{ needs.resolve-release.outputs.artifact_suffix }}-release-assets
           path: artifacts/*
           if-no-files-found: error
           retention-days: 7

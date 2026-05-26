@@ -87,11 +87,11 @@ CurlDownloadCommand::~CurlDownloadCommand()
 
 long CurlDownloadCommand::platformSslTrustOptions()
 {
-#if defined(_WIN32) && defined(CURLSSLOPT_NATIVE_CA)
+#if (defined(_WIN32) || defined(__APPLE__)) && defined(CURLSSLOPT_NATIVE_CA)
   return CURLSSLOPT_NATIVE_CA;
-#else  // !defined(_WIN32) || !defined(CURLSSLOPT_NATIVE_CA)
+#else
   return 0L;
-#endif // !defined(_WIN32) || !defined(CURLSSLOPT_NATIVE_CA)
+#endif
 }
 
 bool CurlDownloadCommand::shouldDisableCurlProxy(const Option* option)

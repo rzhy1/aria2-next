@@ -391,8 +391,8 @@ HTTP Specific Options
 
     Official release builds use the platform trust source selected by their
     libcurl build. Windows uses the native certificate store, macOS uses Apple
-    SecTrust, Linux uses the configured system CA bundle path, and Android
-    shells may need an explicit certificate file.
+    SecTrust, Linux uses libcurl/OpenSSL CA auto-discovery with default OpenSSL
+    fallback paths, and Android shells may need an explicit certificate file.
 
 .. option:: --certificate=<FILE>
 

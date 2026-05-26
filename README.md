@@ -112,7 +112,7 @@ Prebuilt artifacts are published on the [GitHub Releases](https://github.com/AnI
 
 Linux and macOS downloads are executable files. If your browser clears the executable bit, run `chmod +x ./aria2-next-<version>-<platform>`.
 
-Release binaries verify HTTPS certificates by default. Windows release builds use the native Windows certificate store through libcurl, macOS release builds use Apple SecTrust, Linux release builds use the configured system CA bundle path, and Android shells should pass `--ca-certificate` when the environment does not expose a usable CA path. Official release builds also enable the size-optimized release profile so standalone artifacts keep the current dependency baseline without carrying avoidable dead code.
+Release binaries verify HTTPS certificates by default. Windows release builds use the native Windows certificate store through libcurl, macOS release builds use Apple SecTrust, Linux release builds use libcurl/OpenSSL CA auto-discovery with default OpenSSL fallback paths, and Android shells should pass `--ca-certificate` when the environment does not expose a usable CA path. Official release builds also enable the size-optimized release profile so standalone artifacts keep the current dependency baseline without carrying avoidable dead code.
 
 ## Maintenance Audit
 

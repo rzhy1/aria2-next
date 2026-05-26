@@ -154,6 +154,9 @@ build_curl() {
     Darwin)
       curl_ca_options="-DUSE_APPLE_SECTRUST=ON -DCURL_CA_BUNDLE=none -DCURL_CA_PATH=none"
       ;;
+    Linux)
+      curl_ca_options="-DCURL_CA_BUNDLE=auto -DCURL_CA_PATH=auto -DCURL_CA_FALLBACK=ON"
+      ;;
     Android)
       curl_ca_options="-DCURL_CA_BUNDLE=none -DCURL_CA_PATH=none"
       ;;

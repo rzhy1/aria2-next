@@ -34,6 +34,7 @@
 /* copyright --> */
 #include "LibsslTLSContext.h"
 
+#include <algorithm>
 #include <cassert>
 #include <sstream>
 
@@ -46,6 +47,7 @@
 #include "fmt.h"
 #include "message.h"
 #include "BufferedFile.h"
+#include "File.h"
 
 namespace {
 struct bio_deleter {
@@ -160,6 +162,9 @@ bool OpenSSLTLSContext::good() const { return good_; }
 bool OpenSSLTLSContext::addCredentialFile(const std::string& certfile,
                                           const std::string& keyfile)
 {
+  if (!sslCtx_) {
+    return false;
+  }
   if (keyfile.empty()) {
     return addP12CredentialFile(certfile);
   }
@@ -182,6 +187,9 @@ bool OpenSSLTLSContext::addCredentialFile(const std::string& certfile,
 }
 bool OpenSSLTLSContext::addP12CredentialFile(const std::string& p12file)
 {
+  if (!sslCtx_) {
+    return false;
+  }
   std::stringstream ss;
   BufferedFile(p12file.c_str(), BufferedFile::READ).transfer(ss);
 
@@ -242,6 +250,9 @@ bool OpenSSLTLSContext::addP12CredentialFile(const std::string& p12file)
 
 bool OpenSSLTLSContext::addSystemTrustedCACerts()
 {
+  if (!sslCtx_) {
+    return false;
+  }
   if (SSL_CTX_set_default_verify_paths(sslCtx_) != 1) {
     A2_LOG_INFO(fmt(MSG_LOADING_SYSTEM_TRUSTED_CA_CERTS_FAILED,
                     ERR_error_string(ERR_get_error(), nullptr)));
@@ -255,15 +266,56 @@ bool OpenSSLTLSContext::addSystemTrustedCACerts()
 
 bool OpenSSLTLSContext::addDefaultCABundle()
 {
+  if (!sslCtx_) {
+    return false;
+  }
 #ifdef CA_BUNDLE
-  return addTrustedCACertFile(CA_BUNDLE);
-#else  // !CA_BUNDLE
+  if (File(CA_BUNDLE).isFile()) {
+    return addTrustedCACertFile(CA_BUNDLE);
+  }
+#endif // CA_BUNDLE
+  for (const auto& path : getExistingDefaultCABundles()) {
+    if (addTrustedCACertFile(path)) {
+      return true;
+    }
+  }
   return false;
-#endif // !CA_BUNDLE
+}
+
+std::vector<std::string> OpenSSLTLSContext::getDefaultCABundleCandidates()
+{
+  std::vector<std::string> candidates = {
+      "/etc/ssl/certs/ca-certificates.crt",
+      "/etc/pki/tls/certs/ca-bundle.crt",
+      "/usr/share/ssl/certs/ca-bundle.crt",
+      "/usr/local/share/certs/ca-root-nss.crt",
+      "/etc/ssl/cert.pem",
+      "/usr/local/etc/ssl/cert.pem",
+      "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+      "/etc/ssl/ca-bundle.pem",
+      "/etc/ssl/certs/ca-bundle.crt",
+  };
+  candidates.erase(std::unique(candidates.begin(), candidates.end()),
+                   candidates.end());
+  return candidates;
+}
+
+std::vector<std::string> OpenSSLTLSContext::getExistingDefaultCABundles()
+{
+  std::vector<std::string> paths;
+  for (const auto& path : getDefaultCABundleCandidates()) {
+    if (File(path).isFile()) {
+      paths.push_back(path);
+    }
+  }
+  return paths;
 }
 
 bool OpenSSLTLSContext::addTrustedCACertFile(const std::string& certfile)
 {
+  if (!sslCtx_) {
+    return false;
+  }
   if (SSL_CTX_load_verify_locations(sslCtx_, certfile.c_str(), nullptr) != 1) {
     A2_LOG_ERROR(fmt(MSG_LOADING_TRUSTED_CA_CERT_FAILED, certfile.c_str(),
                      ERR_error_string(ERR_get_error(), nullptr)));

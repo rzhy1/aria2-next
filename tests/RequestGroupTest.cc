@@ -267,11 +267,11 @@ void RequestGroupTest::testCompletedLengthReportsVerifiedStorageOnly()
 void RequestGroupTest::testCurlTlsTrustOptions()
 {
   const auto options = CurlDownloadCommand::platformSslTrustOptions();
-#if defined(_WIN32) && defined(CURLSSLOPT_NATIVE_CA)
+#if (defined(_WIN32) || defined(__APPLE__)) && defined(CURLSSLOPT_NATIVE_CA)
   CPPUNIT_ASSERT(options & CURLSSLOPT_NATIVE_CA);
-#else  // !defined(_WIN32) || !defined(CURLSSLOPT_NATIVE_CA)
+#else
   CPPUNIT_ASSERT_EQUAL(0L, options);
-#endif // !defined(_WIN32) || !defined(CURLSSLOPT_NATIVE_CA)
+#endif
 }
 
 void RequestGroupTest::testCurlProxyModeControlsEnvironmentProxy()

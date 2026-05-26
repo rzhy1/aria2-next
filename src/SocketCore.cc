@@ -887,6 +887,11 @@ bool SocketCore::tlsHandshake(TLSContext* tlsctx, const std::string& hostname)
   wantRead_ = false;
   wantWrite_ = false;
 
+  if (!tlsctx || !tlsctx->good()) {
+    throw DL_ABORT_EX(fmt(EX_SSL_INIT_FAILURE,
+                          "TLS context is not initialized"));
+  }
+
   if (secure_ == A2_TLS_CONNECTED) {
     // Already connected!
     return true;
@@ -896,6 +901,10 @@ bool SocketCore::tlsHandshake(TLSContext* tlsctx, const std::string& hostname)
     // Do some initial setup
     A2_LOG_DEBUG("Creating TLS session");
     tlsSession_.reset(TLSSession::make(tlsctx));
+    if (!tlsSession_) {
+      throw DL_ABORT_EX(fmt(EX_SSL_INIT_FAILURE,
+                            "TLS session could not be created"));
+    }
     auto rv = tlsSession_->init(sockfd_);
     if (rv != TLS_ERR_OK) {
       std::string error = tlsSession_->getLastErrorString();

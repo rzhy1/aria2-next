@@ -46,6 +46,9 @@ namespace aria2 {
 
 TLSSession* TLSSession::make(TLSContext* ctx)
 {
+  if (!ctx || !ctx->good()) {
+    return nullptr;
+  }
   return new OpenSSLTLSSession(static_cast<OpenSSLTLSContext*>(ctx));
 }
 
@@ -63,6 +66,9 @@ OpenSSLTLSSession::~OpenSSLTLSSession()
 
 int OpenSSLTLSSession::init(sock_t sockfd)
 {
+  if (!tlsContext_ || !tlsContext_->getSSLCtx()) {
+    return TLS_ERR_ERROR;
+  }
   ERR_clear_error();
   ssl_ = SSL_new(tlsContext_->getSSLCtx());
   if (!ssl_) {
@@ -325,6 +331,9 @@ int OpenSSLTLSSession::tlsAccept(TLSVersion& version)
 
 std::string OpenSSLTLSSession::getLastErrorString()
 {
+  if (!ssl_) {
+    return "TLS context is not initialized";
+  }
   if (rv_ <= 0) {
     int sslError = SSL_get_error(ssl_, rv_);
     switch (sslError) {

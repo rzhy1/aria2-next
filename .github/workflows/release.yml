@@ -229,15 +229,9 @@ jobs:
           if [ "$STRIP_BINARY" = true ]; then
             strip build/release/aria2-next
           fi
-          ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps linux build/release/aria2-next
           packaging/scripts/size-audit linux build/release/aria2-next
-          printf 'aria2-next release smoke\n' > release-smoke.txt
-          python3 -m http.server 18080 --bind 127.0.0.1 &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          build/release/aria2-next --dir=release-smoke-out --out=release-smoke.txt http://127.0.0.1:18080/release-smoke.txt
-          test "$(cat release-smoke-out/release-smoke.txt)" = "aria2-next release smoke"
+          packaging/scripts/release-smoke "$PWD/build/release/aria2-next"
 
       - name: Package
         run: |
@@ -351,15 +345,9 @@ jobs:
           if [ "$STRIP_BINARY" = true ]; then
             strip build/release/aria2-next
           fi
-          ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps linux build/release/aria2-next
           packaging/scripts/size-audit linux build/release/aria2-next
-          printf 'aria2-next release smoke\n' > release-smoke.txt
-          python3 -m http.server 18080 --bind 127.0.0.1 &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          build/release/aria2-next --dir=release-smoke-out --out=release-smoke.txt http://127.0.0.1:18080/release-smoke.txt
-          test "$(cat release-smoke-out/release-smoke.txt)" = "aria2-next release smoke"
+          packaging/scripts/release-smoke "$PWD/build/release/aria2-next"
 
       - name: Package
         run: |
@@ -470,15 +458,9 @@ jobs:
           if [ "$STRIP_BINARY" = true ]; then
             strip build/release/aria2-next
           fi
-          ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps macos build/release/aria2-next
           packaging/scripts/size-audit macos build/release/aria2-next
-          printf 'aria2-next release smoke\n' > release-smoke.txt
-          python3 -m http.server 18080 --bind 127.0.0.1 &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          build/release/aria2-next --dir=release-smoke-out --out=release-smoke.txt http://127.0.0.1:18080/release-smoke.txt
-          test "$(cat release-smoke-out/release-smoke.txt)" = "aria2-next release smoke"
+          packaging/scripts/release-smoke "$PWD/build/release/aria2-next"
 
       - name: Package
         run: |
@@ -589,15 +571,9 @@ jobs:
           if [ "$STRIP_BINARY" = true ]; then
             strip build/release/aria2-next
           fi
-          ctest --test-dir build/release --output-on-failure
           packaging/scripts/check-runtime-deps macos build/release/aria2-next
           packaging/scripts/size-audit macos build/release/aria2-next
-          printf 'aria2-next release smoke\n' > release-smoke.txt
-          python3 -m http.server 18080 --bind 127.0.0.1 &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          build/release/aria2-next --dir=release-smoke-out --out=release-smoke.txt http://127.0.0.1:18080/release-smoke.txt
-          test "$(cat release-smoke-out/release-smoke.txt)" = "aria2-next release smoke"
+          packaging/scripts/release-smoke "$PWD/build/release/aria2-next"
 
       - name: Package
         run: |

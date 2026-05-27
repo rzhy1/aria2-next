@@ -12,13 +12,28 @@
   </p>
 </div>
 
-## Overview
+## Why Aria2 Next?
 
-Aria2 Next is a maintained fork of [aria2](https://github.com/aria2/aria2). It preserves the familiar executable, command-line options, configuration files, session files, input files, and JSON-RPC surface while modernizing the implementation and release pipeline.
+Aria2 Next is a maintained fork of [aria2](https://github.com/aria2/aria2) for users, scripts, RPC clients, and parent applications that need a current download engine without giving up familiar aria2 workflows.
 
-The main executable is `aria2-next`. It can be used directly from scripts and terminals, and it is also the download engine bundled by [Motrix Next](https://github.com/AnInsomniacy/motrix-next).
+The main executable is `aria2-next`. It preserves supported command-line options, configuration files, session files, input files, and JSON-RPC methods. It can be used directly from scripts and terminals, and it is also the download engine bundled by [Motrix Next](https://github.com/AnInsomniacy/motrix-next).
 
-Current maintenance focuses on reliable HTTP/HTTPS transfers through libcurl, BitTorrent and magnet handling through libtorrent-rasterbar, native ED2K support, stable JSON-RPC behavior, reproducible release artifacts, and current dependency baselines.
+Current maintenance focuses on reliable ordinary URL transfers through libcurl, BitTorrent and magnet handling through libtorrent-rasterbar, native ED2K support, stable JSON-RPC behavior, reproducible release artifacts, and current dependency baselines.
+
+## Core Modernization
+
+Aria2 Next has completed a core modernization program after the ED2K hardening and libtorrent BitTorrent migration. The goal was to keep the familiar aria2-compatible engine shape while replacing obsolete native protocol and runtime stacks with mature maintained libraries where those libraries own correctness, security, and cross-platform behavior better.
+
+| Area | Previous ownership | Current ownership |
+| --- | --- | --- |
+| HTTP, HTTPS, FTP, FTPS, SFTP, SCP | Native protocol stacks and direct SSH glue | libcurl multi-socket transfer backend |
+| BitTorrent and magnet | Native BitTorrent residue and local torrent state | libtorrent-rasterbar |
+| RPC, JSON, and runtime | Native HTTP/WebSocket code, wslay, custom JSON, mixed legacy polling | Boost.Beast, Boost.JSON, and Boost.Asio |
+| TLS and crypto | Multiple backends and fallback implementations | OpenSSL |
+| Storage and progress truth | Mixed completed and in-flight accounting | Verified storage state with explicit in-flight progress |
+| ED2K/eMule | Not supported by old aria2 | Native Aria2 Next protocol on modern storage, crypto, progress, and runtime boundaries |
+
+The modernization also removed stale compatibility surfaces: XML-RPC, Metalink, the public C++ embedding API, old native BitTorrent fallback code, alternate TLS and crypto backends, native browser-cookie parsing, async DNS backends, and direct libssh2 transfer ownership. The full audit trail is preserved in [`docs/maintenance/core-modernization/overview.md`](docs/maintenance/core-modernization/overview.md) and [`docs/maintenance/core-modernization/progress.md`](docs/maintenance/core-modernization/progress.md).
 
 ## Supported Surface
 
@@ -28,9 +43,11 @@ Current maintenance focuses on reliable HTTP/HTTPS transfers through libcurl, Bi
 | CLI and config | aria2-compatible option names and file formats |
 | Sessions and input files | aria2-compatible session and input-file conventions |
 | JSON-RPC | aria2-compatible methods with explicit Aria2 Next extension fields where needed |
-| Protocols | HTTP, HTTPS, FTP, SFTP, BitTorrent, magnet, ED2K |
+| Protocols | HTTP, HTTPS, FTP, FTPS, SFTP, SCP, BitTorrent, magnet, ED2K |
 | Primary app integration | Motrix Next sidecar engine |
 | Public C++ API | Not maintained |
+
+Compatibility applies to the maintained surfaces above. Removed legacy internals are not retained as hidden fallback engines or compatibility aliases.
 
 ## Quick Start
 

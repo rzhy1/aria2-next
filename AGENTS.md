@@ -83,6 +83,12 @@ Use `./scripts/release.sh` for releases. This script verifies the local build, s
 
 After `release.sh` succeeds, generate an English release title and release notes from the commits included in the release, show them to the maintainer, and wait for approval before creating the GitHub Release. Releases must not be marked as pre-releases. Creating the GitHub Release triggers the official release workflow and asset upload.
 
+When writing release notes to a temporary file for `gh release create` or
+`gh release edit`, use a macOS-compatible `mktemp` template whose final
+characters are the placeholder `X` characters, such as
+`mktemp /tmp/aria2-next-release-notes.XXXXXX`. Do not append a suffix after
+the placeholder.
+
 Release title format:
 
 ```text

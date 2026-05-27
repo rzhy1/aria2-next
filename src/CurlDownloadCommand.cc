@@ -143,6 +143,22 @@ bool CurlDownloadCommand::isRetryableHttpStatus(long status)
   return status == 429 || status == 503;
 }
 
+bool CurlDownloadCommand::shouldFallbackMetadataHeadErrorToRangeProbe(
+    bool metadataProbe, bool metadataRangeProbe, bool explicitHead,
+    bool httpTransfer, CURLcode result)
+{
+  return metadataProbe && !metadataRangeProbe && !explicitHead && httpTransfer &&
+         isRetryableHttpCurlError(result);
+}
+
+bool CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
+    bool metadataProbe, bool metadataRangeProbe, bool explicitHead,
+    bool httpTransfer, long status)
+{
+  return metadataProbe && !metadataRangeProbe && !explicitHead && httpTransfer &&
+         (status == 405 || status == 501);
+}
+
 bool CurlDownloadCommand::execute()
 {
   return AbstractCommand::execute();
@@ -491,6 +507,12 @@ void CurlDownloadCommand::finish(CURLcode result)
       }
       throw DL_RETRY_EX2(rangeProtocolError_, rangeProtocolErrorCode_);
     }
+    if (shouldFallbackMetadataHeadErrorToRangeProbe(
+            metadataProbe_, metadataRangeProbe_,
+            getRequest()->getMethod() == Request::METHOD_HEAD, isHttpTransfer(),
+            result)) {
+      retryMetadataProbeWithRange(result);
+    }
     if (isHttpTransfer() && isRetryableHttpCurlError(result)) {
       retryHttpTransfer(result);
     }
@@ -499,6 +521,13 @@ void CurlDownloadCommand::finish(CURLcode result)
             errorBuffer_[0] ? errorBuffer_ : curl_easy_strerror(result)));
   }
   if (status >= 400) {
+    if (shouldFallbackMetadataHeadStatusToRangeProbe(
+            metadataProbe_, metadataRangeProbe_,
+            getRequest()->getMethod() == Request::METHOD_HEAD, isHttpTransfer(),
+            status)) {
+      retryMetadataProbeWithRange(
+          fmt("HTTP metadata HEAD probe returned status %ld", status));
+    }
     if (isRetryableHttpStatus(status)) {
       retryHttpStatus(status);
     }
@@ -674,6 +703,21 @@ void CurlDownloadCommand::retryHttpTransfer(CURLcode result)
           errorBuffer_[0] ? errorBuffer_ : curl_easy_strerror(result)),
       result == CURLE_OPERATION_TIMEDOUT ? error_code::TIME_OUT
                                          : error_code::NETWORK_PROBLEM);
+}
+
+void CurlDownloadCommand::retryMetadataProbeWithRange(CURLcode result)
+{
+  retryMetadataProbeWithRange(
+      fmt("HTTP metadata HEAD probe failed: %s",
+          errorBuffer_[0] ? errorBuffer_ : curl_easy_strerror(result)));
+}
+
+void CurlDownloadCommand::retryMetadataProbeWithRange(const std::string& reason)
+{
+  getRequestGroup()->requireHttpMetadataRangeProbe();
+  throw DL_RETRY_EX2(
+      fmt("%s. Retrying with Range: bytes=0-0.", reason.c_str()),
+      error_code::NETWORK_PROBLEM);
 }
 
 void CurlDownloadCommand::retryHttpStatus(long status)

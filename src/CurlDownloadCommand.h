@@ -40,6 +40,12 @@ public:
   static bool isRetryableHttpCurlError(CURLcode result);
   static bool supportsHttp2();
   static bool isRetryableHttpStatus(long status);
+  static bool shouldFallbackMetadataHeadErrorToRangeProbe(
+      bool metadataProbe, bool metadataRangeProbe, bool explicitHead,
+      bool httpTransfer, CURLcode result);
+  static bool shouldFallbackMetadataHeadStatusToRangeProbe(
+      bool metadataProbe, bool metadataRangeProbe, bool explicitHead,
+      bool httpTransfer, long status);
 
 private:
   bool execute() CXX11_OVERRIDE;
@@ -61,6 +67,8 @@ private:
   bool isRangedHttpTransfer() const;
   bool isHttpTransfer() const;
   void retryHttpTransfer(CURLcode result);
+  void retryMetadataProbeWithRange(const std::string& reason);
+  void retryMetadataProbeWithRange(CURLcode result);
   void retryHttpStatus(long status);
   int httpRetryAfterDelaySeconds();
   void setRequestWakeAfter(int seconds);

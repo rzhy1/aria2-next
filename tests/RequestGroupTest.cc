@@ -63,6 +63,7 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCurlTlsTrustOptions);
   CPPUNIT_TEST(testCurlProxyModeControlsEnvironmentProxy);
   CPPUNIT_TEST(testCurlHttpRetryableErrors);
+  CPPUNIT_TEST(testCurlMetadataHeadFailureFallbackPolicy);
   CPPUNIT_TEST(testFinishedHttpDownloadQueuesWholeFileChecksum);
   CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForHttp);
   CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForFtpFamily);
@@ -107,6 +108,7 @@ public:
   void testCurlTlsTrustOptions();
   void testCurlProxyModeControlsEnvironmentProxy();
   void testCurlHttpRetryableErrors();
+  void testCurlMetadataHeadFailureFallbackPolicy();
   void testFinishedHttpDownloadQueuesWholeFileChecksum();
   void testInitiateConnectionFactoryUsesCurlForHttp();
   void testInitiateConnectionFactoryUsesCurlForFtpFamily();
@@ -343,6 +345,38 @@ void RequestGroupTest::testCurlHttpRetryableErrors()
   CPPUNIT_ASSERT(
       !CurlDownloadCommand::isRetryableHttpCurlError(CURLE_SSL_CACERT_BADFILE));
   CPPUNIT_ASSERT(!CurlDownloadCommand::isRetryableHttpCurlError(CURLE_OK));
+}
+
+void RequestGroupTest::testCurlMetadataHeadFailureFallbackPolicy()
+{
+  CPPUNIT_ASSERT(CurlDownloadCommand::shouldFallbackMetadataHeadErrorToRangeProbe(
+      true, false, false, true, CURLE_GOT_NOTHING));
+  CPPUNIT_ASSERT(CurlDownloadCommand::shouldFallbackMetadataHeadErrorToRangeProbe(
+      true, false, false, true, CURLE_RECV_ERROR));
+
+  CPPUNIT_ASSERT(
+      !CurlDownloadCommand::shouldFallbackMetadataHeadErrorToRangeProbe(
+          true, false, true, true, CURLE_GOT_NOTHING));
+  CPPUNIT_ASSERT(
+      !CurlDownloadCommand::shouldFallbackMetadataHeadErrorToRangeProbe(
+          true, true, false, true, CURLE_GOT_NOTHING));
+  CPPUNIT_ASSERT(
+      !CurlDownloadCommand::shouldFallbackMetadataHeadErrorToRangeProbe(
+          true, false, false, true, CURLE_SSL_CACERT_BADFILE));
+  CPPUNIT_ASSERT(
+      !CurlDownloadCommand::shouldFallbackMetadataHeadErrorToRangeProbe(
+          true, false, false, false, CURLE_GOT_NOTHING));
+
+  CPPUNIT_ASSERT(CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
+      true, false, false, true, 405));
+  CPPUNIT_ASSERT(CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
+      true, false, false, true, 501));
+  CPPUNIT_ASSERT(
+      !CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
+          true, false, true, true, 405));
+  CPPUNIT_ASSERT(
+      !CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
+          true, false, false, true, 404));
 }
 
 void RequestGroupTest::testFinishedHttpDownloadQueuesWholeFileChecksum()

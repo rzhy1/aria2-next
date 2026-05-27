@@ -27,7 +27,7 @@ This file defines repository rules for AI coding agents. Human contributors shou
 | `src/` | aria2 core, CLI, protocol, disk, RPC, and platform code |
 | `tests/` | CppUnit tests and fixtures |
 | `docs/` | Manual sources, completion tooling, and maintenance records |
-| `.github/ISSUE_TEMPLATE/` | GitHub issue forms for bugs, crashes, build and packaging failures, feature requests, and usage questions |
+| `.github/ISSUE_TEMPLATE/` | GitHub issue forms for bugs, feature requests, and usage questions |
 | `.github/PULL_REQUEST_TEMPLATE.md` | Pull request scope, verification, compatibility, release-note, and AI-disclosure checklist |
 | `packaging/` | Release dependencies, Dockerfiles, cross-build scripts, and package assets |
 | `packaging/dependencies.env` | Release dependency version source |

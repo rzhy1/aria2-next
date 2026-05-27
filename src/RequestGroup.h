@@ -159,6 +159,8 @@ private:
 
   bool httpRangeFallbackRetryIssued_;
 
+  bool httpMetadataRangeProbeRequired_;
+
   HaltReason haltReason_;
 
   error_code::Value lastErrorCode_;
@@ -245,6 +247,9 @@ public:
   void noteHttpSegmentFailure(
       const std::shared_ptr<Request>& request = nullptr);
 
+  void noteHttpRateLimited(
+      const std::shared_ptr<Request>& request = nullptr);
+
   std::string getHttpAdaptiveOriginKey(
       const std::shared_ptr<Request>& request) const;
 
@@ -256,6 +261,13 @@ public:
   bool shouldUseHttpRange() const { return httpRangeEnabled_; }
 
   void disableHttpRangeForDownload();
+
+  bool shouldUseHttpMetadataRangeProbe() const
+  {
+    return httpMetadataRangeProbeRequired_;
+  }
+
+  void requireHttpMetadataRangeProbe();
 
   uint64_t getHttpRangeGeneration() const { return httpRangeGeneration_; }
 

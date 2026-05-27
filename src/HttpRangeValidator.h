@@ -26,9 +26,22 @@ struct HttpRangeValidationResult {
   std::string error;
 };
 
+struct HttpMetadataProbeResult {
+  bool ok;
+  bool needsRangeProbe;
+  int64_t entityLength;
+  std::string error;
+};
+
 HttpRangeValidationResult validateHttpRangeResponse(
     long status, const Range& expectedRange, const Range& responseRange,
     int64_t knownEntityLength, const std::string& contentEncoding);
+
+HttpMetadataProbeResult validateHttpMetadataHead(
+    long status, int64_t contentLength, const std::string& contentEncoding);
+
+HttpMetadataProbeResult validateHttpMetadataRangeProbe(
+    long status, const Range& responseRange, const std::string& contentEncoding);
 
 bool isHttpContentEncodingIdentity(const std::string& contentEncoding);
 

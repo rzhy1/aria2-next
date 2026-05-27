@@ -69,6 +69,7 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testHttpAdaptiveCommandLimit);
   CPPUNIT_TEST(testHttpAdaptiveInitialHandoffFillsWindow);
   CPPUNIT_TEST(testHttpAdaptiveSuccessFillsExpandedWindow);
+  CPPUNIT_TEST(testHttpRateLimitKeepsRangeAndCapsConcurrency);
   CPPUNIT_TEST(testHttpRangeDowngradeDisablesRangedConcurrency);
   CPPUNIT_TEST(testHttpRangeDowngradeRejectsExtraActiveStreamRetries);
   CPPUNIT_TEST(testFtpDoesNotUseHttpAdaptiveCommandLimit);
@@ -112,6 +113,7 @@ public:
   void testHttpAdaptiveCommandLimit();
   void testHttpAdaptiveInitialHandoffFillsWindow();
   void testHttpAdaptiveSuccessFillsExpandedWindow();
+  void testHttpRateLimitKeepsRangeAndCapsConcurrency();
   void testHttpRangeDowngradeDisablesRangedConcurrency();
   void testHttpRangeDowngradeRejectsExtraActiveStreamRetries();
   void testFtpDoesNotUseHttpAdaptiveCommandLimit();
@@ -513,6 +515,38 @@ void RequestGroupTest::testHttpAdaptiveSuccessFillsExpandedWindow()
   std::vector<std::unique_ptr<Command>> commands;
   group->createNextCommandForCompletedStream(commands, &engine);
   CPPUNIT_ASSERT_EQUAL((size_t)5, commands.size());
+}
+
+void RequestGroupTest::testHttpRateLimitKeepsRangeAndCapsConcurrency()
+{
+  option_->put(PREF_SPLIT, "64");
+  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
+
+  auto group = createRequestGroup(
+      1_k, 64_k,
+      std::string(A2_TEST_OUT_DIR) +
+          "/aria2_RequestGroupTest_http_rate_limit",
+      "https://example.test/file", option_);
+  group->setNumConcurrentCommand(64);
+  group->initPieceStorage();
+
+  group->noteHttpRateLimited();
+
+  CPPUNIT_ASSERT(group->shouldUseHttpRange());
+  CPPUNIT_ASSERT_EQUAL(1, group->getEffectiveStreamCommandLimit());
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+
+  std::vector<std::unique_ptr<Command>> commands;
+  group->createNextCommand(commands, &engine);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, commands.size());
+
+  commands.clear();
+  group->noteHttpSegmentSuccess();
+  group->noteHttpSegmentSuccess();
+  group->createNextCommand(commands, &engine);
+  CPPUNIT_ASSERT_EQUAL((size_t)2, commands.size());
 }
 
 void RequestGroupTest::testHttpRangeDowngradeDisablesRangedConcurrency()

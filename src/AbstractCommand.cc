@@ -369,7 +369,8 @@ bool AbstractCommand::execute()
       return true;
     }
 
-    if (err.getErrorCode() == error_code::HTTP_SERVICE_UNAVAILABLE) {
+    if (err.getErrorCode() == error_code::HTTP_SERVICE_UNAVAILABLE &&
+        req_->getWakeTime() <= global::wallclock()) {
       Timer wakeTime(global::wallclock());
       wakeTime.advance(
           std::chrono::seconds(getOption()->getAsInt(PREF_RETRY_WAIT)));

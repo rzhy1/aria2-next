@@ -134,6 +134,7 @@ RequestGroup::RequestGroup(const std::shared_ptr<GroupId>& gid,
       httpRangeEnabled_(true),
       httpRangeGeneration_(0),
       httpRangeFallbackRetryIssued_(false),
+      httpMetadataRangeProbeRequired_(false),
       haltReason_(RequestGroup::NONE),
       lastErrorCode_(error_code::UNDEFINED),
       saveControlFile_(true),
@@ -834,6 +835,18 @@ void RequestGroup::noteHttpSegmentFailure(const std::shared_ptr<Request>& reques
   }
 }
 
+void RequestGroup::noteHttpRateLimited(const std::shared_ptr<Request>& request)
+{
+  if (!httpAdaptiveCommandLimitEnabled_) {
+    return;
+  }
+  httpAdaptiveWindow_.onRateLimited();
+  if (request && isHttpFamilyUri(request->getUri())) {
+    httpAdaptiveOriginWindows_[getHttpAdaptiveOriginKey(request)]
+        .onRateLimited();
+  }
+}
+
 std::string RequestGroup::getHttpAdaptiveOriginKey(
     const std::shared_ptr<Request>& request) const
 {
@@ -886,6 +899,11 @@ void RequestGroup::disableHttpRangeForDownload()
   if (pieceStorage_) {
     pieceStorage_->markPiecesDone(0);
   }
+}
+
+void RequestGroup::requireHttpMetadataRangeProbe()
+{
+  httpMetadataRangeProbeRequired_ = true;
 }
 
 bool RequestGroup::claimStreamRetrySlot(uint64_t commandHttpRangeGeneration)

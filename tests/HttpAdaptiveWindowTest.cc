@@ -9,6 +9,8 @@ class HttpAdaptiveWindowTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testStartsConservatively);
   CPPUNIT_TEST(testSlowStartGrowsQuicklyThenLinear);
   CPPUNIT_TEST(testFailureHalvesAndCooldownBlocksImmediateGrowth);
+  CPPUNIT_TEST(testRateLimitLocksToSingleStreamThenProbes);
+  CPPUNIT_TEST(testRateLimitStrikeExtendsRecovery);
   CPPUNIT_TEST(testRangeUnsupportedLocksToSingleStream);
   CPPUNIT_TEST_SUITE_END();
 
@@ -16,6 +18,8 @@ public:
   void testStartsConservatively();
   void testSlowStartGrowsQuicklyThenLinear();
   void testFailureHalvesAndCooldownBlocksImmediateGrowth();
+  void testRateLimitLocksToSingleStreamThenProbes();
+  void testRateLimitStrikeExtendsRecovery();
   void testRangeUnsupportedLocksToSingleStream();
 };
 
@@ -60,6 +64,42 @@ void HttpAdaptiveWindowTest::testFailureHalvesAndCooldownBlocksImmediateGrowth()
 
   window.onSuccess(64);
   CPPUNIT_ASSERT_EQUAL(9, window.limit(64));
+}
+
+void HttpAdaptiveWindowTest::testRateLimitLocksToSingleStreamThenProbes()
+{
+  HttpAdaptiveWindow window;
+  window.onSuccess(64);
+  window.onSuccess(64);
+
+  window.onRateLimited();
+  CPPUNIT_ASSERT_EQUAL(1, window.limit(64));
+
+  window.onSuccess(64);
+  CPPUNIT_ASSERT_EQUAL(1, window.limit(64));
+
+  window.onSuccess(64);
+  CPPUNIT_ASSERT_EQUAL(2, window.limit(64));
+
+  window.onSuccess(64);
+  CPPUNIT_ASSERT_EQUAL(3, window.limit(64));
+}
+
+void HttpAdaptiveWindowTest::testRateLimitStrikeExtendsRecovery()
+{
+  HttpAdaptiveWindow window;
+
+  window.onRateLimited();
+  window.onRateLimited();
+
+  window.onSuccess(64);
+  CPPUNIT_ASSERT_EQUAL(1, window.limit(64));
+
+  window.onSuccess(64);
+  CPPUNIT_ASSERT_EQUAL(1, window.limit(64));
+
+  window.onSuccess(64);
+  CPPUNIT_ASSERT_EQUAL(2, window.limit(64));
 }
 
 void HttpAdaptiveWindowTest::testRangeUnsupportedLocksToSingleStream()

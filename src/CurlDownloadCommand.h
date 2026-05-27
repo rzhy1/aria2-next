@@ -39,6 +39,7 @@ public:
   static bool shouldDisableCurlProxy(const Option* option);
   static bool isRetryableHttpCurlError(CURLcode result);
   static bool supportsHttp2();
+  static bool isRetryableHttpStatus(long status);
 
 private:
   bool execute() CXX11_OVERRIDE;
@@ -60,6 +61,9 @@ private:
   bool isRangedHttpTransfer() const;
   bool isHttpTransfer() const;
   void retryHttpTransfer(CURLcode result);
+  void retryHttpStatus(long status);
+  int httpRetryAfterDelaySeconds();
+  void setRequestWakeAfter(int seconds);
   void validateRangeResponseBeforeBody();
   bool ensureWritableSegment();
   size_t writeBodyToStorage(const unsigned char* data, size_t length);
@@ -82,6 +86,7 @@ private:
   bool initialized_;
   bool finished_;
   bool metadataProbe_;
+  bool metadataRangeProbe_;
   bool rangeRequested_;
   bool rangeResponseValidated_;
   int64_t expectedLength_;
@@ -92,6 +97,7 @@ private:
   std::string contentDisposition_;
   std::string contentEncoding_;
   std::string contentType_;
+  int retryAfterSeconds_;
   std::string rangeProtocolError_;
   std::string httpBodyError_;
   char errorBuffer_[CURL_ERROR_SIZE];

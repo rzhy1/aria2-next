@@ -28,6 +28,8 @@ void HttpAdaptiveWindow::reset(int maxLimit)
 {
   rangeUnsupported_ = false;
   cooldownSuccessesRemaining_ = 0;
+  rateLimitStrikes_ = 0;
+  rateLimitSuccesses_ = 0;
   slowStartThreshold_ = kSlowStartThreshold;
   limit_ = std::max(1, std::min(kInitialLimit, maxLimit));
 }
@@ -35,6 +37,17 @@ void HttpAdaptiveWindow::reset(int maxLimit)
 void HttpAdaptiveWindow::onSuccess(int maxLimit)
 {
   if (rangeUnsupported_) {
+    return;
+  }
+  if (rateLimitStrikes_ > 0) {
+    ++rateLimitSuccesses_;
+    if (rateLimitSuccesses_ <= rateLimitStrikes_) {
+      return;
+    }
+    rateLimitStrikes_ = 0;
+    rateLimitSuccesses_ = 0;
+    slowStartThreshold_ = 2;
+    limit_ = std::min(2, maxLimit);
     return;
   }
   if (cooldownSuccessesRemaining_ > 0) {
@@ -55,15 +68,31 @@ void HttpAdaptiveWindow::onTransientFailure()
   if (rangeUnsupported_) {
     return;
   }
+  rateLimitStrikes_ = 0;
+  rateLimitSuccesses_ = 0;
   limit_ = std::max(1, limit_ / 2);
   slowStartThreshold_ = limit_;
   cooldownSuccessesRemaining_ = kCooldownSuccesses;
+}
+
+void HttpAdaptiveWindow::onRateLimited()
+{
+  if (rangeUnsupported_) {
+    return;
+  }
+  rateLimitStrikes_ = std::min(rateLimitStrikes_ + 1, 4);
+  rateLimitSuccesses_ = 0;
+  cooldownSuccessesRemaining_ = 0;
+  slowStartThreshold_ = 1;
+  limit_ = 1;
 }
 
 void HttpAdaptiveWindow::onRangeUnsupported()
 {
   rangeUnsupported_ = true;
   cooldownSuccessesRemaining_ = 0;
+  rateLimitStrikes_ = 0;
+  rateLimitSuccesses_ = 0;
   slowStartThreshold_ = 1;
   limit_ = 1;
 }

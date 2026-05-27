@@ -20,7 +20,7 @@ This directory contains the maintained documentation for Aria2 Next.
 | Path | Purpose |
 | --- | --- |
 | [`manual/`](manual/) | Sphinx manual sources for CLI, options, RPC, and technical notes |
-| [`completion/`](completion/) | Bash completion source and generation tooling |
+| [`completion/`](completion/) | Maintained Bash completion script |
 | [`maintenance/`](maintenance/) | Durable modernization, migration, and audit records |
 | [`licenses/`](licenses/) | Preserved license exception text and license notes |
 | [`media/`](media/) | Images used by project documentation |

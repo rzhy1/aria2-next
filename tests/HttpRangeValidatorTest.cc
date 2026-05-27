@@ -10,6 +10,8 @@ class HttpRangeValidatorTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testDetectsIgnoredRangeResponse);
   CPPUNIT_TEST(testRejectsMismatchedContentRange);
   CPPUNIT_TEST(testRejectsEncodedRangeResponse);
+  CPPUNIT_TEST(testRejectsEncodedHeadMetadataLength);
+  CPPUNIT_TEST(testAcceptsRangeMetadataProbeLength);
   CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -17,6 +19,8 @@ public:
   void testDetectsIgnoredRangeResponse();
   void testRejectsMismatchedContentRange();
   void testRejectsEncodedRangeResponse();
+  void testRejectsEncodedHeadMetadataLength();
+  void testAcceptsRangeMetadataProbeLength();
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION(HttpRangeValidatorTest);
@@ -53,6 +57,23 @@ void HttpRangeValidatorTest::testRejectsEncodedRangeResponse()
       206, Range(0, 1023, 4096), Range(0, 1023, 4096), 4096, "gzip");
 
   CPPUNIT_ASSERT(!result.ok);
+}
+
+void HttpRangeValidatorTest::testRejectsEncodedHeadMetadataLength()
+{
+  auto result = validateHttpMetadataHead(200, 20, "gzip");
+
+  CPPUNIT_ASSERT(!result.ok);
+  CPPUNIT_ASSERT(result.needsRangeProbe);
+}
+
+void HttpRangeValidatorTest::testAcceptsRangeMetadataProbeLength()
+{
+  auto result =
+      validateHttpMetadataRangeProbe(206, Range(0, 0, 987896072), "identity");
+
+  CPPUNIT_ASSERT(result.ok);
+  CPPUNIT_ASSERT_EQUAL(static_cast<int64_t>(987896072), result.entityLength);
 }
 
 } // namespace aria2

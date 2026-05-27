@@ -49,6 +49,7 @@
 #include "prefs.h"
 #include "uri.h"
 #include "util.h"
+#include "wallclock.h"
 
 namespace aria2 {
 
@@ -62,11 +63,13 @@ CurlDownloadCommand::CurlDownloadCommand(
       initialized_(false),
       finished_(false),
       metadataProbe_(false),
+      metadataRangeProbe_(false),
       rangeRequested_(false),
       rangeResponseValidated_(false),
       expectedLength_(0),
       responseLength_(0),
       rangeProtocolErrorCode_(error_code::HTTP_PROTOCOL_ERROR),
+      retryAfterSeconds_(0),
       bodyInspectionComplete_(false),
       headerList_(nullptr)
 {
@@ -135,6 +138,11 @@ bool CurlDownloadCommand::supportsHttp2()
 #endif
 }
 
+bool CurlDownloadCommand::isRetryableHttpStatus(long status)
+{
+  return status == 429 || status == 503;
+}
+
 bool CurlDownloadCommand::execute()
 {
   return AbstractCommand::execute();
@@ -187,6 +195,10 @@ void CurlDownloadCommand::initialize()
   applyRequestOptions();
 
   metadataProbe_ = !getPieceStorage();
+  metadataRangeProbe_ =
+      metadataProbe_ && isHttpTransfer() &&
+      getRequest()->getMethod() != Request::METHOD_HEAD &&
+      getRequestGroup()->shouldUseHttpMetadataRangeProbe();
   if (metadataProbe_) {
     applyMetadataProbeOptions();
     session_->add(easy_, this);
@@ -444,6 +456,13 @@ void CurlDownloadCommand::applyFtpFamilyOptions()
 
 void CurlDownloadCommand::applyMetadataProbeOptions()
 {
+  curl_easy_setopt(easy_, CURLOPT_ACCEPT_ENCODING, "identity");
+  if (metadataRangeProbe_) {
+    curl_easy_setopt(easy_, CURLOPT_NOBODY, 0L);
+    curl_easy_setopt(easy_, CURLOPT_HTTPGET, 1L);
+    curl_easy_setopt(easy_, CURLOPT_RANGE, "0-0");
+    return;
+  }
   curl_easy_setopt(easy_, CURLOPT_NOBODY, 1L);
   curl_easy_setopt(easy_, CURLOPT_HTTPGET, 0L);
   curl_easy_setopt(easy_, CURLOPT_RANGE, nullptr);
@@ -480,6 +499,9 @@ void CurlDownloadCommand::finish(CURLcode result)
             errorBuffer_[0] ? errorBuffer_ : curl_easy_strerror(result)));
   }
   if (status >= 400) {
+    if (isRetryableHttpStatus(status)) {
+      retryHttpStatus(status);
+    }
     throw DOWNLOAD_FAILURE_EXCEPTION(
         fmt("HTTP transfer failed with status %ld.", status));
   }
@@ -538,6 +560,27 @@ bool CurlDownloadCommand::finishMetadataProbe(long status)
     getDownloadEngine()->setNoWait(true);
     getDownloadEngine()->setRefreshInterval(std::chrono::milliseconds(0));
     return true;
+  }
+
+  if (metadataRangeProbe_) {
+    auto result =
+        validateHttpMetadataRangeProbe(status, responseRange_, contentEncoding_);
+    if (!result.ok) {
+      throw DL_ABORT_EX2(result.error, error_code::HTTP_PROTOCOL_ERROR);
+    }
+    responseLength_ = result.entityLength;
+  }
+  else if (isHttpTransfer()) {
+    auto result =
+        validateHttpMetadataHead(status, responseLength_, contentEncoding_);
+    if (!result.ok && result.needsRangeProbe) {
+      getRequestGroup()->requireHttpMetadataRangeProbe();
+      throw DL_RETRY_EX2(result.error, error_code::HTTP_PROTOCOL_ERROR);
+    }
+    if (!result.ok) {
+      throw DL_ABORT_EX2(result.error, error_code::HTTP_PROTOCOL_ERROR);
+    }
+    responseLength_ = result.entityLength;
   }
 
   if (responseLength_ <= 0) {
@@ -633,6 +676,49 @@ void CurlDownloadCommand::retryHttpTransfer(CURLcode result)
                                          : error_code::NETWORK_PROBLEM);
 }
 
+void CurlDownloadCommand::retryHttpStatus(long status)
+{
+  if (isRangedHttpTransfer() && status == 429) {
+    getRequestGroup()->noteHttpRateLimited(getRequest());
+  }
+  else if (isRangedHttpTransfer()) {
+    getRequestGroup()->noteHttpSegmentFailure(getRequest());
+  }
+
+  const auto delay = httpRetryAfterDelaySeconds();
+  setRequestWakeAfter(delay);
+  throw DL_RETRY_EX2(fmt("HTTP transfer rate limited with status %ld. "
+                         "Retrying after %d second(s).",
+                         status, delay),
+                     status == 503 ? error_code::HTTP_SERVICE_UNAVAILABLE
+                                   : error_code::NETWORK_PROBLEM);
+}
+
+int CurlDownloadCommand::httpRetryAfterDelaySeconds()
+{
+  curl_off_t retryAfter = 0;
+#ifdef CURLINFO_RETRY_AFTER
+  if (curl_easy_getinfo(easy_, CURLINFO_RETRY_AFTER, &retryAfter) != CURLE_OK ||
+      retryAfter <= 0) {
+    retryAfter = retryAfterSeconds_;
+  }
+#else
+  retryAfter = retryAfterSeconds_;
+#endif
+  if (retryAfter <= 0) {
+    retryAfter = std::max(1, getOption()->getAsInt(PREF_RETRY_WAIT));
+  }
+  return static_cast<int>(std::min<curl_off_t>(retryAfter, 300));
+}
+
+void CurlDownloadCommand::setRequestWakeAfter(int seconds)
+{
+  auto wakeTime = global::wallclock();
+  wakeTime.advance(std::chrono::seconds(std::max(1, seconds)));
+  getRequest()->setWakeTime(wakeTime);
+  getRequest()->setResetTryCountAfterWake(true);
+}
+
 void CurlDownloadCommand::validateRangeResponseBeforeBody()
 {
   if (rangeResponseValidated_) {
@@ -641,6 +727,9 @@ void CurlDownloadCommand::validateRangeResponseBeforeBody()
 
   long status = 0;
   curl_easy_getinfo(easy_, CURLINFO_RESPONSE_CODE, &status);
+  if (isRetryableHttpStatus(status)) {
+    retryHttpStatus(status);
+  }
   auto result = validateHttpRangeResponse(
       status, expectedRange_, responseRange_, expectedLength_, contentEncoding_);
   if (!result.ok) {
@@ -715,6 +804,15 @@ size_t CurlDownloadCommand::writeData(const unsigned char* data, size_t length)
 {
   if (length == 0) {
     return 0;
+  }
+
+  if (metadataProbe_) {
+    if (metadataRangeProbe_ && responseRange_.entityLength <= 0) {
+      httpBodyError_ =
+          "HTTP metadata range probe did not include Content-Range.";
+      return 0;
+    }
+    return length;
   }
 
   if (isRangedHttpTransfer()) {
@@ -841,6 +939,7 @@ size_t CurlDownloadCommand::writeHeader(const char* data, size_t length)
   constexpr char CONTENT_ENCODING[] = "content-encoding:";
   constexpr char CONTENT_TYPE[] = "content-type:";
   constexpr char LAST_MODIFIED[] = "last-modified:";
+  constexpr char RETRY_AFTER[] = "retry-after:";
 
   std::string line(data, length);
   while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
@@ -849,7 +948,15 @@ size_t CurlDownloadCommand::writeHeader(const char* data, size_t length)
 
   auto lower = line;
   util::lowercase(lower);
-  if (util::startsWith(lower, CONTENT_LENGTH)) {
+  if (util::startsWith(lower, "http/")) {
+    responseLength_ = 0;
+    responseRange_ = Range();
+    contentDisposition_.clear();
+    contentEncoding_.clear();
+    contentType_.clear();
+    retryAfterSeconds_ = 0;
+  }
+  else if (util::startsWith(lower, CONTENT_LENGTH)) {
     auto value = util::strip(line.substr(sizeof(CONTENT_LENGTH) - 1));
     int64_t parsed = 0;
     if (!util::parseLLIntNoThrow(parsed, value) || parsed < 0) {
@@ -885,6 +992,13 @@ size_t CurlDownloadCommand::writeHeader(const char* data, size_t length)
     if (getOption()->getAsBool(PREF_REMOTE_TIME)) {
       auto value = util::strip(line.substr(sizeof(LAST_MODIFIED) - 1));
       getRequestGroup()->updateLastModifiedTime(Time::parseHTTPDate(value));
+    }
+  }
+  else if (util::startsWith(lower, RETRY_AFTER)) {
+    auto value = util::strip(line.substr(sizeof(RETRY_AFTER) - 1));
+    int64_t seconds = 0;
+    if (util::parseLLIntNoThrow(seconds, value) && seconds > 0) {
+      retryAfterSeconds_ = static_cast<int>(std::min<int64_t>(seconds, 300));
     }
   }
 

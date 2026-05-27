@@ -25,6 +25,8 @@ public:
 
   void onTransientFailure();
 
+  void onRateLimited();
+
   void onRangeUnsupported();
 
 private:
@@ -35,6 +37,8 @@ private:
   int limit_ = kInitialLimit;
   int slowStartThreshold_ = kSlowStartThreshold;
   int cooldownSuccessesRemaining_ = 0;
+  int rateLimitStrikes_ = 0;
+  int rateLimitSuccesses_ = 0;
   bool rangeUnsupported_ = false;
 };
 

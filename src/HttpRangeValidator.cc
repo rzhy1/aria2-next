@@ -66,4 +66,46 @@ HttpRangeValidationResult validateHttpRangeResponse(
   return {true, false, false, ""};
 }
 
+HttpMetadataProbeResult validateHttpMetadataHead(
+    long status, int64_t contentLength, const std::string& contentEncoding)
+{
+  if (status != 200 && status != 206 && status != 304) {
+    return {false, false, 0,
+            fmt("HTTP metadata probe expected status 200, got %ld.", status)};
+  }
+  if (!isHttpContentEncodingIdentity(contentEncoding)) {
+    return {false, true, 0,
+            fmt("HTTP metadata probe ignored compressed Content-Length from "
+                "Content-Encoding: %s.",
+                contentEncoding.c_str())};
+  }
+  if (contentLength <= 0) {
+    return {false, true, 0,
+            "HTTP metadata probe did not provide a valid Content-Length."};
+  }
+  return {true, false, contentLength, ""};
+}
+
+HttpMetadataProbeResult validateHttpMetadataRangeProbe(
+    long status, const Range& responseRange, const std::string& contentEncoding)
+{
+  if (status != 206) {
+    return {false, false, 0,
+            fmt("HTTP metadata range probe expected status 206, got %ld.",
+                status)};
+  }
+  if (!isHttpContentEncodingIdentity(contentEncoding)) {
+    return {false, false, 0,
+            fmt("HTTP metadata range probe used unsupported Content-Encoding: "
+                "%s.",
+                contentEncoding.c_str())};
+  }
+  if (responseRange.startByte != 0 || responseRange.endByte != 0 ||
+      responseRange.entityLength <= 0) {
+    return {false, false, 0,
+            "HTTP metadata range probe did not include a valid Content-Range."};
+  }
+  return {true, false, responseRange.entityLength, ""};
+}
+
 } // namespace aria2

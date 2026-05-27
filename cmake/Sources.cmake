@@ -80,6 +80,8 @@ set(ARIA2_SOURCES_BASE
   src/CreateRequestCommand.h
   src/CurlDownloadCommand.cc
   src/CurlDownloadCommand.h
+  src/CurlRequestContext.cc
+  src/CurlRequestContext.h
   src/CurlSession.cc
   src/CurlSession.h
   src/crypto_endian.h
@@ -214,6 +216,8 @@ set(ARIA2_SOURCES_BASE
   src/HttpHeader.h
   src/HttpHeaderProcessor.cc
   src/HttpHeaderProcessor.h
+  src/HttpErrorPageDetector.cc
+  src/HttpErrorPageDetector.h
   src/HttpAdaptiveWindow.cc
   src/HttpAdaptiveWindow.h
   src/HttpRangeValidator.cc

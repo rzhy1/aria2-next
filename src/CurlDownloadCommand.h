@@ -38,6 +38,7 @@ public:
   static long platformSslTrustOptions();
   static bool shouldDisableCurlProxy(const Option* option);
   static bool isRetryableHttpCurlError(CURLcode result);
+  static bool supportsHttp2();
 
 private:
   bool execute() CXX11_OVERRIDE;
@@ -48,7 +49,7 @@ private:
   void initialize();
   void applyRequestOptions();
   void applyCredentialOptions();
-  void applyCookieAndNetrcOptions();
+  void applyCookieAndNetrcOptions(bool hasExplicitCookie);
   void applyFtpFamilyOptions();
   void applyMetadataProbeOptions();
   void finish(CURLcode result);
@@ -61,6 +62,11 @@ private:
   void retryHttpTransfer(CURLcode result);
   void validateRangeResponseBeforeBody();
   bool ensureWritableSegment();
+  size_t writeBodyToStorage(const unsigned char* data, size_t length);
+  bool inspectBodyBeforeWrite(const unsigned char* data, size_t length,
+                              const unsigned char*& writeData,
+                              size_t& writeLength);
+  std::string getErrorPageTargetPath() const;
 
   static size_t writeCallback(char* ptr, size_t size, size_t nmemb,
                               void* userdata);
@@ -85,10 +91,15 @@ private:
   error_code::Value rangeProtocolErrorCode_;
   std::string contentDisposition_;
   std::string contentEncoding_;
+  std::string contentType_;
   std::string rangeProtocolError_;
+  std::string httpBodyError_;
   char errorBuffer_[CURL_ERROR_SIZE];
   std::string userPassword_;
+  std::string requestCookie_;
   std::vector<std::string> requestHeaders_;
+  std::vector<unsigned char> pendingBody_;
+  bool bodyInspectionComplete_;
   curl_slist* headerList_;
   std::string proxyUri_;
 };

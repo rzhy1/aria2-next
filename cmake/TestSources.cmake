@@ -24,6 +24,8 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/HttpHeaderProcessorTest.cc
   tests/HttpRangeValidatorTest.cc
   tests/HttpAdaptiveWindowTest.cc
+  tests/CurlRequestContextTest.cc
+  tests/HttpErrorPageDetectorTest.cc
   tests/RequestTest.cc
   tests/RequestGroupManTest.cc
   tests/OptionHandlerTest.cc

@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "CurlRequestContext.h"
 #include "CurlSession.h"
 #include "DiskAdaptor.h"
 #include "DownloadContext.h"
@@ -26,6 +27,7 @@
 #include "DlAbortEx.h"
 #include "DlRetryEx.h"
 #include "FileEntry.h"
+#include "HttpErrorPageDetector.h"
 #include "HttpHeader.h"
 #include "HttpRangeValidator.h"
 #include "LogFactory.h"
@@ -65,6 +67,7 @@ CurlDownloadCommand::CurlDownloadCommand(
       expectedLength_(0),
       responseLength_(0),
       rangeProtocolErrorCode_(error_code::HTTP_PROTOCOL_ERROR),
+      bodyInspectionComplete_(false),
       headerList_(nullptr)
 {
   std::memset(errorBuffer_, 0, sizeof(errorBuffer_));
@@ -120,6 +123,16 @@ bool CurlDownloadCommand::isRetryableHttpCurlError(CURLcode result)
   default:
     return false;
   }
+}
+
+bool CurlDownloadCommand::supportsHttp2()
+{
+#if defined(CURL_VERSION_HTTP2) && defined(CURL_HTTP_VERSION_2TLS)
+  auto info = curl_version_info(CURLVERSION_NOW);
+  return info && (info->features & CURL_VERSION_HTTP2);
+#else
+  return false;
+#endif
 }
 
 bool CurlDownloadCommand::execute()
@@ -243,24 +256,45 @@ void CurlDownloadCommand::applyRequestOptions()
 {
   auto option = getOption();
   const auto& protocol = getRequest()->getProtocol();
+  auto headerValues = splitCumulativeOption(option->get(PREF_HEADER));
+  if (option->getAsBool(PREF_HTTP_NO_CACHE)) {
+    headerValues.push_back("Cache-Control: no-cache");
+    headerValues.push_back("Pragma: no-cache");
+  }
+
+  CurlRequestContextInput contextInput;
+  contextInput.userAgent = option->get(PREF_USER_AGENT);
+  if (!option->blank(PREF_REFERER)) {
+    contextInput.referer = option->get(PREF_REFERER);
+  }
+  contextInput.httpAcceptGzip = option->getAsBool(PREF_HTTP_ACCEPT_GZIP);
+  contextInput.headers = std::move(headerValues);
+  auto requestContext = buildCurlRequestContext(contextInput);
 
   curl_easy_setopt(easy_, CURLOPT_PROTOCOLS_STR,
                    "http,https,ftp,ftps,sftp,scp");
   curl_easy_setopt(easy_, CURLOPT_REDIR_PROTOCOLS_STR,
                    "http,https,ftp,ftps,sftp,scp");
-  curl_easy_setopt(easy_, CURLOPT_USERAGENT,
-                   option->get(PREF_USER_AGENT).c_str());
+  curl_easy_setopt(easy_, CURLOPT_USERAGENT, requestContext.userAgent.c_str());
 
-  if (!option->blank(PREF_REFERER)) {
-    curl_easy_setopt(easy_, CURLOPT_REFERER, option->get(PREF_REFERER).c_str());
+  if (requestContext.hasReferer) {
+    curl_easy_setopt(easy_, CURLOPT_REFERER, requestContext.referer.c_str());
   }
 
   if (getRequest()->getMethod() == Request::METHOD_HEAD) {
     curl_easy_setopt(easy_, CURLOPT_NOBODY, 1L);
   }
 
-  curl_easy_setopt(easy_, CURLOPT_ACCEPT_ENCODING,
-                   option->getAsBool(PREF_HTTP_ACCEPT_GZIP) ? "" : "identity");
+  if (requestContext.hasAcceptEncoding) {
+    curl_easy_setopt(easy_, CURLOPT_ACCEPT_ENCODING,
+                     requestContext.acceptEncoding.c_str());
+  }
+
+  if ((protocol == "http" || protocol == "https") && supportsHttp2()) {
+#if defined(CURL_HTTP_VERSION_2TLS)
+    curl_easy_setopt(easy_, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+#endif
+  }
 
   curl_easy_setopt(easy_, CURLOPT_CONNECTTIMEOUT,
                    static_cast<long>(option->getAsInt(PREF_CONNECT_TIMEOUT)));
@@ -272,7 +306,11 @@ void CurlDownloadCommand::applyRequestOptions()
                    static_cast<long>(option->getAsInt(PREF_TIMEOUT)));
 
   applyCredentialOptions();
-  applyCookieAndNetrcOptions();
+  if (requestContext.hasCookie) {
+    requestCookie_ = requestContext.cookie;
+    curl_easy_setopt(easy_, CURLOPT_COOKIE, requestCookie_.c_str());
+  }
+  applyCookieAndNetrcOptions(requestContext.hasCookie);
   if (isFtpFamily(protocol)) {
     applyFtpFamilyOptions();
   }
@@ -314,13 +352,12 @@ void CurlDownloadCommand::applyRequestOptions()
     curl_easy_setopt(easy_, CURLOPT_USE_SSL, CURLUSESSL_ALL);
   }
 
-  requestHeaders_ = splitCumulativeOption(option->get(PREF_HEADER));
-  if (option->getAsBool(PREF_HTTP_NO_CACHE)) {
-    requestHeaders_.push_back("Cache-Control: no-cache");
-    requestHeaders_.push_back("Pragma: no-cache");
-  }
+  requestHeaders_ = std::move(requestContext.headers);
   appendHeaders(headerList_, requestHeaders_);
   if (headerList_) {
+#ifdef CURLHEADER_SEPARATE
+    curl_easy_setopt(easy_, CURLOPT_HEADEROPT, CURLHEADER_SEPARATE);
+#endif
     curl_easy_setopt(easy_, CURLOPT_HTTPHEADER, headerList_);
   }
 }
@@ -359,12 +396,14 @@ void CurlDownloadCommand::applyCredentialOptions()
   }
 }
 
-void CurlDownloadCommand::applyCookieAndNetrcOptions()
+void CurlDownloadCommand::applyCookieAndNetrcOptions(bool hasExplicitCookie)
 {
   auto option = getOption();
 
-  curl_easy_setopt(easy_, CURLOPT_COOKIEFILE, "");
-  if (!option->blank(PREF_LOAD_COOKIES)) {
+  if (!hasExplicitCookie) {
+    curl_easy_setopt(easy_, CURLOPT_COOKIEFILE, "");
+  }
+  if (!hasExplicitCookie && !option->blank(PREF_LOAD_COOKIES)) {
     curl_easy_setopt(easy_, CURLOPT_COOKIEFILE,
                      option->get(PREF_LOAD_COOKIES).c_str());
   }
@@ -423,6 +462,9 @@ void CurlDownloadCommand::finish(CURLcode result)
   }
 
   if (result != CURLE_OK) {
+    if (!httpBodyError_.empty()) {
+      throw DL_ABORT_EX2(httpBodyError_, error_code::HTTP_PROTOCOL_ERROR);
+    }
     if (!rangeProtocolError_.empty()) {
       if (rangeProtocolErrorCode_ == error_code::CANNOT_RESUME) {
         getRequestGroup()->disableHttpRangeForDownload();
@@ -691,6 +733,58 @@ size_t CurlDownloadCommand::writeData(const unsigned char* data, size_t length)
     }
   }
 
+  const unsigned char* bodyData = data;
+  size_t bodyLength = length;
+  if (!inspectBodyBeforeWrite(data, length, bodyData, bodyLength)) {
+    return httpBodyError_.empty() ? length : 0;
+  }
+
+  return writeBodyToStorage(bodyData, bodyLength);
+}
+
+bool CurlDownloadCommand::inspectBodyBeforeWrite(const unsigned char* data,
+                                                 size_t length,
+                                                 const unsigned char*& writeData,
+                                                 size_t& writeLength)
+{
+  writeData = data;
+  writeLength = length;
+
+  if (bodyInspectionComplete_ || metadataProbe_ || isRangedHttpTransfer() ||
+      !isHttpTransfer()) {
+    return true;
+  }
+
+  constexpr size_t MAX_INSPECT = 32_k;
+  const auto room = MAX_INSPECT > pendingBody_.size()
+                        ? MAX_INSPECT - pendingBody_.size()
+                        : 0;
+  const auto capture = std::min(length, room);
+  pendingBody_.insert(pendingBody_.end(), data, data + capture);
+
+  const std::string prefix(reinterpret_cast<const char*>(pendingBody_.data()),
+                           pendingBody_.size());
+  auto decision =
+      detectHttpErrorPage(getErrorPageTargetPath(), contentType_, prefix);
+  if (decision.reject) {
+    httpBodyError_ = decision.reason;
+    return false;
+  }
+
+  bodyInspectionComplete_ = true;
+  writeData = pendingBody_.data();
+  writeLength = pendingBody_.size();
+  if (capture < length) {
+    pendingBody_.insert(pendingBody_.end(), data + capture, data + length);
+    writeData = pendingBody_.data();
+    writeLength = pendingBody_.size();
+  }
+  return true;
+}
+
+size_t CurlDownloadCommand::writeBodyToStorage(const unsigned char* data,
+                                               size_t length)
+{
   auto remaining = length;
   auto cursor = data;
   while (remaining > 0) {
@@ -724,12 +818,28 @@ size_t CurlDownloadCommand::writeData(const unsigned char* data, size_t length)
   return length - remaining;
 }
 
+std::string CurlDownloadCommand::getErrorPageTargetPath() const
+{
+  if (!getFileEntry()->getPath().empty()) {
+    return getFileEntry()->getPath();
+  }
+  if (!getFileEntry()->getSuffixPath().empty()) {
+    return getFileEntry()->getSuffixPath();
+  }
+  auto file = getRequest()->getFile();
+  if (!file.empty()) {
+    return util::percentDecode(file.begin(), file.end());
+  }
+  return determineFilename();
+}
+
 size_t CurlDownloadCommand::writeHeader(const char* data, size_t length)
 {
   constexpr char CONTENT_LENGTH[] = "content-length:";
   constexpr char CONTENT_DISPOSITION[] = "content-disposition:";
   constexpr char CONTENT_RANGE[] = "content-range:";
   constexpr char CONTENT_ENCODING[] = "content-encoding:";
+  constexpr char CONTENT_TYPE[] = "content-type:";
   constexpr char LAST_MODIFIED[] = "last-modified:";
 
   std::string line(data, length);
@@ -767,6 +877,9 @@ size_t CurlDownloadCommand::writeHeader(const char* data, size_t length)
   else if (util::startsWith(lower, CONTENT_ENCODING)) {
     contentEncoding_ =
         util::strip(line.substr(sizeof(CONTENT_ENCODING) - 1));
+  }
+  else if (util::startsWith(lower, CONTENT_TYPE)) {
+    contentType_ = util::strip(line.substr(sizeof(CONTENT_TYPE) - 1));
   }
   else if (util::startsWith(lower, LAST_MODIFIED)) {
     if (getOption()->getAsBool(PREF_REMOTE_TIME)) {

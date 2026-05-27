@@ -1,6 +1,6 @@
 # Contributing to Aria2 Next
 
-Aria2 Next is an aria2-compatible download engine. Contributions must preserve the command-line, configuration, session, and JSON-RPC surfaces unless a change deliberately adds an aria2-next extension.
+Aria2 Next is a download engine with aria2-compatible interfaces. Contributions must preserve the command-line, configuration, session, and JSON-RPC surfaces unless a change deliberately adds an Aria2 Next extension.
 
 ## Development Setup
 
@@ -19,11 +19,11 @@ The default preset writes to `build/default/`. Do not commit build directories, 
 
 ## Project Boundaries
 
-The maintained public surface is the `aria2-next` executable, aria2-style configuration files, session files, input files, and JSON-RPC. There is no supported public C++ embedding API.
+The maintained public surface is the `aria2-next` executable, aria2-compatible configuration files, session files, input files, and JSON-RPC. There is no supported public C++ embedding API.
 
-Motrix Next consumes aria2-next as a sidecar through CLI options and JSON-RPC. UI behavior, app preferences, installers, tray behavior, history, notifications, and auto-update UI belong in Motrix Next. Engine crashes, transfer failures, wrong RPC fields, protocol errors, release binary problems, and build failures belong here.
+Motrix Next consumes Aria2 Next as a sidecar through CLI options and JSON-RPC. UI behavior, app preferences, installers, tray behavior, history, notifications, and auto-update UI belong in Motrix Next. Engine crashes, transfer failures, wrong RPC fields, protocol errors, release binary problems, and build failures belong here.
 
-The maintained protocol surface includes HTTP, HTTPS, FTP, SFTP, BitTorrent, magnet, ED2K, checksums, session files, input files, and JSON-RPC. BitTorrent is owned by libtorrent-rasterbar. ED2K is native aria2-next code.
+The maintained protocol surface includes HTTP, HTTPS, FTP, SFTP, BitTorrent, magnet, ED2K, checksums, session files, input files, and JSON-RPC. BitTorrent is owned by libtorrent-rasterbar. ED2K is native Aria2 Next code.
 
 ## Code Rules
 

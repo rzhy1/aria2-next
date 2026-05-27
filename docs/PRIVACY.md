@@ -31,7 +31,7 @@ Official release workflows download dependency source archives from URLs pinned 
 
 ## Proxies
 
-When `--proxy-mode=auto` is used, aria2-next can use configured proxy options and environment proxy variables. When `--proxy-mode=direct` is used, proxy use is disabled. When `--proxy-mode=manual` is used, only explicit aria2-next proxy options are used.
+When `--proxy-mode=auto` is used, Aria2 Next can use configured proxy options and environment proxy variables. When `--proxy-mode=direct` is used, proxy use is disabled. When `--proxy-mode=manual` is used, only explicit Aria2 Next proxy options are used.
 
 Proxy servers can observe traffic according to their protocol, destination visibility, and TLS interception behavior.
 
@@ -43,7 +43,7 @@ Before sharing logs publicly, redact RPC secrets, cookies, authorization headers
 
 ## Parent Applications
 
-Applications such as Motrix Next may start aria2-next as a sidecar and manage additional data such as preferences, history, update metadata, and diagnostics. See the parent application's privacy policy for that data.
+Applications such as Motrix Next may start Aria2 Next as a sidecar and manage additional data such as preferences, history, update metadata, and diagnostics. See the parent application's privacy policy for that data.
 
 ## Changes
 

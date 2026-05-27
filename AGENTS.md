@@ -9,7 +9,7 @@ This file defines repository rules for AI coding agents. Human contributors shou
 
 | Area | Ownership |
 | --- | --- |
-| Core | C99 and C++17 aria2 command-line client and core implementation |
+| Core | C99 and C++17 Aria2 Next command-line client and core implementation |
 | Build | CMake 3.25+ with Ninja as the default generator |
 | Tests | CTest plus the CppUnit test suite |
 | Packaging | Cross-platform release automation under `packaging/` and `.github/workflows/release.yml` |
@@ -24,7 +24,7 @@ This file defines repository rules for AI coding agents. Human contributors shou
 | `cmake/modules/` | Build options, probes, dependencies, targets, tests, and summary output |
 | `cmake/Sources.cmake` | Core source inventory |
 | `cmake/TestSources.cmake` | Test source inventory |
-| `src/` | aria2 core, CLI, protocol, disk, RPC, and platform code |
+| `src/` | Aria2 Next core, CLI, protocol, disk, RPC, and platform code |
 | `tests/` | CppUnit tests and fixtures |
 | `docs/` | Manual sources, completion tooling, and maintenance records |
 | `.github/ISSUE_TEMPLATE/` | GitHub issue forms for bugs, feature requests, and usage questions |

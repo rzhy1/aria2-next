@@ -162,7 +162,7 @@ void MultiUrlRequestInfo::printMessageForContinue()
   if (!option_->getAsBool(PREF_QUIET)) {
     global::cout()->printf(
         "\n%s\n%s\n",
-        _("aria2 will resume download if the transfer is restarted."),
+        _("Aria2 Next will resume the download if the transfer is restarted."),
         _("If there are any errors, then see the log file. See '-l' option in "
           "help/man page for details."));
   }

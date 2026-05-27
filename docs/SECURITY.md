@@ -4,7 +4,7 @@ Aria2 Next is a network-facing download engine. Reports involving crashes, remot
 
 ## Supported Versions
 
-Only the latest published aria2-next release is actively supported for security fixes. Users should upgrade before reporting security behavior unless the report concerns a regression in the latest release.
+Only the latest published Aria2 Next release is actively supported for security fixes. Users should upgrade before reporting security behavior unless the report concerns a regression in the latest release.
 
 ## Reporting
 

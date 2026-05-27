@@ -114,7 +114,7 @@
 #define MSG_LOADING_SEGMENT_FILE _("Loading the segment file %s.")
 #define MSG_LOADED_SEGMENT_FILE _("The segment file was loaded successfully.")
 #define MSG_NO_URL_TO_DOWNLOAD _("No URI to download. Download aborted.")
-#define MSG_FILE_ALREADY_EXISTS _("File %s exists, but a control file(*.aria2) does not exist. Download was canceled in order to prevent your file from being truncated to 0. If you are sure to download the file all over again, then delete it or add --allow-overwrite=true option and restart aria2.")
+#define MSG_FILE_ALREADY_EXISTS _("File %s exists, but a control file(*.aria2) does not exist. Download was canceled in order to prevent your file from being truncated to 0. If you are sure to download the file all over again, then delete it or add --allow-overwrite=true option and restart Aria2 Next.")
 #define MSG_ALLOCATING_FILE _("Allocating file %s, %s bytes")
 #define MSG_FILE_NOT_FOUND _("File not found")
 #define MSG_NOT_DIRECTORY _("Not a directory")
@@ -153,7 +153,7 @@
 #define MSG_NULL_TRACKER_RESPONSE _("Tracker returned null data.")
 #define MSG_WINSOCK_INIT_FAILD _("Windows socket library initialization failed")
 #define MSG_TIME_HAS_PASSED _("%ld second(s) has passed. Stopping application.")
-#define MSG_SIGNATURE_SAVED _("Saved signature as %s. Please note that aria2" \
+#define MSG_SIGNATURE_SAVED _("Saved signature as %s. Please note that Aria2 Next" \
                               " doesn't verify signatures.")
 #define MSG_SIGNATURE_NOT_SAVED _("Saving signature as %s failed. Maybe file" \
                                   " already exists.")

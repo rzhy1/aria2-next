@@ -1,6 +1,6 @@
 # Troubleshooting
 
-This guide covers common aria2-next engine failures, the boundary with Motrix Next, and the evidence needed for useful reports.
+This guide covers common Aria2 Next engine failures, the boundary with Motrix Next, and the evidence needed for useful reports.
 
 ## Report Boundary
 
@@ -8,7 +8,7 @@ Use this repository for engine issues: process crashes, transfer failures, wrong
 
 Use the Motrix Next repository for UI behavior, app preferences, installers, auto-update UI, tray behavior, history database behavior, notifications, browser-extension flows, and desktop integration.
 
-Motrix Next starts aria2-next as a sidecar and talks to it through JSON-RPC. If the same failure reproduces with the standalone engine, report it here. If the engine returns correct data but the app renders it incorrectly, report it in Motrix Next.
+Motrix Next starts Aria2 Next as a sidecar and talks to it through JSON-RPC. If the same failure reproduces with the standalone engine, report it here. If the engine returns correct data but the app renders it incorrectly, report it in Motrix Next.
 
 ## First Checks
 
@@ -45,7 +45,7 @@ Certificate reports should include the exact OpenSSL verify result from the log.
 
 `--proxy-mode=direct` disables proxy use for HTTP, HTTPS, and FTP transfers.
 
-`--proxy-mode=manual` uses only explicitly configured aria2-next proxy options such as `--all-proxy`, `--http-proxy`, and `--https-proxy`.
+`--proxy-mode=manual` uses only explicitly configured Aria2 Next proxy options such as `--all-proxy`, `--http-proxy`, and `--https-proxy`.
 
 Applications with an explicit no-proxy setting should pass `--proxy-mode=direct`.
 
@@ -53,7 +53,7 @@ Applications with an explicit no-proxy setting should pass `--proxy-mode=direct`
 
 Segmented HTTP downloads require valid byte-range responses. A valid ranged response uses `206 Partial Content`, a matching `Content-Range`, and identity encoding.
 
-Some mirrors ignore Range and return `200 OK` with the full file. aria2-next detects this and can restart the task as a single full-body transfer instead of writing full-body data into a segment.
+Some mirrors ignore Range and return `200 OK` with the full file. Aria2 Next detects this and can restart the task as a single full-body transfer instead of writing full-body data into a segment.
 
 Large-download reports should include log lines containing `Range`, `Content-Range`, `HTTP range request`, `Connection timed out`, or `CURLE_WRITE_ERROR`.
 
@@ -67,7 +67,7 @@ https://example.com/file.iso
   checksum=sha-1=0123456789abcdef0123456789abcdef01234567
 ```
 
-aria2-next verifies whole-file checksums after transfer completion. If validation is skipped or `.aria2` files remain unexpectedly, include the input-file entry, command line, final console output, debug log, and resulting file/control-file state.
+Aria2 Next verifies whole-file checksums after transfer completion. If validation is skipped or `.aria2` files remain unexpectedly, include the input-file entry, command line, final console output, debug log, and resulting file/control-file state.
 
 ## Remote Timestamps
 

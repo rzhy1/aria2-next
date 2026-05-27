@@ -1,12 +1,12 @@
 name: Bug Report
-description: Report an aria2-next engine, crash, build, or release artifact bug
+description: Report an Aria2 Next engine, crash, build, or release artifact bug
 title: "[bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Report reproducible aria2-next engine bugs here, including crashes, build failures, release artifact problems, and protocol regressions.
+        Report reproducible Aria2 Next engine bugs here, including crashes, build failures, release artifact problems, and protocol regressions.
         Motrix Next UI, installer, updater, tray, history, notification, and desktop integration issues belong in Motrix Next.
         Do not post secrets, cookies, proxy credentials, private tracker data, signed URL tokens, or unredacted crash dumps.
 
@@ -107,7 +107,7 @@ body:
     id: comparison
     attributes:
       label: Regression or Comparison
-      description: Mention another aria2-next version, upstream aria2, browser, curl, or Motrix Next result if it behaves differently.
+      description: Mention another Aria2 Next version, upstream aria2, browser, curl, or Motrix Next result if it behaves differently.
 
   - type: checkboxes
     id: validations

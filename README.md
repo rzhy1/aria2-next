@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/media/aria2-next-icon.png" alt="Aria2 Next icon" width="144" height="144" />
   <h1>Aria2 Next</h1>
-  <p>Maintained aria2-compatible download engine with modern transfer backends and cross-platform release builds.</p>
+  <p>Maintained download engine with aria2-compatible interfaces, modern transfer backends, and cross-platform release builds.</p>
 
 [![CI](https://github.com/AnInsomniacy/aria2-next/actions/workflows/ci.yml/badge.svg)](https://github.com/AnInsomniacy/aria2-next/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AnInsomniacy/aria2-next.svg)](https://github.com/AnInsomniacy/aria2-next/releases)
@@ -27,7 +27,7 @@ Current maintenance focuses on reliable HTTP/HTTPS transfers through libcurl, Bi
 | Executable | `aria2-next` |
 | CLI and config | aria2-compatible option names and file formats |
 | Sessions and input files | aria2-compatible session and input-file conventions |
-| JSON-RPC | aria2-compatible methods with explicit aria2-next extension fields where needed |
+| JSON-RPC | aria2-compatible methods with explicit Aria2 Next extension fields where needed |
 | Protocols | HTTP, HTTPS, FTP, SFTP, BitTorrent, magnet, ED2K |
 | Primary app integration | Motrix Next sidecar engine |
 | Public C++ API | Not maintained |
@@ -121,7 +121,7 @@ Durable audit records live under [`docs/maintenance/`](docs/maintenance/). They 
 | `CMakeLists.txt` | Project declaration and version source |
 | `CMakePresets.json` | Standard configure, build, and test presets |
 | `cmake/` | CMake modules, source inventories, and generated config templates |
-| `src/` | aria2 command-line client and core implementation |
+| `src/` | Aria2 Next command-line client and core implementation |
 | `tests/` | CppUnit test suite registered through CTest |
 | `docs/` | Documentation, manual sources, completion tooling, and maintenance records |
 | `.github/` | Issue forms, pull request template, CI, and release workflows |

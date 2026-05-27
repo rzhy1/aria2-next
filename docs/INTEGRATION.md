@@ -1,10 +1,10 @@
 # Integration Guide
 
-This guide describes the supported integration surface for applications, scripts, and JSON-RPC clients that launch or control aria2-next.
+This guide describes the supported integration surface for applications, scripts, and JSON-RPC clients that launch or control Aria2 Next.
 
 ## Stable Surfaces
 
-The maintained public surfaces are the `aria2-next` executable, aria2-style command-line options, configuration files, session files, input files, and JSON-RPC.
+The maintained public surfaces are the `aria2-next` executable, aria2-compatible command-line options, configuration files, session files, input files, and JSON-RPC.
 
 There is no maintained public C++ embedding API. Parent applications should launch the executable and control it through CLI options and JSON-RPC.
 
@@ -12,7 +12,7 @@ There is no maintained public C++ embedding API. Parent applications should laun
 
 Aria2 Next preserves aria2-compatible behavior where practical. Extensions are added only when compatibility fields cannot safely represent modern engine state.
 
-Clients should treat aria2-next extension fields as optional and ignore unknown fields. Clients should not infer state from placeholder names, empty objects, or file paths when explicit fields are available.
+Clients should treat Aria2 Next extension fields as optional and ignore unknown fields. Clients should not infer state from placeholder names, empty objects, or file paths when explicit fields are available.
 
 ## Proxy Contract
 
@@ -20,7 +20,7 @@ Clients should treat aria2-next extension fields as optional and ignore unknown 
 
 `--proxy-mode=direct` disables proxy use for HTTP, HTTPS, and FTP transfers. Applications should pass it when the user selects no proxy.
 
-`--proxy-mode=manual` ignores environment proxy variables and uses only explicit aria2-next proxy options. Applications should pass it when they own proxy configuration.
+`--proxy-mode=manual` ignores environment proxy variables and uses only explicit Aria2 Next proxy options. Applications should pass it when they own proxy configuration.
 
 ## BitTorrent Metadata
 
@@ -28,7 +28,7 @@ During magnet metadata download, `bittorrent.info` is omitted until stable torre
 
 Clients should read `bittorrent.metadata.state` and `bittorrent.metadata.hasMetadata`. The state is `downloading` while libtorrent is still fetching metadata or `hasMetadata` is false. The state is `ready` after metadata exists.
 
-If a magnet `dn` display name is available during metadata download, aria2-next exposes it as `bittorrent.metadata.displayName`. After metadata is ready, `bittorrent.info.name` is the authoritative torrent name.
+If a magnet `dn` display name is available during metadata download, Aria2 Next exposes it as `bittorrent.metadata.displayName`. After metadata is ready, `bittorrent.info.name` is the authoritative torrent name.
 
 Clients should not treat an empty `bittorrent.info` object as valid metadata.
 
@@ -42,7 +42,7 @@ Clients should prefer `ed2k.visibleCompletedLength` for ED2K progress display wh
 
 Segmented HTTP transfers validate Range responses before writing body data. Valid ranged responses must use `206 Partial Content`, a matching `Content-Range`, and identity encoding.
 
-Servers that ignore Range with `200 OK` can be downgraded to single full-body transfer. Clients should not assume the requested connection count remains fixed for the lifetime of a task, because aria2-next may adapt HTTP stream concurrency for reliability.
+Servers that ignore Range with `200 OK` can be downgraded to single full-body transfer. Clients should not assume the requested connection count remains fixed for the lifetime of a task, because Aria2 Next may adapt HTTP stream concurrency for reliability.
 
 ## Checksums
 
@@ -56,4 +56,4 @@ Session files and `.aria2` control files are owned by the engine. Applications c
 
 Parent applications should pass explicit RPC binding options, an RPC secret, a clear proxy mode, a controlled session path, and debug log paths that users can export for diagnostics.
 
-Integration bug reports should include the engine command line, JSON-RPC request and response, aria2-next version, platform, parent application version, and debug log. Redact secrets and private URLs.
+Integration bug reports should include the engine command line, JSON-RPC request and response, Aria2 Next version, platform, parent application version, and debug log. Redact secrets and private URLs.

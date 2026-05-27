@@ -173,12 +173,11 @@ void showUsage(const std::string& keyword,
     out->printf("\n\n");
     out->printf(
         _("About the number of connections\n"
-          " Since 1.10.0 release, aria2 uses 1 connection per host by default "
-          "and has 20MiB\n"
-          " segment size restriction. So whatever value you specify using -s "
-          "option, it\n"
-          " uses 1 connection per host. To make it behave like 1.9.x, use\n"
-          " --max-connection-per-server=4 --min-split-size=1M.\n"
+          " Aria2 Next starts conservatively and adapts HTTP(S)/FTP "
+          "segmented transfers per origin.\n"
+          " Use --split and --max-connection-per-server to set the upper "
+          "bound, and use\n"
+          " --min-split-size to control the minimum segment size.\n"
           "\n"));
   }
   out->printf(_("Refer to man page for more information."));

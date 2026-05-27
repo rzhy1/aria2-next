@@ -1,4 +1,4 @@
-aria2 - The ultra fast download utility
+Aria2 Next - The maintained download engine
 =======================================
 
 Aria2 Next maintenance note
@@ -19,26 +19,26 @@ You must use this program at your own risk.
 Introduction
 ------------
 
-aria2 is a utility for downloading files. The supported protocols are
-HTTP(S), FTP, SFTP, BitTorrent, and ED2K file links. aria2 can download a
+Aria2 Next is a utility for downloading files. The supported protocols are
+HTTP(S), FTP, SFTP, BitTorrent, and ED2K file links. Aria2 Next can download a
 file from multiple sources/protocols and tries to utilize your maximum
 download bandwidth. It supports downloading a file from HTTP(S)/FTP/SFTP and
 BitTorrent at the same time, while the data downloaded from HTTP(S)/FTP/SFTP is
 uploaded to the BitTorrent swarm.
 
-Aria2 Next includes native ED2K/eMule support reimplemented inside aria2's
-existing engine architecture from authoritative eMule, aMule, MLDonkey,
+Aria2 Next includes native ED2K/eMule support reimplemented inside Aria2 Next's
+engine architecture from authoritative eMule, aMule, MLDonkey,
 Wireshark, and protocol documentation references. The reference-alignment work
 is tracked in ``docs/maintenance/ed2k-refactor/``. Core ED2K/eMule behavior has
-been ported where it fits aria2-next, while obsolete legacy structures were
+been ported where it fits Aria2 Next, while obsolete legacy structures were
 removed or replaced with existing compatible integration surfaces.
 
 The maintained fork is located at https://github.com/AnInsomniacy/aria2-next.
-It preserves the maintained aria2-style command-line, configuration, session,
+It preserves the maintained aria2-compatible command-line, configuration, session,
 and JSON-RPC surfaces.
 
-See the upstream `aria2 Online Manual
-<https://aria2.github.io/manual/en/html/>`_ to learn how to use aria2.
+See the `upstream aria2 Online Manual
+<https://aria2.github.io/manual/en/html/>`_ as a compatibility reference for inherited options and RPC methods.
 
 Features
 --------
@@ -70,7 +70,7 @@ Here is a list of features:
 * BitTorrent extensions: Fast extension, DHT, PEX, MSE/PSE,
   Multi-Tracker, UDP tracker
 * BitTorrent `WEB-Seeding <http://getright.com/seedtorrent.html>`_.
-  aria2 requests chunk more than piece size to reduce the request
+  Aria2 Next requests chunks larger than the piece size to reduce the request
   overhead. It also supports pipelined requests with piece size.
 * BitTorrent Local Peer Discovery
 * Rename/change the directory structure of BitTorrent downloads
@@ -112,16 +112,16 @@ Dependency
 ======================== ========================================
 features                  dependency
 ======================== ========================================
-HTTPS                    OpenSSL through libcurl and aria2-next
+HTTPS                    OpenSSL through libcurl and Aria2 Next
 SFTP and SCP             libcurl with its selected SSH backend
 BitTorrent               libtorrent-rasterbar and Boost headers
-ED2K                     Native aria2-next protocol code
+ED2K                     Native Aria2 Next protocol code
 Checksum                 OpenSSL plus zlib for adler32 when enabled
 gzip and deflate         libcurl and zlib
 JSON-RPC over WebSocket  Boost.Beast and Boost.JSON
 ======================== ========================================
 
-aria2-next uses OpenSSL as the only direct TLS and crypto backend. ED2K keeps
+Aria2 Next uses OpenSSL as the only direct TLS and crypto backend. ED2K keeps
 its narrow native MD4 implementation for protocol compatibility and uses
 OpenSSL-backed MD5, SHA-1, and RC4 paths for remaining hash and obfuscation
 needs.
@@ -131,10 +131,10 @@ You can disable BitTorrent support with ``-DARIA2_ENABLE_BITTORRENT=OFF``.
 How to build
 ------------
 
-aria2 is primarily written in C++. aria2-next currently requires a C++17-aware
+Aria2 Next is primarily written in C++ and currently requires a C++17-aware
 compiler because the modernized runtime and dependency integration use C++17.
 
-To build aria2 from the source package, install CMake, Ninja, pkg-config, a
+To build Aria2 Next from the source package, install CMake, Ninja, pkg-config, a
 C++17 compiler, and the development packages for the maintained dependency set:
 
 * libcurl-dev      (Required for HTTP, HTTPS, FTP, FTPS, SFTP, and SCP)
@@ -151,7 +151,7 @@ preset.
 The CMake configure step checks the maintained dependency set and fails with a
 clear error if a required dependency is missing.
 
-Since 1.1.0, aria2 checks the certificate of HTTPS servers by default. Official
+Aria2 Next checks the certificate of HTTPS servers by default. Official
 release builds use the platform trust source selected by their libcurl build:
 Windows uses the native certificate store, macOS uses Apple SecTrust, Linux uses
 libcurl/OpenSSL CA auto-discovery with default OpenSSL fallback paths, and
@@ -162,13 +162,13 @@ bundle fallback for custom builds.
 Proxy behavior is controlled by ``--proxy-mode``. ``auto`` is the command-line
 default and permits configured proxy options plus environment proxy variables.
 ``direct`` disables proxy use for HTTP, HTTPS, and FTP transfers. ``manual``
-uses only explicitly configured aria2-next proxy options.
+uses only explicitly configured Aria2 Next proxy options.
 
 By default, the bash completion file named ``aria2-next`` is installed to the
 default documentation directory. To change that directory, set
 ``-DARIA2_BASH_COMPLETION_DIR=/path/to/directory``.
 
-aria2 uses CppUnit for automated unit testing. CTest runs the tests executable.
+Aria2 Next uses CppUnit for automated unit testing. CTest runs the tests executable.
 
 See `Cross-compiling Windows binary`_ to create a Windows binary.
 See `Cross-compiling Android binary`_ to create an Android binary.
@@ -179,7 +179,7 @@ Cross-compiling Windows binary
 In this section, we describe how to build a Windows binary using a
 mingw-w64 (http://mingw-w64.org/doku.php) cross-compiler on Debian
 Linux. The MinGW (http://www.mingw.org/) may not be able to build
-aria2.
+Aria2 Next.
 
 The easiest way to build a Windows binary is using
 ``packaging/docker/Dockerfile.mingw``. If you cannot use Dockerfile, then
@@ -235,7 +235,7 @@ for cross-compilation:
 * libtorrent-rasterbar
 
 Build the dependency libraries as static libraries and install them under a
-single Android prefix. Then configure aria2 with CMake using the Android NDK
+single Android prefix. Then configure Aria2 Next with CMake using the Android NDK
 toolchain variables. The maintained Dockerfile reads the NDK baseline from
 ``packaging/dependencies.env`` and passes
 ``CMAKE_SYSTEM_NAME=Android``, ``CMAKE_ANDROID_NDK``,
@@ -250,8 +250,8 @@ Install the documentation dependencies first::
 
     $ python3 -m pip install 'sphinx>=8.2,<9' 'sphinx-rtd-theme>=3.0,<4'
 
-aria2 man pages will be built when you run ``make`` if they are not
-up-to-date.  You can also build an HTML version of the aria2 man page by
+Aria2 Next man pages will be built when you run ``make`` if they are not
+up-to-date.  You can also build an HTML version of the Aria2 Next man page by
 ``make html`` from the relevant ``docs/manual/<language>`` directory.
 The HTML version manual is also available
 `online <https://aria2.github.io/manual/en/html/>`_.
@@ -259,7 +259,7 @@ The HTML version manual is also available
 BitTorrent
 -----------
 
-aria2-next uses libtorrent-rasterbar as its only BitTorrent backend.
+Aria2 Next uses libtorrent-rasterbar as its only BitTorrent backend.
 Torrent files and magnet links are routed through libtorrent for peer
 protocol, DHT, PEX, local peer discovery, UDP trackers, piece picking,
 endgame behavior, disk I/O, metadata exchange, and resume state.
@@ -275,7 +275,7 @@ Segmented HTTP and HTTPS transfers validate ranged responses before writing
 body data. A valid ranged response must use status ``206 Partial Content``,
 provide a matching ``Content-Range`` header, and use identity encoding for the
 byte stream. If a server ignores Range and returns ``200 OK`` with the full
-body, aria2-next can downgrade that task to a single full-body transfer instead
+body, Aria2 Next can downgrade that task to a single full-body transfer instead
 of writing full-body data into a fixed segment.
 
 ED2K progress
@@ -305,7 +305,7 @@ multi-file mode
     downloaded files can be specified by -d option.
 
 Before download starts, a complete directory structure is created if
-needed. By default, aria2 opens at most 100 files mentioned in
+needed. By default, Aria2 Next opens at most 100 files mentioned in
 .torrent file, and directly writes to and reads from these files.
 The number of files to open simultaneously can be controlled by
 ``--bt-max-open-files`` option.
@@ -315,7 +315,7 @@ DHT and UDP tracker
 
 libtorrent-rasterbar owns the DHT and UDP tracker implementation. Use
 ``--enable-dht`` and ``--dht-listen-port`` to control the DHT session
-and UDP listening ports exposed through aria2-next.
+and UDP listening ports exposed through Aria2 Next.
 
 Other things should be noted
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -323,12 +323,12 @@ Other things should be noted
 * ``-o`` option is used to change the file name of .torrent file itself,
   not a file name of a file in .torrent file. For this purpose, use
   ``--index-out`` option instead.
-* The port numbers that aria2 uses by default are 6881-6999 for TCP
+* The port numbers that Aria2 Next uses by default are 6881-6999 for TCP
   and UDP.
-* aria2 doesn't configure port-forwarding automatically. Please
+* Aria2 Next does not configure port-forwarding automatically. Please
   configure your router or firewall manually.
 * The default maximum number of peers per torrent is 55.
-* As of release 0.10.0, aria2 stops sending request messages after
+* As of release 0.10.0, Aria2 Next stops sending request messages after
   selective download completes.
 
 netrc
@@ -341,13 +341,13 @@ should have correct permissions(600).
 WebSocket
 ---------
 
-The WebSocket server embedded in aria2 implements the specification
+The WebSocket server embedded in Aria2 Next implements the specification
 defined in RFC 6455. The supported protocol version is 13.
 
 References
 ----------
 
-* `aria2 Online Manual <https://aria2.github.io/manual/en/html/>`_
+* `upstream aria2 Online Manual <https://aria2.github.io/manual/en/html/>`_
 * https://github.com/AnInsomniacy/aria2-next
 * `RFC 959 FILE TRANSFER PROTOCOL (FTP) <http://tools.ietf.org/html/rfc959>`_
 * `RFC 1738 Uniform Resource Locators (URL) <http://tools.ietf.org/html/rfc1738>`_

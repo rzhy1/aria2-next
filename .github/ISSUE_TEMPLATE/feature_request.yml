@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest a focused aria2-next engine improvement
+description: Suggest a focused Aria2 Next engine improvement
 title: "[feat]: "
 labels: ["enhancement"]
 body:
@@ -46,7 +46,7 @@ body:
     id: compatibility
     attributes:
       label: Compatibility Impact
-      description: Explain whether this changes aria2-compatible behavior, adds an aria2-next extension, or affects Motrix Next integration.
+      description: Explain whether this changes aria2-compatible behavior, adds an Aria2 Next extension, or affects Motrix Next integration.
     validations:
       required: true
 
@@ -63,5 +63,5 @@ body:
       options:
         - label: I searched existing issues.
           required: true
-        - label: This request belongs in aria2-next, not Motrix Next UI.
+        - label: This request belongs in Aria2 Next, not Motrix Next UI.
           required: true

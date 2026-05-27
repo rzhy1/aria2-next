@@ -1,12 +1,12 @@
 # Release Guide
 
-This document covers official aria2-next releases, user verification, maintainer release flow, manual debug artifacts, and failed-release recovery.
+This document covers official Aria2 Next releases, user verification, maintainer release flow, manual debug artifacts, and failed-release recovery.
 
 ## Version Source
 
 `CMakeLists.txt` is the only project version source. Release tags use `v{PROJECT_VERSION}` and must match the CMake version after removing the leading `v`.
 
-Pre-release, beta, RC, channel suffix, build metadata, and date-based release suffixes are not supported for aria2-next releases.
+Pre-release, beta, RC, channel suffix, build metadata, and date-based release suffixes are not supported for Aria2 Next releases.
 
 ## Official Assets
 
@@ -45,7 +45,7 @@ chmod +x ./aria2-next-<version>-<platform>
 ./aria2-next-<version>-<platform> --version
 ```
 
-aria2-next currently publishes checksummed standalone binaries. It does not publish notarized macOS apps, signed Windows installers, package-manager formulas, or updater metadata.
+Aria2 Next currently publishes checksummed standalone binaries. It does not publish notarized macOS apps, signed Windows installers, package-manager formulas, or updater metadata.
 
 ## Workflow Behavior
 

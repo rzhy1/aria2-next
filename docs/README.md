@@ -1,6 +1,6 @@
 # Documentation
 
-This directory contains the maintained documentation for aria2-next.
+This directory contains the maintained documentation for Aria2 Next.
 
 ## Start Here
 

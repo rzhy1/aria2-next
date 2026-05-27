@@ -1,7 +1,7 @@
 Technical Notes
 ===============
 
-This document describes additional technical information of aria2. The
+This document describes additional technical information for Aria2 Next. The
 expected audience is developers.
 
 Control File (\*.aria2) Format
@@ -41,12 +41,12 @@ a download. Here is the diagram for each field:
    Should be either version 0(0x0000) or version 1(0x0001).  In
    version 1, all multi-byte integers are saved in network byte
    order(big endian).  In version 0, all multi-byte integers are saved
-   in host byte order.  aria2 1.4.1 can read both versions and only
+   in host byte order.  Aria2 Next can read both versions and only
    writes a control file in version 1 format.  version 0 support will
    be disappear in the future version.
 
 ``EXT`` (EXTENSION): 4 bytes
-   If LSB is 1(i.e. ``EXT[3]&1 == 1``), aria2 checks whether the saved
+   If LSB is 1(i.e. ``EXT[3]&1 == 1``), Aria2 Next checks whether the saved
    InfoHash and current downloading one are the same. If they are not
    the same, an exception is thrown. This is called "infoHashCheck"
    extension.
@@ -98,16 +98,16 @@ times.
 BitTorrent DHT state
 --------------------
 
-aria2-next uses libtorrent-rasterbar as its BitTorrent backend.
+Aria2 Next uses libtorrent-rasterbar as its BitTorrent backend.
 BitTorrent DHT routing state is owned by libtorrent and is not stored in
 the removed native ``dht.dat`` or ``dht6.dat`` formats.
 
 JSON-RPC extension fields
 -------------------------
 
-aria2-next keeps aria2-compatible JSON-RPC fields where they can represent
+Aria2 Next keeps aria2-compatible JSON-RPC fields where they can represent
 state accurately. When a modern backend exposes state that cannot be represented
-without placeholders, aria2-next adds explicit extension fields.
+without placeholders, Aria2 Next adds explicit extension fields.
 
 For libtorrent magnet tasks, ``bittorrent.metadata`` reports metadata phase.
 ``bittorrent.info`` is omitted until real torrent metadata is available.

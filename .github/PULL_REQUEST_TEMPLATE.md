@@ -26,7 +26,7 @@ PR titles must use Conventional Commits:
 
 ## Compatibility
 
-<!-- Describe aria2-compatible behavior changes, aria2-next extensions, or Motrix Next integration impact. -->
+<!-- Describe aria2-compatible behavior changes, Aria2 Next extensions, or Motrix Next integration impact. -->
 
 ## Verification
 

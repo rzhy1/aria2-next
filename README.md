@@ -108,7 +108,7 @@ Release dependency versions, source URLs, archive names, and SHA-256 hashes are 
 | Privacy and network behavior | [`docs/PRIVACY.md`](docs/PRIVACY.md) |
 | Full documentation index | [`docs/README.md`](docs/README.md) |
 
-Use GitHub issue forms for reproducible bugs, feature proposals, and focused usage questions.
+Use GitHub issue forms for reproducible bugs and feature proposals.
 
 ## Maintenance Records
 

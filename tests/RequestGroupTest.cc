@@ -17,6 +17,9 @@
 #include "SelectEventPoll.h"
 #include "CurlDownloadCommand.h"
 #include "InitiateConnectionCommandFactory.h"
+#include "CheckIntegrityMan.h"
+#include "CheckIntegrityEntry.h"
+#include "util.h"
 #ifdef ENABLE_BITTORRENT
 #  include "LibtorrentAttribute.h"
 #  include "LibtorrentCommand.h"
@@ -60,6 +63,7 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCurlTlsTrustOptions);
   CPPUNIT_TEST(testCurlProxyModeControlsEnvironmentProxy);
   CPPUNIT_TEST(testCurlHttpRetryableErrors);
+  CPPUNIT_TEST(testFinishedHttpDownloadQueuesWholeFileChecksum);
   CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForHttp);
   CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForFtpFamily);
   CPPUNIT_TEST(testHttpAdaptiveCommandLimit);
@@ -102,6 +106,7 @@ public:
   void testCurlTlsTrustOptions();
   void testCurlProxyModeControlsEnvironmentProxy();
   void testCurlHttpRetryableErrors();
+  void testFinishedHttpDownloadQueuesWholeFileChecksum();
   void testInitiateConnectionFactoryUsesCurlForHttp();
   void testInitiateConnectionFactoryUsesCurlForFtpFamily();
   void testHttpAdaptiveCommandLimit();
@@ -336,6 +341,36 @@ void RequestGroupTest::testCurlHttpRetryableErrors()
   CPPUNIT_ASSERT(
       !CurlDownloadCommand::isRetryableHttpCurlError(CURLE_SSL_CACERT_BADFILE));
   CPPUNIT_ASSERT(!CurlDownloadCommand::isRetryableHttpCurlError(CURLE_OK));
+}
+
+void RequestGroupTest::testFinishedHttpDownloadQueuesWholeFileChecksum()
+{
+  auto path = std::string(A2_TEST_OUT_DIR) +
+              "/aria2_RequestGroupTest_finished_http_checksum";
+  File(path).remove();
+  File(path + DefaultProgressInfoFile::getSuffix()).remove();
+  createFile(path, 1_k);
+
+  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+
+  auto ctx = std::make_shared<DownloadContext>(1_k, 1_k, path);
+  auto digest = std::string(40, '0');
+  ctx->setDigest("sha-1", util::fromHex(digest.begin(), digest.end()));
+  RequestGroup group(GroupId::create(), option_);
+  group.setDownloadContext(ctx);
+  group.initPieceStorage();
+  group.loadAndOpenFile(std::make_shared<DefaultProgressInfoFile>(
+      ctx, group.getPieceStorage(), option_.get()));
+  group.getPieceStorage()->markAllPiecesDone();
+
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option_.get());
+  engine.setCheckIntegrityMan(make_unique<CheckIntegrityMan>());
+
+  CPPUNIT_ASSERT(group.queueChecksumValidationIfNeeded(&engine));
+  CPPUNIT_ASSERT_EQUAL((size_t)1,
+                       engine.getCheckIntegrityMan()->countEntryInQueue());
 }
 
 void RequestGroupTest::testInitiateConnectionFactoryUsesCurlForHttp()

@@ -265,6 +265,8 @@ public:
 
   bool allDownloadFinished() const;
 
+  bool queueChecksumValidationIfNeeded(DownloadEngine* e);
+
   bool shouldRemoveControlFileOnFinish() const;
 
   void closeFile();

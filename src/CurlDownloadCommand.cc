@@ -39,6 +39,7 @@
 #include "RequestGroup.h"
 #include "Segment.h"
 #include "SegmentMan.h"
+#include "TimeA2.h"
 #include "fmt.h"
 #include "Option.h"
 #include "error_code.h"
@@ -454,6 +455,7 @@ void CurlDownloadCommand::finish(CURLcode result)
     getRequestGroup()->noteHttpSegmentSuccess(getRequest());
   }
   if (getRequestGroup()->downloadFinished()) {
+    getRequestGroup()->queueChecksumValidationIfNeeded(getDownloadEngine());
     getDownloadEngine()->setNoWait(true);
     getDownloadEngine()->setRefreshInterval(std::chrono::milliseconds(0));
     return;
@@ -490,6 +492,7 @@ bool CurlDownloadCommand::finishMetadataProbe(long status)
 
   if (getRequest()->getMethod() == Request::METHOD_HEAD) {
     prepareKnownLengthStorage(responseLength_);
+    getRequestGroup()->queueChecksumValidationIfNeeded(getDownloadEngine());
     getDownloadEngine()->setNoWait(true);
     getDownloadEngine()->setRefreshInterval(std::chrono::milliseconds(0));
     return true;
@@ -503,6 +506,12 @@ bool CurlDownloadCommand::finishMetadataProbe(long status)
   }
 
   prepareKnownLengthStorage(responseLength_);
+  if (getRequestGroup()->downloadFinished()) {
+    getRequestGroup()->queueChecksumValidationIfNeeded(getDownloadEngine());
+    getDownloadEngine()->setNoWait(true);
+    getDownloadEngine()->setRefreshInterval(std::chrono::milliseconds(0));
+    return true;
+  }
   getFileEntry()->poolRequest(getRequest());
   std::vector<std::unique_ptr<Command>> commands;
   getRequestGroup()->createNextCommandForCompletedStream(commands,
@@ -721,6 +730,7 @@ size_t CurlDownloadCommand::writeHeader(const char* data, size_t length)
   constexpr char CONTENT_DISPOSITION[] = "content-disposition:";
   constexpr char CONTENT_RANGE[] = "content-range:";
   constexpr char CONTENT_ENCODING[] = "content-encoding:";
+  constexpr char LAST_MODIFIED[] = "last-modified:";
 
   std::string line(data, length);
   while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
@@ -757,6 +767,12 @@ size_t CurlDownloadCommand::writeHeader(const char* data, size_t length)
   else if (util::startsWith(lower, CONTENT_ENCODING)) {
     contentEncoding_ =
         util::strip(line.substr(sizeof(CONTENT_ENCODING) - 1));
+  }
+  else if (util::startsWith(lower, LAST_MODIFIED)) {
+    if (getOption()->getAsBool(PREF_REMOTE_TIME)) {
+      auto value = util::strip(line.substr(sizeof(LAST_MODIFIED) - 1));
+      getRequestGroup()->updateLastModifiedTime(Time::parseHTTPDate(value));
+    }
   }
 
   return length;

@@ -188,6 +188,27 @@ bool RequestGroup::allDownloadFinished() const
   return pieceStorage_->allDownloadFinished();
 }
 
+bool RequestGroup::queueChecksumValidationIfNeeded(DownloadEngine* e)
+{
+  if (!e || !e->getCheckIntegrityMan() || !downloadContext_ ||
+      !pieceStorage_ || !downloadFinished() ||
+      !downloadContext_->getPieceHashType().empty() ||
+      !downloadContext_->isChecksumVerificationNeeded()) {
+    return false;
+  }
+
+  auto entry = make_unique<ChecksumCheckIntegrityEntry>(this);
+  if (!entry->isValidationReady()) {
+    return false;
+  }
+
+  entry->initValidator();
+  entry->cutTrailingGarbage();
+  disableSaveControlFile();
+  e->getCheckIntegrityMan()->pushEntry(std::move(entry));
+  return true;
+}
+
 bool RequestGroup::shouldRemoveControlFileOnFinish() const
 {
 #ifdef ENABLE_BITTORRENT

@@ -1,6 +1,6 @@
 # Contributing to Aria2 Next
 
-Aria2 Next is a maintained aria2-compatible engine. Contributions should preserve the command-line, configuration, session, and JSON-RPC surfaces unless a change explicitly introduces an aria2-next extension.
+Aria2 Next is an aria2-compatible download engine. Contributions must preserve the command-line, configuration, session, and JSON-RPC surfaces unless a change deliberately adds an aria2-next extension.
 
 ## Development Setup
 
@@ -15,25 +15,27 @@ ctest --preset default
 build/default/aria2-next --version
 ```
 
-The default preset creates `build/default/`. Do not commit build directories, generated CMake files, binaries, logs, dumps, or release artifacts.
+The default preset writes to `build/default/`. Do not commit build directories, generated CMake files, binaries, archives, logs, dumps, or release artifacts.
 
 ## Project Boundaries
 
-Aria2 Next ships the `aria2-next` executable. It does not maintain a public C++ embedding API. Motrix Next consumes it as a sidecar engine through the aria2-compatible CLI and JSON-RPC interfaces.
+The maintained public surface is the `aria2-next` executable, aria2-style configuration files, session files, input files, and JSON-RPC. There is no supported public C++ embedding API.
 
-The supported protocol surface is HTTP, HTTPS, FTP, SFTP, BitTorrent, magnet, ED2K, session files, input files, checksums, and JSON-RPC. BitTorrent is implemented through libtorrent-rasterbar. ED2K is native aria2-next code.
+Motrix Next consumes aria2-next as a sidecar through CLI options and JSON-RPC. UI behavior, app preferences, installers, tray behavior, history, notifications, and auto-update UI belong in Motrix Next. Engine crashes, transfer failures, wrong RPC fields, protocol errors, release binary problems, and build failures belong here.
 
-## Code Quality
+The maintained protocol surface includes HTTP, HTTPS, FTP, SFTP, BitTorrent, magnet, ED2K, checksums, session files, input files, and JSON-RPC. BitTorrent is owned by libtorrent-rasterbar. ED2K is native aria2-next code.
 
-Keep changes focused. Find the root cause before editing. Avoid drive-by formatting, broad rewrites, and unrelated dependency updates.
+## Code Rules
 
-Source code follows the existing C and C++ style. The baseline is C99 and C++17. Prefer small helpers with clear ownership over large cross-cutting changes. Use existing engine abstractions before adding new ones.
+Keep changes narrow and evidence-based. Find the root cause before editing. Avoid unrelated formatting, broad rewrites, and opportunistic dependency updates.
 
-Build logic belongs in focused modules under `cmake/modules/`. Keep the top-level `CMakeLists.txt` small. CMake is the only supported build system.
+Use the existing C and C++ style. The baseline is C99 and C++17. Prefer local helpers with clear ownership over shared abstractions that hide protocol behavior.
 
-## Tests
+CMake is the only supported build system. New build logic belongs under `cmake/modules/`; keep the top-level `CMakeLists.txt` small.
 
-Use the smallest test that proves the changed behavior, then expand when the change touches shared transfer, storage, RPC, or packaging behavior.
+## Testing
+
+Use the smallest test that proves the changed behavior. Expand only when the change touches shared transfer, storage, RPC, build, or release behavior.
 
 Normal source changes require:
 
@@ -55,51 +57,49 @@ bash -n packaging/scripts/mingw-release
 bash -n packaging/scripts/android-release
 ```
 
-For broad CMake option changes, run:
+Broad CMake option changes should run:
 
 ```bash
 tools/build_test.sh
 ```
 
-Do not hide test failures with `|| true`. If a test cannot be run locally, say why in the PR.
+Do not hide failures with `|| true`. If a check cannot be run locally, explain the reason in the PR.
 
 ## Bug Fixes
 
-Bug fixes should include a regression test when the behavior can be covered locally. Network-dependent behavior should be reduced to a local server, parser test, command-level test, or protocol fixture whenever possible.
+Add a regression test when the behavior can be covered locally. Network-specific bugs should usually become parser tests, local-server tests, command-level tests, or protocol fixtures.
 
-When a bug is site-specific, document the server behavior that matters. Examples include ignored HTTP Range requests, invalid `Content-Range`, certificate chain failures, expired signed URLs, proxy environment leakage, torrent metadata timing, or ED2K source availability.
+When a remote service triggers the issue, document the observable behavior that matters, such as ignored HTTP Range requests, invalid `Content-Range`, expired signed URLs, certificate chain failures, proxy environment leakage, torrent metadata timing, or ED2K source availability.
 
-## New Features
+## Features and Extensions
 
-Open an issue before implementing new CLI options, JSON-RPC fields, protocol behavior, or release artifact changes. The issue should explain the user problem, compatibility impact, and whether the change is aria2-compatible behavior or an aria2-next extension.
+Open an issue before implementing new CLI options, JSON-RPC fields, protocol behavior, or release artifact changes.
 
-JSON-RPC extensions must be explicit and stable. Do not overload existing aria2 fields with placeholder values. Prefer a small new field with precise semantics.
+JSON-RPC extensions must be explicit and stable. Do not put placeholders into existing aria2 fields. Prefer a small new field with precise semantics.
 
-## Dependency Changes
+## Dependencies
 
-`packaging/dependencies.env` is the release dependency source of truth. Update it before changing dependency versions in scripts, Dockerfiles, workflows, package notes, or README tables.
+`packaging/dependencies.env` owns maintained release dependency versions, source archive URLs, archive names, and SHA-256 hashes. Update it before changing dependency versions in scripts, Dockerfiles, workflows, package notes, or README tables.
 
-Dependency updates must be intentional. Include the upstream version, source archive URL, SHA-256 hash, and affected release path in the PR.
+Dependency changes must name the upstream version, source URL, SHA-256 hash, and affected release path.
 
-## Commit Messages
+## Pull Requests
 
-Use Conventional Commits.
+Each PR should address one concern. Keep behavior changes, refactors, dependency updates, and documentation updates separate unless they are all required for one fix.
+
+PRs must explain the affected surface, compatibility impact, verification commands, and release-note impact. The pull request template contains the required checklist.
+
+Use Conventional Commits:
 
 ```text
 fix(http): retry transient segmented transfer failures
 feat(rpc): expose ED2K visible progress
-docs: add release troubleshooting guide
+docs: tighten troubleshooting guidance
 ci(release): add Windows debug artifacts
 ```
 
-## Pull Requests
+AI-assisted development is allowed when the author reviews, understands, tests, and can explain the submitted changes. Fill out the PR disclosure honestly.
 
-Each PR should address one concern. Keep behavioral changes, refactors, dependency updates, and documentation updates separate unless they are required for one fix.
+## Security
 
-PRs must explain the affected surface, compatibility impact, verification commands, and user-facing release note. The PR template includes the required checklist.
-
-AI-assisted development is allowed when the author reviews, understands, tests, and can explain every change. Fill out the PR disclosure honestly.
-
-## Reporting Security Issues
-
-Do not publish secrets, private cookies, proxy credentials, signed URL tokens, crash dumps with private data, or exploit details in public issues. See `docs/SECURITY.md`.
+Do not publish secrets, private cookies, proxy credentials, signed URL tokens, private tracker data, exploit details, or unredacted crash dumps in public issues. Follow [`SECURITY.md`](SECURITY.md).

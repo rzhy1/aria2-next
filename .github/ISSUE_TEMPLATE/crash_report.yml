@@ -6,14 +6,13 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this form when the aria2-next process exits unexpectedly, aborts, or crashes.
-        If Motrix Next stays open but the engine process disappears, report it here and include the engine command line.
+        Use this form when the aria2-next process exits unexpectedly, aborts, or crashes. If Motrix Next stays open but the engine process disappears, report it here.
 
   - type: textarea
     id: summary
     attributes:
-      label: Crash Summary
-      description: Describe what action starts the crash and how long it takes to happen.
+      label: Summary
+      description: Describe the trigger and how long it takes to crash.
     validations:
       required: true
 
@@ -53,7 +52,7 @@ body:
     id: command
     attributes:
       label: Startup Command
-      description: Paste the exact command line or Motrix Next sidecar arguments used to start the engine.
+      description: Paste the exact command line or parent-application sidecar arguments.
       render: shell
     validations:
       required: true
@@ -62,7 +61,7 @@ body:
     id: trigger
     attributes:
       label: Trigger
-      description: Paste the URI, magnet, RPC call, torrent file details, or input-file entry that triggers the crash. Redact private data.
+      description: Paste the URI, magnet, RPC call, torrent details, or input-file entry that triggers the crash. Redact private data.
       render: text
     validations:
       required: true
@@ -71,7 +70,7 @@ body:
     id: crash-data
     attributes:
       label: Crash Data
-      description: Include exit code, signal, Windows exception code, faulting module, fault offset, WER data, debugger backtrace, minidump notes, or core dump notes.
+      description: Include exit code, signal, Windows exception code, faulting module, fault offset, WER data, debugger stack, minidump notes, or core dump notes.
       render: text
     validations:
       required: true
@@ -80,7 +79,7 @@ body:
     id: logs
     attributes:
       label: Logs and stderr
-      description: Include stderr and debug logs. If there is no output, say so.
+      description: Include stderr and final debug log lines. If there is no output, say so.
       render: text
 
   - type: checkboxes
@@ -90,7 +89,7 @@ body:
       options:
         - label: I searched existing crash reports.
           required: true
-        - label: I identified whether the crashing process is aria2-next, not the parent application.
+        - label: I confirmed the crashing process is aria2-next.
           required: true
-        - label: I redacted secrets and private tokens from commands, logs, and dumps.
+        - label: I redacted secrets and private tokens.
           required: true

@@ -1,6 +1,6 @@
 # AGENTS.md - aria2-next
 
-This file defines repository rules for AI coding agents. Human contributors should start with [README.md](README.md), [docs/README.md](docs/README.md), [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md), [docs/SUPPORT.md](docs/SUPPORT.md), [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md), [docs/INTEGRATION.md](docs/INTEGRATION.md), [docs/SECURITY.md](docs/SECURITY.md), [docs/RELEASE.md](docs/RELEASE.md), [docs/RELEASE_INTEGRITY.md](docs/RELEASE_INTEGRITY.md), [packaging/README.md](packaging/README.md), [tools/README.md](tools/README.md), [third_party/README.md](third_party/README.md), and [docs/maintenance/README.md](docs/maintenance/README.md).
+This file defines repository rules for AI coding agents. Human contributors should start with [README.md](README.md), [docs/README.md](docs/README.md), [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md), [packaging/README.md](packaging/README.md), [tools/README.md](tools/README.md), [third_party/README.md](third_party/README.md), and [docs/maintenance/README.md](docs/maintenance/README.md).
 
 > [!IMPORTANT]
 > All changes must meet industrial-grade quality. Find the root cause before changing code, keep behavior compatible unless the task explicitly changes it, avoid unrelated churn, and verify the exact build or release path affected by the change.

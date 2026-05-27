@@ -6,8 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Feature requests should describe an engine, CLI, RPC, protocol, build, or packaging improvement.
-        UI features for Motrix Next belong in the Motrix Next repository.
+        Feature requests should describe an engine, CLI, RPC, protocol, build, or packaging improvement. Motrix Next UI features belong in Motrix Next.
 
   - type: textarea
     id: problem
@@ -33,7 +32,7 @@ body:
         - CLI option
         - JSON-RPC
         - HTTP or HTTPS
-        - FTP, FTPS, SFTP, or SCP
+        - FTP or SFTP
         - BitTorrent or magnet
         - ED2K
         - Session or input file
@@ -55,14 +54,14 @@ body:
     id: alternatives
     attributes:
       label: Alternatives Considered
-      description: Mention existing aria2 behavior, libcurl/libtorrent behavior, or frontend-side workarounds if relevant.
+      description: Mention existing aria2 behavior, backend behavior, or frontend-side workarounds if relevant.
 
   - type: checkboxes
     id: validations
     attributes:
       label: Validations
       options:
-        - label: I searched existing issues for this request.
+        - label: I searched existing issues.
           required: true
         - label: This request belongs in aria2-next, not Motrix Next UI.
           required: true

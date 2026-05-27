@@ -4,10 +4,10 @@ title: "[build]: "
 labels: ["bug"]
 body:
   - type: textarea
-    id: description
+    id: summary
     attributes:
-      label: Description
-      description: Describe the build or packaging failure.
+      label: Summary
+      description: Describe the build, workflow, artifact, dependency, or packaging failure.
     validations:
       required: true
 
@@ -23,7 +23,7 @@ body:
         - macOS release artifact
         - Windows release artifact
         - Android release artifact
-        - Release checksum file
+        - Checksum file
         - Runtime dependency closure
         - Dependency source download
         - Other
@@ -50,8 +50,8 @@ body:
   - type: textarea
     id: failure
     attributes:
-      label: Failure or Verification Output
-      description: Paste the smallest complete failing section from the log. For release artifacts, include `sha256sum`, `file`, `ldd`, `otool -L`, `dumpbin`, or `aria2-next --version` output when relevant.
+      label: Failure Output
+      description: Paste the smallest complete failing log section. For release artifacts, include checksum or dependency inspection output when relevant.
       render: text
     validations:
       required: true
@@ -59,7 +59,7 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: Build Environment
+      label: Environment
       description: Include OS, compiler, CMake version, Ninja version, dependency source, and target architecture.
       render: text
     validations:
@@ -72,7 +72,5 @@ body:
       options:
         - label: I checked `packaging/dependencies.env` for the maintained dependency baseline.
           required: true
-        - label: I included the full failing command or workflow run link.
+        - label: I included the failing command or workflow run link.
           required: true
-        - label: For official release artifacts, I downloaded the asset from the GitHub Release page and checked the published checksum file.
-          required: false

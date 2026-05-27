@@ -32,4 +32,4 @@ Manual release workflow runs accept `version=latest` and `build_profile=release|
 
 Release checksum files are generated from the exact uploaded artifact names. Official releases upload `aria2-next-<version>-checksums.sha256`; manual debug validation uploads `aria2-next-<version>-debug-checksums.sha256` only to the workflow run.
 
-See [`../docs/RELEASE.md`](../docs/RELEASE.md) for maintainer release steps and [`../docs/RELEASE_INTEGRITY.md`](../docs/RELEASE_INTEGRITY.md) for user verification.
+See [`../docs/RELEASE.md`](../docs/RELEASE.md) for maintainer release steps, debug workflow behavior, checksum verification, and release recovery rules.

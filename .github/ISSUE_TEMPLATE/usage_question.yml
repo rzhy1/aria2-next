@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this form for aria2-next engine questions. Motrix Next application questions belong in the Motrix Next repository.
+        Use this form for aria2-next engine questions. Motrix Next application questions belong in Motrix Next.
 
   - type: textarea
     id: question
@@ -20,7 +20,7 @@ body:
     id: version
     attributes:
       label: Aria2 Next Version
-      description: Run `aria2-next --version` if the question depends on runtime behavior.
+      description: Paste `aria2-next --version` if the question depends on runtime behavior.
       placeholder: "Aria2 Next version 2.2.7"
 
   - type: dropdown
@@ -43,7 +43,7 @@ body:
       required: true
 
   - type: textarea
-    id: command
+    id: example
     attributes:
       label: Command, Config, or RPC Example
       description: Paste the relevant command, config, or request. Redact secrets.
@@ -54,7 +54,7 @@ body:
     attributes:
       label: Validations
       options:
-        - label: I read `docs/SUPPORT.md` and `docs/TROUBLESHOOTING.md`.
+        - label: I read `docs/TROUBLESHOOTING.md`.
           required: true
         - label: I redacted secrets, cookies, proxy credentials, and private tokens.
           required: true

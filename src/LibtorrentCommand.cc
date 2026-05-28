@@ -728,10 +728,16 @@ void LibtorrentCommand::updateStatus()
         static_cast<size_t>(status.total_wanted_done - completedLength_));
     completedLength_ = status.total_wanted_done;
   }
-  if (status.total_upload > uploadedLength_) {
-    requestGroup_->getDownloadContext()->updateUploadLength(
-        static_cast<size_t>(status.total_upload - uploadedLength_));
-    uploadedLength_ = status.total_upload;
+  if (status.total_payload_upload >= uploadedLength_) {
+    auto uploadDelta = status.total_payload_upload - uploadedLength_;
+    if (uploadDelta > 0) {
+      requestGroup_->getDownloadContext()->updateUpload(
+          static_cast<size_t>(uploadDelta));
+      uploadedLength_ = status.total_payload_upload;
+    }
+  }
+  else {
+    uploadedLength_ = status.total_payload_upload;
   }
 
   if (requestGroup_->getPieceStorage()) {

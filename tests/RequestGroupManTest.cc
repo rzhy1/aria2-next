@@ -66,6 +66,7 @@ class RequestGroupManTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testFillRequestGroupFromReserver_uriParser);
   CPPUNIT_TEST(testFillRequestGroupFromReserverSkipsDuplicateBtInfoHash);
   CPPUNIT_TEST(testReduceMaxConcurrentDownloads);
+  CPPUNIT_TEST(testUploadDeltaFeedsGlobalStat);
   CPPUNIT_TEST(testUserRemoveDoesNotKeepControlFile);
   CPPUNIT_TEST(testInsertReservedGroup);
   CPPUNIT_TEST(testAddDownloadResult);
@@ -102,6 +103,7 @@ public:
   void testFillRequestGroupFromReserver_uriParser();
   void testFillRequestGroupFromReserverSkipsDuplicateBtInfoHash();
   void testReduceMaxConcurrentDownloads();
+  void testUploadDeltaFeedsGlobalStat();
   void testUserRemoveDoesNotKeepControlFile();
   void testInsertReservedGroup();
   void testAddDownloadResult();
@@ -345,6 +347,26 @@ void RequestGroupManTest::testReduceMaxConcurrentDownloads()
   CPPUNIT_ASSERT(findReservedGroup(rgman_, rgs[2]->getGID()));
   CPPUNIT_ASSERT(!rgs[1]->isPauseRequested());
   CPPUNIT_ASSERT(!rgs[2]->isPauseRequested());
+}
+
+void RequestGroupManTest::testUploadDeltaFeedsGlobalStat()
+{
+  auto group =
+      std::make_shared<RequestGroup>(GroupId::create(), util::copy(option_));
+  auto dctx = std::make_shared<DownloadContext>(1_k, 0, "bt-upload.bin");
+  group->setRequestGroupMan(rgman_);
+  group->setDownloadContext(dctx);
+
+  dctx->updateUpload(8048);
+
+  auto taskStat = group->calculateStat();
+  auto globalStat = rgman_->calculateStat();
+  CPPUNIT_ASSERT(taskStat.uploadSpeed > 0);
+  CPPUNIT_ASSERT(globalStat.uploadSpeed > 0);
+  CPPUNIT_ASSERT_EQUAL(static_cast<int64_t>(8048),
+                       taskStat.sessionUploadLength);
+  CPPUNIT_ASSERT_EQUAL(static_cast<int64_t>(8048),
+                       globalStat.sessionUploadLength);
 }
 
 void RequestGroupManTest::testUserRemoveDoesNotKeepControlFile()

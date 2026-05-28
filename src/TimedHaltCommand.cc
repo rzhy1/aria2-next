@@ -32,11 +32,10 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "TimedHaltCommand.h"
 #include "DownloadEngine.h"
 #include "RequestGroupMan.h"
-#include "Logger.h"
-#include "LogFactory.h"
 #include "message.h"
 #include "fmt.h"
 
@@ -63,7 +62,7 @@ void TimedHaltCommand::preProcess()
 void TimedHaltCommand::process()
 {
   if (!getDownloadEngine()->isHaltRequested()) {
-    A2_LOG_NOTICE(
+    ARIA2_LOG_INFO(
         fmt(MSG_TIME_HAS_PASSED, static_cast<long int>(getInterval().count())));
     if (forceHalt_) {
       getDownloadEngine()->requestForceHalt();

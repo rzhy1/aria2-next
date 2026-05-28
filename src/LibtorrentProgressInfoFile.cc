@@ -10,6 +10,7 @@
  * (at your option) any later version.
  */
 /* copyright --> */
+#include "Log.h"
 #include "LibtorrentProgressInfoFile.h"
 
 #include "BufferedFile.h"
@@ -17,7 +18,6 @@
 #include "DownloadContext.h"
 #include "File.h"
 #include "LibtorrentAttribute.h"
-#include "LogFactory.h"
 #include "SHA1IOFile.h"
 #include "a2io.h"
 #include "fmt.h"
@@ -201,7 +201,7 @@ void LibtorrentProgressInfoFile::save()
 {
   auto attrs = getLibtorrentAttrs(dctx_);
   if (!attrs->hasResumeData()) {
-    A2_LOG_INFO(fmt("Skipping empty libtorrent control file: %s",
+    ARIA2_LOG_INFO(fmt("Skipping empty libtorrent control file: %s",
                     filename_.c_str()));
     return;
   }
@@ -215,7 +215,7 @@ void LibtorrentProgressInfoFile::save()
   }
   lastDigest_ = std::move(digest);
 
-  A2_LOG_INFO(fmt(MSG_SAVING_SEGMENT_FILE, filename_.c_str()));
+  ARIA2_LOG_INFO(fmt(MSG_SAVING_SEGMENT_FILE, filename_.c_str()));
   File(File(filename_).getDirname()).mkdirs();
   auto filenameTemp = filename_ + "__temp";
   {
@@ -225,7 +225,7 @@ void LibtorrentProgressInfoFile::save()
     }
     save(fp);
   }
-  A2_LOG_INFO(MSG_SAVED_SEGMENT_FILE);
+  ARIA2_LOG_INFO(MSG_SAVED_SEGMENT_FILE);
   if (!File(filenameTemp).renameTo(filename_)) {
     throw DL_ABORT_EX(fmt(EX_SEGMENT_FILE_WRITE, filename_.c_str()));
   }
@@ -233,7 +233,7 @@ void LibtorrentProgressInfoFile::save()
 
 void LibtorrentProgressInfoFile::load()
 {
-  A2_LOG_INFO(fmt(MSG_LOADING_SEGMENT_FILE, filename_.c_str()));
+  ARIA2_LOG_INFO(fmt(MSG_LOADING_SEGMENT_FILE, filename_.c_str()));
   BufferedFile fp(filename_.c_str(), BufferedFile::READ);
   if (!fp) {
     throw DL_ABORT_EX(fmt(EX_SEGMENT_FILE_READ, filename_.c_str()));
@@ -270,13 +270,13 @@ void LibtorrentProgressInfoFile::load()
       ec = make_error_code(libtorrent::errors::mismatching_info_hash);
     }
     if (ec || shouldRejectResumeData(attrs, params)) {
-      A2_LOG_WARN(fmt("Ignoring unusable libtorrent control file: %s",
+      ARIA2_LOG_WARN(fmt("Ignoring unusable libtorrent control file: %s",
                       filename_.c_str()));
       attrs->resumeStatus = LibtorrentAttribute::Status();
       attrs->metadataPauseApplied = false;
       attrs->contentStarted = false;
       attrs->setResumeData("");
-      A2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
+      ARIA2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
       return;
     }
     if (!attrs->selectedFiles.empty() && !params.piece_priorities.empty()) {
@@ -293,7 +293,7 @@ void LibtorrentProgressInfoFile::load()
                             !attrs->selectedFiles.empty();
   }
   attrs->setResumeData(std::move(data));
-  A2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
+  ARIA2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
 }
 
 void LibtorrentProgressInfoFile::removeFile()
@@ -307,10 +307,10 @@ bool LibtorrentProgressInfoFile::exists()
 {
   File f(filename_);
   if (f.isFile()) {
-    A2_LOG_INFO(fmt(MSG_SEGMENT_FILE_EXISTS, filename_.c_str()));
+    ARIA2_LOG_INFO(fmt(MSG_SEGMENT_FILE_EXISTS, filename_.c_str()));
     return true;
   }
-  A2_LOG_INFO(fmt(MSG_SEGMENT_FILE_DOES_NOT_EXIST, filename_.c_str()));
+  ARIA2_LOG_INFO(fmt(MSG_SEGMENT_FILE_DOES_NOT_EXIST, filename_.c_str()));
   return false;
 }
 

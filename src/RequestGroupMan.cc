@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "RequestGroupMan.h"
 
 #include <unistd.h>
@@ -45,8 +46,6 @@
 #include "ProgressInfoFile.h"
 #include "RecoverableException.h"
 #include "RequestGroup.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "DownloadEngine.h"
 #include "Ed2kSharedStore.h"
 #include "Ed2kUploadQueue.h"
@@ -311,10 +310,10 @@ private:
       // ".sig".
       std::string signatureFile = group->getFirstFilePath() + ".sig";
       if (sig->save(signatureFile)) {
-        A2_LOG_NOTICE(fmt(MSG_SIGNATURE_SAVED, signatureFile.c_str()));
+        ARIA2_LOG_INFO(fmt(MSG_SIGNATURE_SAVED, signatureFile.c_str()));
       }
       else {
-        A2_LOG_NOTICE(fmt(MSG_SIGNATURE_NOT_SAVED, signatureFile.c_str()));
+        ARIA2_LOG_INFO(fmt(MSG_SIGNATURE_NOT_SAVED, signatureFile.c_str()));
       }
     }
   }
@@ -382,7 +381,7 @@ public:
         group->closeFile();
         if (group->isPauseRequested()) {
           if (!group->isRestartRequested()) {
-            A2_LOG_NOTICE(fmt(_("Download GID#%s paused"),
+            ARIA2_LOG_INFO(fmt(_("Download GID#%s paused"),
                               GroupId::toHex(group->getGID()).c_str()));
           }
           group->saveControlFile();
@@ -400,7 +399,7 @@ public:
           }
         }
         else {
-          A2_LOG_NOTICE(
+          ARIA2_LOG_INFO(
               fmt(_("Download GID#%s not complete: %s"),
                   GroupId::toHex(group->getGID()).c_str(),
                   group->getDownloadContext()->getBasePath().c_str()));
@@ -413,7 +412,7 @@ public:
         }
       }
       catch (RecoverableException& ex) {
-        A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, ex);
+        ARIA2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, ex);
       }
       if (group->isPauseRequested()) {
         group->setState(RequestGroup::STATE_WAITING);
@@ -462,7 +461,7 @@ void RequestGroupMan::removeStoppedGroup(DownloadEngine* e)
   requestGroups_.remove_if(ProcessStoppedRequestGroup(e, reservedGroups_));
   size_t numRemoved = numPrev - requestGroups_.size();
   if (numRemoved > 0) {
-    A2_LOG_DEBUG(fmt("%lu RequestGroup(s) deleted.",
+    ARIA2_LOG_DEBUG(fmt("%lu RequestGroup(s) deleted.",
                      static_cast<unsigned long>(numRemoved)));
   }
 }
@@ -541,7 +540,7 @@ void RequestGroupMan::fillRequestGroupFromReserver(DownloadEngine* e)
     groupToAdd->setRequestGroupMan(this);
     groupToAdd->setState(RequestGroup::STATE_ACTIVE);
     if (isSameLibtorrentInfoHashBeingDownloaded(groupToAdd.get())) {
-      A2_LOG_WARN(fmt("GID#%s - Skipping duplicate BitTorrent infohash.",
+      ARIA2_LOG_WARN(fmt("GID#%s - Skipping duplicate BitTorrent infohash.",
                       groupToAdd->getGroupId()->toHex().c_str()));
       continue;
     }
@@ -558,8 +557,8 @@ void RequestGroupMan::fillRequestGroupFromReserver(DownloadEngine* e)
       }
     }
     catch (RecoverableException& ex) {
-      A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, ex);
-      A2_LOG_DEBUG("Deleting temporal commands.");
+      ARIA2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, ex);
+      ARIA2_LOG_DEBUG("Deleting temporal commands.");
       groupToAdd->setLastErrorCode(ex.getErrorCode(), ex.what());
       // We add groupToAdd to e later in order to it is processed in
       // removeStoppedGroup().
@@ -577,7 +576,7 @@ void RequestGroupMan::fillRequestGroupFromReserver(DownloadEngine* e)
   if (count > 0) {
     e->setNoWait(true);
     e->setRefreshInterval(std::chrono::milliseconds(0));
-    A2_LOG_DEBUG(fmt("%d RequestGroup(s) added.", count));
+    ARIA2_LOG_DEBUG(fmt("%d RequestGroup(s) added.", count));
   }
 }
 
@@ -622,7 +621,7 @@ void RequestGroupMan::save()
         rg->saveControlFile();
       }
       catch (RecoverableException& e) {
-        A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
+        ARIA2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
       }
     }
   }
@@ -1173,7 +1172,7 @@ int RequestGroupMan::optimizeConcurrentDownloads()
   maxConcurrentDownloads =
       std::min(std::max(1, maxConcurrentDownloads), maxConcurrentDownloads_);
 
-  A2_LOG_DEBUG(
+  ARIA2_LOG_DEBUG(
       fmt("Max concurrent downloads optimized at %d (%lu currently active) "
           "[optimization speed %sB/s, current speed %sB/s]",
           maxConcurrentDownloads, static_cast<unsigned long>(numActive_),

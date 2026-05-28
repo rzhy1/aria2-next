@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "MultiDiskAdaptor.h"
 
 #include <cassert>
@@ -47,8 +48,6 @@
 #include "DlAbortEx.h"
 #include "File.h"
 #include "fmt.h"
-#include "Logger.h"
-#include "LogFactory.h"
 #include "SimpleRandomizer.h"
 #include "WrDiskCacheEntry.h"
 #include "OpenedFileCounter.h"
@@ -155,7 +154,7 @@ void MultiDiskAdaptor::resetDiskWriterEntries()
       else if (fileEntry->getOffset() < lastOffset) {
         // The files which shares last piece are not needed to be
         // allocated. They just require DiskWriter
-        A2_LOG_DEBUG(fmt("%s needs DiskWriter", fileEntry->getPath().c_str()));
+        ARIA2_LOG_DEBUG(fmt("%s needs DiskWriter", fileEntry->getPath().c_str()));
         dwent->needsDiskWriter(true);
       }
     }
@@ -172,7 +171,7 @@ void MultiDiskAdaptor::resetDiskWriterEntries()
         // We needs last part of the file, so file allocation is
         // required, especially for file system which does not support
         // sparse files.
-        A2_LOG_DEBUG(
+        ARIA2_LOG_DEBUG(
             fmt("%s needs file allocation", fileEntry->getPath().c_str()));
         (*i)->needsFileAllocation(true);
       }
@@ -182,7 +181,7 @@ void MultiDiskAdaptor::resetDiskWriterEntries()
   for (auto& dwent : diskWriterEntries_) {
     if (dwent->needsFileAllocation() || dwent->needsDiskWriter() ||
         dwent->fileExists()) {
-      A2_LOG_DEBUG(fmt("Creating DiskWriter for filename=%s",
+      ARIA2_LOG_DEBUG(fmt("Creating DiskWriter for filename=%s",
                        dwent->getFilePath().c_str()));
       dwent->setDiskWriter(dwFactory.newDiskWriter(dwent->getFilePath()));
       if (readOnly_) {
@@ -214,7 +213,7 @@ void MultiDiskAdaptor::openIfNot(DiskWriterEntry* entry,
                                  void (DiskWriterEntry::*open)())
 {
   if (!entry->isOpen()) {
-    // A2_LOG_NOTICE(fmt("DiskWriterEntry: Cache MISS. offset=%s",
+    // ARIA2_LOG_INFO(fmt("DiskWriterEntry: Cache MISS. offset=%s",
     //        util::itos(entry->getFileEntry()->getOffset()).c_str()));
     auto& openedFileCounter = getOpenedFileCounter();
     if (openedFileCounter) {
@@ -224,7 +223,7 @@ void MultiDiskAdaptor::openIfNot(DiskWriterEntry* entry,
     openedDiskWriterEntries_.push_back(entry);
   }
   else {
-    // A2_LOG_NOTICE(fmt("DiskWriterEntry: Cache HIT. offset=%s",
+    // ARIA2_LOG_INFO(fmt("DiskWriterEntry: Cache HIT. offset=%s",
     //        util::itos(entry->getFileEntry()->getOffset()).c_str()));
   }
 }
@@ -413,7 +412,7 @@ ssize_t MultiDiskAdaptor::readData(unsigned char* data, size_t len,
 void MultiDiskAdaptor::writeCache(const WrDiskCacheEntry* entry)
 {
   for (auto& d : entry->getDataSet()) {
-    A2_LOG_DEBUG(fmt("Cache flush goff=%" PRId64 ", len=%lu", d->goff,
+    ARIA2_LOG_DEBUG(fmt("Cache flush goff=%" PRId64 ", len=%lu", d->goff,
                      static_cast<unsigned long>(d->len)));
     writeData(d->data + d->offset, d->len, d->goff);
   }

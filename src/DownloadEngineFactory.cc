@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "DownloadEngineFactory.h"
 
 #include <algorithm>
@@ -74,7 +75,6 @@
 #include "DlAbortEx.h"
 #include "FileAllocationEntry.h"
 #include "AsioPumpCommand.h"
-#include "LogFactory.h"
 #include "RpcBeastServer.h"
 
 namespace aria2 {
@@ -182,7 +182,7 @@ std::unique_ptr<DownloadEngine> DownloadEngineFactory::newDownloadEngine(
   }
   if (op->getAsBool(PREF_ENABLE_RPC)) {
     if (op->get(PREF_RPC_SECRET).empty()) {
-      A2_LOG_WARN("No --rpc-secret is set. JSON-RPC requests are unauthenticated.");
+      ARIA2_LOG_WARN("No --rpc-secret is set. JSON-RPC requests are unauthenticated.");
     }
     bool ok = false;
     static int families[] = {AF_INET, AF_INET6};

@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "EpollEventPoll.h"
 
 #include <cerrno>
@@ -40,8 +41,6 @@
 #include <numeric>
 
 #include "Command.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "util.h"
 #include "a2functional.h"
 #include "fmt.h"
@@ -84,7 +83,7 @@ EpollEventPoll::~EpollEventPoll()
     int r = close(epfd_);
     int errNum = errno;
     if (r == -1) {
-      A2_LOG_ERROR(fmt("Error occurred while closing epoll file descriptor"
+      ARIA2_LOG_ERROR(fmt("Error occurred while closing epoll file descriptor"
                        " %d: %s",
                        epfd_, util::safeStrerror(errNum).c_str()));
     }
@@ -112,7 +111,7 @@ void EpollEventPoll::poll(const struct timeval& tv)
   }
   else if (res == -1) {
     int errNum = errno;
-    A2_LOG_INFO(
+    ARIA2_LOG_INFO(
         fmt("epoll_wait error: %s", util::safeStrerror(errNum).c_str()));
   }
 
@@ -175,7 +174,7 @@ bool EpollEventPoll::addEvents(sock_t socket,
     errNum = errno;
   }
   if (r == -1) {
-    A2_LOG_DEBUG(fmt("Failed to add socket event %d:%s", socket,
+    ARIA2_LOG_DEBUG(fmt("Failed to add socket event %d:%s", socket,
                      util::safeStrerror(errNum).c_str()));
     return false;
   }
@@ -197,7 +196,7 @@ bool EpollEventPoll::deleteEvents(sock_t socket,
 {
   auto i = socketEntries_.find(socket);
   if (i == std::end(socketEntries_)) {
-    A2_LOG_DEBUG(fmt("Socket %d is not found in SocketEntries.", socket));
+    ARIA2_LOG_DEBUG(fmt("Socket %d is not found in SocketEntries.", socket));
     return false;
   }
 
@@ -220,12 +219,12 @@ bool EpollEventPoll::deleteEvents(sock_t socket,
     r = epoll_ctl(epfd_, EPOLL_CTL_MOD, socketEntry.getSocket(), &epEvent);
     errNum = errno;
     if (r == -1) {
-      A2_LOG_DEBUG(fmt("Failed to delete socket event, but may be ignored:%s",
+      ARIA2_LOG_DEBUG(fmt("Failed to delete socket event, but may be ignored:%s",
                        util::safeStrerror(errNum).c_str()));
     }
   }
   if (r == -1) {
-    A2_LOG_DEBUG(fmt("Failed to delete socket event:%s",
+    ARIA2_LOG_DEBUG(fmt("Failed to delete socket event:%s",
                      util::safeStrerror(errNum).c_str()));
     return false;
   }

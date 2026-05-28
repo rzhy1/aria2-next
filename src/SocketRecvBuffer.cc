@@ -32,13 +32,13 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "SocketRecvBuffer.h"
 
 #include <cstring>
 #include <cassert>
 
 #include "SocketCore.h"
-#include "LogFactory.h"
 
 namespace aria2 {
 
@@ -53,7 +53,7 @@ ssize_t SocketRecvBuffer::recv()
 {
   size_t n = std::end(buf_) - last_;
   if (n == 0) {
-    A2_LOG_DEBUG("Buffer full");
+    ARIA2_LOG_DEBUG("Buffer full");
     return 0;
   }
   socket_->readData(last_, n);

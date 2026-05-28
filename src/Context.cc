@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "Context.h"
 
 #include <unistd.h>
@@ -45,8 +46,6 @@
 #include <vector>
 #include <iostream>
 
-#include "LogFactory.h"
-#include "Logger.h"
 #include "util.h"
 #include "FeatureConfig.h"
 #include "MultiUrlRequestInfo.h"
@@ -140,22 +139,12 @@ Context::Context(bool standalone, int argc, char** argv, const KeyVals& options)
       throw DL_ABORT_EX("Option processing failed");
     }
   }
-  LogFactory::setLogFile(op->get(PREF_LOG));
-  LogFactory::setLogLevel(op->get(PREF_LOG_LEVEL));
-  LogFactory::setConsoleLogLevel(op->get(PREF_CONSOLE_LOG_LEVEL));
-  LogFactory::setColorOutput(op->getAsBool(PREF_ENABLE_COLOR));
-  if (op->getAsBool(PREF_QUIET)) {
-    LogFactory::setConsoleOutput(false);
-  }
-  LogFactory::reconfigure();
-  A2_LOG_INFO("<<--- --- --- ---");
-  A2_LOG_INFO("  --- --- --- ---");
-  A2_LOG_INFO("  --- --- --- --->>");
-  A2_LOG_INFO(fmt("%s %s", PACKAGE, PACKAGE_VERSION));
-  A2_LOG_INFO(usedCompilerAndPlatform());
-  A2_LOG_INFO(getOperatingSystemInfo());
-  A2_LOG_INFO(usedLibs());
-  A2_LOG_INFO(MSG_LOGGING_STARTED);
+  log::configure(log::configFromOption(*op));
+  ARIA2_LOG_INFO(fmt("%s %s", PACKAGE, PACKAGE_VERSION));
+  ARIA2_LOG_INFO(usedCompilerAndPlatform());
+  ARIA2_LOG_INFO(getOperatingSystemInfo());
+  ARIA2_LOG_INFO(usedLibs());
+  ARIA2_LOG_INFO(MSG_LOGGING_STARTED);
 
 #if defined(HAVE_SYS_RESOURCE_H) && defined(RLIMIT_NOFILE)
   rlimit r = {0, 0};
@@ -172,19 +161,19 @@ Context::Context(bool standalone, int argc, char** argv, const KeyVals& options)
     if (rlim_new != r.rlim_cur) {
       if (setrlimit(RLIMIT_NOFILE, &r) != 0) {
         int errNum = errno;
-        A2_LOG_WARN(fmt("Failed to set rlimit NO_FILE from %" PRIu64 " to "
+        ARIA2_LOG_WARN(fmt("Failed to set rlimit NO_FILE from %" PRIu64 " to "
                         "%" PRIu64 ": %s",
                         (uint64_t)r.rlim_cur, (uint64_t)rlim_new,
                         util::safeStrerror(errNum).c_str()));
       }
       else {
-        A2_LOG_DEBUG(fmt("Set rlimit NO_FILE from %" PRIu64 " to %" PRIu64,
+        ARIA2_LOG_DEBUG(fmt("Set rlimit NO_FILE from %" PRIu64 " to %" PRIu64,
                          (uint64_t)r.rlim_cur, (uint64_t)rlim_new));
       }
     }
     else {
       rlim_new = op->getAsInt(PREF_RLIMIT_NOFILE);
-      A2_LOG_DEBUG(fmt("Not setting rlimit NO_FILE: %" PRIu64 " >= %" PRIu64,
+      ARIA2_LOG_DEBUG(fmt("Not setting rlimit NO_FILE: %" PRIu64 " >= %" PRIu64,
                        (uint64_t)r.rlim_cur, (uint64_t)rlim_new));
     }
   }
@@ -267,7 +256,7 @@ Context::Context(bool standalone, int argc, char** argv, const KeyVals& options)
   }
   else {
     if (!requestGroups.empty()) {
-      A2_LOG_NOTICE(fmt("Downloading %" PRId64 " item(s)",
+      ARIA2_LOG_INFO(fmt("Downloading %" PRId64 " item(s)",
                         static_cast<uint64_t>(requestGroups.size())));
     }
     reqinfo = std::make_shared<MultiUrlRequestInfo>(std::move(requestGroups),

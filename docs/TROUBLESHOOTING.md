@@ -22,7 +22,7 @@ aria2-next --help=#all
 Run one failing task with debug logging:
 
 ```bash
-aria2-next --no-conf --log-level=debug --console-log-level=debug --log=aria2-next.log <URI>
+aria2-next --no-conf --log-level=debug --console-level=debug --log-file=aria2-next.log <URI>
 ```
 
 Redact RPC secrets, cookies, authorization headers, proxy credentials, private tracker URLs, signed URL tokens, and private local paths before sharing logs.

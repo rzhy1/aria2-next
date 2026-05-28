@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "ConnectCommand.h"
 #include "BackupIPv4ConnectCommand.h"
 #include "ControlChain.h"
@@ -39,7 +40,6 @@
 #include "message.h"
 #include "SocketCore.h"
 #include "fmt.h"
-#include "LogFactory.h"
 #include "DownloadEngine.h"
 #include "Request.h"
 #include "prefs.h"
@@ -87,7 +87,7 @@ const std::shared_ptr<Request>& ConnectCommand::getProxyRequest() const
 bool ConnectCommand::executeInternal()
 {
   if (backupConnectionInfo_ && !backupConnectionInfo_->ipaddr.empty()) {
-    A2_LOG_INFO(fmt("CUID#%" PRId64 " - Use backup connection address %s",
+    ARIA2_LOG_INFO(fmt("CUID#%" PRId64 " - Use backup connection address %s",
                     getCuid(), backupConnectionInfo_->ipaddr.c_str()));
     getDownloadEngine()->markBadIPAddress(getRequest()->getConnectedHostname(),
                                           getRequest()->getConnectedAddr(),

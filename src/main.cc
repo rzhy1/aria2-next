@@ -33,6 +33,7 @@
  */
 /* copyright --> */
 #include "common.h"
+#include "Log.h"
 
 #include <unistd.h>
 
@@ -47,8 +48,6 @@
 #include "Platform.h"
 #include "Exception.h"
 #include "console.h"
-#include "LogFactory.h"
-
 namespace aria2 {
 
 error_code::Value main(int argc, char** argv)
@@ -57,7 +56,7 @@ error_code::Value main(int argc, char** argv)
   int winArgc;
   auto winArgv = CommandLineToArgvW(GetCommandLineW(), &winArgc);
   if (winArgv == nullptr) {
-    A2_LOG_ERROR("Reading command-line failed");
+    ARIA2_LOG_ERROR("Reading command-line failed");
     return error_code::UNKNOWN_ERROR;
   }
   std::vector<std::unique_ptr<char>> winArgStrs;
@@ -95,5 +94,6 @@ int main(int argc, char** argv)
                                   ex.stackTrace().c_str());
     r = ex.getErrorCode();
   }
+  aria2::log::shutdown();
   return r;
 }

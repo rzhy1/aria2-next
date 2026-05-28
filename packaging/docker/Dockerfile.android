@@ -49,6 +49,7 @@ RUN . packaging/dependencies.env && \
     curl_fetch "$CURL_URL" "$CURL_ARCHIVE" "$CURL_SHA256" && \
     curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256" && \
     curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256" && \
+    curl_fetch "$SPDLOG_URL" "$SPDLOG_ARCHIVE" "$SPDLOG_SHA256" && \
     curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
 
 RUN . packaging/dependencies.env && \
@@ -104,7 +105,8 @@ RUN . packaging/dependencies.env && \
 
 RUN . packaging/dependencies.env && \
     . packaging/scripts/common.sh && \
-    install_boost_headers
+    install_boost_headers && \
+    install_spdlog_headers
 
 RUN . packaging/dependencies.env && \
     . packaging/scripts/common.sh && \

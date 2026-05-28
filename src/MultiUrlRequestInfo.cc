@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "MultiUrlRequestInfo.h"
 
 #include <signal.h>
@@ -41,8 +42,6 @@
 
 #include "RequestGroupMan.h"
 #include "DownloadEngine.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "RequestGroup.h"
 #include "prefs.h"
 #include "DownloadEngineFactory.h"
@@ -198,14 +197,14 @@ int MultiUrlRequestInfo::prepare()
     if (!option_->blank(PREF_CA_CERTIFICATE)) {
       if (!clTlsContext->addTrustedCACertFile(
               option_->get(PREF_CA_CERTIFICATE))) {
-        A2_LOG_INFO(MSG_WARN_NO_CA_CERT);
+        ARIA2_LOG_INFO(MSG_WARN_NO_CA_CERT);
       }
     }
     else if (option_->getAsBool(PREF_CHECK_CERTIFICATE)) {
       const bool systemTrusted = clTlsContext->addSystemTrustedCACerts();
       const bool defaultBundle = clTlsContext->addDefaultCABundle();
       if (!systemTrusted && !defaultBundle) {
-        A2_LOG_INFO(MSG_WARN_NO_CA_CERT);
+        ARIA2_LOG_INFO(MSG_WARN_NO_CA_CERT);
       }
     }
     clTlsContext->setVerifyPeer(option_->getAsBool(PREF_CHECK_CERTIFICATE));
@@ -228,7 +227,7 @@ int MultiUrlRequestInfo::prepare()
     e_->getRequestGroupMan()->getNetStat().downloadStart();
   }
   catch (RecoverableException& e) {
-    A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
+    ARIA2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
     SingletonHolder<Notifier>::clear();
     if (useSignalHandler_) {
       resetSignalHandlers();
@@ -268,11 +267,11 @@ error_code::Value MultiUrlRequestInfo::getResult()
   if (!option_->blank(PREF_SAVE_SESSION)) {
     const std::string& filename = option_->get(PREF_SAVE_SESSION);
     if (sessionSerializer.save(filename)) {
-      A2_LOG_NOTICE(
+      ARIA2_LOG_INFO(
           fmt(_("Serialized session to '%s' successfully."), filename.c_str()));
     }
     else {
-      A2_LOG_NOTICE(
+      ARIA2_LOG_INFO(
           fmt(_("Failed to serialize session to '%s'."), filename.c_str()));
     }
   }
@@ -291,7 +290,7 @@ error_code::Value MultiUrlRequestInfo::execute()
     e_->run();
   }
   catch (RecoverableException& e) {
-    A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
+    ARIA2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
   }
   error_code::Value returnValue = getResult();
   if (useSignalHandler_) {

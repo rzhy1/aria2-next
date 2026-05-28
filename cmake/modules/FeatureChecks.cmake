@@ -300,6 +300,35 @@ set(HAVE_LIBCURL 1)
 
 aria2_pkg_check(OPENSSL "openssl>=${ARIA2_MIN_OPENSSL_VERSION}")
 aria2_pkg_check(LIBTORRENT_RASTERBAR "libtorrent-rasterbar")
+
+find_package(spdlog CONFIG QUIET)
+if(NOT spdlog_FOUND)
+  set(_aria2_spdlog_roots)
+  if(ARIA2_SPDLOG_ROOT)
+    list(APPEND _aria2_spdlog_roots "${ARIA2_SPDLOG_ROOT}")
+  endif()
+  get_filename_component(_aria2_parent_dir "${CMAKE_CURRENT_SOURCE_DIR}" DIRECTORY)
+  get_filename_component(_aria2_parent_dir "${_aria2_parent_dir}" DIRECTORY)
+  list(APPEND _aria2_spdlog_roots
+    "${CMAKE_CURRENT_SOURCE_DIR}/../spdlog"
+    "${_aria2_parent_dir}/oss/spdlog")
+
+  foreach(_aria2_spdlog_root IN LISTS _aria2_spdlog_roots)
+    if(EXISTS "${_aria2_spdlog_root}/include/spdlog/spdlog.h")
+      add_library(spdlog::spdlog INTERFACE IMPORTED)
+      target_include_directories(spdlog::spdlog INTERFACE
+        "${_aria2_spdlog_root}/include")
+      set(spdlog_FOUND TRUE)
+      break()
+    endif()
+  endforeach()
+endif()
+if(NOT TARGET spdlog::spdlog)
+  message(FATAL_ERROR
+    "aria2-next requires spdlog 1.17.0 or newer. Install spdlog, set "
+    "CMAKE_PREFIX_PATH, or set ARIA2_SPDLOG_ROOT to a spdlog checkout.")
+endif()
+
 find_package(Boost ${ARIA2_MIN_BOOST_VERSION} CONFIG QUIET COMPONENTS json)
 if(NOT Boost_FOUND)
   find_path(Boost_INCLUDE_DIR

@@ -42,9 +42,9 @@
     "                              always relative to the directory given in -d\n" \
     "                              option. When the -Z option is used, this option\n" \
     "                              will be ignored.")
-#define TEXT_LOG                                                        \
-  _(" -l, --log=LOG                The file name of the log file. If '-' is\n" \
-    "                              specified, log is written to stdout.")
+#define TEXT_LOG_FILE                                                   \
+  _(" --log-file=PATH|auto|off     Set the rotating log file path. 'auto' uses\n" \
+    "                              the platform state/log directory.")
 #define TEXT_DAEMON                                                     \
   _(" -D, --daemon[=true|false]    Run as daemon. The current working directory will\n" \
     "                              be changed to \"/\" and standard input, standard\n" \
@@ -357,9 +357,12 @@
 #define TEXT_SUMMARY_INTERVAL                                           \
   _(" --summary-interval=SEC       Set interval to output download progress summary.\n" \
     "                              Setting 0 suppresses the output.")
-#define TEXT_LOG_LEVEL                                          \
-  _(" --log-level=LEVEL            Set log level to output to file specified using\n" \
-    "                             --log option.")
+#define TEXT_LOG_LEVEL                                                  \
+  _(" --log-level=LEVEL            Set rotating file log level.")
+#define TEXT_LOG_MAX_SIZE                                               \
+  _(" --log-max-size=SIZE          Set maximum rotating log file size.")
+#define TEXT_LOG_MAX_FILES                                              \
+  _(" --log-max-files=NUM          Set number of rotating log files to keep.")
 #define TEXT_REMOTE_TIME                                                \
   _(" -R, --remote-time[=true|false] Retrieve timestamp of the remote file from the\n" \
     "                              remote HTTP/FTP server and if it is available,\n" \
@@ -797,8 +800,8 @@
     "                              sessions saved using --save-session option. If\n" \
     "                              this option is not used, new GID is generated\n" \
     "                              by Aria2 Next.")
-#define TEXT_CONSOLE_LOG_LEVEL                                          \
-  _(" --console-log-level=LEVEL    Set log level to output to console.")
+#define TEXT_CONSOLE_LEVEL                                              \
+  _(" --console-level=LEVEL        Set log level to output to console.")
 #define TEXT_SAVE_SESSION_INTERVAL                                      \
   _(" --save-session-interval=SEC  Save error/unfinished downloads to a file\n" \
     "                              specified by --save-session option every SEC\n" \

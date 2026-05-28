@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "WebSocketSessionMan.h"
 
 #include <algorithm>
@@ -42,7 +43,6 @@
 #include "RpcWebSocketSession.h"
 #include "ValueBase.h"
 #include "util.h"
-#include "LogFactory.h"
 
 namespace aria2 {
 
@@ -55,14 +55,14 @@ WebSocketSessionMan::~WebSocketSessionMan() = default;
 void WebSocketSessionMan::addSession(
     const std::shared_ptr<RpcWebSocketSession>& session)
 {
-  A2_LOG_DEBUG("WebSocket session added.");
+  ARIA2_LOG_DEBUG("WebSocket session added.");
   sessions_.insert(session);
 }
 
 void WebSocketSessionMan::removeSession(
     const std::shared_ptr<RpcWebSocketSession>& session)
 {
-  A2_LOG_DEBUG("WebSocket session removed.");
+  ARIA2_LOG_DEBUG("WebSocket session removed.");
   sessions_.erase(session);
 }
 

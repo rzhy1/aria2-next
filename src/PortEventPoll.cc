@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "PortEventPoll.h"
 
 #include <cerrno>
@@ -40,8 +41,6 @@
 #include <numeric>
 
 #include "Command.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "util.h"
 #include "fmt.h"
 
@@ -80,7 +79,7 @@ PortEventPoll::~PortEventPoll()
     int r = close(port_);
     int errNum = errno;
     if (r == -1) {
-      A2_LOG_ERROR(fmt("Error occurred while closing port %d: %s", port_,
+      ARIA2_LOG_ERROR(fmt("Error occurred while closing port %d: %s", port_,
                        util::safeStrerror(errNum).c_str()));
     }
   }
@@ -101,7 +100,7 @@ void PortEventPoll::poll(const struct timeval& tv)
   res = port_getn(port_, portEvents_, portEventsSize_, &nget, &timeout);
   if (res == 0 || (res == -1 && (errno == ETIME || errno == EINTR) &&
                    portEvents_[0].portev_user != (void*)-1)) {
-    A2_LOG_DEBUG(fmt("nget=%u", nget));
+    ARIA2_LOG_DEBUG(fmt("nget=%u", nget));
     for (uint_t i = 0; i < nget; ++i) {
       const port_event_t& pev = portEvents_[i];
       KSocketEntry* p = reinterpret_cast<KSocketEntry*>(pev.portev_user);
@@ -110,7 +109,7 @@ void PortEventPoll::poll(const struct timeval& tv)
                              p->getEvents().events, p);
       int errNum = errno;
       if (r == -1) {
-        A2_LOG_INFO(fmt("port_associate failed for file descriptor %d:"
+        ARIA2_LOG_INFO(fmt("port_associate failed for file descriptor %d:"
                         " cause %s",
                         pev.portev_object, util::safeStrerror(errNum).c_str()));
       }
@@ -118,7 +117,7 @@ void PortEventPoll::poll(const struct timeval& tv)
   }
   else if (res == -1) {
     int errNum = errno;
-    A2_LOG_INFO(fmt("port_getn error: %s", util::safeStrerror(errNum).c_str()));
+    ARIA2_LOG_INFO(fmt("port_getn error: %s", util::safeStrerror(errNum).c_str()));
   }
 
 }
@@ -170,7 +169,7 @@ bool PortEventPoll::addEvents(sock_t socket, const PortEventPoll::KEvent& event)
     errNum = r;
   }
   if (r == -1) {
-    A2_LOG_DEBUG(fmt("Failed to add socket event %d:%s", socket,
+    ARIA2_LOG_DEBUG(fmt("Failed to add socket event %d:%s", socket,
                      util::safeStrerror(errNum).c_str()));
     return false;
   }
@@ -193,7 +192,7 @@ bool PortEventPoll::deleteEvents(sock_t socket,
   auto socketEntry = std::make_shared<KSocketEntry>(socket);
   KSocketEntrySet::iterator i = socketEntries_.find(socketEntry);
   if (i == socketEntries_.end()) {
-    A2_LOG_DEBUG(fmt("Socket %d is not found in SocketEntries.", socket));
+    ARIA2_LOG_DEBUG(fmt("Socket %d is not found in SocketEntries.", socket));
     return false;
   }
   else {
@@ -212,7 +211,7 @@ bool PortEventPoll::deleteEvents(sock_t socket,
       errNum = errno;
     }
     if (r == -1) {
-      A2_LOG_DEBUG(fmt("Failed to delete socket event:%s",
+      ARIA2_LOG_DEBUG(fmt("Failed to delete socket event:%s",
                        util::safeStrerror(errNum).c_str()));
       return false;
     }

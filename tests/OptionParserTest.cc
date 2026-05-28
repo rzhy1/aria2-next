@@ -115,9 +115,6 @@ void OptionParserTest::testFind()
 
   const OptionHandler* daemon = oparser_->find(PREF_DAEMON);
   CPPUNIT_ASSERT(!daemon);
-
-  const OptionHandler* log = oparser_->find(PREF_LOG);
-  CPPUNIT_ASSERT(!log);
 }
 
 void OptionParserTest::testFindByShortName()
@@ -151,9 +148,20 @@ void OptionParserTest::testParseDefaultValues()
 void OptionParserTest::testParseDefaultValuesDoesNotInjectCompileTimeCABundle()
 {
   Option option;
-  OptionParser::getInstance()->parseDefaultValues(option);
+  auto globalParser = OptionParser::getInstance();
+  globalParser->parseDefaultValues(option);
 
   CPPUNIT_ASSERT(!option.defined(PREF_CA_CERTIFICATE));
+  CPPUNIT_ASSERT(globalParser->find(PREF_LOG_FILE));
+  CPPUNIT_ASSERT(globalParser->find(PREF_LOG_LEVEL));
+  CPPUNIT_ASSERT(globalParser->find(PREF_CONSOLE_LEVEL));
+  CPPUNIT_ASSERT(globalParser->find(PREF_LOG_MAX_SIZE));
+  CPPUNIT_ASSERT(globalParser->find(PREF_LOG_MAX_FILES));
+  CPPUNIT_ASSERT_EQUAL(std::string("auto"), option.get(PREF_LOG_FILE));
+  CPPUNIT_ASSERT_EQUAL(std::string("info"), option.get(PREF_LOG_LEVEL));
+  CPPUNIT_ASSERT_EQUAL(std::string("info"), option.get(PREF_CONSOLE_LEVEL));
+  CPPUNIT_ASSERT_EQUAL(std::string("10485760"), option.get(PREF_LOG_MAX_SIZE));
+  CPPUNIT_ASSERT_EQUAL(std::string("5"), option.get(PREF_LOG_MAX_FILES));
 }
 
 void OptionParserTest::testParseArg()

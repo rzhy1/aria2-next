@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "OptionHandlerImpl.h"
 
 #include <cassert>
@@ -57,7 +58,6 @@
 #include "File.h"
 #include "FileEntry.h"
 #include "a2io.h"
-#include "LogFactory.h"
 #include "uri.h"
 #include "SegList.h"
 #include "array_fun.h"
@@ -681,19 +681,19 @@ void DeprecatedOptionHandler::parse(Option& option,
                                     const std::string& arg) const
 {
   if (repOptHandler_) {
-    A2_LOG_WARN(fmt(_("--%s option is deprecated. Use --%s option instead. %s"),
+    ARIA2_LOG_WARN(fmt(_("--%s option is deprecated. Use --%s option instead. %s"),
                     depOptHandler_->getName(), repOptHandler_->getName(),
                     additionalMessage_.c_str()));
     repOptHandler_->parse(option, arg);
   }
   else if (stillWork_) {
-    A2_LOG_WARN(fmt(_("--%s option will be deprecated in the future release. "
+    ARIA2_LOG_WARN(fmt(_("--%s option will be deprecated in the future release. "
                       "%s"),
                     depOptHandler_->getName(), additionalMessage_.c_str()));
     depOptHandler_->parse(option, arg);
   }
   else {
-    A2_LOG_WARN(fmt(_("--%s option is deprecated. %s"),
+    ARIA2_LOG_WARN(fmt(_("--%s option is deprecated. %s"),
                     depOptHandler_->getName(), additionalMessage_.c_str()));
   }
 }

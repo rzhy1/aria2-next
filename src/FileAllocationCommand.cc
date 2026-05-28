@@ -32,13 +32,12 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "FileAllocationCommand.h"
 #include "FileAllocationMan.h"
 #include "FileAllocationEntry.h"
 #include "DownloadEngine.h"
 #include "RequestGroup.h"
-#include "Logger.h"
-#include "LogFactory.h"
 #include "message.h"
 #include "prefs.h"
 #include "util.h"
@@ -72,7 +71,7 @@ bool FileAllocationCommand::executeInternal()
   }
   fileAllocationEntry_->allocateChunk();
   if (fileAllocationEntry_->finished()) {
-    A2_LOG_DEBUG(fmt(
+    ARIA2_LOG_DEBUG(fmt(
         MSG_ALLOCATION_COMPLETED,
         static_cast<long int>(std::chrono::duration_cast<std::chrono::seconds>(
                                   timer_.difference(global::wallclock()))
@@ -93,8 +92,8 @@ bool FileAllocationCommand::executeInternal()
 bool FileAllocationCommand::handleException(Exception& e)
 {
   getRequestGroup()->setLastErrorCode(e.getErrorCode(), e.what());
-  A2_LOG_ERROR_EX(fmt(MSG_FILE_ALLOCATION_FAILURE, getCuid()), e);
-  A2_LOG_ERROR(
+  ARIA2_LOG_ERROR_EX(fmt(MSG_FILE_ALLOCATION_FAILURE, getCuid()), e);
+  ARIA2_LOG_ERROR(
       fmt(MSG_DOWNLOAD_NOT_COMPLETE, getCuid(),
           getRequestGroup()->getDownloadContext()->getBasePath().c_str()));
   return true;

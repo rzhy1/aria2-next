@@ -32,12 +32,11 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "InitiateConnectionCommand.h"
 #include "Request.h"
 #include "DownloadEngine.h"
 #include "Option.h"
-#include "Logger.h"
-#include "LogFactory.h"
 #include "message.h"
 #include "prefs.h"
 #include "NameResolver.h"
@@ -104,8 +103,8 @@ bool InitiateConnectionCommand::executeInternal()
     // TODO ipaddr might not be used if pooled socket was found.
     getDownloadEngine()->markBadIPAddress(hostname, ipaddr, port);
     if (!getDownloadEngine()->findCachedIPAddress(hostname, port).empty()) {
-      A2_LOG_INFO_EX(EX_EXCEPTION_CAUGHT, ex);
-      A2_LOG_INFO(
+      ARIA2_LOG_INFO_EX(EX_EXCEPTION_CAUGHT, ex);
+      ARIA2_LOG_INFO(
           fmt(MSG_CONNECT_FAILED_AND_RETRY, getCuid(), ipaddr.c_str(), port));
       auto command =
           InitiateConnectionCommandFactory::createInitiateConnectionCommand(
@@ -140,7 +139,7 @@ InitiateConnectionCommand::createBackupIPv4ConnectCommand(
   if (inetPton(AF_INET6, ipaddr.c_str(), &buf) == -1) {
     return info;
   }
-  A2_LOG_INFO("Searching IPv4 address for backup connection attempt");
+  ARIA2_LOG_INFO("Searching IPv4 address for backup connection attempt");
   std::vector<std::string> addrs;
   getDownloadEngine()->findAllCachedIPAddresses(std::back_inserter(addrs),
                                                 hostname, port);
@@ -152,7 +151,7 @@ InitiateConnectionCommand::createBackupIPv4ConnectCommand(
       auto command = make_unique<BackupIPv4ConnectCommand>(
           getDownloadEngine()->newCUID(), *i, port, info, mainCommand,
           getRequestGroup(), getDownloadEngine());
-      A2_LOG_INFO(fmt("Issue backup connection command CUID#%" PRId64
+      ARIA2_LOG_INFO(fmt("Issue backup connection command CUID#%" PRId64
                       ", addr=%s",
                       command->getCuid(), (*i).c_str()));
       getDownloadEngine()->addCommand(std::move(command));

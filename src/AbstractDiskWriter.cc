@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "AbstractDiskWriter.h"
 
 #include <unistd.h>
@@ -52,7 +53,6 @@
 #include "fmt.h"
 #include "DownloadFailureException.h"
 #include "error_code.h"
-#include "LogFactory.h"
 
 namespace aria2 {
 
@@ -146,11 +146,11 @@ void AbstractDiskWriter::closeFile()
 #  endif // !__MINGW32__
     if (errNum != 0) {
       int errNum = fileError();
-      A2_LOG_ERROR(fmt("Unmapping file %s failed: %s", filename_.c_str(),
+      ARIA2_LOG_ERROR(fmt("Unmapping file %s failed: %s", filename_.c_str(),
                        fileStrerror(errNum).c_str()));
     }
     else {
-      A2_LOG_INFO(fmt("Unmapping file %s succeeded", filename_.c_str()));
+      ARIA2_LOG_INFO(fmt("Unmapping file %s succeeded", filename_.c_str()));
     }
     mapaddr_ = nullptr;
     maplen_ = 0;
@@ -357,7 +357,7 @@ void AbstractDiskWriter::ensureMmapWrite(size_t len, int64_t offset)
         }
 #  endif // !__MINGW32__
         if (errNum != 0) {
-          A2_LOG_ERROR(fmt("Unmapping file %s failed: %s", filename_.c_str(),
+          ARIA2_LOG_ERROR(fmt("Unmapping file %s failed: %s", filename_.c_str(),
                            fileStrerror(errNum).c_str()));
         }
         mapaddr_ = nullptr;
@@ -412,12 +412,12 @@ void AbstractDiskWriter::ensureMmapWrite(size_t len, int64_t offset)
         }
 #  endif // !__MINGW32__
         if (mapaddr_) {
-          A2_LOG_DEBUG(fmt("Mapping file %s succeeded, length=%" PRId64 "",
+          ARIA2_LOG_DEBUG(fmt("Mapping file %s succeeded, length=%" PRId64 "",
                            filename_.c_str(), static_cast<uint64_t>(filesize)));
           maplen_ = filesize;
         }
         else {
-          A2_LOG_WARN(fmt("Mapping file %s failed: %s", filename_.c_str(),
+          ARIA2_LOG_WARN(fmt("Mapping file %s failed: %s", filename_.c_str(),
                           fileStrerror(errNum).c_str()));
           enableMmap_ = false;
         }
@@ -509,7 +509,7 @@ void AbstractDiskWriter::allocate(int64_t offset, int64_t length, bool sparse)
     DWORD bytesReturned;
     if (!DeviceIoControl(fd_, FSCTL_SET_SPARSE, 0, 0, 0, 0, &bytesReturned,
                          0)) {
-      A2_LOG_WARN(fmt("Making file sparse failed or pending: %s",
+      ARIA2_LOG_WARN(fmt("Making file sparse failed or pending: %s",
                       fileStrerror(GetLastError()).c_str()));
     }
 #endif // __MINGW32__
@@ -521,7 +521,7 @@ void AbstractDiskWriter::allocate(int64_t offset, int64_t length, bool sparse)
   truncate(offset + length);
   if (!SetFileValidData(fd_, offset + length)) {
     auto errNum = fileError();
-    A2_LOG_WARN(fmt(
+    ARIA2_LOG_WARN(fmt(
         "File allocation (SetFileValidData) failed (cause: %s). File will be "
         "allocated by filling zero, which blocks whole aria2 execution. Run "
         "aria2 as an administrator or use a different file allocation method "

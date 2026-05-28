@@ -47,7 +47,6 @@
 
 #include "a2time.h"
 #include "a2functional.h"
-#include "LogFactory.h"
 #include "fmt.h"
 
 namespace aria2 {

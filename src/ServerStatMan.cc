@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "ServerStatMan.h"
 
 #include <cstring>
@@ -47,7 +48,6 @@
 #include "BufferedFile.h"
 #include "message.h"
 #include "fmt.h"
-#include "LogFactory.h"
 #include "File.h"
 
 namespace aria2 {
@@ -89,7 +89,7 @@ bool ServerStatMan::save(const std::string& filename) const
   {
     BufferedFile fp(tempfile.c_str(), BufferedFile::WRITE);
     if (!fp) {
-      A2_LOG_ERROR(
+      ARIA2_LOG_ERROR(
           fmt(MSG_OPENING_WRITABLE_SERVER_STAT_FILE_FAILED, filename.c_str()));
       return false;
     }
@@ -97,21 +97,21 @@ bool ServerStatMan::save(const std::string& filename) const
       std::string l = e->toString();
       l += "\n";
       if (fp.write(l.data(), l.size()) != l.size()) {
-        A2_LOG_ERROR(
+        ARIA2_LOG_ERROR(
             fmt(MSG_WRITING_SERVER_STAT_FILE_FAILED, filename.c_str()));
       }
     }
     if (fp.close() == EOF) {
-      A2_LOG_ERROR(fmt(MSG_WRITING_SERVER_STAT_FILE_FAILED, filename.c_str()));
+      ARIA2_LOG_ERROR(fmt(MSG_WRITING_SERVER_STAT_FILE_FAILED, filename.c_str()));
       return false;
     }
   }
   if (File(tempfile).renameTo(filename)) {
-    A2_LOG_NOTICE(fmt(MSG_SERVER_STAT_SAVED, filename.c_str()));
+    ARIA2_LOG_INFO(fmt(MSG_SERVER_STAT_SAVED, filename.c_str()));
     return true;
   }
   else {
-    A2_LOG_ERROR(fmt(MSG_WRITING_SERVER_STAT_FILE_FAILED, filename.c_str()));
+    ARIA2_LOG_ERROR(fmt(MSG_WRITING_SERVER_STAT_FILE_FAILED, filename.c_str()));
     return false;
   }
 }
@@ -153,7 +153,7 @@ bool ServerStatMan::load(const std::string& filename)
 {
   BufferedFile fp(filename.c_str(), BufferedFile::READ);
   if (!fp) {
-    A2_LOG_ERROR(
+    ARIA2_LOG_ERROR(
         fmt(MSG_OPENING_READABLE_SERVER_STAT_FILE_FAILED, filename.c_str()));
     return false;
   }
@@ -164,7 +164,7 @@ bool ServerStatMan::load(const std::string& filename)
         break;
       }
       else if (!fp) {
-        A2_LOG_ERROR(
+        ARIA2_LOG_ERROR(
             fmt(MSG_READING_SERVER_STAT_FILE_FAILED, filename.c_str()));
         return false;
       }
@@ -227,7 +227,7 @@ bool ServerStatMan::load(const std::string& filename)
     sstat->setStatus(m[S_STATUS]);
     add(sstat);
   }
-  A2_LOG_NOTICE(fmt(MSG_SERVER_STAT_LOADED, filename.c_str()));
+  ARIA2_LOG_INFO(fmt(MSG_SERVER_STAT_LOADED, filename.c_str()));
   return true;
 }
 

@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "MultiFileAllocationIterator.h"
 #include "MultiDiskAdaptor.h"
 #include "FileEntry.h"
@@ -42,7 +43,6 @@
 #endif // HAVE_SOME_FALLOCATE
 #include "DiskWriter.h"
 #include "DefaultDiskWriterFactory.h"
-#include "LogFactory.h"
 
 namespace aria2 {
 
@@ -95,7 +95,7 @@ void MultiFileAllocationIterator::allocateChunk()
 
     if ((*entryItr_)->needsFileAllocation() &&
         (*entryItr_)->size() < fileEntry->getLength()) {
-      A2_LOG_INFO(fmt("Allocating file %s: target size=%" PRId64
+      ARIA2_LOG_INFO(fmt("Allocating file %s: target size=%" PRId64
                       ", current size=%" PRId64,
                       (*entryItr_)->getFilePath().c_str(),
                       fileEntry->getLength(), (*entryItr_)->size()));

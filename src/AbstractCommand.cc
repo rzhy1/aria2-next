@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "AbstractCommand.h"
 
 #include <algorithm>
@@ -42,7 +43,6 @@
 #include "Option.h"
 #include "PeerStat.h"
 #include "SegmentMan.h"
-#include "Logger.h"
 #include "Segment.h"
 #include "DlAbortEx.h"
 #include "DlRetryEx.h"
@@ -59,7 +59,6 @@
 #include "RequestGroupMan.h"
 #include "A2STR.h"
 #include "util.h"
-#include "LogFactory.h"
 #include "DownloadContext.h"
 #include "wallclock.h"
 #include "NameResolver.h"
@@ -121,7 +120,7 @@ AbstractCommand::~AbstractCommand()
 void AbstractCommand::useFasterRequest(
     const std::shared_ptr<Request>& fasterRequest)
 {
-  A2_LOG_INFO(fmt("CUID#%" PRId64 " - Use faster Request hostname=%s, port=%u",
+  ARIA2_LOG_INFO(fmt("CUID#%" PRId64 " - Use faster Request hostname=%s, port=%u",
                   getCuid(), fasterRequest->getHost().c_str(),
                   fasterRequest->getPort()));
   // Cancel current Request object and use faster one.
@@ -161,7 +160,7 @@ bool AbstractCommand::shouldProcess() const
 
 bool AbstractCommand::execute()
 {
-  A2_LOG_DEBUG(fmt("CUID#%" PRId64
+  ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64
                    " - socket: read:%d, write:%d, hup:%d, err:%d",
                    getCuid(), readEventEnabled(), writeEventEnabled(),
                    hupEventEnabled(), errorEventEnabled()));
@@ -171,7 +170,7 @@ bool AbstractCommand::execute()
     }
 
     if (req_ && req_->removalRequested()) {
-      A2_LOG_DEBUG(fmt("CUID#%" PRId64
+      ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64
                        " - Discard original URI=%s because it is"
                        " requested.",
                        getCuid(), req_->getUri().c_str()));
@@ -188,7 +187,7 @@ bool AbstractCommand::execute()
         // This command previously has assigned segments, but it is
         // canceled. So discard current request chain.  Plus, if no
         // segment is available when http pipelining is used.
-        A2_LOG_DEBUG(fmt("CUID#%" PRId64
+        ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64
                          " - It seems previously assigned segments"
                          " are canceled. Restart.",
                          getCuid()));
@@ -256,11 +255,11 @@ bool AbstractCommand::execute()
           // TODO socket could be pooled here if pipelining is
           // enabled...  Hmm, I don't think if pipelining is enabled
           // it does not go here.
-          A2_LOG_INFO(fmt(MSG_NO_SEGMENT_AVAILABLE, getCuid()));
+          ARIA2_LOG_INFO(fmt(MSG_NO_SEGMENT_AVAILABLE, getCuid()));
           // When all segments are ignored in SegmentMan, there are
           // no URIs available, so don't retry.
           if (sm->allSegmentsIgnored()) {
-            A2_LOG_DEBUG("All segments are ignored.");
+            ARIA2_LOG_DEBUG("All segments are ignored.");
             // This will execute other idle Commands and let them
             // finish quickly.
             e_->setRefreshInterval(std::chrono::milliseconds(0));
@@ -305,7 +304,7 @@ bool AbstractCommand::execute()
       // empty.
       if (!req_->getConnectedAddr().empty()) {
         // Purging IP address cache to renew IP address.
-        A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Marking IP address %s as bad",
+        ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Marking IP address %s as bad",
                          getCuid(), req_->getConnectedAddr().c_str()));
         e_->markBadIPAddress(req_->getConnectedHostname(),
                              req_->getConnectedAddr(),
@@ -314,7 +313,7 @@ bool AbstractCommand::execute()
       if (e_->findCachedIPAddress(req_->getConnectedHostname(),
                                   req_->getConnectedPort())
               .empty()) {
-        A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - All IP addresses were marked bad."
+        ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64 " - All IP addresses were marked bad."
                          " Removing Entry.",
                          getCuid()));
         e_->removeCachedIPAddress(req_->getConnectedHostname(),
@@ -329,7 +328,7 @@ bool AbstractCommand::execute()
   catch (DlAbortEx& err) {
     requestGroup_->setLastErrorCode(err.getErrorCode(), err.what());
     if (req_) {
-      A2_LOG_ERROR_EX(
+      ARIA2_LOG_ERROR_EX(
           fmt(MSG_DOWNLOAD_ABORTED, getCuid(), req_->getUri().c_str()),
           DL_ABORT_EX2(fmt("URI=%s", req_->getCurrentUri().c_str()), err));
       fileEntry_->addURIResult(req_->getUri(), err.getErrorCode());
@@ -338,7 +337,7 @@ bool AbstractCommand::execute()
       }
     }
     else {
-      A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, err);
+      ARIA2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, err);
     }
     onAbort();
     tryReserved();
@@ -346,7 +345,7 @@ bool AbstractCommand::execute()
   }
   catch (DlRetryEx& err) {
     assert(req_);
-    A2_LOG_INFO_EX(
+    ARIA2_LOG_INFO_EX(
         fmt(MSG_RESTARTING_DOWNLOAD, getCuid(), req_->getUri().c_str()),
         DL_RETRY_EX2(fmt("URI=%s", req_->getCurrentUri().c_str()), err));
     req_->addTryCount();
@@ -356,8 +355,8 @@ bool AbstractCommand::execute()
     const int maxTries = getOption()->getAsInt(PREF_MAX_TRIES);
     bool isAbort = maxTries != 0 && req_->getTryCount() >= maxTries;
     if (isAbort) {
-      A2_LOG_INFO(fmt(MSG_MAX_TRY, getCuid(), req_->getTryCount()));
-      A2_LOG_ERROR_EX(
+      ARIA2_LOG_INFO(fmt(MSG_MAX_TRY, getCuid(), req_->getTryCount()));
+      ARIA2_LOG_ERROR_EX(
           fmt(MSG_DOWNLOAD_ABORTED, getCuid(), req_->getUri().c_str()), err);
       fileEntry_->addURIResult(req_->getUri(), err.getErrorCode());
       requestGroup_->setLastErrorCode(err.getErrorCode(), err.what());
@@ -383,13 +382,13 @@ bool AbstractCommand::execute()
   catch (DownloadFailureException& err) {
     requestGroup_->setLastErrorCode(err.getErrorCode(), err.what());
     if (req_) {
-      A2_LOG_ERROR_EX(
+      ARIA2_LOG_ERROR_EX(
           fmt(MSG_DOWNLOAD_ABORTED, getCuid(), req_->getUri().c_str()),
           DL_ABORT_EX2(fmt("URI=%s", req_->getCurrentUri().c_str()), err));
       fileEntry_->addURIResult(req_->getUri(), err.getErrorCode());
     }
     else {
-      A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, err);
+      ARIA2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, err);
     }
     requestGroup_->setHaltRequested(true);
     getDownloadEngine()->setRefreshInterval(std::chrono::milliseconds(0));
@@ -405,14 +404,14 @@ void AbstractCommand::tryReserved()
     // and there are no URI left. Because file length is unknown, we
     // can assume that there are no in-flight request object.
     if (entry->getLength() == 0 && entry->getRemainingUris().empty()) {
-      A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Not trying next request."
+      ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Not trying next request."
                        " No reserved/pooled request is remaining and"
                        " total length is still unknown.",
                        getCuid()));
       return;
     }
   }
-  A2_LOG_DEBUG(
+  ARIA2_LOG_DEBUG(
       fmt("CUID#%" PRId64 " - Trying reserved/pooled request.", getCuid()));
   std::vector<std::unique_ptr<Command>> commands;
   requestGroup_->createNextCommand(commands, e_, 1);
@@ -428,7 +427,7 @@ bool AbstractCommand::prepareForRetry(time_t wait)
   if (incNumStreamCommand_ &&
       !requestGroup_->claimStreamRetrySlot(httpRangeGeneration_)) {
     if (req_) {
-      A2_LOG_DEBUG(fmt("CUID#%" PRId64
+      ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64
                        " - Discarding retry because stream command limit is"
                        " already converging.",
                        getCuid()));
@@ -449,7 +448,7 @@ bool AbstractCommand::prepareForRetry(time_t wait)
     req_->setMaxPipelinedRequest(1);
 
     fileEntry_->poolRequest(req_);
-    A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Pooling request URI=%s", getCuid(),
+    ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Pooling request URI=%s", getCuid(),
                      req_->getUri().c_str()));
     if (getSegmentMan()) {
       getSegmentMan()->recognizeSegmentFor(fileEntry_);
@@ -477,7 +476,7 @@ void AbstractCommand::onAbort()
     fileEntry_->removeRequest(req_);
   }
 
-  A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Aborting download", getCuid()));
+  ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Aborting download", getCuid()));
   if (!getPieceStorage()) {
     return;
   }
@@ -501,10 +500,10 @@ void AbstractCommand::onAbort()
   // Local file exists, but given servers(or at least contacted
   // ones) doesn't support resume. Let's restart download from
   // scratch.
-  A2_LOG_NOTICE(fmt(_("CUID#%" PRId64 " - Failed to resume download."
+  ARIA2_LOG_INFO(fmt(_("CUID#%" PRId64 " - Failed to resume download."
                       " Download from scratch."),
                     getCuid()));
-  A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Gathering URIs that has CANNOT_RESUME"
+  ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Gathering URIs that has CANNOT_RESUME"
                    " error",
                    getCuid()));
   // Set PREF_ALWAYS_RESUME to A2_V_TRUE to avoid repeating this
@@ -523,7 +522,7 @@ void AbstractCommand::onAbort()
   uris.reserve(res.size());
   std::transform(std::begin(res), std::end(res), std::back_inserter(uris),
                  std::mem_fn(&URIResult::getURI));
-  A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - %lu URIs found.", getCuid(),
+  ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64 " - %lu URIs found.", getCuid(),
                    static_cast<unsigned long int>(uris.size())));
   fileEntry_->addUris(std::begin(uris), std::end(uris));
   getSegmentMan()->recognizeSegmentFor(fileEntry_);
@@ -799,10 +798,10 @@ std::shared_ptr<Request> AbstractCommand::createProxyRequest() const
   if (!proxy.empty()) {
     proxyRequest = std::make_shared<Request>();
     if (proxyRequest->setUri(proxy)) {
-      A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Using proxy", getCuid()));
+      ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Using proxy", getCuid()));
     }
     else {
-      A2_LOG_DEBUG(
+      ARIA2_LOG_DEBUG(
           fmt("CUID#%" PRId64 " - Failed to parse proxy string", getCuid()));
       proxyRequest.reset();
     }
@@ -822,7 +821,7 @@ std::string AbstractCommand::resolveHostname(std::vector<std::string>& addrs,
   e_->findAllCachedIPAddresses(std::back_inserter(addrs), hostname, port);
   if (!addrs.empty()) {
     auto ipaddr = addrs.front();
-    A2_LOG_INFO(fmt(MSG_DNS_CACHE_HIT, getCuid(), hostname.c_str(),
+    ARIA2_LOG_INFO(fmt(MSG_DNS_CACHE_HIT, getCuid(), hostname.c_str(),
                     strjoin(std::begin(addrs), std::end(addrs), ", ").c_str()));
     return ipaddr;
   }
@@ -839,7 +838,7 @@ std::string AbstractCommand::resolveHostname(std::vector<std::string>& addrs,
   {
     resolveWithSystemResolver();
   }
-  A2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_COMPLETE, getCuid(), hostname.c_str(),
+  ARIA2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_COMPLETE, getCuid(), hostname.c_str(),
                   strjoin(std::begin(addrs), std::end(addrs), ", ").c_str()));
   for (const auto& addr : addrs) {
     e_->cacheIPAddress(hostname, addr, port);
@@ -882,7 +881,7 @@ bool AbstractCommand::checkIfConnectionEstablished(
     throw DL_RETRY_EX(fmt(MSG_ESTABLISHING_CONNECTION_FAILED, error.c_str()));
   }
 
-  A2_LOG_INFO(fmt(MSG_CONNECT_FAILED_AND_RETRY, getCuid(),
+  ARIA2_LOG_INFO(fmt(MSG_CONNECT_FAILED_AND_RETRY, getCuid(),
                   connectedAddr.c_str(), connectedPort));
   e_->setNoWait(true);
   e_->addCommand(

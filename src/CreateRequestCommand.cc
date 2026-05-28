@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "CreateRequestCommand.h"
 #include "InitiateConnectionCommandFactory.h"
 #include "RequestGroup.h"
@@ -46,7 +47,6 @@
 #include "RequestGroupMan.h"
 #include "FileEntry.h"
 #include "SocketRecvBuffer.h"
-#include "LogFactory.h"
 #include "wallclock.h"
 #include "DownloadFailureException.h"
 #include "fmt.h"
@@ -128,7 +128,7 @@ bool CreateRequestCommand::executeInternal()
                        getRequestGroup()->getLastErrorCode());
   }
   else if (getRequest()->getWakeTime() > global::wallclock()) {
-    A2_LOG_DEBUG("This request object is still sleeping.");
+    ARIA2_LOG_DEBUG("This request object is still sleeping.");
     getFileEntry()->poolRequest(getRequest());
     // Reset request of this command. Without this, request is doubly
     // counted (1 for pooled and another one in this command) and

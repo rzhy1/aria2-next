@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "DownloadCommand.h"
 
 #include <cassert>
@@ -44,8 +45,6 @@
 #include "DlRetryEx.h"
 #include "SegmentMan.h"
 #include "Segment.h"
-#include "Logger.h"
-#include "LogFactory.h"
 #include "ChecksumCheckIntegrityEntry.h"
 #include "PieceStorage.h"
 #include "CheckIntegrityCommand.h"
@@ -238,14 +237,14 @@ bool DownloadCommand::executeInternal()
       // If segment->getLength() == 0, the server doesn't provide
       // content length, but the client detected that download
       // completed.
-      A2_LOG_INFO(fmt(MSG_SEGMENT_DOWNLOAD_COMPLETED, getCuid()));
+      ARIA2_LOG_INFO(fmt(MSG_SEGMENT_DOWNLOAD_COMPLETED, getCuid()));
 
       {
         const std::string& expectedPieceHash =
             getDownloadContext()->getPieceHash(segment->getIndex());
         if (pieceHashValidationEnabled_ && !expectedPieceHash.empty()) {
           if (segment->isHashCalculated()) {
-            A2_LOG_DEBUG(fmt("Hash is available! index=%lu",
+            ARIA2_LOG_DEBUG(fmt("Hash is available! index=%lu",
                              static_cast<unsigned long>(segment->getIndex())));
             validatePieceHash(segment, expectedPieceHash, segment->getDigest());
           }
@@ -398,11 +397,11 @@ void DownloadCommand::validatePieceHash(const std::shared_ptr<Segment>& segment,
                                         const std::string& actualHash)
 {
   if (actualHash == expectedHash) {
-    A2_LOG_INFO(fmt(MSG_GOOD_CHUNK_CHECKSUM, util::toHex(actualHash).c_str()));
+    ARIA2_LOG_INFO(fmt(MSG_GOOD_CHUNK_CHECKSUM, util::toHex(actualHash).c_str()));
     completeSegment(getCuid(), segment);
   }
   else {
-    A2_LOG_INFO(fmt(EX_INVALID_CHUNK_CHECKSUM,
+    ARIA2_LOG_INFO(fmt(EX_INVALID_CHUNK_CHECKSUM,
                     static_cast<unsigned long>(segment->getIndex()),
                     segment->getPosition(), util::toHex(expectedHash).c_str(),
                     util::toHex(actualHash).c_str()));

@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "download_helper.h"
 
 #include <algorithm>
@@ -50,7 +51,6 @@
 #include "message.h"
 #include "fmt.h"
 #include "FileEntry.h"
-#include "LogFactory.h"
 #include "File.h"
 #include "util.h"
 #include "array_fun.h"
@@ -748,7 +748,7 @@ public:
         else {
           // error occurred while parsing torrent file.
           // We simply ignore it.
-          A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
+          ARIA2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
         }
       }
     }
@@ -762,7 +762,7 @@ public:
           throw;
         }
         else {
-          A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
+          ARIA2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
         }
       }
     }
@@ -771,7 +771,7 @@ public:
         throw DL_ABORT_EX(fmt(MSG_UNRECOGNIZED_URI, uri.c_str()));
       }
       else {
-        A2_LOG_ERROR(fmt(MSG_UNRECOGNIZED_URI, uri.c_str()));
+        ARIA2_LOG_ERROR(fmt(MSG_UNRECOGNIZED_URI, uri.c_str()));
       }
     }
   }
@@ -828,7 +828,7 @@ void createRequestGroupForUri(
           throw;
         }
         else {
-          A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
+          ARIA2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
         }
       }
     }

@@ -32,12 +32,11 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "CheckIntegrityCommand.h"
 #include "CheckIntegrityEntry.h"
 #include "DownloadEngine.h"
 #include "RequestGroup.h"
-#include "Logger.h"
-#include "LogFactory.h"
 #include "message.h"
 #include "prefs.h"
 #include "DownloadContext.h"
@@ -73,7 +72,7 @@ bool CheckIntegrityCommand::executeInternal()
     // needed.
     getRequestGroup()->enableSaveControlFile();
     if (getRequestGroup()->downloadFinished()) {
-      A2_LOG_NOTICE(
+      ARIA2_LOG_INFO(
           fmt(MSG_VERIFICATION_SUCCESSFUL,
               getRequestGroup()->getDownloadContext()->getBasePath().c_str()));
       std::vector<std::unique_ptr<Command>> commands;
@@ -82,7 +81,7 @@ bool CheckIntegrityCommand::executeInternal()
     }
     else {
       if (entry_->shouldReportIncompleteAsError()) {
-        A2_LOG_ERROR(fmt(
+        ARIA2_LOG_ERROR(fmt(
             MSG_VERIFICATION_FAILED,
             getRequestGroup()->getDownloadContext()->getBasePath().c_str()));
       }
@@ -101,8 +100,8 @@ bool CheckIntegrityCommand::executeInternal()
 
 bool CheckIntegrityCommand::handleException(Exception& e)
 {
-  A2_LOG_ERROR_EX(fmt(MSG_FILE_VALIDATION_FAILURE, getCuid()), e);
-  A2_LOG_ERROR(
+  ARIA2_LOG_ERROR_EX(fmt(MSG_FILE_VALIDATION_FAILURE, getCuid()), e);
+  ARIA2_LOG_ERROR(
       fmt(MSG_DOWNLOAD_NOT_COMPLETE, getCuid(),
           getRequestGroup()->getDownloadContext()->getBasePath().c_str()));
   return true;

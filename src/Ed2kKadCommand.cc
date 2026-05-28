@@ -10,6 +10,7 @@
  * (at your option) any later version.
  */
 /* copyright --> */
+#include "Log.h"
 #include "Ed2kKadCommand.h"
 
 #include <algorithm>
@@ -22,8 +23,6 @@
 #include "DownloadEngine.h"
 #include "Ed2kAttribute.h"
 #include "Ed2kUploadQueue.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "Option.h"
 #include "RequestGroup.h"
 #include "RequestGroupMan.h"
@@ -191,7 +190,7 @@ void Ed2kKadCommand::init()
   socket_->setNonBlockingMode();
   e_->addSocketForReadCheck(socket_, this);
   initialized_ = true;
-  A2_LOG_INFO(fmt("IPv4 ED2K Kad: listening on UDP port %u",
+  ARIA2_LOG_INFO(fmt("IPv4 ED2K Kad: listening on UDP port %u",
                   socket_->getAddrInfo().port));
 
   auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
@@ -352,7 +351,7 @@ void Ed2kKadCommand::queueServerSourcePoll()
                        : ed2k::OP_GLOBGETSOURCES,
         ed2k::createGlobGetSourcesPayload(attrs->link.hash, attrs->link.size,
                                           extGetSources2));
-    A2_LOG_DEBUG(fmt("Queued ED2K UDP source request to %s:%u.",
+    ARIA2_LOG_DEBUG(fmt("Queued ED2K UDP source request to %s:%u.",
                      server.host.c_str(), server.port + 4));
     markEd2kServerUdpSourceRequestSent(attrs, server, now);
   }
@@ -399,7 +398,7 @@ void Ed2kKadCommand::queueBootstrap()
     ++queued;
   }
   if (queued != 0) {
-    A2_LOG_INFO(fmt("Queued ED2K Kad bootstrap to %lu router node(s).",
+    ARIA2_LOG_INFO(fmt("Queued ED2K Kad bootstrap to %lu router node(s).",
                     static_cast<unsigned long>(queued)));
   }
 }
@@ -652,7 +651,7 @@ size_t Ed2kKadCommand::queueDueKadCallbacks(int64_t now)
     state.lastCallbackTime = now;
     state.callbackDeadline = now + CALLBACK_TIMEOUT;
     ++queued;
-    A2_LOG_DEBUG(fmt("Queued ED2K Kad callback request to buddy %s:%u "
+    ARIA2_LOG_DEBUG(fmt("Queued ED2K Kad callback request to buddy %s:%u "
                      "for source %s:%u.",
                      state.callbackBuddy.host.c_str(),
                      state.callbackBuddy.port, state.endpoint.host.c_str(),
@@ -669,13 +668,13 @@ void Ed2kKadCommand::sendQueuedPackets()
     if (ed2k::readDatagramHeader(header, item.second.data(),
                                   item.second.size()) &&
         isKnownEd2kUdpProtocol(header.protocol)) {
-      A2_LOG_DEBUG(fmt(
+      ARIA2_LOG_DEBUG(fmt(
           "Sending ED2K UDP packet to %s:%u protocol=0x%02x opcode=0x%02x payload=%lu.",
           item.first.host.c_str(), item.first.port, header.protocol,
           header.opcode, static_cast<unsigned long>(header.payloadSize())));
     }
     else {
-      A2_LOG_DEBUG(fmt(
+      ARIA2_LOG_DEBUG(fmt(
           "Sending obfuscated ED2K Kad UDP packet to %s:%u payload=%lu.",
           item.first.host.c_str(), item.first.port,
           static_cast<unsigned long>(item.second.size())));
@@ -683,7 +682,7 @@ void Ed2kKadCommand::sendQueuedPackets()
     const auto sent = socket_->writeData(item.second.data(), item.second.size(),
                                         item.first.host, item.first.port);
     if (sent < 0) {
-      A2_LOG_DEBUG(fmt("Failed to send ED2K UDP packet to %s:%u.",
+      ARIA2_LOG_DEBUG(fmt("Failed to send ED2K UDP packet to %s:%u.",
                        item.first.host.c_str(), item.first.port));
     }
     outbox_.pop_front();
@@ -715,7 +714,7 @@ void Ed2kKadCommand::receivePackets()
       length = raw.size();
       data.fill(0);
       std::copy(raw.begin(), raw.end(), data.begin());
-      A2_LOG_DEBUG(
+      ARIA2_LOG_DEBUG(
           fmt("Received obfuscated ED2K Kad UDP packet from %s:%u payload=%lu receiverKey=%u senderKey=%u.",
               endpoint.host.c_str(), endpoint.port,
               static_cast<unsigned long>(length),
@@ -733,7 +732,7 @@ void Ed2kKadCommand::receivePackets()
         header.payloadSize() + 2 != static_cast<size_t>(length)) {
       continue;
     }
-    A2_LOG_DEBUG(fmt(
+    ARIA2_LOG_DEBUG(fmt(
         "Received ED2K UDP packet from %s:%u protocol=0x%02x opcode=0x%02x payload=%lu.",
         sender.addr.c_str(), sender.port, header.protocol, header.opcode,
         static_cast<unsigned long>(header.payloadSize())));
@@ -821,7 +820,7 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
                                      nowSeconds());
     }
     if (added != 0) {
-      A2_LOG_INFO(fmt("ED2K UDP server %s:%u returned %lu source(s).",
+      ARIA2_LOG_INFO(fmt("ED2K UDP server %s:%u returned %lu source(s).",
                       endpoint.host.c_str(), endpoint.port,
                       static_cast<unsigned long>(sources.size())));
       schedulePendingEd2kPeers(requestGroup_, e_);
@@ -1012,7 +1011,7 @@ void Ed2kKadCommand::handlePacket(
         return;
       }
       auto sources = ed2k::extractKadSourceEndpointDetails(result);
-      A2_LOG_DEBUG(fmt("ED2K Kad search response from %s:%u target=%s "
+      ARIA2_LOG_DEBUG(fmt("ED2K Kad search response from %s:%u target=%s "
                        "entries=%lu sources=%lu.",
                        endpoint.host.c_str(), endpoint.port,
                        util::toHex(result.targetId).c_str(),
@@ -1021,7 +1020,7 @@ void Ed2kKadCommand::handlePacket(
       for (const auto& source : sources) {
         const bool added =
             addEd2kKadSourcePeer(attrs, source, ed2k::PEER_SOURCE_KAD);
-        A2_LOG_DEBUG(fmt("ED2K Kad source type=%u host=%s tcp=%u udp=%u "
+        ARIA2_LOG_DEBUG(fmt("ED2K Kad source type=%u host=%s tcp=%u udp=%u "
                          "crypt=%u usable=%s added=%s.",
                          source.sourceType, source.endpoint.host.c_str(),
                          source.endpoint.port, source.udpPort,
@@ -1176,7 +1175,7 @@ bool Ed2kKadCommand::execute()
     }
   }
   catch (DlAbortEx& e) {
-    A2_LOG_INFO_EX("Exception thrown while handling ED2K Kad.", e);
+    ARIA2_LOG_INFO_EX("Exception thrown while handling ED2K Kad.", e);
   }
   scheduleNextPoll(std::chrono::milliseconds(1000));
   return false;

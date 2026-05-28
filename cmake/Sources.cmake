@@ -245,10 +245,8 @@ set(ARIA2_SOURCES_BASE
   src/BoostJsonValue.cc
   src/BoostJsonValue.h
   src/Lock.h
-  src/LogFactory.cc
-  src/LogFactory.h
-  src/Logger.cc
-  src/Logger.h
+  src/Log.cc
+  src/Log.h
   src/LongestSequencePieceSelector.cc
   src/LongestSequencePieceSelector.h
   src/message.h

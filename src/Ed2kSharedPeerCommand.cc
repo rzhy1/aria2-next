@@ -10,6 +10,7 @@
  * (at your option) any later version.
  */
 /* copyright --> */
+#include "Log.h"
 #include "Ed2kSharedPeerCommand.h"
 
 #include <algorithm>
@@ -20,8 +21,6 @@
 #include "Ed2kSharedResponder.h"
 #include "Ed2kSharedStore.h"
 #include "Ed2kUploadQueue.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "Option.h"
 #include "RequestGroupMan.h"
 #include "SocketCore.h"
@@ -387,7 +386,7 @@ bool Ed2kSharedPeerCommand::execute()
     }
   }
   catch (RecoverableException& ex) {
-    A2_LOG_DEBUG_EX(fmt("CUID#%" PRId64 " - ED2K shared peer failed.",
+    ARIA2_LOG_DEBUG_EX(fmt("CUID#%" PRId64 " - ED2K shared peer failed.",
                         getCuid()),
                     ex);
     return true;

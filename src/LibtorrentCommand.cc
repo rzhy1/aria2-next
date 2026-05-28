@@ -10,6 +10,7 @@
  * (at your option) any later version.
  */
 /* copyright --> */
+#include "Log.h"
 #include "LibtorrentCommand.h"
 
 #include "DownloadContext.h"
@@ -20,7 +21,6 @@
 #include "LibtorrentAttribute.h"
 #include "LibtorrentSession.h"
 #include "LibtorrentSeedPolicy.h"
-#include "LogFactory.h"
 #include "Notifier.h"
 #include "Option.h"
 #include "PieceStorage.h"
@@ -128,12 +128,12 @@ createAddTorrentParams(LibtorrentAttribute* attrs, const Option* option)
       params = std::move(resumeParams);
     }
     else if (!ec) {
-      A2_LOG_WARN(
+      ARIA2_LOG_WARN(
           "Ignoring libtorrent resume data with mismatched infoHash.");
       attrs->setResumeData("");
     }
     else {
-      A2_LOG_WARN(fmt("Ignoring invalid libtorrent resume data: %s",
+      ARIA2_LOG_WARN(fmt("Ignoring invalid libtorrent resume data: %s",
                       ec.message().c_str()));
       attrs->setResumeData("");
     }
@@ -566,7 +566,7 @@ void LibtorrentCommand::addTorrent()
                                   ? -1
                                   : option->getAsInt(PREF_BT_MAX_PEERS));
   torrentAdded_ = true;
-  A2_LOG_INFO(fmt("GID#%s - Added BitTorrent download to libtorrent.",
+  ARIA2_LOG_INFO(fmt("GID#%s - Added BitTorrent download to libtorrent.",
                   requestGroup_->getGroupId()->toHex().c_str()));
 }
 
@@ -586,11 +586,11 @@ void LibtorrentCommand::pollAlerts()
       break;
     case LibtorrentEvent::Type::SaveResumeDataFailed:
       resumeDataRequested_ = false;
-      A2_LOG_WARN(fmt("Failed to save libtorrent resume data: %s",
+      ARIA2_LOG_WARN(fmt("Failed to save libtorrent resume data: %s",
                       event.message.c_str()));
       break;
     case LibtorrentEvent::Type::MetadataReceived:
-      A2_LOG_INFO(fmt("GID#%s - BitTorrent metadata received by libtorrent.",
+      ARIA2_LOG_INFO(fmt("GID#%s - BitTorrent metadata received by libtorrent.",
                       requestGroup_->getGroupId()->toHex().c_str()));
       break;
     case LibtorrentEvent::Type::FilePrioritiesChanged:
@@ -720,7 +720,7 @@ void LibtorrentCommand::updateStatus()
     attrs->peers = createPeerList(peers);
   }
   catch (const std::exception& ex) {
-    A2_LOG_DEBUG(fmt("Failed to refresh libtorrent RPC state: %s", ex.what()));
+    ARIA2_LOG_DEBUG(fmt("Failed to refresh libtorrent RPC state: %s", ex.what()));
   }
 
   if (status.total_wanted_done > completedLength_) {
@@ -800,7 +800,7 @@ void LibtorrentCommand::requestResumeData()
     resumeDataRequested_ = true;
   }
   catch (const std::exception& ex) {
-    A2_LOG_WARN(fmt("Failed to request libtorrent resume data: %s", ex.what()));
+    ARIA2_LOG_WARN(fmt("Failed to request libtorrent resume data: %s", ex.what()));
   }
 }
 
@@ -815,7 +815,7 @@ void LibtorrentCommand::syncResumeData()
     resumeDataSynced_ = true;
   }
   catch (const std::exception& ex) {
-    A2_LOG_WARN(fmt("Failed to synchronously save libtorrent resume data: %s",
+    ARIA2_LOG_WARN(fmt("Failed to synchronously save libtorrent resume data: %s",
                     ex.what()));
   }
 }
@@ -825,7 +825,7 @@ void LibtorrentCommand::storeResumeData(const lt::add_torrent_params& params)
   auto attrs = getLibtorrentAttrs(requestGroup_->getDownloadContext());
   auto resumeParams = params;
   if (!matchesExpectedInfoHashForSave(resumeParams, attrs->infoHash)) {
-    A2_LOG_WARN(
+    ARIA2_LOG_WARN(
         "Ignoring libtorrent resume data with mismatched infoHash.");
     resumeDataRequested_ = false;
     return;
@@ -833,7 +833,7 @@ void LibtorrentCommand::storeResumeData(const lt::add_torrent_params& params)
   if (attrs->sourceType == LibtorrentAttribute::SourceType::MAGNET &&
       attrs->pauseAfterMetadata && attrs->metadataPauseApplied &&
       !resumeParams.ti) {
-    A2_LOG_WARN(
+    ARIA2_LOG_WARN(
         "Ignoring libtorrent resume data without metadata for paused magnet.");
     resumeDataRequested_ = false;
     return;
@@ -848,7 +848,7 @@ void LibtorrentCommand::storeResumeData(const lt::add_torrent_params& params)
     requestGroup_->saveControlFile();
   }
   catch (const RecoverableException& ex) {
-    A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, ex);
+    ARIA2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, ex);
   }
 }
 
@@ -881,7 +881,7 @@ void LibtorrentCommand::failDownload(error_code::Value code,
 {
   requestGroup_->setLastErrorCode(code, message.c_str());
   requestGroup_->setHaltRequested(true);
-  A2_LOG_ERROR(fmt("GID#%s - libtorrent error: %s",
+  ARIA2_LOG_ERROR(fmt("GID#%s - libtorrent error: %s",
                    requestGroup_->getGroupId()->toHex().c_str(),
                    message.c_str()));
 }

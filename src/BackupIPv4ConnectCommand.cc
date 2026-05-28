@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "BackupIPv4ConnectCommand.h"
 #include "RequestGroup.h"
 #include "DownloadEngine.h"
@@ -39,7 +40,6 @@
 #include "wallclock.h"
 #include "RecoverableException.h"
 #include "fmt.h"
-#include "LogFactory.h"
 #include "prefs.h"
 #include "Option.h"
 
@@ -82,7 +82,7 @@ bool BackupIPv4ConnectCommand::execute()
     retval = true;
   }
   else if (info_->cancel) {
-    A2_LOG_INFO(
+    ARIA2_LOG_INFO(
         fmt("CUID#%" PRId64 " - Backup connection canceled", getCuid()));
     retval = true;
   }
@@ -91,7 +91,7 @@ bool BackupIPv4ConnectCommand::execute()
       try {
         std::string error = socket_->getSocketError();
         if (error.empty()) {
-          A2_LOG_INFO(fmt("CUID#%" PRId64 " - Backup connection to %s "
+          ARIA2_LOG_INFO(fmt("CUID#%" PRId64 " - Backup connection to %s "
                           "established",
                           getCuid(), ipaddr_.c_str()));
           info_->ipaddr = ipaddr_;
@@ -102,13 +102,13 @@ bool BackupIPv4ConnectCommand::execute()
           retval = true;
         }
         else {
-          A2_LOG_INFO(fmt("CUID#%" PRId64 " - Backup connection failed: %s",
+          ARIA2_LOG_INFO(fmt("CUID#%" PRId64 " - Backup connection failed: %s",
                           getCuid(), error.c_str()));
           retval = true;
         }
       }
       catch (RecoverableException& e) {
-        A2_LOG_INFO_EX(
+        ARIA2_LOG_INFO_EX(
             fmt("CUID#%" PRId64 " - Backup connection failed", getCuid()), e);
         retval = true;
       }
@@ -127,7 +127,7 @@ bool BackupIPv4ConnectCommand::execute()
         timeoutCheck_ = global::wallclock();
       }
       catch (RecoverableException& e) {
-        A2_LOG_INFO_EX(
+        ARIA2_LOG_INFO_EX(
             fmt("CUID#%" PRId64 " - Backup connection failed", getCuid()), e);
         socket_.reset();
         retval = true;
@@ -135,7 +135,7 @@ bool BackupIPv4ConnectCommand::execute()
     }
   }
   else if (timeoutCheck_.difference(global::wallclock()) >= timeout_) {
-    A2_LOG_INFO(
+    ARIA2_LOG_INFO(
         fmt("CUID#%" PRId64 " - Backup connection command timeout", getCuid()));
     retval = true;
   }

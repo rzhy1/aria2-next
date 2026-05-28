@@ -10,6 +10,7 @@
  * (at your option) any later version.
  */
 /* copyright --> */
+#include "Log.h"
 #include "CurlDownloadCommand.h"
 
 #include <algorithm>
@@ -30,8 +31,6 @@
 #include "HttpErrorPageDetector.h"
 #include "HttpHeader.h"
 #include "HttpRangeValidator.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "Command.h"
 #include "PeerStat.h"
 #include "PieceStorage.h"
@@ -678,7 +677,7 @@ bool CurlDownloadCommand::followManualRedirect(long status)
     throw DOWNLOAD_FAILURE_EXCEPTION(
         fmt("Invalid redirect URI: %s", location_.c_str()));
   }
-  A2_LOG_NOTICE(fmt(MSG_REDIRECT, getCuid(),
+  ARIA2_LOG_INFO(fmt(MSG_REDIRECT, getCuid(),
                     getRequest()->getCurrentUri().c_str()));
   getDownloadEngine()->addCommand(
       make_unique<CurlDownloadCommand>(getCuid(), getRequest(), getFileEntry(),
@@ -785,7 +784,7 @@ std::string CurlDownloadCommand::determineFilename() const
       contentDisposition_,
       getOption()->getAsBool(PREF_CONTENT_DISPOSITION_DEFAULT_UTF8));
   if (!contentDisposition.empty()) {
-    A2_LOG_INFO(fmt(MSG_CONTENT_DISPOSITION_DETECTED, getCuid(),
+    ARIA2_LOG_INFO(fmt(MSG_CONTENT_DISPOSITION_DETECTED, getCuid(),
                     contentDisposition.c_str()));
     return contentDisposition;
   }

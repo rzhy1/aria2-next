@@ -34,7 +34,6 @@
 /* copyright --> */
 #include "Notifier.h"
 #include "RequestGroup.h"
-#include "LogFactory.h"
 
 namespace aria2 {
 

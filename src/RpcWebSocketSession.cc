@@ -10,6 +10,7 @@
  * (at your option) any later version.
  */
 /* copyright --> */
+#include "Log.h"
 #include "RpcWebSocketSession.h"
 
 #include <vector>
@@ -20,7 +21,6 @@
 #include "A2STR.h"
 #include "BoostJsonValue.h"
 #include "DownloadEngine.h"
-#include "LogFactory.h"
 #include "Option.h"
 #include "RpcResponse.h"
 #include "WebSocketSessionMan.h"
@@ -81,7 +81,7 @@ void RpcWebSocketSession::start()
   ws_.async_accept(
       request_, [self](const boost::system::error_code& ec) {
         if (ec) {
-          A2_LOG_INFO(fmt("WebSocket handshake failed: %s", ec.message().c_str()));
+          ARIA2_LOG_INFO(fmt("WebSocket handshake failed: %s", ec.message().c_str()));
           return;
         }
         if (self->engine_->getWebSocketSessionMan()) {

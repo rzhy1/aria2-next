@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "RequestGroup.h"
 
 #include <cassert>
@@ -46,8 +47,6 @@
 #include "File.h"
 #include "message.h"
 #include "util.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "DiskAdaptor.h"
 #include "DiskWriterFactory.h"
 #include "RecoverableException.h"
@@ -276,13 +275,13 @@ RequestGroup::createCheckIntegrityEntry(FileOpenMode fileOpenMode)
     loadAndOpenFile(infoFile);
     if (downloadFinished()) {
       if (downloadContext_->isChecksumVerificationNeeded()) {
-        A2_LOG_INFO(MSG_HASH_CHECK_NOT_DONE);
+        ARIA2_LOG_INFO(MSG_HASH_CHECK_NOT_DONE);
         auto tempEntry = make_unique<ChecksumCheckIntegrityEntry>(this);
         tempEntry->setRedownload(true);
         return std::move(tempEntry);
       }
       downloadContext_->setChecksumVerified(true);
-      A2_LOG_NOTICE(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED, gid_->toHex().c_str(),
+      ARIA2_LOG_INFO(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED, gid_->toHex().c_str(),
                         downloadContext_->getBasePath().c_str()));
       return nullptr;
     }
@@ -534,12 +533,12 @@ void RequestGroup::initPieceStorage()
           DiskAdaptor::FILE_ALLOC_FALLOC &&
       isFileAllocationEnabled()) {
     if (!util::gainPrivilege(SE_MANAGE_VOLUME_NAME)) {
-      A2_LOG_WARN("--file-allocation=falloc will not work properly.");
+      ARIA2_LOG_WARN("--file-allocation=falloc will not work properly.");
     }
     else {
-      A2_LOG_DEBUG("SE_MANAGE_VOLUME_NAME privilege acquired");
+      ARIA2_LOG_DEBUG("SE_MANAGE_VOLUME_NAME privilege acquired");
 
-      A2_LOG_WARN(
+      ARIA2_LOG_WARN(
           "--file-allocation=falloc will use SetFileValidData() API, and "
           "aria2 uses uninitialized disk space which may contain "
           "confidential data as the download file space. If it is "
@@ -588,14 +587,14 @@ void RequestGroup::adjustFilename(
     if (requestGroupMan_->isSameFileBeingDownloaded(this)) {
       // The file name must be renamed
       tryAutoFileRenaming();
-      A2_LOG_NOTICE(fmt(MSG_FILE_RENAMED, getFirstFilePath().c_str()));
+      ARIA2_LOG_INFO(fmt(MSG_FILE_RENAMED, getFirstFilePath().c_str()));
       return;
     }
   }
   if (!option_->getAsBool(PREF_DRY_RUN) &&
       option_->getAsBool(PREF_REMOVE_CONTROL_FILE) && infoFile->exists()) {
     infoFile->removeFile();
-    A2_LOG_NOTICE(fmt(_("Removed control file for %s because it is requested by"
+    ARIA2_LOG_INFO(fmt(_("Removed control file for %s because it is requested by"
                         " user."),
                       infoFile->getFilename().c_str()));
   }
@@ -625,7 +624,7 @@ void RequestGroup::removeDefunctControlFile(
   if (progressInfoFile->exists() &&
       !pieceStorage_->getDiskAdaptor()->fileExists()) {
     progressInfoFile->removeFile();
-    A2_LOG_NOTICE(fmt(MSG_REMOVED_DEFUNCT_CONTROL_FILE,
+    ARIA2_LOG_INFO(fmt(MSG_REMOVED_DEFUNCT_CONTROL_FILE,
                       progressInfoFile->getFilename().c_str(),
                       downloadContext_->getBasePath().c_str()));
   }
@@ -681,7 +680,7 @@ void RequestGroup::shouldCancelDownloadForSafety()
   }
 
   tryAutoFileRenaming();
-  A2_LOG_NOTICE(fmt(MSG_FILE_RENAMED, getFirstFilePath().c_str()));
+  ARIA2_LOG_INFO(fmt(MSG_FILE_RENAMED, getFirstFilePath().c_str()));
 }
 
 void RequestGroup::tryAutoFileRenaming()
@@ -1066,7 +1065,7 @@ void RequestGroup::decreaseNumCommand()
 {
   --numCommand_;
   if (!numCommand_ && requestGroupMan_) {
-    A2_LOG_DEBUG(fmt("GID#%s - Request queue check", gid_->toHex().c_str()));
+    ARIA2_LOG_DEBUG(fmt("GID#%s - Request queue check", gid_->toHex().c_str()));
     requestGroupMan_->requestQueueCheck();
   }
 }
@@ -1095,7 +1094,7 @@ void RequestGroup::setHaltRequested(bool f, HaltReason haltReason)
     pauseRequested_ = false;
     haltReason_ = haltReason;
     if (!numCommand_ && requestGroupMan_) {
-      A2_LOG_DEBUG(fmt("GID#%s - Request queue check", gid_->toHex().c_str()));
+      ARIA2_LOG_DEBUG(fmt("GID#%s - Request queue check", gid_->toHex().c_str()));
       requestGroupMan_->requestQueueCheck();
     }
   }
@@ -1171,7 +1170,7 @@ bool RequestGroup::needsFileAllocation() const
 
 std::shared_ptr<DownloadResult> RequestGroup::createDownloadResult() const
 {
-  A2_LOG_DEBUG(fmt("GID#%s - Creating DownloadResult.", gid_->toHex().c_str()));
+  ARIA2_LOG_DEBUG(fmt("GID#%s - Creating DownloadResult.", gid_->toHex().c_str()));
   TransferStat st = calculateStat();
   auto res = std::make_shared<DownloadResult>();
   res->gid = gid_;
@@ -1214,7 +1213,7 @@ std::shared_ptr<DownloadResult> RequestGroup::createDownloadResult() const
 
 void RequestGroup::reportDownloadFinished()
 {
-  A2_LOG_NOTICE(fmt(MSG_FILE_DOWNLOAD_COMPLETED,
+  ARIA2_LOG_INFO(fmt(MSG_FILE_DOWNLOAD_COMPLETED,
                     inMemoryDownload()
                         ? getFirstFilePath().c_str()
                         : downloadContext_->getBasePath().c_str()));
@@ -1231,10 +1230,10 @@ void RequestGroup::applyLastModifiedTimeToLocalFiles()
   if (!pieceStorage_ || !lastModifiedTime_.good()) {
     return;
   }
-  A2_LOG_INFO(fmt("Applying Last-Modified time: %s",
+  ARIA2_LOG_INFO(fmt("Applying Last-Modified time: %s",
                   lastModifiedTime_.toHTTPDate().c_str()));
   size_t n = pieceStorage_->getDiskAdaptor()->utime(Time(), lastModifiedTime_);
-  A2_LOG_INFO(fmt("Last-Modified attrs of %lu files were updated.",
+  ARIA2_LOG_INFO(fmt("Last-Modified attrs of %lu files were updated.",
                   static_cast<unsigned long>(n)));
 }
 

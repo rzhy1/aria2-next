@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "Piece.h"
 
 #include <array>
@@ -44,7 +45,6 @@
 #include "a2functional.h"
 #include "WrDiskCache.h"
 #include "WrDiskCacheEntry.h"
-#include "LogFactory.h"
 #include "fmt.h"
 #include "DiskAdaptor.h"
 #include "MessageDigest.h"
@@ -339,7 +339,7 @@ void Piece::updateWrCache(WrDiskCache* diskCache, unsigned char* data,
     return;
   }
   assert(wrCache_);
-  A2_LOG_DEBUG(fmt("updateWrCache entry=%p", wrCache_.get()));
+  ARIA2_LOG_DEBUG(fmt("updateWrCache entry=%p", wrCache_.get()));
   auto cell = new WrDiskCacheEntry::DataCell();
   cell->goff = goff;
   cell->data = data;

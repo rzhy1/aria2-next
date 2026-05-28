@@ -49,11 +49,10 @@ Basic Options
   See also the :option:`--deferred-input` option.
   See also the :option:`--save-session` option.
 
-.. option:: -l, --log=<LOG>
+.. option:: --log-file=<PATH|auto|off>
 
-  The file name of the log file. If ``-`` is specified, log is written to
-  ``stdout``. If empty string("") is specified, or this option is omitted,
-  no log is written to disk at all.
+  Set the rotating log file path. ``auto`` writes to the platform default
+  diagnostics location. ``off`` disables file logging. Default: ``auto``
 
 .. option:: -j, --max-concurrent-downloads=<N>
 
@@ -914,10 +913,10 @@ Advanced Options
   Default: ``$HOME/.aria2/aria2.conf`` if present, otherwise
   ``$XDG_CONFIG_HOME/aria2/aria2.conf``.
 
-.. option:: --console-log-level=<LEVEL>
+.. option:: --console-level=<LEVEL>
 
-  Set log level to output to console.  LEVEL is either ``debug``,
-  ``info``, ``notice``, ``warn`` or ``error``.  Default: ``notice``
+  Set the console log level. LEVEL is one of ``trace``, ``debug``, ``info``,
+  ``warn``, ``error``, ``critical`` or ``off``. Default: ``info``
 
 .. option:: --content-disposition-default-utf8 [true|false]
 
@@ -1170,9 +1169,17 @@ Advanced Options
 
 .. option:: --log-level=<LEVEL>
 
-  Set log level to output.
-  LEVEL is either ``debug``, ``info``, ``notice``, ``warn`` or ``error``.
-  Default: ``debug``
+  Set the rotating file log level. LEVEL is one of ``trace``, ``debug``,
+  ``info``, ``warn``, ``error``, ``critical`` or ``off``. Default: ``info``
+
+.. option:: --log-max-size=<SIZE>
+
+  Set the maximum size of one rotating log file. Unit suffixes ``K`` and ``M``
+  are accepted. Default: ``10M``
+
+.. option:: --log-max-files=<N>
+
+  Set the number of rotating log files to keep. Default: ``5``
 
 .. option:: --on-bt-download-complete=<COMMAND>
 
@@ -1683,7 +1690,7 @@ user's home directory:
 * :option:`dir <--dir>`
 * :option:`input-file <--input-file>`
 * :option:`load-cookies <--load-cookies>`
-* :option:`log <--log>`
+* :option:`log-file <--log-file>`
 * :option:`netrc-path <--netrc-path>`
 * :option:`on-bt-download-complete <--on-bt-download-complete>`
 * :option:`on-download-complete <--on-download-complete>`
@@ -2934,8 +2941,11 @@ REMOVEME    >>> from pprint import pprint
   * :option:`bt-max-open-files <--bt-max-open-files>`
   * :option:`download-result <--download-result>`
   * :option:`keep-unfinished-download-result <--keep-unfinished-download-result>`
-  * :option:`log <-l>`
+  * :option:`console-level <--console-level>`
+  * :option:`log-file <--log-file>`
   * :option:`log-level <--log-level>`
+  * :option:`log-max-files <--log-max-files>`
+  * :option:`log-max-size <--log-max-size>`
   * :option:`max-concurrent-downloads <-j>`
   * :option:`max-download-result <--max-download-result>`
   * :option:`max-overall-download-limit <--max-overall-download-limit>`
@@ -2953,10 +2963,11 @@ REMOVEME    >>> from pprint import pprint
   :option:`pause <--pause>` and
   :option:`select-file <--select-file>`.
 
-  With the :option:`log <-l>` option, you can dynamically start logging or
-  change log file. To stop logging, specify an empty string("") as the parameter
-  value. Note that log file is always opened in append mode. This method
-  returns ``OK`` for success.
+  Logging options can be changed dynamically with :option:`log-file <--log-file>`,
+  :option:`log-level <--log-level>`, :option:`console-level <--console-level>`,
+  :option:`log-max-size <--log-max-size>` and
+  :option:`log-max-files <--log-max-files>`. Use ``log-file=off`` to stop file
+  logging. This method returns ``OK`` for success.
 
 .. function:: aria2.getGlobalStat([secret])
 

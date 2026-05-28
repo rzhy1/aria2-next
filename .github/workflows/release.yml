@@ -162,6 +162,7 @@ jobs:
           curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
+          curl_fetch "$SPDLOG_URL" "$SPDLOG_ARCHIVE" "$SPDLOG_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
 
       - name: Build zlib
@@ -211,6 +212,7 @@ jobs:
           source packaging/dependencies.env
           . packaging/scripts/common.sh
           install_boost_headers
+          install_spdlog_headers
 
       - name: Build libtorrent-rasterbar
         run: |
@@ -286,6 +288,7 @@ jobs:
           curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
+          curl_fetch "$SPDLOG_URL" "$SPDLOG_ARCHIVE" "$SPDLOG_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
 
       - name: Build zlib
@@ -335,6 +338,7 @@ jobs:
           source packaging/dependencies.env
           . packaging/scripts/common.sh
           install_boost_headers
+          install_spdlog_headers
 
       - name: Build libtorrent-rasterbar
         run: |
@@ -408,6 +412,7 @@ jobs:
           curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
+          curl_fetch "$SPDLOG_URL" "$SPDLOG_ARCHIVE" "$SPDLOG_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
 
       - name: Build zlib
@@ -457,6 +462,7 @@ jobs:
           source packaging/dependencies.env
           . packaging/scripts/common.sh
           install_boost_headers
+          install_spdlog_headers
 
       - name: Build libtorrent-rasterbar
         run: |
@@ -529,6 +535,7 @@ jobs:
           curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
+          curl_fetch "$SPDLOG_URL" "$SPDLOG_ARCHIVE" "$SPDLOG_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
 
       - name: Build zlib
@@ -578,6 +585,7 @@ jobs:
           source packaging/dependencies.env
           . packaging/scripts/common.sh
           install_boost_headers
+          install_spdlog_headers
 
       - name: Build libtorrent-rasterbar
         run: |
@@ -656,6 +664,7 @@ jobs:
           curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
+          curl_fetch "$SPDLOG_URL" "$SPDLOG_ARCHIVE" "$SPDLOG_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
 
       - name: Build zlib
@@ -723,6 +732,7 @@ jobs:
           source packaging/dependencies.env
           . packaging/scripts/common.sh
           install_boost_headers
+          install_spdlog_headers
 
       - name: Build libtorrent-rasterbar
         run: |
@@ -838,6 +848,7 @@ jobs:
           curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
           curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
+          curl_fetch "$SPDLOG_URL" "$SPDLOG_ARCHIVE" "$SPDLOG_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
 
       - name: Build zlib
@@ -908,6 +919,7 @@ jobs:
           source packaging/dependencies.env
           . packaging/scripts/common.sh
           install_boost_headers
+          install_spdlog_headers
 
       - name: Build libtorrent-rasterbar
         run: |

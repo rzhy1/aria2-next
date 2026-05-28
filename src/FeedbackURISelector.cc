@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "FeedbackURISelector.h"
 
 #include <cassert>
@@ -41,8 +42,6 @@
 #include "ServerStat.h"
 #include "A2STR.h"
 #include "FileEntry.h"
-#include "Logger.h"
-#include "LogFactory.h"
 #include "a2algo.h"
 #include "uri.h"
 #include "fmt.h"
@@ -61,9 +60,9 @@ std::string FeedbackURISelector::select(
     FileEntry* fileEntry,
     const std::vector<std::pair<size_t, std::string>>& usedHosts)
 {
-  if (A2_LOG_DEBUG_ENABLED) {
+  if (ARIA2_LOG_DEBUG_ENABLED) {
     for (const auto& h : usedHosts) {
-      A2_LOG_DEBUG(fmt("UsedHost=%lu, %s", static_cast<unsigned long>(h.first),
+      ARIA2_LOG_DEBUG(fmt("UsedHost=%lu, %s", static_cast<unsigned long>(h.first),
                        h.second.c_str()));
     }
   }
@@ -74,14 +73,14 @@ std::string FeedbackURISelector::select(
   // it again without usedHosts.
   std::string uri = selectFaster(fileEntry->getRemainingUris(), usedHosts);
   if (uri.empty()) {
-    A2_LOG_DEBUG("No URI returned from selectFaster()");
+    ARIA2_LOG_DEBUG("No URI returned from selectFaster()");
     uri = selectRarer(fileEntry->getRemainingUris(), usedHosts);
   }
   if (!uri.empty()) {
     std::deque<std::string>& uris = fileEntry->getRemainingUris();
     uris.erase(std::find(uris.begin(), uris.end(), uri));
   }
-  A2_LOG_DEBUG(fmt("FeedbackURISelector selected %s", uri.c_str()));
+  ARIA2_LOG_DEBUG(fmt("FeedbackURISelector selected %s", uri.c_str()));
   return uri;
 }
 
@@ -100,7 +99,7 @@ std::string FeedbackURISelector::selectRarer(
     auto protocol = uri::getFieldString(us, USR_SCHEME, u.c_str());
     auto ss = serverStatMan_->find(host, protocol);
     if (ss && ss->isError()) {
-      A2_LOG_DEBUG(fmt("Error not considered: %s", u.c_str()));
+      ARIA2_LOG_DEBUG(fmt("Error not considered: %s", u.c_str()));
       continue;
     }
     cands.push_back(std::make_pair(host, u));
@@ -137,7 +136,7 @@ std::string FeedbackURISelector::selectFaster(
     auto host = uri::getFieldString(us, USR_HOST, u.c_str());
     if (findSecond(usedHosts.begin(), usedHosts.end(), host) !=
         usedHosts.end()) {
-      A2_LOG_DEBUG(fmt("%s is in usedHosts, not considered", u.c_str()));
+      ARIA2_LOG_DEBUG(fmt("%s is in usedHosts, not considered", u.c_str()));
       continue;
     }
     auto protocol = uri::getFieldString(us, USR_SCHEME, u.c_str());
@@ -159,12 +158,12 @@ std::string FeedbackURISelector::selectFaster(
       return A2STR::NIL;
     }
     else {
-      A2_LOG_DEBUG("Selected from normCands");
+      ARIA2_LOG_DEBUG("Selected from normCands");
       return normCands.front();
     }
   }
   else {
-    A2_LOG_DEBUG("Selected from fastCands");
+    ARIA2_LOG_DEBUG("Selected from fastCands");
     std::sort(fastCands.begin(), fastCands.end(), ServerStatFaster());
     return fastCands.front().second;
   }

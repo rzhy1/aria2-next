@@ -55,7 +55,6 @@
 #include "console.h"
 #include "OptionParser.h"
 #include "prefs.h"
-#include "LogFactory.h"
 #include "util.h"
 #include "SocketCore.h"
 

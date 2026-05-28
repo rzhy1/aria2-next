@@ -48,8 +48,8 @@ namespace aria2 {
 std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
 {
   std::vector<OptionHandler*> handlers;
-  static const std::string logLevels[] = {V_DEBUG, V_INFO, V_NOTICE, V_WARN,
-                                          V_ERROR};
+  static const std::string logLevels[] = {V_TRACE, V_DEBUG, V_INFO, V_WARN,
+                                          V_ERROR, V_CRITICAL, V_OFF};
   // General Options
   {
     OptionHandler* op(new BooleanOptionHandler(PREF_ALLOW_OVERWRITE,
@@ -266,7 +266,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
   }
   {
     OptionHandler* op(new ParameterOptionHandler(
-        PREF_CONSOLE_LOG_LEVEL, TEXT_CONSOLE_LOG_LEVEL, V_NOTICE,
+        PREF_CONSOLE_LEVEL, TEXT_CONSOLE_LEVEL, V_INFO,
         {std::begin(logLevels), std::end(logLevels)}));
     op->addTag(TAG_ADVANCED);
     handlers.push_back(op);
@@ -482,17 +482,30 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(new LocalFilePathOptionHandler(
-        PREF_LOG, TEXT_LOG, NO_DEFAULT_VALUE, /* acceptStdin = */ false, 'l',
-        /* mustExist = */ false, PATH_TO_FILE_STDOUT));
+    OptionHandler* op(new DefaultOptionHandler(PREF_LOG_FILE, TEXT_LOG_FILE,
+                                               V_AUTO));
     op->addTag(TAG_BASIC);
     op->setChangeGlobalOption(true);
     handlers.push_back(op);
   }
   {
     OptionHandler* op(new ParameterOptionHandler(
-        PREF_LOG_LEVEL, TEXT_LOG_LEVEL, V_DEBUG,
+        PREF_LOG_LEVEL, TEXT_LOG_LEVEL, V_INFO,
         {std::begin(logLevels), std::end(logLevels)}));
+    op->addTag(TAG_ADVANCED);
+    op->setChangeGlobalOption(true);
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new UnitNumberOptionHandler(
+        PREF_LOG_MAX_SIZE, TEXT_LOG_MAX_SIZE, "10M", 1));
+    op->addTag(TAG_ADVANCED);
+    op->setChangeGlobalOption(true);
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new NumberOptionHandler(PREF_LOG_MAX_FILES,
+                                              TEXT_LOG_MAX_FILES, "5", 1, 100));
     op->addTag(TAG_ADVANCED);
     op->setChangeGlobalOption(true);
     handlers.push_back(op);

@@ -154,9 +154,12 @@ const std::string V_ARC4("arc4");
 const std::string V_HTTP("http");
 const std::string V_HTTPS("https");
 const std::string V_FTP("ftp");
+const std::string V_TRACE("trace");
 const std::string A2_V_TLS11("TLSv1.1");
 const std::string A2_V_TLS12("TLSv1.2");
 const std::string A2_V_TLS13("TLSv1.3");
+const std::string V_CRITICAL("critical");
+const std::string V_OFF("off");
 
 PrefPtr PREF_VERSION = makePref("version");
 PrefPtr PREF_HELP = makePref("help");
@@ -176,8 +179,8 @@ PrefPtr PREF_CONNECT_TIMEOUT = makePref("connect-timeout");
 PrefPtr PREF_MAX_TRIES = makePref("max-tries");
 // values: 1*digit
 PrefPtr PREF_AUTO_SAVE_INTERVAL = makePref("auto-save-interval");
-// values: a string that your file system recognizes as a file name.
-PrefPtr PREF_LOG = makePref("log");
+// values: auto | off | a string that your file system recognizes as a file name.
+PrefPtr PREF_LOG_FILE = makePref("log-file");
 // values: a string that your file system recognizes as a directory.
 PrefPtr PREF_DIR = makePref("dir");
 // values: a string that your file system recognizes as a file name.
@@ -251,10 +254,14 @@ PrefPtr PREF_QUIET = makePref("quiet");
 // value: true | false
 // value: 1*digit
 PrefPtr PREF_SUMMARY_INTERVAL = makePref("summary-interval");
-// value: debug, info, notice, warn, error
+// value: trace, debug, info, warn, error, critical, off
 PrefPtr PREF_LOG_LEVEL = makePref("log-level");
-// value: debug, info, notice, warn, error
-PrefPtr PREF_CONSOLE_LOG_LEVEL = makePref("console-log-level");
+// value: trace, debug, info, warn, error, critical, off
+PrefPtr PREF_CONSOLE_LEVEL = makePref("console-level");
+// value: 1*digit with optional unit suffix.
+PrefPtr PREF_LOG_MAX_SIZE = makePref("log-max-size");
+// value: 1*digit.
+PrefPtr PREF_LOG_MAX_FILES = makePref("log-max-files");
 // value: inorder | feedback | adaptive
 PrefPtr PREF_URI_SELECTOR = makePref("uri-selector");
 // value: 1*digit

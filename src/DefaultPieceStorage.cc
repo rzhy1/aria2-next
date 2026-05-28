@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "DefaultPieceStorage.h"
 
 #include <numeric>
@@ -39,8 +40,6 @@
 
 #include "DownloadContext.h"
 #include "Piece.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "prefs.h"
 #include "DirectDiskAdaptor.h"
 #include "MultiDiskAdaptor.h"
@@ -158,7 +157,7 @@ std::shared_ptr<Piece> DefaultPieceStorage::getPiece(size_t index)
 void DefaultPieceStorage::addUsedPiece(const std::shared_ptr<Piece>& piece)
 {
   usedPieces_.insert(piece);
-  A2_LOG_DEBUG(fmt("usedPieces_.size()=%lu",
+  ARIA2_LOG_DEBUG(fmt("usedPieces_.size()=%lu",
                    static_cast<unsigned long>(usedPieces_.size())));
 }
 
@@ -274,13 +273,13 @@ void DefaultPieceStorage::completePiece(const std::shared_ptr<Piece>& piece)
   if (downloadFinished()) {
     downloadContext_->resetDownloadStopTime();
     if (isSelectiveDownloadingMode()) {
-      A2_LOG_NOTICE(MSG_SELECTIVE_DOWNLOAD_COMPLETED);
+      ARIA2_LOG_INFO(MSG_SELECTIVE_DOWNLOAD_COMPLETED);
       // following line was commented out in order to stop sending request
       // message after user-specified files were downloaded.
       // finishSelectiveDownloadingMode();
     }
     else {
-      A2_LOG_INFO(MSG_DOWNLOAD_COMPLETED);
+      ARIA2_LOG_INFO(MSG_DOWNLOAD_COMPLETED);
     }
   }
 }
@@ -412,7 +411,7 @@ bool DefaultPieceStorage::allDownloadFinished()
 void DefaultPieceStorage::initStorage()
 {
   if (downloadContext_->getFileEntries().size() == 1) {
-    A2_LOG_DEBUG("Instantiating DirectDiskAdaptor");
+    ARIA2_LOG_DEBUG("Instantiating DirectDiskAdaptor");
     auto directDiskAdaptor = std::make_shared<DirectDiskAdaptor>();
     directDiskAdaptor->setTotalLength(downloadContext_->getTotalLength());
     directDiskAdaptor->setFileEntries(
@@ -424,7 +423,7 @@ void DefaultPieceStorage::initStorage()
     diskAdaptor_ = std::move(directDiskAdaptor);
   }
   else {
-    A2_LOG_DEBUG("Instantiating MultiDiskAdaptor");
+    ARIA2_LOG_DEBUG("Instantiating MultiDiskAdaptor");
     auto multiDiskAdaptor = std::make_shared<MultiDiskAdaptor>();
     multiDiskAdaptor->setFileEntries(downloadContext_->getFileEntries().begin(),
                                      downloadContext_->getFileEntries().end());
@@ -520,7 +519,7 @@ void DefaultPieceStorage::removeAdvertisedPiece(const Timer& expiry)
                                return expiry < have.registeredTime;
                              });
 
-  A2_LOG_DEBUG(
+  ARIA2_LOG_DEBUG(
       fmt(MSG_REMOVED_HAVE_ENTRY,
           static_cast<unsigned long>(std::distance(std::begin(haves_), it))));
 

@@ -111,9 +111,12 @@ extern const std::string V_ARC4;
 extern const std::string V_HTTP;
 extern const std::string V_HTTPS;
 extern const std::string V_FTP;
+extern const std::string V_TRACE;
 extern const std::string A2_V_TLS11;
 extern const std::string A2_V_TLS12;
 extern const std::string A2_V_TLS13;
+extern const std::string V_CRITICAL;
+extern const std::string V_OFF;
 
 extern PrefPtr PREF_VERSION;
 extern PrefPtr PREF_HELP;
@@ -133,8 +136,8 @@ extern PrefPtr PREF_CONNECT_TIMEOUT;
 extern PrefPtr PREF_MAX_TRIES;
 // values: 1*digit
 extern PrefPtr PREF_AUTO_SAVE_INTERVAL;
-// values: a string that your file system recognizes as a file name.
-extern PrefPtr PREF_LOG;
+// values: auto | off | a string that your file system recognizes as a file name.
+extern PrefPtr PREF_LOG_FILE;
 // values: a string that your file system recognizes as a directory.
 extern PrefPtr PREF_DIR;
 // values: a string that your file system recognizes as a file name.
@@ -203,10 +206,14 @@ extern PrefPtr PREF_STOP;
 extern PrefPtr PREF_QUIET;
 // value: 1*digit
 extern PrefPtr PREF_SUMMARY_INTERVAL;
-// value: debug, info, notice, warn, error
+// value: trace, debug, info, warn, error, critical, off
 extern PrefPtr PREF_LOG_LEVEL;
-// value: debug, info, notice, warn, error
-extern PrefPtr PREF_CONSOLE_LOG_LEVEL;
+// value: trace, debug, info, warn, error, critical, off
+extern PrefPtr PREF_CONSOLE_LEVEL;
+// value: 1*digit with optional unit suffix.
+extern PrefPtr PREF_LOG_MAX_SIZE;
+// value: 1*digit.
+extern PrefPtr PREF_LOG_MAX_FILES;
 // value: inorder | feedback | adaptive
 extern PrefPtr PREF_URI_SELECTOR;
 // value: 1*digit

@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "util.h"
 
 #ifdef __sun
@@ -77,8 +78,6 @@
 #include "array_fun.h"
 #include "bitfield.h"
 #include "RequestGroup.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "Option.h"
 #include "DownloadContext.h"
 #include "BufferedFile.h"
@@ -1747,13 +1746,13 @@ void setGlobalSignalHandler(int sig, sigset_t* mask, signal_handler_t handler,
   sigact.sa_mask = *mask;
   if (sigaction(sig, &sigact, nullptr) == -1) {
     auto errNum = errno;
-    A2_LOG_ERROR(fmt("sigaction() failed for signal %d: %s", sig,
+    ARIA2_LOG_ERROR(fmt("sigaction() failed for signal %d: %s", sig,
                      safeStrerror(errNum).c_str()));
   }
 #else
   if (signal(sig, handler) == SIG_ERR) {
     auto errNum = errno;
-    A2_LOG_ERROR(fmt("signal() failed for signal %d: %s", sig,
+    ARIA2_LOG_ERROR(fmt("signal() failed for signal %d: %s", sig,
                      safeStrerror(errNum).c_str()));
   }
 #endif // HAVE_SIGACTION
@@ -2266,7 +2265,7 @@ void executeHook(const std::string& command, a2_gid_t gid, size_t numFiles,
   const std::string gidStr = GroupId::toHex(gid);
   const std::string numFilesStr = util::uitos(numFiles);
 #ifndef __MINGW32__
-  A2_LOG_INFO(fmt("Executing user command: %s %s %s %s", command.c_str(),
+  ARIA2_LOG_INFO(fmt("Executing user command: %s %s %s %s", command.c_str(),
                   gidStr.c_str(), numFilesStr.c_str(), firstFilename.c_str()));
   pid_t cpid = fork();
   if (cpid == 0) {
@@ -2280,7 +2279,7 @@ void executeHook(const std::string& command, a2_gid_t gid, size_t numFiles,
   }
 
   if (cpid == -1) {
-    A2_LOG_ERROR("fork() failed. Cannot execute user command.");
+    ARIA2_LOG_ERROR("fork() failed. Cannot execute user command.");
   }
   return;
 
@@ -2303,7 +2302,7 @@ void executeHook(const std::string& command, a2_gid_t gid, size_t numFiles,
       cmdexe += "\\system32\\cmd.exe";
     }
     else {
-      A2_LOG_INFO("Failed to get windir environment variable."
+      ARIA2_LOG_INFO("Failed to get windir environment variable."
                   " Executing batch file will fail.");
       // TODO Might be useless.
       cmdexe = "cmd.exe";
@@ -2328,13 +2327,13 @@ void executeHook(const std::string& command, a2_gid_t gid, size_t numFiles,
   auto wcharCmdline = make_unique<wchar_t[]>(cmdlineLen);
   cmdlineLen = utf8ToWChar(wcharCmdline.get(), cmdlineLen, cmdline.c_str());
   assert(cmdlineLen > 0);
-  A2_LOG_INFO(fmt("Executing user command: %s", cmdline.c_str()));
+  ARIA2_LOG_INFO(fmt("Executing user command: %s", cmdline.c_str()));
   DWORD rc = CreateProcessW(batch ? utf8ToWChar(cmdexe).c_str() : nullptr,
                             wcharCmdline.get(), nullptr, nullptr, false, 0,
                             nullptr, 0, &si, &pi);
 
   if (!rc) {
-    A2_LOG_ERROR("CreateProcess() failed. Cannot execute user command.");
+    ARIA2_LOG_ERROR("CreateProcess() failed. Cannot execute user command.");
   }
   return;
 
@@ -2558,7 +2557,7 @@ bool gainPrivilege(LPCTSTR privName)
 
   if (!LookupPrivilegeValue(nullptr, privName, &luid)) {
     auto errNum = GetLastError();
-    A2_LOG_WARN(fmt("Lookup for privilege name %s failed. cause: %s", privName,
+    ARIA2_LOG_WARN(fmt("Lookup for privilege name %s failed. cause: %s", privName,
                     util::formatLastError(errNum).c_str()));
     return false;
   }
@@ -2571,7 +2570,7 @@ bool gainPrivilege(LPCTSTR privName)
   if (!OpenProcessToken(GetCurrentProcess(),
                         TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
     auto errNum = GetLastError();
-    A2_LOG_WARN(fmt("Getting process token failed. cause: %s",
+    ARIA2_LOG_WARN(fmt("Getting process token failed. cause: %s",
                     util::formatLastError(errNum).c_str()));
     return false;
   }
@@ -2580,7 +2579,7 @@ bool gainPrivilege(LPCTSTR privName)
 
   if (!AdjustTokenPrivileges(token, FALSE, &tp, 0, NULL, NULL)) {
     auto errNum = GetLastError();
-    A2_LOG_WARN(fmt("Gaining privilege %s failed. cause: %s", privName,
+    ARIA2_LOG_WARN(fmt("Gaining privilege %s failed. cause: %s", privName,
                     util::formatLastError(errNum).c_str()));
     return false;
   }
@@ -2589,7 +2588,7 @@ bool gainPrivilege(LPCTSTR privName)
   DWORD bufsize = 0;
   GetTokenInformation(token, TokenPrivileges, nullptr, 0, &bufsize);
   if (bufsize == 0) {
-    A2_LOG_WARN("Checking privilege failed.");
+    ARIA2_LOG_WARN("Checking privilege failed.");
     return false;
   }
 
@@ -2597,7 +2596,7 @@ bool gainPrivilege(LPCTSTR privName)
   if (!GetTokenInformation(token, TokenPrivileges, buf.get(), bufsize,
                            &bufsize)) {
     auto errNum = GetLastError();
-    A2_LOG_WARN(fmt("Checking privilege failed. cause: %s",
+    ARIA2_LOG_WARN(fmt("Checking privilege failed. cause: %s",
                     util::formatLastError(errNum).c_str()));
     return false;
   }
@@ -2615,7 +2614,7 @@ bool gainPrivilege(LPCTSTR privName)
     break;
   }
 
-  A2_LOG_WARN(fmt("Gaining privilege %s failed.", privName));
+  ARIA2_LOG_WARN(fmt("Gaining privilege %s failed.", privName));
 
   return false;
 }

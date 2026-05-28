@@ -92,6 +92,17 @@ install_boost_headers() {
   aria2_copy_tree "boost_${BOOST_VERSION_UNDERSCORE}/boost" "$PREFIX/include/"
 }
 
+install_spdlog_headers() {
+  if [ -z "$PREFIX" ]; then
+    echo "install_spdlog_headers requires PREFIX" >&2
+    exit 1
+  fi
+
+  tar xf "$SPDLOG_ARCHIVE"
+  aria2_install_dir "$PREFIX/include"
+  aria2_copy_tree "spdlog-$SPDLOG_VERSION/include/spdlog" "$PREFIX/include/"
+}
+
 build_libssh2_for_curl() {
   if [ -z "$PREFIX" ]; then
     echo "build_libssh2_for_curl requires PREFIX" >&2

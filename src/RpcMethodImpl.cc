@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "RpcMethodImpl.h"
 
 #include <cassert>
@@ -39,8 +40,6 @@
 #include <limits>
 #include <sstream>
 
-#include "Logger.h"
-#include "LogFactory.h"
 #include "DlAbortEx.h"
 #include "Option.h"
 #include "OptionParser.h"
@@ -432,12 +431,12 @@ std::unique_ptr<ValueBase> AddTorrentRpcMethod::process(const RpcRequest& req,
     // Save uploaded data in order to save this download in
     // --save-session file.
     if (util::saveAs(filename, torrentParam->s(), true)) {
-      A2_LOG_INFO(
+      ARIA2_LOG_INFO(
           fmt("Uploaded torrent data was saved as %s", filename.c_str()));
       requestOption->put(PREF_TORRENT_FILE, filename);
     }
     else {
-      A2_LOG_INFO(fmt("Uploaded torrent data was not saved."
+      ARIA2_LOG_INFO(fmt("Uploaded torrent data was not saved."
                       " Failed to write file %s",
                       filename.c_str()));
       filename.clear();
@@ -1670,7 +1669,7 @@ std::unique_ptr<ValueBase> goingShutdown(const RpcRequest& req,
   // receive RPC response.
   e->addRoutineCommand(
       make_unique<TimedHaltCommand>(e->newCUID(), e, 3_s, forceHalt));
-  A2_LOG_INFO("Scheduled shutdown in 3 seconds.");
+  ARIA2_LOG_INFO("Scheduled shutdown in 3 seconds.");
   return createOKResponse();
 }
 } // namespace
@@ -1711,7 +1710,7 @@ std::unique_ptr<ValueBase> SaveSessionRpcMethod::process(const RpcRequest& req,
   }
   SessionSerializer sessionSerializer(e->getRequestGroupMan().get());
   if (sessionSerializer.save(filename)) {
-    A2_LOG_NOTICE(
+    ARIA2_LOG_INFO(
         fmt(_("Serialized session to '%s' successfully."), filename.c_str()));
     return createOKResponse();
   }
@@ -1780,7 +1779,7 @@ RpcResponse SystemMulticallRpcMethod::execute(RpcRequest req, DownloadEngine* e)
     return RpcResponse(0, authorized, std::move(list), std::move(req.id));
   }
   catch (RecoverableException& ex) {
-    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, ex);
+    ARIA2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, ex);
     return RpcResponse(1, authorized, createErrorResponse(ex, req),
                        std::move(req.id));
   }
@@ -1988,17 +1987,10 @@ void changeGlobalOption(const Option& option, DownloadEngine* e)
     e->getRequestGroupMan()->setMaxDownloadResult(
         option.getAsInt(PREF_MAX_DOWNLOAD_RESULT));
   }
-  if (option.defined(PREF_LOG_LEVEL)) {
-    LogFactory::setLogLevel(option.get(PREF_LOG_LEVEL));
-  }
-  if (option.defined(PREF_LOG)) {
-    LogFactory::setLogFile(option.get(PREF_LOG));
-    try {
-      LogFactory::reconfigure();
-    }
-    catch (RecoverableException& e) {
-      // TODO no exception handling
-    }
+  if (option.defined(PREF_LOG_LEVEL) || option.defined(PREF_LOG_FILE) ||
+      option.defined(PREF_LOG_MAX_SIZE) || option.defined(PREF_LOG_MAX_FILES) ||
+      option.defined(PREF_CONSOLE_LEVEL)) {
+    log::configure(log::configFromOption(option));
   }
   if (option.defined(PREF_BT_MAX_OPEN_FILES)) {
     auto& openedFileCounter = e->getRequestGroupMan()->getOpenedFileCounter();

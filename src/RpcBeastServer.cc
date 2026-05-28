@@ -10,6 +10,7 @@
  * (at your option) any later version.
  */
 /* copyright --> */
+#include "Log.h"
 #include "RpcBeastServer.h"
 
 #include <algorithm>
@@ -23,7 +24,6 @@
 
 #include "AsioRuntime.h"
 #include "DownloadEngine.h"
-#include "LogFactory.h"
 #include "Option.h"
 #include "RpcHttpHandler.h"
 #include "RpcWebSocketSession.h"
@@ -211,34 +211,34 @@ bool RpcBeastServer::bindPort(uint16_t port)
 
   acceptor_.open(endpoint.protocol(), ec);
   if (ec) {
-    A2_LOG_ERROR(fmt("IPv%d RPC: failed to open TCP port %u: %s", ipv, port,
+    ARIA2_LOG_ERROR(fmt("IPv%d RPC: failed to open TCP port %u: %s", ipv, port,
                      ec.message().c_str()));
     return false;
   }
 
   acceptor_.set_option(asio::socket_base::reuse_address(true), ec);
   if (ec) {
-    A2_LOG_ERROR(fmt("IPv%d RPC: failed to prepare TCP port %u: %s", ipv, port,
+    ARIA2_LOG_ERROR(fmt("IPv%d RPC: failed to prepare TCP port %u: %s", ipv, port,
                      ec.message().c_str()));
     return false;
   }
 
   acceptor_.bind(endpoint, ec);
   if (ec) {
-    A2_LOG_ERROR(fmt("IPv%d RPC: failed to bind TCP port %u: %s", ipv, port,
+    ARIA2_LOG_ERROR(fmt("IPv%d RPC: failed to bind TCP port %u: %s", ipv, port,
                      ec.message().c_str()));
     return false;
   }
 
   acceptor_.listen(asio::socket_base::max_listen_connections, ec);
   if (ec) {
-    A2_LOG_ERROR(fmt("IPv%d RPC: failed to listen on TCP port %u: %s", ipv,
+    ARIA2_LOG_ERROR(fmt("IPv%d RPC: failed to listen on TCP port %u: %s", ipv,
                      port, ec.message().c_str()));
     return false;
   }
 
-  A2_LOG_INFO(fmt(MSG_LISTENING_PORT, engine_->newCUID(), port));
-  A2_LOG_NOTICE(fmt(_("IPv%d RPC: listening on TCP port %u"), ipv, port));
+  ARIA2_LOG_INFO(fmt(MSG_LISTENING_PORT, engine_->newCUID(), port));
+  ARIA2_LOG_INFO(fmt(_("IPv%d RPC: listening on TCP port %u"), ipv, port));
   accept();
   return true;
 }
@@ -257,7 +257,7 @@ void RpcBeastServer::accept()
     if (!ec) {
       socket.set_option(tcp::no_delay(true));
       auto endpoint = socket.remote_endpoint();
-      A2_LOG_INFO(fmt("RPC: Accepted the connection from %s:%u.",
+      ARIA2_LOG_INFO(fmt("RPC: Accepted the connection from %s:%u.",
                       endpoint.address().to_string().c_str(),
                       endpoint.port()));
       std::make_shared<RpcBeastSession>(std::move(socket), self->engine_)

@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "PollEventPoll.h"
 
 #include <cstring>
@@ -39,8 +40,6 @@
 #include <numeric>
 
 #include "Command.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "a2functional.h"
 #include "fmt.h"
 #include "util.h"
@@ -90,7 +89,7 @@ void PollEventPoll::poll(const struct timeval& tv)
       if (first->revents) {
         auto itr = socketEntries_.find(first->fd);
         if (itr == std::end(socketEntries_)) {
-          A2_LOG_DEBUG(
+          ARIA2_LOG_DEBUG(
               fmt("Socket %d is not found in SocketEntries.", first->fd));
         }
         else {
@@ -101,7 +100,7 @@ void PollEventPoll::poll(const struct timeval& tv)
   }
   else if (res == -1) {
     int errNum = errno;
-    A2_LOG_INFO(fmt("poll error: %s", util::safeStrerror(errNum).c_str()));
+    ARIA2_LOG_INFO(fmt("poll error: %s", util::safeStrerror(errNum).c_str()));
   }
 
 }
@@ -168,7 +167,7 @@ bool PollEventPoll::deleteEvents(sock_t socket,
 {
   auto i = socketEntries_.find(socket);
   if (i == std::end(socketEntries_)) {
-    A2_LOG_DEBUG(fmt("Socket %d is not found in SocketEntries.", socket));
+    ARIA2_LOG_DEBUG(fmt("Socket %d is not found in SocketEntries.", socket));
     return false;
   }
 

@@ -32,6 +32,7 @@
  * files in the program, then also delete it here.
  */
 /* copyright --> */
+#include "Log.h"
 #include "DefaultProgressInfoFile.h"
 
 #include <cstring>
@@ -43,8 +44,6 @@
 #include "BitfieldMan.h"
 #include "Option.h"
 #include "TransferStat.h"
-#include "LogFactory.h"
-#include "Logger.h"
 #include "prefs.h"
 #include "DlAbortEx.h"
 #include "message.h"
@@ -158,7 +157,7 @@ void DefaultProgressInfoFile::save()
 
   lastDigest_ = std::move(digest);
 
-  A2_LOG_INFO(fmt(MSG_SAVING_SEGMENT_FILE, filename_.c_str()));
+  ARIA2_LOG_INFO(fmt(MSG_SAVING_SEGMENT_FILE, filename_.c_str()));
   std::string filenameTemp = filename_;
   filenameTemp += "__temp";
   {
@@ -170,7 +169,7 @@ void DefaultProgressInfoFile::save()
     save(fp);
   }
 
-  A2_LOG_INFO(MSG_SAVED_SEGMENT_FILE);
+  ARIA2_LOG_INFO(MSG_SAVED_SEGMENT_FILE);
 
   if (!File(filenameTemp).renameTo(filename_)) {
     throw DL_ABORT_EX(fmt(EX_SEGMENT_FILE_WRITE, filename_.c_str()));
@@ -187,7 +186,7 @@ void DefaultProgressInfoFile::save()
 // 2) network byte order if version == 0001
 void DefaultProgressInfoFile::load()
 {
-  A2_LOG_INFO(fmt(MSG_LOADING_SEGMENT_FILE, filename_.c_str()));
+  ARIA2_LOG_INFO(fmt(MSG_LOADING_SEGMENT_FILE, filename_.c_str()));
   BufferedFile fp(filename_.c_str(), BufferedFile::READ);
   if (!fp) {
     throw DL_ABORT_EX(fmt(EX_SEGMENT_FILE_READ, filename_.c_str()));
@@ -209,7 +208,7 @@ void DefaultProgressInfoFile::load()
   unsigned char extension[4];
   READ_CHECK(fp, extension, sizeof(extension));
   if (extension[3] & 1) {
-    A2_LOG_DEBUG("Ignoring obsolete BitTorrent control-file info hash.");
+    ARIA2_LOG_DEBUG("Ignoring obsolete BitTorrent control-file info hash.");
   }
 
   uint32_t infoHashLength;
@@ -339,7 +338,7 @@ void DefaultProgressInfoFile::load()
     util::convertBitfield(&dest, &src);
     pieceStorage_->setBitfield(dest.getBitfield(), dest.getBitfieldLength());
   }
-  A2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
+  ARIA2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
 }
 
 void DefaultProgressInfoFile::removeFile()
@@ -354,11 +353,11 @@ bool DefaultProgressInfoFile::exists()
 {
   File f(filename_);
   if (f.isFile()) {
-    A2_LOG_INFO(fmt(MSG_SEGMENT_FILE_EXISTS, filename_.c_str()));
+    ARIA2_LOG_INFO(fmt(MSG_SEGMENT_FILE_EXISTS, filename_.c_str()));
     return true;
   }
   else {
-    A2_LOG_INFO(fmt(MSG_SEGMENT_FILE_DOES_NOT_EXIST, filename_.c_str()));
+    ARIA2_LOG_INFO(fmt(MSG_SEGMENT_FILE_DOES_NOT_EXIST, filename_.c_str()));
     return false;
   }
 }

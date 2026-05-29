@@ -412,9 +412,14 @@ void RequestGroupTest::testCurlMetadataHeadFailureFallbackPolicy()
       true, false, false, true, 405));
   CPPUNIT_ASSERT(CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
       true, false, false, true, 501));
+  CPPUNIT_ASSERT(CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
+      true, false, false, true, 403));
   CPPUNIT_ASSERT(
       !CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
           true, false, true, true, 405));
+  CPPUNIT_ASSERT(
+      !CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
+          true, false, true, true, 403));
   CPPUNIT_ASSERT(
       !CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
           true, false, false, true, 404));

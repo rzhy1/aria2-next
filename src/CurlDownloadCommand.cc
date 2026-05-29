@@ -195,7 +195,7 @@ bool CurlDownloadCommand::shouldFallbackMetadataHeadStatusToRangeProbe(
     bool httpTransfer, long status)
 {
   return metadataProbe && !metadataRangeProbe && !explicitHead && httpTransfer &&
-         (status == 405 || status == 501);
+         (status == 403 || status == 405 || status == 501);
 }
 
 bool CurlDownloadCommand::shouldFallbackMetadataRangeProbeToFullDownload(

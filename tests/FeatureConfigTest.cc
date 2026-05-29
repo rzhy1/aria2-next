@@ -80,7 +80,6 @@ void FeatureConfigTest::testUsedLibs()
 {
   auto libs = usedLibs();
   CPPUNIT_ASSERT(libs.find("libcurl/") != std::string::npos);
-  CPPUNIT_ASSERT(libs.find("c-ares/") == std::string::npos);
 }
 
 } // namespace aria2

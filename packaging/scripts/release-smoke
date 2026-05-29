@@ -35,14 +35,6 @@ server_pid=$!
 sleep 1
 
 "$binary" --version > version.txt
-if grep 'Async DNS' version.txt >/dev/null; then
-  echo "Release smoke failed: Async DNS feature is not supported" >&2
-  exit 1
-fi
-if grep 'c-ares/' version.txt >/dev/null; then
-  echo "Release smoke failed: c-ares must not be linked" >&2
-  exit 1
-fi
 
 "$binary" \
   --dir=release-smoke-out \

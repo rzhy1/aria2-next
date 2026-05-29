@@ -45,7 +45,6 @@ namespace aria2 {
 uint16_t getDefaultPort(const std::string& protocol);
 
 enum FeatureType {
-  FEATURE_ASYNC_DNS,
   FEATURE_BITTORRENT,
   FEATURE_ED2K,
   FEATURE_GZIP,

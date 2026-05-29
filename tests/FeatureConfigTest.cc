@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <vector>
 
-#include <curl/curl.h>
-
 #include <cppunit/extensions/HelperMacros.h>
 
 #include "a2functional.h"
@@ -43,15 +41,6 @@ void FeatureConfigTest::testGetDefaultPort()
 
 void FeatureConfigTest::testStrSupportedFeature()
 {
-  auto curlInfo = curl_version_info(CURLVERSION_NOW);
-  const char* asyncDns = strSupportedFeature(FEATURE_ASYNC_DNS);
-  if (curlInfo && (curlInfo->features & CURL_VERSION_ASYNCHDNS)) {
-    CPPUNIT_ASSERT_EQUAL(std::string("Async DNS"), std::string(asyncDns));
-  }
-  else {
-    CPPUNIT_ASSERT(!asyncDns);
-  }
-
   const char* https = strSupportedFeature(FEATURE_HTTPS);
 #ifdef ENABLE_SSL
   CPPUNIT_ASSERT(https);
@@ -66,10 +55,6 @@ void FeatureConfigTest::testFeatureSummary()
 {
   std::vector<std::string> features;
 
-  auto curlInfo = curl_version_info(CURLVERSION_NOW);
-  if (curlInfo && (curlInfo->features & CURL_VERSION_ASYNCHDNS)) {
-    features.push_back("Async DNS");
-  }
 #ifdef ENABLE_BITTORRENT
   features.push_back("BitTorrent");
 #endif // ENABLE_BITTORRENT
@@ -95,11 +80,7 @@ void FeatureConfigTest::testUsedLibs()
 {
   auto libs = usedLibs();
   CPPUNIT_ASSERT(libs.find("libcurl/") != std::string::npos);
-
-  auto curlInfo = curl_version_info(CURLVERSION_NOW);
-  if (curlInfo && curlInfo->ares && curlInfo->ares[0]) {
-    CPPUNIT_ASSERT(libs.find("c-ares/") != std::string::npos);
-  }
+  CPPUNIT_ASSERT(libs.find("c-ares/") == std::string::npos);
 }
 
 } // namespace aria2

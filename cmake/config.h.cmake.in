@@ -160,8 +160,6 @@
 /* Define to 1 if you have the <langinfo.h> header file. */
 #cmakedefine HAVE_LANGINFO_H @HAVE_LANGINFO_H@
 
-/* Define to 1 if you have libcares. */
-
 /* Define to 1 if you have libcurl. */
 #cmakedefine HAVE_LIBCURL @HAVE_LIBCURL@
 

@@ -37,10 +37,6 @@ public:
 
   static long platformSslTrustOptions();
   static bool shouldDisableCurlProxy(const Option* option);
-  static bool usesSystemDnsResolver(const Option* option);
-  static std::string makeCurlResolveEntry(
-      const std::string& host, uint16_t port,
-      const std::vector<std::string>& addresses);
   static bool isRetryableHttpCurlError(CURLcode result);
   static bool supportsHttp2();
   static bool isHttpRedirectStatus(long status);
@@ -65,10 +61,9 @@ private:
   void applyCredentialOptions();
   void applyCookieAndNetrcOptions(bool hasExplicitCookie);
   void applyFtpFamilyOptions();
-  void applyDnsResolverOptions();
+  void applyAddressFamilyOptions();
   void applyMetadataProbeOptions();
   void finish(CURLcode result);
-  bool followManualRedirect(long status);
   bool finishMetadataProbe(long status);
   void completeCurrentSegment();
   void prepareKnownLengthStorage(int64_t length);
@@ -126,7 +121,6 @@ private:
   std::vector<unsigned char> pendingBody_;
   bool bodyInspectionComplete_;
   curl_slist* headerList_;
-  curl_slist* resolveList_;
   std::string proxyUri_;
 };
 

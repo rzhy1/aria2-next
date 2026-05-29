@@ -104,8 +104,6 @@ extern const std::string V_TUNNEL;
 extern const std::string V_AUTO;
 extern const std::string V_DIRECT;
 extern const std::string V_MANUAL;
-extern const std::string V_SYSTEM;
-extern const std::string V_ASYNC;
 extern const std::string V_PLAIN;
 extern const std::string V_ARC4;
 extern const std::string V_HTTP;
@@ -128,8 +126,6 @@ extern PrefPtr PREF_HELP;
 extern PrefPtr PREF_TIMEOUT;
 // values: 1*digit
 extern PrefPtr PREF_DNS_TIMEOUT;
-// values: system | async
-extern PrefPtr PREF_DNS_RESOLVER;
 // values: 1*digit
 extern PrefPtr PREF_CONNECT_TIMEOUT;
 // values: 1*digit

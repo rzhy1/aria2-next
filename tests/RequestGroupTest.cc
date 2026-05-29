@@ -62,8 +62,6 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCompletedLengthReportsVerifiedStorageOnly);
   CPPUNIT_TEST(testCurlTlsTrustOptions);
   CPPUNIT_TEST(testCurlProxyModeControlsEnvironmentProxy);
-  CPPUNIT_TEST(testCurlDnsResolverPolicy);
-  CPPUNIT_TEST(testCurlResolveEntry);
   CPPUNIT_TEST(testCurlManualRedirectStatus);
   CPPUNIT_TEST(testCurlHttpRetryableErrors);
   CPPUNIT_TEST(testCurlMetadataHeadFailureFallbackPolicy);
@@ -110,8 +108,6 @@ public:
   void testCompletedLengthReportsVerifiedStorageOnly();
   void testCurlTlsTrustOptions();
   void testCurlProxyModeControlsEnvironmentProxy();
-  void testCurlDnsResolverPolicy();
-  void testCurlResolveEntry();
   void testCurlManualRedirectStatus();
   void testCurlHttpRetryableErrors();
   void testCurlMetadataHeadFailureFallbackPolicy();
@@ -339,29 +335,6 @@ void RequestGroupTest::testCurlProxyModeControlsEnvironmentProxy()
 
   op.put(PREF_HTTPS_PROXY, "http://manual.example:8080/");
   CPPUNIT_ASSERT(CurlDownloadCommand::shouldDisableCurlProxy(&op));
-}
-
-void RequestGroupTest::testCurlDnsResolverPolicy()
-{
-  Option op;
-  CPPUNIT_ASSERT(CurlDownloadCommand::usesSystemDnsResolver(&op));
-
-  op.put(PREF_DNS_RESOLVER, V_SYSTEM);
-  CPPUNIT_ASSERT(CurlDownloadCommand::usesSystemDnsResolver(&op));
-
-  op.put(PREF_DNS_RESOLVER, V_ASYNC);
-  CPPUNIT_ASSERT(!CurlDownloadCommand::usesSystemDnsResolver(&op));
-}
-
-void RequestGroupTest::testCurlResolveEntry()
-{
-  std::vector<std::string> addrs;
-  addrs.push_back("192.0.2.1");
-  addrs.push_back("2001:db8::1");
-
-  CPPUNIT_ASSERT_EQUAL(
-      std::string("example.org:443:192.0.2.1,[2001:db8::1]"),
-      CurlDownloadCommand::makeCurlResolveEntry("example.org", 443, addrs));
 }
 
 void RequestGroupTest::testCurlManualRedirectStatus()

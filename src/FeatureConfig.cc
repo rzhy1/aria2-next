@@ -53,20 +53,6 @@
 
 namespace aria2 {
 
-namespace {
-
-bool curlSupportsAsyncDns()
-{
-#if defined(HAVE_LIBCURL) && defined(CURL_VERSION_ASYNCHDNS)
-  auto info = curl_version_info(CURLVERSION_NOW);
-  return info && (info->features & CURL_VERSION_ASYNCHDNS);
-#else  // !HAVE_LIBCURL || !CURL_VERSION_ASYNCHDNS
-  return false;
-#endif // !HAVE_LIBCURL || !CURL_VERSION_ASYNCHDNS
-}
-
-} // namespace
-
 uint16_t getDefaultPort(const std::string& protocol)
 {
   if (protocol == "http") {
@@ -114,10 +100,6 @@ std::string featureSummary()
 const char* strSupportedFeature(int feature)
 {
   switch (feature) {
-  case (FEATURE_ASYNC_DNS):
-    return curlSupportsAsyncDns() ? "Async DNS" : nullptr;
-    break;
-
   case (FEATURE_BITTORRENT):
 #ifdef ENABLE_BITTORRENT
     return "BitTorrent";
@@ -164,11 +146,6 @@ std::string usedLibs()
     res += "libcurl/";
     res += curlInfo->version;
     res += " ";
-    if (curlInfo->ares && curlInfo->ares[0]) {
-      res += "c-ares/";
-      res += curlInfo->ares;
-      res += " ";
-    }
   }
 #endif // HAVE_LIBCURL
 #ifdef HAVE_ZLIB

@@ -226,3 +226,11 @@ Changed: Added startup-only `--dns-resolver=system|async` for ordinary URL trans
 Verified: Focused `RequestGroupTest`, `OptionHandlerTest`, and `RpcMethodTest` passed after the option and transfer-path changes.
 Remaining: release workflow validation should exercise the full static dependency closure on Linux runners.
 Blocked: none.
+
+## 2026-05-29 - Native Resolver Simplification
+
+Changed: Removed c-ares and asynchronous DNS as supported release features. Ordinary URL transfers now use libcurl's native resolver path without the runtime `--dns-resolver` option or manual `CURLOPT_RESOLVE` injection. Release packaging no longer downloads, builds, links, advertises, or smokes c-ares.
+
+Verified: `cmake --preset default` passed. `cmake --build --preset default` passed. `ctest --preset default --output-on-failure` passed. `build/default/aria2-next --version` passed and no longer reported `Async DNS` or `c-ares/`. Maintained shell syntax checks passed. `.github/workflows/ci.yml` and `.github/workflows/release.yml` parsed with Ruby YAML. `packaging/scripts/release-smoke "$PWD/build/default/aria2-next"` passed for numeric loopback and hostname resolution. Active stale scans found no removed DNS resolver identifiers, c-ares release inputs, or async DNS feature code outside intentional smoke-test rejection checks and historical maintenance records. `git diff --check` passed.
+Remaining: none.
+Blocked: none.

@@ -1412,7 +1412,7 @@ const uint32_t APIPA_IPV4_END = 2852061183u;   // 169.254.255.255
 void checkAddrconfig()
 {
 #ifdef HAVE_IPHLPAPI_H
-  ARIA2_LOG_INFO("Checking configured addresses");
+  ARIA2_LOG_DEBUG("Checking configured addresses");
   ULONG bufsize = 15_k;
   ULONG retval = 0;
   IP_ADAPTER_ADDRESSES* buf = 0;
@@ -1428,7 +1428,7 @@ void checkAddrconfig()
     buf = 0;
   } while (retval == ERROR_BUFFER_OVERFLOW && numTry < MAX_TRY);
   if (retval != NO_ERROR) {
-    ARIA2_LOG_INFO("GetAdaptersAddresses failed. Assume both IPv4 and IPv6 "
+    ARIA2_LOG_DEBUG("GetAdaptersAddresses failed. Assume both IPv4 and IPv6 "
                 " addresses are configured.");
     return;
   }
@@ -1473,20 +1473,20 @@ void checkAddrconfig()
                        NI_MAXHOST, 0, 0, NI_NUMERICHOST);
       if (rv == 0) {
         if (found) {
-          ARIA2_LOG_INFO(fmt("Found configured address: %s", host));
+          ARIA2_LOG_DEBUG(fmt("Found configured address: %s", host));
         }
         else {
-          ARIA2_LOG_INFO(fmt("Not considered: %s", host));
+          ARIA2_LOG_DEBUG(fmt("Not considered: %s", host));
         }
       }
     }
   }
   free(buf);
 
-  ARIA2_LOG_INFO(fmt("IPv4 configured=%d, IPv6 configured=%d", ipv4AddrConfigured,
+  ARIA2_LOG_DEBUG(fmt("IPv4 configured=%d, IPv6 configured=%d", ipv4AddrConfigured,
                   ipv6AddrConfigured));
 #elif defined(HAVE_GETIFADDRS)
-  ARIA2_LOG_INFO("Checking configured addresses");
+  ARIA2_LOG_DEBUG("Checking configured addresses");
   ipv4AddrConfigured = false;
   ipv6AddrConfigured = false;
   ifaddrs* ifaddr = nullptr;
@@ -1494,7 +1494,7 @@ void checkAddrconfig()
   rv = getifaddrs(&ifaddr);
   if (rv == -1) {
     int errNum = SOCKET_ERRNO;
-    ARIA2_LOG_INFO(fmt("getifaddrs failed. Cause: %s", errorMsg(errNum).c_str()));
+    ARIA2_LOG_DEBUG(fmt("getifaddrs failed. Cause: %s", errorMsg(errNum).c_str()));
     return;
   }
   std::unique_ptr<ifaddrs, decltype(&freeifaddrs)> ifaddrDeleter(ifaddr,
@@ -1534,17 +1534,17 @@ void checkAddrconfig()
                      NI_NUMERICHOST);
     if (rv == 0) {
       if (found) {
-        ARIA2_LOG_INFO(fmt("Found configured address: %s", host));
+        ARIA2_LOG_DEBUG(fmt("Found configured address: %s", host));
       }
       else {
-        ARIA2_LOG_INFO(fmt("Not considered: %s", host));
+        ARIA2_LOG_DEBUG(fmt("Not considered: %s", host));
       }
     }
   }
-  ARIA2_LOG_INFO(fmt("IPv4 configured=%d, IPv6 configured=%d", ipv4AddrConfigured,
+  ARIA2_LOG_DEBUG(fmt("IPv4 configured=%d, IPv6 configured=%d", ipv4AddrConfigured,
                   ipv6AddrConfigured));
 #else  // !HAVE_GETIFADDRS
-  ARIA2_LOG_INFO("getifaddrs is not available. Assume IPv4 and IPv6 addresses"
+  ARIA2_LOG_DEBUG("getifaddrs is not available. Assume IPv4 and IPv6 addresses"
               " are configured.");
 #endif // !HAVE_GETIFADDRS
 }

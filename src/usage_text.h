@@ -362,7 +362,7 @@
   _(" --summary-interval=SEC       Set interval to output download progress summary.\n" \
     "                              Setting 0 suppresses the output.")
 #define TEXT_LOG_LEVEL                                                  \
-  _(" --log-level=LEVEL            Set rotating file log level.")
+  _(" --log-level=LEVEL            Set log level for console and file output.")
 #define TEXT_LOG_MAX_SIZE                                               \
   _(" --log-max-size=SIZE          Set maximum rotating log file size.")
 #define TEXT_LOG_MAX_FILES                                              \
@@ -801,8 +801,6 @@
     "                              sessions saved using --save-session option. If\n" \
     "                              this option is not used, new GID is generated\n" \
     "                              by Aria2 Next.")
-#define TEXT_CONSOLE_LEVEL                                              \
-  _(" --console-level=LEVEL        Set log level to output to console.")
 #define TEXT_SAVE_SESSION_INTERVAL                                      \
   _(" --save-session-interval=SEC  Save error/unfinished downloads to a file\n" \
     "                              specified by --save-session option every SEC\n" \

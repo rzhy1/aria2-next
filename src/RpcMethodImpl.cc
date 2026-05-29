@@ -1988,8 +1988,7 @@ void changeGlobalOption(const Option& option, DownloadEngine* e)
         option.getAsInt(PREF_MAX_DOWNLOAD_RESULT));
   }
   if (option.defined(PREF_LOG_LEVEL) || option.defined(PREF_LOG_FILE) ||
-      option.defined(PREF_LOG_MAX_SIZE) || option.defined(PREF_LOG_MAX_FILES) ||
-      option.defined(PREF_CONSOLE_LEVEL)) {
+      option.defined(PREF_LOG_MAX_SIZE) || option.defined(PREF_LOG_MAX_FILES)) {
     log::configure(log::configFromOption(option));
   }
   if (option.defined(PREF_BT_MAX_OPEN_FILES)) {

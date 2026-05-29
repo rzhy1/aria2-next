@@ -353,11 +353,11 @@ bool DefaultProgressInfoFile::exists()
 {
   File f(filename_);
   if (f.isFile()) {
-    ARIA2_LOG_INFO(fmt(MSG_SEGMENT_FILE_EXISTS, filename_.c_str()));
+    ARIA2_LOG_DEBUG(fmt(MSG_SEGMENT_FILE_EXISTS, filename_.c_str()));
     return true;
   }
   else {
-    ARIA2_LOG_INFO(fmt(MSG_SEGMENT_FILE_DOES_NOT_EXIST, filename_.c_str()));
+    ARIA2_LOG_DEBUG(fmt(MSG_SEGMENT_FILE_DOES_NOT_EXIST, filename_.c_str()));
     return false;
   }
 }

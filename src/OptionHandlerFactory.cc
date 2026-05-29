@@ -265,13 +265,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
-    OptionHandler* op(new ParameterOptionHandler(
-        PREF_CONSOLE_LEVEL, TEXT_CONSOLE_LEVEL, V_INFO,
-        {std::begin(logLevels), std::end(logLevels)}));
-    op->addTag(TAG_ADVANCED);
-    handlers.push_back(op);
-  }
-  {
     OptionHandler* op(new BooleanOptionHandler(PREF_DEFERRED_INPUT,
                                                TEXT_DEFERRED_INPUT, A2_V_FALSE,
                                                OptionHandler::OPT_ARG));

@@ -921,11 +921,6 @@ Advanced Options
   Default: ``$HOME/.aria2/aria2.conf`` if present, otherwise
   ``$XDG_CONFIG_HOME/aria2/aria2.conf``.
 
-.. option:: --console-level=<LEVEL>
-
-  Set the console log level. LEVEL is one of ``trace``, ``debug``, ``info``,
-  ``warn``, ``error``, ``critical`` or ``off``. Default: ``info``
-
 .. option:: --content-disposition-default-utf8 [true|false]
 
   Handle quoted string in Content-Disposition header as UTF-8 instead
@@ -1169,8 +1164,9 @@ Advanced Options
 
 .. option:: --log-level=<LEVEL>
 
-  Set the rotating file log level. LEVEL is one of ``trace``, ``debug``,
-  ``info``, ``warn``, ``error``, ``critical`` or ``off``. Default: ``info``
+  Set the log level for console and file output. LEVEL is one of ``trace``,
+  ``debug``, ``info``, ``warn``, ``error``, ``critical`` or ``off``.
+  Default: ``info``
 
 .. option:: --log-max-size=<SIZE>
 
@@ -2947,7 +2943,6 @@ REMOVEME    >>> from pprint import pprint
   * :option:`bt-max-open-files <--bt-max-open-files>`
   * :option:`download-result <--download-result>`
   * :option:`keep-unfinished-download-result <--keep-unfinished-download-result>`
-  * :option:`console-level <--console-level>`
   * :option:`log-file <--log-file>`
   * :option:`log-level <--log-level>`
   * :option:`log-max-files <--log-max-files>`
@@ -2970,8 +2965,7 @@ REMOVEME    >>> from pprint import pprint
   :option:`select-file <--select-file>`.
 
   Logging options can be changed dynamically with :option:`log-file <--log-file>`,
-  :option:`log-level <--log-level>`, :option:`console-level <--console-level>`,
-  :option:`log-max-size <--log-max-size>` and
+  :option:`log-level <--log-level>`, :option:`log-max-size <--log-max-size>` and
   :option:`log-max-files <--log-max-files>`. Use ``log-file=off`` to stop file
   logging. This method returns ``OK`` for success.
 

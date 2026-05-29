@@ -85,7 +85,6 @@ extern const std::string V_FALLOC;
 extern const std::string V_TRUNC;
 extern const std::string V_DEBUG;
 extern const std::string V_INFO;
-extern const std::string V_NOTICE;
 extern const std::string V_WARN;
 extern const std::string V_ERROR;
 extern const std::string V_INORDER;
@@ -204,8 +203,6 @@ extern PrefPtr PREF_QUIET;
 extern PrefPtr PREF_SUMMARY_INTERVAL;
 // value: trace, debug, info, warn, error, critical, off
 extern PrefPtr PREF_LOG_LEVEL;
-// value: trace, debug, info, warn, error, critical, off
-extern PrefPtr PREF_CONSOLE_LEVEL;
 // value: 1*digit with optional unit suffix.
 extern PrefPtr PREF_LOG_MAX_SIZE;
 // value: 1*digit.

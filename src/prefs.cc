@@ -128,7 +128,6 @@ const std::string V_FALLOC("falloc");
 const std::string V_TRUNC("trunc");
 const std::string V_DEBUG("debug");
 const std::string V_INFO("info");
-const std::string V_NOTICE("notice");
 const std::string V_WARN("warn");
 const std::string V_ERROR("error");
 const std::string V_INORDER("inorder");
@@ -252,8 +251,6 @@ PrefPtr PREF_QUIET = makePref("quiet");
 PrefPtr PREF_SUMMARY_INTERVAL = makePref("summary-interval");
 // value: trace, debug, info, warn, error, critical, off
 PrefPtr PREF_LOG_LEVEL = makePref("log-level");
-// value: trace, debug, info, warn, error, critical, off
-PrefPtr PREF_CONSOLE_LEVEL = makePref("console-level");
 // value: 1*digit with optional unit suffix.
 PrefPtr PREF_LOG_MAX_SIZE = makePref("log-max-size");
 // value: 1*digit.

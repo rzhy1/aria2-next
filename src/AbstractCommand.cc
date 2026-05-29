@@ -120,7 +120,7 @@ AbstractCommand::~AbstractCommand()
 void AbstractCommand::useFasterRequest(
     const std::shared_ptr<Request>& fasterRequest)
 {
-  ARIA2_LOG_INFO(fmt("CUID#%" PRId64 " - Use faster Request hostname=%s, port=%u",
+  ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Use faster Request hostname=%s, port=%u",
                   getCuid(), fasterRequest->getHost().c_str(),
                   fasterRequest->getPort()));
   // Cancel current Request object and use faster one.
@@ -255,7 +255,7 @@ bool AbstractCommand::execute()
           // TODO socket could be pooled here if pipelining is
           // enabled...  Hmm, I don't think if pipelining is enabled
           // it does not go here.
-          ARIA2_LOG_INFO(fmt(MSG_NO_SEGMENT_AVAILABLE, getCuid()));
+          ARIA2_LOG_DEBUG(fmt(MSG_NO_SEGMENT_AVAILABLE, getCuid()));
           // When all segments are ignored in SegmentMan, there are
           // no URIs available, so don't retry.
           if (sm->allSegmentsIgnored()) {
@@ -345,7 +345,7 @@ bool AbstractCommand::execute()
   }
   catch (DlRetryEx& err) {
     assert(req_);
-    ARIA2_LOG_INFO_EX(
+    ARIA2_LOG_DEBUG_EX(
         fmt(MSG_RESTARTING_DOWNLOAD, getCuid(), req_->getUri().c_str()),
         DL_RETRY_EX2(fmt("URI=%s", req_->getCurrentUri().c_str()), err));
     req_->addTryCount();
@@ -821,7 +821,7 @@ std::string AbstractCommand::resolveHostname(std::vector<std::string>& addrs,
   e_->findAllCachedIPAddresses(std::back_inserter(addrs), hostname, port);
   if (!addrs.empty()) {
     auto ipaddr = addrs.front();
-    ARIA2_LOG_INFO(fmt(MSG_DNS_CACHE_HIT, getCuid(), hostname.c_str(),
+    ARIA2_LOG_DEBUG(fmt(MSG_DNS_CACHE_HIT, getCuid(), hostname.c_str(),
                     strjoin(std::begin(addrs), std::end(addrs), ", ").c_str()));
     return ipaddr;
   }
@@ -838,7 +838,7 @@ std::string AbstractCommand::resolveHostname(std::vector<std::string>& addrs,
   {
     resolveWithSystemResolver();
   }
-  ARIA2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_COMPLETE, getCuid(), hostname.c_str(),
+  ARIA2_LOG_DEBUG(fmt(MSG_NAME_RESOLUTION_COMPLETE, getCuid(), hostname.c_str(),
                   strjoin(std::begin(addrs), std::end(addrs), ", ").c_str()));
   for (const auto& addr : addrs) {
     e_->cacheIPAddress(hostname, addr, port);
@@ -881,7 +881,7 @@ bool AbstractCommand::checkIfConnectionEstablished(
     throw DL_RETRY_EX(fmt(MSG_ESTABLISHING_CONNECTION_FAILED, error.c_str()));
   }
 
-  ARIA2_LOG_INFO(fmt(MSG_CONNECT_FAILED_AND_RETRY, getCuid(),
+  ARIA2_LOG_DEBUG(fmt(MSG_CONNECT_FAILED_AND_RETRY, getCuid(),
                   connectedAddr.c_str(), connectedPort));
   e_->setNoWait(true);
   e_->addCommand(

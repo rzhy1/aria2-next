@@ -334,7 +334,7 @@ void DownloadEngine::addRoutineCommand(std::unique_ptr<Command> command)
 void DownloadEngine::poolSocket(const std::string& key,
                                 const SocketPoolEntry& entry)
 {
-  ARIA2_LOG_INFO(fmt("Pool socket for %s", key.c_str()));
+  ARIA2_LOG_DEBUG(fmt("Pool socket for %s", key.c_str()));
   std::multimap<std::string, SocketPoolEntry>::value_type p(key, entry);
   socketPool_.insert(p);
 }
@@ -483,7 +483,7 @@ DownloadEngine::findSocketPoolEntry(const std::string& key)
     // We assume that if socket is readable it means peer shutdowns
     // connection and the socket will receive EOF. So skip it.
     if (!e.isTimeout() && !e.getSocket()->isReadable(0)) {
-      ARIA2_LOG_INFO(fmt("Found socket for %s", key.c_str()));
+      ARIA2_LOG_DEBUG(fmt("Found socket for %s", key.c_str()));
       return i;
     }
   }

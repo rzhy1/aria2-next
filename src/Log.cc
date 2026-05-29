@@ -71,7 +71,7 @@ Level fromOptionValue(const std::string& value)
   if (value == V_DEBUG) {
     return Level::Debug;
   }
-  if (value == V_INFO || value == V_NOTICE) {
+  if (value == V_INFO) {
     return Level::Info;
   }
   if (value == V_WARN) {
@@ -263,8 +263,7 @@ Config configFromOption(const Option& option)
   if (config.file == V_AUTO) {
     config.file = defaultLogFilePath();
   }
-  config.fileLevel = parseLevel(option.get(PREF_LOG_LEVEL));
-  config.consoleLevel = parseLevel(option.get(PREF_CONSOLE_LEVEL));
+  config.level = parseLevel(option.get(PREF_LOG_LEVEL));
   config.maxFileSize = static_cast<size_t>(option.getAsInt(PREF_LOG_MAX_SIZE));
   config.maxFiles = static_cast<size_t>(option.getAsInt(PREF_LOG_MAX_FILES));
   config.color = option.getAsBool(PREF_ENABLE_COLOR);
@@ -277,24 +276,23 @@ void configure(const Config& config)
   std::vector<spdlog::sink_ptr> sinks;
   std::string activeLogFile;
 
-  if (config.console && config.consoleLevel != Level::Off) {
+  if (config.console && config.level != Level::Off) {
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    consoleSink->set_level(toSpdlogLevel(config.consoleLevel));
+    consoleSink->set_level(toSpdlogLevel(config.level));
     if (!config.color) {
       consoleSink->set_color_mode(spdlog::color_mode::never);
     }
     sinks.push_back(consoleSink);
   }
 
-  if (!config.file.empty() && config.file != V_OFF &&
-      config.fileLevel != Level::Off) {
+  if (!config.file.empty() && config.file != V_OFF && config.level != Level::Off) {
     auto slash = config.file.find_last_of("/\\");
     if (slash != std::string::npos) {
       util::mkdirs(config.file.substr(0, slash));
     }
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
         config.file, config.maxFileSize, config.maxFiles);
-    fileSink->set_level(toSpdlogLevel(config.fileLevel));
+    fileSink->set_level(toSpdlogLevel(config.level));
     sinks.push_back(fileSink);
     activeLogFile = config.file;
   }
@@ -306,7 +304,7 @@ void configure(const Config& config)
   logger = std::make_shared<spdlog::logger>("aria2-next", sinks.begin(),
                                             sinks.end());
   logger->set_pattern("%Y-%m-%d %H:%M:%S.%e [%l] [%s:%#] %v");
-  logger->set_level(spdlog::level::trace);
+  logger->set_level(toSpdlogLevel(config.level));
   logger->flush_on(spdlog::level::warn);
   logger->enable_backtrace(128);
   spdlog::set_default_logger(logger);
@@ -318,8 +316,7 @@ void configureForTests()
 {
   Config config;
   config.file = V_OFF;
-  config.fileLevel = Level::Off;
-  config.consoleLevel = Level::Off;
+  config.level = Level::Off;
   configure(config);
 }
 

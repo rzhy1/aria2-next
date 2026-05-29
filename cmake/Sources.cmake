@@ -218,8 +218,6 @@ set(ARIA2_SOURCES_BASE
   src/HttpHeaderProcessor.h
   src/HttpErrorPageDetector.cc
   src/HttpErrorPageDetector.h
-  src/HttpAdaptiveWindow.cc
-  src/HttpAdaptiveWindow.h
   src/HttpRangeValidator.cc
   src/HttpRangeValidator.h
   src/IndexedList.h

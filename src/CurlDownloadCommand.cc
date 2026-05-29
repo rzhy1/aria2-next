@@ -145,7 +145,7 @@ bool CurlDownloadCommand::isHttpRedirectStatus(long status)
 
 bool CurlDownloadCommand::isRetryableHttpStatus(long status)
 {
-  return status == 429 || status == 503;
+  return status == 503;
 }
 
 bool CurlDownloadCommand::shouldFallbackMetadataHeadErrorToRangeProbe(
@@ -564,9 +564,6 @@ void CurlDownloadCommand::finish(CURLcode result)
   }
 
   completeCurrentSegment();
-  if (isRangedHttpTransfer()) {
-    getRequestGroup()->noteHttpSegmentSuccess(getRequest());
-  }
   if (getRequestGroup()->downloadFinished()) {
     getRequestGroup()->queueChecksumValidationIfNeeded(getDownloadEngine());
     getDownloadEngine()->setNoWait(true);
@@ -720,9 +717,6 @@ bool CurlDownloadCommand::isHttpTransfer() const
 
 void CurlDownloadCommand::retryHttpTransfer(CURLcode result)
 {
-  if (isRangedHttpTransfer()) {
-    getRequestGroup()->noteHttpSegmentFailure(getRequest());
-  }
   throw DL_RETRY_EX2(
       fmt("libcurl transfer failed: %s",
           errorBuffer_[0] ? errorBuffer_ : curl_easy_strerror(result)),
@@ -758,13 +752,6 @@ void CurlDownloadCommand::retryMetadataProbeAsFullDownload(
 
 void CurlDownloadCommand::retryHttpStatus(long status)
 {
-  if (isRangedHttpTransfer() && status == 429) {
-    getRequestGroup()->noteHttpRateLimited(getRequest());
-  }
-  else if (isRangedHttpTransfer()) {
-    getRequestGroup()->noteHttpSegmentFailure(getRequest());
-  }
-
   const auto delay = httpRetryAfterDelaySeconds();
   setRequestWakeAfter(delay);
   throw DL_RETRY_EX2(fmt("HTTP transfer rate limited with status %ld. "
@@ -816,7 +803,6 @@ void CurlDownloadCommand::validateRangeResponseBeforeBody()
     rangeProtocolError_ = result.error;
     rangeProtocolErrorCode_ = result.retryable ? error_code::HTTP_PROTOCOL_ERROR
                                                : error_code::CANNOT_RESUME;
-    getRequestGroup()->noteHttpSegmentFailure(getRequest());
     if (result.rangeUnsupported) {
       getRequestGroup()->disableHttpRangeForDownload();
       throw DL_RETRY_EX2(result.error, rangeProtocolErrorCode_);
@@ -986,7 +972,6 @@ size_t CurlDownloadCommand::writeBodyToStorage(const unsigned char* data,
       rangeProtocolError_ =
           "HTTP response body exceeded the requested segment range.";
       rangeProtocolErrorCode_ = error_code::HTTP_PROTOCOL_ERROR;
-      getRequestGroup()->noteHttpSegmentFailure(getRequest());
       return 0;
     }
     const auto writeLength = std::min(remaining, capacity);

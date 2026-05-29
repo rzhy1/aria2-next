@@ -173,10 +173,8 @@ void showUsage(const std::string& keyword,
     out->printf("\n\n");
     out->printf(
         _("About the number of connections\n"
-          " Aria2 Next starts conservatively and adapts HTTP(S)/FTP "
-          "segmented transfers per origin.\n"
-          " Use --split and --max-connection-per-server to set the upper "
-          "bound, and use\n"
+          " Use --split and --max-connection-per-server to set the HTTP(S)/FTP "
+          "segmented transfer limit, and use\n"
           " --min-split-size to control the minimum segment size.\n"
           "\n"));
   }

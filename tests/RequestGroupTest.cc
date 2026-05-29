@@ -68,13 +68,10 @@ class RequestGroupTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testFinishedHttpDownloadQueuesWholeFileChecksum);
   CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForHttp);
   CPPUNIT_TEST(testInitiateConnectionFactoryUsesCurlForFtpFamily);
-  CPPUNIT_TEST(testHttpAdaptiveCommandLimit);
-  CPPUNIT_TEST(testHttpAdaptiveInitialHandoffFillsWindow);
-  CPPUNIT_TEST(testHttpAdaptiveSuccessFillsExpandedWindow);
-  CPPUNIT_TEST(testHttpRateLimitKeepsRangeAndCapsConcurrency);
+  CPPUNIT_TEST(testHttpStreamCommandLimitUsesUserSplit);
+  CPPUNIT_TEST(testHttpCompletedStreamRefillsUserSplit);
   CPPUNIT_TEST(testHttpRangeDowngradeDisablesRangedConcurrency);
   CPPUNIT_TEST(testHttpRangeDowngradeRejectsExtraActiveStreamRetries);
-  CPPUNIT_TEST(testFtpDoesNotUseHttpAdaptiveCommandLimit);
 #ifdef ENABLE_BITTORRENT
   CPPUNIT_TEST(testCreateInitialCommandUsesLibtorrentRuntime);
   CPPUNIT_TEST(testLibtorrentCommandLoadsTorrentMetadata);
@@ -114,13 +111,10 @@ public:
   void testFinishedHttpDownloadQueuesWholeFileChecksum();
   void testInitiateConnectionFactoryUsesCurlForHttp();
   void testInitiateConnectionFactoryUsesCurlForFtpFamily();
-  void testHttpAdaptiveCommandLimit();
-  void testHttpAdaptiveInitialHandoffFillsWindow();
-  void testHttpAdaptiveSuccessFillsExpandedWindow();
-  void testHttpRateLimitKeepsRangeAndCapsConcurrency();
+  void testHttpStreamCommandLimitUsesUserSplit();
+  void testHttpCompletedStreamRefillsUserSplit();
   void testHttpRangeDowngradeDisablesRangedConcurrency();
   void testHttpRangeDowngradeRejectsExtraActiveStreamRetries();
-  void testFtpDoesNotUseHttpAdaptiveCommandLimit();
 #ifdef ENABLE_BITTORRENT
   void testCreateInitialCommandUsesLibtorrentRuntime();
   void testLibtorrentCommandLoadsTorrentMetadata();
@@ -405,6 +399,9 @@ void RequestGroupTest::testCurlMetadataHeadFailureFallbackPolicy()
   CPPUNIT_ASSERT(
       !CurlDownloadCommand::shouldFallbackMetadataRangeProbeToFullDownload(
           true, false, 200));
+
+  CPPUNIT_ASSERT(!CurlDownloadCommand::isRetryableHttpStatus(429));
+  CPPUNIT_ASSERT(CurlDownloadCommand::isRetryableHttpStatus(503));
 }
 
 void RequestGroupTest::testFinishedHttpDownloadQueuesWholeFileChecksum()
@@ -500,7 +497,7 @@ void RequestGroupTest::testInitiateConnectionFactoryUsesCurlForFtpFamily()
   }
 }
 
-void RequestGroupTest::testHttpAdaptiveCommandLimit()
+void RequestGroupTest::testHttpStreamCommandLimitUsesUserSplit()
 {
   option_->put(PREF_SPLIT, "64");
   option_->put(PREF_DIR, A2_TEST_OUT_DIR);
@@ -508,7 +505,7 @@ void RequestGroupTest::testHttpAdaptiveCommandLimit()
   auto group = createRequestGroup(
       1_k, 64_k,
       std::string(A2_TEST_OUT_DIR) +
-          "/aria2_RequestGroupTest_http_adaptive_limit",
+          "/aria2_RequestGroupTest_http_split_limit",
       "https://example.test/file", option_);
   group->setNumConcurrentCommand(64);
   group->initPieceStorage();
@@ -518,20 +515,10 @@ void RequestGroupTest::testHttpAdaptiveCommandLimit()
 
   std::vector<std::unique_ptr<Command>> commands;
   group->createNextCommand(commands, &engine);
-  CPPUNIT_ASSERT_EQUAL((size_t)4, commands.size());
-
-  commands.clear();
-  group->noteHttpSegmentSuccess();
-  group->createNextCommand(commands, &engine);
-  CPPUNIT_ASSERT_EQUAL((size_t)8, commands.size());
-
-  commands.clear();
-  group->noteHttpSegmentFailure();
-  group->createNextCommand(commands, &engine);
-  CPPUNIT_ASSERT_EQUAL((size_t)4, commands.size());
+  CPPUNIT_ASSERT_EQUAL((size_t)64, commands.size());
 }
 
-void RequestGroupTest::testHttpAdaptiveInitialHandoffFillsWindow()
+void RequestGroupTest::testHttpCompletedStreamRefillsUserSplit()
 {
   option_->put(PREF_SPLIT, "64");
   option_->put(PREF_DIR, A2_TEST_OUT_DIR);
@@ -539,7 +526,7 @@ void RequestGroupTest::testHttpAdaptiveInitialHandoffFillsWindow()
   auto group = createRequestGroup(
       1_k, 64_k,
       std::string(A2_TEST_OUT_DIR) +
-          "/aria2_RequestGroupTest_http_adaptive_initial_handoff",
+          "/aria2_RequestGroupTest_http_completed_refill",
       "https://example.test/file", option_);
   group->setNumConcurrentCommand(64);
   group->initPieceStorage();
@@ -550,65 +537,7 @@ void RequestGroupTest::testHttpAdaptiveInitialHandoffFillsWindow()
 
   std::vector<std::unique_ptr<Command>> commands;
   group->createNextCommandForCompletedStream(commands, &engine);
-  CPPUNIT_ASSERT_EQUAL((size_t)4, commands.size());
-}
-
-void RequestGroupTest::testHttpAdaptiveSuccessFillsExpandedWindow()
-{
-  option_->put(PREF_SPLIT, "64");
-  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
-
-  auto group = createRequestGroup(
-      1_k, 64_k,
-      std::string(A2_TEST_OUT_DIR) +
-          "/aria2_RequestGroupTest_http_adaptive_success_fill",
-      "https://example.test/file", option_);
-  group->setNumConcurrentCommand(64);
-  group->initPieceStorage();
-  group->increaseStreamCommand();
-  group->increaseStreamCommand();
-  group->increaseStreamCommand();
-  group->increaseStreamCommand();
-  group->noteHttpSegmentSuccess();
-
-  DownloadEngine engine(make_unique<SelectEventPoll>());
-  engine.setOption(option_.get());
-
-  std::vector<std::unique_ptr<Command>> commands;
-  group->createNextCommandForCompletedStream(commands, &engine);
-  CPPUNIT_ASSERT_EQUAL((size_t)5, commands.size());
-}
-
-void RequestGroupTest::testHttpRateLimitKeepsRangeAndCapsConcurrency()
-{
-  option_->put(PREF_SPLIT, "64");
-  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
-
-  auto group = createRequestGroup(
-      1_k, 64_k,
-      std::string(A2_TEST_OUT_DIR) +
-          "/aria2_RequestGroupTest_http_rate_limit",
-      "https://example.test/file", option_);
-  group->setNumConcurrentCommand(64);
-  group->initPieceStorage();
-
-  group->noteHttpRateLimited();
-
-  CPPUNIT_ASSERT(group->shouldUseHttpRange());
-  CPPUNIT_ASSERT_EQUAL(1, group->getEffectiveStreamCommandLimit());
-
-  DownloadEngine engine(make_unique<SelectEventPoll>());
-  engine.setOption(option_.get());
-
-  std::vector<std::unique_ptr<Command>> commands;
-  group->createNextCommand(commands, &engine);
-  CPPUNIT_ASSERT_EQUAL((size_t)1, commands.size());
-
-  commands.clear();
-  group->noteHttpSegmentSuccess();
-  group->noteHttpSegmentSuccess();
-  group->createNextCommand(commands, &engine);
-  CPPUNIT_ASSERT_EQUAL((size_t)2, commands.size());
+  CPPUNIT_ASSERT_EQUAL((size_t)64, commands.size());
 }
 
 void RequestGroupTest::testHttpRangeDowngradeDisablesRangedConcurrency()
@@ -627,7 +556,6 @@ void RequestGroupTest::testHttpRangeDowngradeDisablesRangedConcurrency()
   group->disableHttpRangeForDownload();
 
   CPPUNIT_ASSERT(!group->shouldUseHttpRange());
-  CPPUNIT_ASSERT_EQUAL(1, group->getEffectiveStreamCommandLimit());
 
   DownloadEngine engine(make_unique<SelectEventPoll>());
   engine.setOption(option_.get());
@@ -671,27 +599,6 @@ void RequestGroupTest::testHttpRangeDowngradeRejectsExtraActiveStreamRetries()
   std::vector<std::unique_ptr<Command>> commands;
   group->createNextCommand(commands, &engine);
   CPPUNIT_ASSERT_EQUAL((size_t)1, commands.size());
-}
-
-void RequestGroupTest::testFtpDoesNotUseHttpAdaptiveCommandLimit()
-{
-  option_->put(PREF_SPLIT, "64");
-  option_->put(PREF_DIR, A2_TEST_OUT_DIR);
-
-  auto group = createRequestGroup(
-      1_k, 64_k,
-      std::string(A2_TEST_OUT_DIR) +
-          "/aria2_RequestGroupTest_ftp_no_http_adaptive_limit",
-      "ftp://example.test/file", option_);
-  group->setNumConcurrentCommand(64);
-  group->initPieceStorage();
-
-  DownloadEngine engine(make_unique<SelectEventPoll>());
-  engine.setOption(option_.get());
-
-  std::vector<std::unique_ptr<Command>> commands;
-  group->createNextCommand(commands, &engine);
-  CPPUNIT_ASSERT_EQUAL((size_t)64, commands.size());
 }
 
 #ifdef ENABLE_BITTORRENT

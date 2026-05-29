@@ -83,19 +83,6 @@
 
 namespace aria2 {
 
-namespace {
-bool isHttpFamilyUri(const std::string& uri)
-{
-  uri_split_result us;
-  if (uri_split(&us, uri.c_str()) != 0) {
-    return false;
-  }
-  auto protocol = uri::getFieldString(us, USR_SCHEME, uri.c_str());
-  util::lowercase(protocol);
-  return protocol == "http" || protocol == "https";
-}
-} // namespace
-
 #ifdef ENABLE_BITTORRENT
 namespace {
 bool shouldUseLibtorrentResumeStatus(const LibtorrentAttribute* attrs)
@@ -129,7 +116,6 @@ RequestGroup::RequestGroup(const std::shared_ptr<GroupId>& gid,
       maxDownloadSpeedLimit_(option->getAsInt(PREF_MAX_DOWNLOAD_LIMIT)),
       maxUploadSpeedLimit_(option->getAsInt(PREF_MAX_UPLOAD_LIMIT)),
       resumeFailureCount_(0),
-      httpAdaptiveCommandLimitEnabled_(false),
       httpRangeEnabled_(true),
       httpRangeGeneration_(0),
       httpRangeFallbackRetryIssued_(false),
@@ -740,7 +726,9 @@ void RequestGroup::createNextCommandWithAdj(
   }
   else {
     numCommand = std::min(downloadContext_->getNumPieces(),
-                          static_cast<size_t>(getEffectiveStreamCommandLimit()));
+                          static_cast<size_t>(httpRangeEnabled_
+                                                  ? numConcurrentCommand_
+                                                  : 1));
     numCommand += numAdj;
   }
 
@@ -761,14 +749,13 @@ void RequestGroup::createNextCommand(
       numCommand = 1;
     }
   }
-  else if (numStreamCommand_ >= getEffectiveStreamCommandLimit()) {
+  else if (numStreamCommand_ >= (httpRangeEnabled_ ? numConcurrentCommand_ : 1)) {
     numCommand = 0;
   }
   else {
-    numCommand = std::min(
-        downloadContext_->getNumPieces(),
-        static_cast<size_t>(getEffectiveStreamCommandLimit() -
-                            numStreamCommand_));
+    auto limit = httpRangeEnabled_ ? numConcurrentCommand_ : 1;
+    numCommand = std::min(downloadContext_->getNumPieces(),
+                          static_cast<size_t>(limit - numStreamCommand_));
   }
 
   if (numCommand > 0) {
@@ -784,9 +771,10 @@ int RequestGroup::countNextCommandForCompletedStream() const
     target = 1;
   }
   else {
+    auto limit = httpRangeEnabled_ ? numConcurrentCommand_ : 1;
     target = static_cast<int>(
         std::min(downloadContext_->getNumPieces(),
-                 static_cast<size_t>(getEffectiveStreamCommandLimit())));
+                 static_cast<size_t>(limit)));
   }
   return std::max(0, target - activeAfterCurrent);
 }
@@ -810,75 +798,6 @@ void RequestGroup::createNextCommand(
   }
 }
 
-void RequestGroup::noteHttpSegmentSuccess(const std::shared_ptr<Request>& request)
-{
-  if (!httpAdaptiveCommandLimitEnabled_) {
-    return;
-  }
-  httpAdaptiveWindow_.onSuccess(numConcurrentCommand_);
-  if (request && isHttpFamilyUri(request->getUri())) {
-    httpAdaptiveOriginWindows_[getHttpAdaptiveOriginKey(request)].onSuccess(
-        numConcurrentCommand_);
-  }
-}
-
-void RequestGroup::noteHttpSegmentFailure(const std::shared_ptr<Request>& request)
-{
-  if (!httpAdaptiveCommandLimitEnabled_) {
-    return;
-  }
-  httpAdaptiveWindow_.onTransientFailure();
-  if (request && isHttpFamilyUri(request->getUri())) {
-    httpAdaptiveOriginWindows_[getHttpAdaptiveOriginKey(request)]
-        .onTransientFailure();
-  }
-}
-
-void RequestGroup::noteHttpRateLimited(const std::shared_ptr<Request>& request)
-{
-  if (!httpAdaptiveCommandLimitEnabled_) {
-    return;
-  }
-  httpAdaptiveWindow_.onRateLimited();
-  if (request && isHttpFamilyUri(request->getUri())) {
-    httpAdaptiveOriginWindows_[getHttpAdaptiveOriginKey(request)]
-        .onRateLimited();
-  }
-}
-
-std::string RequestGroup::getHttpAdaptiveOriginKey(
-    const std::shared_ptr<Request>& request) const
-{
-  if (!request) {
-    return A2STR::NIL;
-  }
-  return fmt("%s://%s:%u|proxy=%s", request->getProtocol().c_str(),
-             request->getHost().c_str(), request->getPort(),
-             resolveProxyUri(request, option_.get()).c_str());
-}
-
-int RequestGroup::getHttpAdaptiveOriginLimit(
-    const std::shared_ptr<Request>& request)
-{
-  if (!httpAdaptiveCommandLimitEnabled_ || !request ||
-      !httpRangeEnabled_ || !isHttpFamilyUri(request->getUri())) {
-    return numConcurrentCommand_;
-  }
-  auto& window = httpAdaptiveOriginWindows_[getHttpAdaptiveOriginKey(request)];
-  return window.limit(numConcurrentCommand_);
-}
-
-int RequestGroup::getEffectiveStreamCommandLimit() const
-{
-  if (!httpRangeEnabled_) {
-    return 1;
-  }
-  if (!httpAdaptiveCommandLimitEnabled_) {
-    return numConcurrentCommand_;
-  }
-  return httpAdaptiveWindow_.limit(numConcurrentCommand_);
-}
-
 void RequestGroup::disableHttpRangeForDownload()
 {
   if (!httpRangeEnabled_) {
@@ -887,10 +806,6 @@ void RequestGroup::disableHttpRangeForDownload()
   httpRangeEnabled_ = false;
   ++httpRangeGeneration_;
   httpRangeFallbackRetryIssued_ = false;
-  httpAdaptiveWindow_.onRangeUnsupported();
-  for (auto& entry : httpAdaptiveOriginWindows_) {
-    entry.second.onRangeUnsupported();
-  }
   if (segmentMan_) {
     segmentMan_->cancelAllSegments();
     segmentMan_->eraseSegmentWrittenLengthMemo();
@@ -920,10 +835,6 @@ bool RequestGroup::claimStreamRetrySlot(uint64_t commandHttpRangeGeneration)
 void RequestGroup::setNumConcurrentCommand(int num)
 {
   numConcurrentCommand_ = num;
-  httpAdaptiveWindow_.reset(num);
-  for (auto& entry : httpAdaptiveOriginWindows_) {
-    entry.second.reset(num);
-  }
 }
 
 std::string RequestGroup::getFirstFilePath() const
@@ -1297,19 +1208,6 @@ void RequestGroup::setDownloadContext(
   downloadContext_ = downloadContext;
   if (downloadContext_) {
     downloadContext_->setOwnerRequestGroup(this);
-    bool hasUris = false;
-    httpAdaptiveCommandLimitEnabled_ = true;
-    for (const auto& fileEntry : downloadContext_->getFileEntries()) {
-      for (const auto& uri : fileEntry->getUris()) {
-        hasUris = true;
-        if (!isHttpFamilyUri(uri)) {
-          httpAdaptiveCommandLimitEnabled_ = false;
-          return;
-        }
-      }
-    }
-    httpAdaptiveCommandLimitEnabled_ =
-        hasUris && httpAdaptiveCommandLimitEnabled_;
   }
 }
 

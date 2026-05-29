@@ -39,7 +39,6 @@
 
 #include <string>
 #include <algorithm>
-#include <map>
 #include <vector>
 #include <memory>
 #include <utility>
@@ -50,7 +49,6 @@
 #include "error_code.h"
 #include "MetadataInfo.h"
 #include "GroupId.h"
-#include "HttpAdaptiveWindow.h"
 
 namespace aria2 {
 
@@ -147,13 +145,7 @@ private:
 
   int resumeFailureCount_;
 
-  bool httpAdaptiveCommandLimitEnabled_;
-
   bool httpRangeEnabled_;
-
-  HttpAdaptiveWindow httpAdaptiveWindow_;
-
-  std::map<std::string, HttpAdaptiveWindow> httpAdaptiveOriginWindows_;
 
   uint64_t httpRangeGeneration_;
 
@@ -240,23 +232,6 @@ public:
 
   void createNextCommandForCompletedStream(
       std::vector<std::unique_ptr<Command>>& commands, DownloadEngine* e);
-
-  void noteHttpSegmentSuccess(
-      const std::shared_ptr<Request>& request = nullptr);
-
-  void noteHttpSegmentFailure(
-      const std::shared_ptr<Request>& request = nullptr);
-
-  void noteHttpRateLimited(
-      const std::shared_ptr<Request>& request = nullptr);
-
-  std::string getHttpAdaptiveOriginKey(
-      const std::shared_ptr<Request>& request) const;
-
-  int getHttpAdaptiveOriginLimit(
-      const std::shared_ptr<Request>& request);
-
-  int getEffectiveStreamCommandLimit() const;
 
   bool shouldUseHttpRange() const { return httpRangeEnabled_; }
 

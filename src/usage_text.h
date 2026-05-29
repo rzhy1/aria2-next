@@ -44,7 +44,7 @@
     "                              will be ignored.")
 #define TEXT_LOG_FILE                                                   \
   _(" --log-file=PATH|auto|off     Set the rotating log file path. 'auto' uses\n" \
-    "                              the platform state/log directory.")
+    "                              the platform state/log directory. Default: off.")
 #define TEXT_DAEMON                                                     \
   _(" -D, --daemon[=true|false]    Run as daemon. The current working directory will\n" \
     "                              be changed to \"/\" and standard input, standard\n" \

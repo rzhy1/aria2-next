@@ -157,7 +157,7 @@ void OptionParserTest::testParseDefaultValuesDoesNotInjectCompileTimeCABundle()
   CPPUNIT_ASSERT(globalParser->find(PREF_CONSOLE_LEVEL));
   CPPUNIT_ASSERT(globalParser->find(PREF_LOG_MAX_SIZE));
   CPPUNIT_ASSERT(globalParser->find(PREF_LOG_MAX_FILES));
-  CPPUNIT_ASSERT_EQUAL(std::string("auto"), option.get(PREF_LOG_FILE));
+  CPPUNIT_ASSERT_EQUAL(std::string("off"), option.get(PREF_LOG_FILE));
   CPPUNIT_ASSERT_EQUAL(std::string("info"), option.get(PREF_LOG_LEVEL));
   CPPUNIT_ASSERT_EQUAL(std::string("info"), option.get(PREF_CONSOLE_LEVEL));
   CPPUNIT_ASSERT_EQUAL(std::string("10485760"), option.get(PREF_LOG_MAX_SIZE));

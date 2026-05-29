@@ -52,7 +52,7 @@ Basic Options
 .. option:: --log-file=<PATH|auto|off>
 
   Set the rotating log file path. ``auto`` writes to the platform default
-  diagnostics location. ``off`` disables file logging. Default: ``auto``
+  diagnostics location. ``off`` disables file logging. Default: ``off``
 
 .. option:: -j, --max-concurrent-downloads=<N>
 

@@ -483,7 +483,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
   }
   {
     OptionHandler* op(new DefaultOptionHandler(PREF_LOG_FILE, TEXT_LOG_FILE,
-                                               V_AUTO));
+                                               V_OFF));
     op->addTag(TAG_BASIC);
     op->setChangeGlobalOption(true);
     handlers.push_back(op);

@@ -160,10 +160,6 @@ bool AbstractCommand::shouldProcess() const
 
 bool AbstractCommand::execute()
 {
-  ARIA2_LOG_DEBUG(fmt("CUID#%" PRId64
-                   " - socket: read:%d, write:%d, hup:%d, err:%d",
-                   getCuid(), readEventEnabled(), writeEventEnabled(),
-                   hupEventEnabled(), errorEventEnabled()));
   try {
     if (requestGroup_->downloadFinished() || requestGroup_->isHaltRequested()) {
       return true;

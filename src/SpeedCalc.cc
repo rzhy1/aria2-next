@@ -35,95 +35,82 @@
 #include "SpeedCalc.h"
 
 #include <algorithm>
-#include <functional>
 
 #include "wallclock.h"
 
 namespace aria2 {
 
-namespace {
-constexpr auto WINDOW_TIME = 10_s;
-} // namespace
-
-SpeedCalc::SpeedCalc() : accumulatedLength_(0), bytesWindow_(0), maxSpeed_(0) {}
+SpeedCalc::SpeedCalc()
+    : buckets_{},
+      bucketIndex_(0),
+      start_(global::wallclock()),
+      lastTick_(start_),
+      accumulatedLength_(0),
+      currentBucketBytes_(0),
+      publishedWindowBytes_(0),
+      publishedSamples_(0),
+      publishedSpeed_(0),
+      maxSpeed_(0)
+{
+}
 
 void SpeedCalc::reset()
 {
-  timeSlots_.clear();
+  buckets_.fill(0);
+  bucketIndex_ = 0;
   start_ = global::wallclock();
+  lastTick_ = start_;
   accumulatedLength_ = 0;
-  bytesWindow_ = 0;
+  currentBucketBytes_ = 0;
+  publishedWindowBytes_ = 0;
+  publishedSamples_ = 0;
+  publishedSpeed_ = 0;
   maxSpeed_ = 0;
 }
 
-void SpeedCalc::removeStaleTimeSlot(const Timer& now)
+void SpeedCalc::publishElapsedSamples(const Timer& now)
 {
-  while (!timeSlots_.empty()) {
-    if (timeSlots_[0].first.difference(now) <= WINDOW_TIME) {
-      break;
+  auto elapsedSeconds = std::chrono::duration_cast<std::chrono::seconds>(
+                            lastTick_.difference(now))
+                            .count();
+  while (elapsedSeconds > 0) {
+    const auto sampleBytes = currentBucketBytes_;
+    currentBucketBytes_ = 0;
+    if (sampleBytes == 0) {
+      buckets_.fill(0);
+      publishedWindowBytes_ = 0;
+      publishedSamples_ = 0;
+      publishedSpeed_ = 0;
+      lastTick_.advance(1_s);
+      --elapsedSeconds;
+      continue;
     }
-    bytesWindow_ -= timeSlots_[0].second;
-    timeSlots_.pop_front();
+    bucketIndex_ = (bucketIndex_ + 1) % buckets_.size();
+    publishedWindowBytes_ -= buckets_[bucketIndex_];
+    buckets_[bucketIndex_] = sampleBytes;
+    publishedWindowBytes_ += sampleBytes;
+    publishedSamples_ =
+        std::min<int>(publishedSamples_ + 1, static_cast<int>(buckets_.size()));
+    publishedSpeed_ =
+        publishedSamples_ == 0 ? 0 : publishedWindowBytes_ / publishedSamples_;
+    maxSpeed_ = std::max(publishedSpeed_, maxSpeed_);
+    lastTick_.advance(1_s);
+    --elapsedSeconds;
   }
 }
 
 int SpeedCalc::calculateSpeed()
 {
   const auto& now = global::wallclock();
-  removeStaleTimeSlot(now);
-  if (timeSlots_.empty()) {
-    return 0;
-  }
-  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                     timeSlots_[0].first.difference(now))
-                     .count();
-  if (elapsed <= 0) {
-    elapsed = 1;
-  }
-  int speed = bytesWindow_ * 1000 / elapsed;
-  maxSpeed_ = std::max(speed, maxSpeed_);
-  return speed;
-}
-
-int SpeedCalc::calculateNewestSpeed(int seconds)
-{
-  const auto& now = global::wallclock();
-  removeStaleTimeSlot(now);
-
-  int64_t bytesCount(0);
-  auto it = timeSlots_.rbegin();
-  while (it != timeSlots_.rend()) {
-    if (it->first.difference(now) > seconds * 1_s) {
-      break;
-    }
-    bytesCount += (*it++).second;
-  }
-  if (it == timeSlots_.rbegin()) {
-    return 0;
-  }
-
-  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                     (*--it).first.difference(now))
-                     .count();
-  if (elapsed <= 0) {
-    elapsed = 1;
-  }
-  return bytesCount * (1000. / elapsed);
+  publishElapsedSamples(now);
+  return publishedSpeed_;
 }
 
 void SpeedCalc::update(size_t bytes)
 {
   const auto& now = global::wallclock();
-  removeStaleTimeSlot(now);
-  if (timeSlots_.empty() ||
-      std::chrono::duration_cast<std::chrono::seconds>(
-          timeSlots_.back().first.difference(now)) >= 1_s) {
-    timeSlots_.push_back(std::make_pair(now, bytes));
-  }
-  else {
-    timeSlots_.back().second += bytes;
-  }
-  bytesWindow_ += bytes;
+  publishElapsedSamples(now);
+  currentBucketBytes_ += bytes;
   accumulatedLength_ += bytes;
 }
 

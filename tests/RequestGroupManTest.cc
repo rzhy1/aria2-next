@@ -22,6 +22,7 @@
 #include "SelectEventPoll.h"
 #include "UriListParser.h"
 #include "Command.h"
+#include "wallclock.h"
 #ifdef ENABLE_BITTORRENT
 #  include "LibtorrentAttribute.h"
 #endif // ENABLE_BITTORRENT
@@ -366,6 +367,7 @@ void RequestGroupManTest::testUploadDeltaFeedsGlobalStat()
   group->setDownloadContext(dctx);
 
   dctx->updateUpload(8048);
+  global::wallclock().advance(1_s);
 
   auto taskStat = group->calculateStat();
   auto globalStat = rgman_->calculateStat();

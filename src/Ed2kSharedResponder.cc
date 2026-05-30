@@ -32,7 +32,7 @@ SharedResponder::SharedResponder(SharedStore* store, UploadQueue* uploadQueue,
                                  RequestGroupMan* rgman,
                                  const Endpoint& endpoint,
                                  const std::string& userHash,
-                                 std::deque<std::string>& outbox)
+                                 std::deque<OutboundPacket>& outbox)
     : store_(store),
       uploadQueue_(uploadQueue),
       outbox_(&outbox),
@@ -55,7 +55,16 @@ bool SharedResponder::hasFile(const std::string& hash) const
 void SharedResponder::queuePacket(uint8_t protocol, uint8_t opcode,
                                   const std::string& payload)
 {
-  outbox_->push_back(createPacket(protocol, opcode, payload));
+  queuePacket(protocol, opcode, payload, false);
+}
+
+void SharedResponder::queuePacket(uint8_t protocol, uint8_t opcode,
+                                  const std::string& payload, bool fileData)
+{
+  OutboundPacket packet;
+  packet.data = createPacket(protocol, opcode, payload);
+  packet.fileData = fileData;
+  outbox_->push_back(std::move(packet));
 }
 
 void SharedResponder::queueNoFile(const std::string& fileHash)
@@ -204,7 +213,7 @@ bool SharedResponder::queuePartAnswers(const std::string& requestPayload,
     }
     queuePacket(PROTO_EDONKEY,
                 use64BitOffsets ? OP_SENDINGPART_I64 : OP_SENDINGPART,
-                payload);
+                payload, true);
     if (uploadQueue_) {
       uploadQueue_->noteUploaded(endpoint_, range.end - range.begin);
     }

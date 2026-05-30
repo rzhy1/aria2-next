@@ -229,6 +229,7 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       connectedPort_(0),
       headerRead_(0),
       bodyRead_(0),
+      bodyConsumeRead_(0),
       peerFileStatusReceived_(false),
       peerFileRequestSent_(false),
       peerAccepted_(false),
@@ -273,6 +274,7 @@ Ed2kCommand::Ed2kCommand(cuid_t cuid, RequestGroup* requestGroup,
       connectedPort_(endpoint_.port),
       headerRead_(0),
       bodyRead_(0),
+      bodyConsumeRead_(0),
       peerFileStatusReceived_(false),
       peerFileRequestSent_(false),
       peerAccepted_(false),
@@ -614,8 +616,11 @@ void Ed2kCommand::queuePacket(uint8_t protocol, uint8_t opcode,
                    getCuid(), mode_ == Mode::SERVER ? "server" : "peer",
                    protocol, opcode,
                    static_cast<unsigned long>(payload.size())));
-  outbox_.push_back(ed2k::createPacket(protocol, opcode, payload));
-  outboxEncrypted_.push_back(false);
+  ed2k::OutboundPacket packet;
+  packet.data = ed2k::createPacket(protocol, opcode, payload);
+  packet.fileData = opcode == ed2k::OP_SENDINGPART ||
+                    opcode == ed2k::OP_SENDINGPART_I64;
+  outbox_.push_back(std::move(packet));
 }
 
 void Ed2kCommand::queueServerLogin()
@@ -1116,27 +1121,37 @@ void Ed2kCommand::startConnect()
 bool Ed2kCommand::flushOutbox()
 {
   while (!outbox_.empty()) {
-    auto& data = outbox_.front();
-    auto& encrypted = outboxEncrypted_.front();
-    if (!encrypted) {
-      encryptPacket(data);
-      encrypted = true;
+    auto& packet = outbox_.front();
+    if (!packet.encrypted) {
+      encryptPacket(packet.data);
+      packet.encrypted = true;
     }
-    auto written = getSocket()->writeData(data.data(), data.size());
+    auto writeLength = packet.data.size();
+    if (packet.fileData) {
+      const auto allowed = uploadLimitBucket_.consume(ed2kUploadLimit(),
+                                                      writeLength);
+      if (allowed == 0) {
+        getDownloadEngine()->scheduleRuntimeWake(std::chrono::milliseconds(50));
+        setWriteCheckSocket(getSocket());
+        addCommandSelf();
+        return false;
+      }
+      writeLength = allowed;
+    }
+    auto written = getSocket()->writeData(packet.data.data(), writeLength);
     if (written == 0) {
       setWriteCheckSocketIf(getSocket(), getSocket()->wantWrite());
       setReadCheckSocketIf(getSocket(), getSocket()->wantRead());
       addCommandSelf();
       return false;
     }
-    data.erase(0, static_cast<size_t>(written));
-    if (!data.empty()) {
+    packet.data.erase(0, static_cast<size_t>(written));
+    if (!packet.data.empty()) {
       setWriteCheckSocket(getSocket());
       addCommandSelf();
       return false;
     }
     outbox_.pop_front();
-    outboxEncrypted_.pop_front();
   }
   disableWriteCheckSocket();
   if (closeAfterOutbox_) {
@@ -1187,6 +1202,7 @@ bool Ed2kCommand::readHeader()
                    static_cast<unsigned long>(currentHeader_.payloadSize())));
   body_.assign(currentHeader_.payloadSize(), '\0');
   bodyRead_ = 0;
+  bodyConsumeRead_ = 0;
   headerRead_ = 0;
   state_ = State::READ_BODY;
   return true;
@@ -1196,6 +1212,22 @@ bool Ed2kCommand::readBody()
 {
   while (bodyRead_ < body_.size()) {
     size_t len = body_.size() - bodyRead_;
+    const bool limitedData =
+        mode_ == Mode::PEER &&
+        (currentHeader_.opcode == ed2k::OP_SENDINGPART ||
+         currentHeader_.opcode == ed2k::OP_SENDINGPART_I64 ||
+         currentHeader_.opcode == ed2k::OP_COMPRESSEDPART ||
+         currentHeader_.opcode == ed2k::OP_COMPRESSEDPART_I64);
+    if (limitedData) {
+      const auto allowed = downloadLimitBucket_.consume(ed2kDownloadLimit(), len);
+      if (allowed == 0) {
+        getDownloadEngine()->scheduleRuntimeWake(std::chrono::milliseconds(50));
+        setReadCheckSocket(getSocket());
+        addCommandSelf();
+        return false;
+      }
+      len = allowed;
+    }
     getSocket()->readData(&body_[bodyRead_], len);
     if (len == 0) {
       if (!getSocket()->wantRead() && !getSocket()->wantWrite()) {
@@ -1227,10 +1259,33 @@ bool Ed2kCommand::readBody()
   handlePacket();
   body_.clear();
   bodyRead_ = 0;
+  bodyConsumeRead_ = 0;
   if (state_ == State::READ_BODY) {
     state_ = State::READ_HEADER;
   }
   return true;
+}
+
+int64_t Ed2kCommand::ed2kDownloadLimit() const
+{
+  auto limit = getRequestGroup()->getMaxDownloadSpeedLimit();
+  auto rgman = getDownloadEngine()->getRequestGroupMan().get();
+  if (rgman && rgman->getMaxOverallDownloadSpeedLimit() > 0) {
+    limit = limit == 0 ? rgman->getMaxOverallDownloadSpeedLimit()
+                       : std::min(limit, rgman->getMaxOverallDownloadSpeedLimit());
+  }
+  return limit;
+}
+
+int64_t Ed2kCommand::ed2kUploadLimit() const
+{
+  auto limit = getRequestGroup()->getMaxUploadSpeedLimit();
+  auto rgman = getDownloadEngine()->getRequestGroupMan().get();
+  if (rgman && rgman->getMaxOverallUploadSpeedLimit() > 0) {
+    limit = limit == 0 ? rgman->getMaxOverallUploadSpeedLimit()
+                       : std::min(limit, rgman->getMaxOverallUploadSpeedLimit());
+  }
+  return limit;
 }
 
 void Ed2kCommand::addPeer(const ed2k::Endpoint& peer)

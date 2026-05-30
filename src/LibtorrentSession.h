@@ -71,8 +71,11 @@ public:
 
   void removeTorrent(a2_gid_t gid);
   bool hasTorrent(a2_gid_t gid) const;
+  size_t torrentCount() const { return handles_.size(); }
   void setTorrentDownloadLimit(a2_gid_t gid, int limit);
   void setTorrentUploadLimit(a2_gid_t gid, int limit);
+  void setSessionDownloadLimit(int limit);
+  void setSessionUploadLimit(int limit);
   void setTorrentMaxConnections(a2_gid_t gid, int limit);
   void setTorrentFilePriorities(a2_gid_t gid,
                                 const std::vector<int>& priorities);

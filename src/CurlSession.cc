@@ -12,10 +12,15 @@
 /* copyright --> */
 #include "CurlSession.h"
 
+#include "AbstractCommand.h"
 #include "DownloadFailureException.h"
 #include "DownloadEngine.h"
 #include "EventPoll.h"
+#include "RequestGroup.h"
+#include "RateLimitScheduler.h"
 #include "fmt.h"
+
+#include <algorithm>
 
 namespace aria2 {
 
@@ -57,6 +62,8 @@ void CurlSession::perform()
 void CurlSession::add(CURL* easy, Command* command)
 {
   curl_easy_setopt(easy, CURLOPT_PRIVATE, command);
+  active_[easy] = command;
+  engine_->refreshRateLimits();
   CURLMcode rc = curl_multi_add_handle(multi_, easy);
   if (rc != CURLM_OK) {
     throw DOWNLOAD_FAILURE_EXCEPTION(
@@ -70,7 +77,59 @@ void CurlSession::remove(CURL* easy)
     return;
   }
   doneResults_.erase(easy);
+  active_.erase(easy);
+  appliedLimits_.erase(easy);
   curl_multi_remove_handle(multi_, easy);
+  refreshRateLimits();
+}
+
+void CurlSession::refreshRateLimits()
+{
+  const auto backendDownloadLimit = engine_->getRateLimitScheduler().backendLimit(
+      RateLimitBackend::Curl, RateLimitDirection::Download);
+  const auto backendUploadLimit = engine_->getRateLimitScheduler().backendLimit(
+      RateLimitBackend::Curl, RateLimitDirection::Upload);
+  const auto activeCount = std::max<size_t>(1, active_.size());
+  for (const auto& entry : active_) {
+    auto command = dynamic_cast<AbstractCommand*>(entry.second);
+    int64_t taskDownloadLimit = 0;
+    int64_t taskUploadLimit = 0;
+    if (command && command->getRequestGroup()) {
+      taskDownloadLimit = command->getRequestGroup()->getMaxDownloadSpeedLimit();
+      taskUploadLimit = command->getRequestGroup()->getMaxUploadSpeedLimit();
+    }
+    auto downloadLimit =
+        backendDownloadLimit == 0 ? 0 : backendDownloadLimit / activeCount;
+    auto uploadLimit =
+        backendUploadLimit == 0 ? 0 : backendUploadLimit / activeCount;
+    if (taskDownloadLimit > 0) {
+      downloadLimit = downloadLimit == 0
+                          ? taskDownloadLimit
+                          : std::min<int64_t>(downloadLimit, taskDownloadLimit);
+    }
+    if (taskUploadLimit > 0) {
+      uploadLimit = uploadLimit == 0
+                        ? taskUploadLimit
+                        : std::min<int64_t>(uploadLimit, taskUploadLimit);
+    }
+    curl_easy_setopt(entry.first, CURLOPT_MAX_RECV_SPEED_LARGE,
+                     static_cast<curl_off_t>(downloadLimit));
+    curl_easy_setopt(entry.first, CURLOPT_MAX_SEND_SPEED_LARGE,
+                     static_cast<curl_off_t>(uploadLimit));
+    appliedLimits_[entry.first] = std::make_pair(downloadLimit, uploadLimit);
+  }
+}
+
+int64_t CurlSession::testDownloadLimit(CURL* easy) const
+{
+  auto itr = appliedLimits_.find(easy);
+  return itr == appliedLimits_.end() ? 0 : itr->second.first;
+}
+
+int64_t CurlSession::testUploadLimit(CURL* easy) const
+{
+  auto itr = appliedLimits_.find(easy);
+  return itr == appliedLimits_.end() ? 0 : itr->second.second;
 }
 
 bool CurlSession::takeDoneResult(CURL* easy, CURLcode& result)

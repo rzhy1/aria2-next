@@ -1931,6 +1931,7 @@ void changeOption(const std::shared_ptr<RequestGroup>& group,
   if (option.defined(PREF_MAX_DOWNLOAD_LIMIT)) {
     group->setMaxDownloadSpeedLimit(
         grOption->getAsInt(PREF_MAX_DOWNLOAD_LIMIT));
+    e->refreshRateLimits();
 #ifdef ENABLE_BITTORRENT
     if (dctx && dctx->hasAttribute(CTX_ATTR_LIBTORRENT)) {
       if (auto session = e->getInitializedLibtorrentSession()) {
@@ -1942,6 +1943,7 @@ void changeOption(const std::shared_ptr<RequestGroup>& group,
   }
   if (option.defined(PREF_MAX_UPLOAD_LIMIT)) {
     group->setMaxUploadSpeedLimit(grOption->getAsInt(PREF_MAX_UPLOAD_LIMIT));
+    e->refreshRateLimits();
 #ifdef ENABLE_BITTORRENT
     if (dctx && dctx->hasAttribute(CTX_ATTR_LIBTORRENT)) {
       if (auto session = e->getInitializedLibtorrentSession()) {
@@ -1968,10 +1970,12 @@ void changeGlobalOption(const Option& option, DownloadEngine* e)
   if (option.defined(PREF_MAX_OVERALL_DOWNLOAD_LIMIT)) {
     e->getRequestGroupMan()->setMaxOverallDownloadSpeedLimit(
         option.getAsInt(PREF_MAX_OVERALL_DOWNLOAD_LIMIT));
+    e->refreshRateLimits();
   }
   if (option.defined(PREF_MAX_OVERALL_UPLOAD_LIMIT)) {
     e->getRequestGroupMan()->setMaxOverallUploadSpeedLimit(
         option.getAsInt(PREF_MAX_OVERALL_UPLOAD_LIMIT));
+    e->refreshRateLimits();
   }
   if (option.defined(PREF_MAX_CONCURRENT_DOWNLOADS)) {
     e->getRequestGroupMan()->setMaxConcurrentDownloads(

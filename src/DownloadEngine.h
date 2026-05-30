@@ -50,6 +50,7 @@
 #include "FileAllocationMan.h"
 #include "CheckIntegrityMan.h"
 #include "DNSCache.h"
+#include "RateLimitScheduler.h"
 
 namespace aria2 {
 
@@ -92,6 +93,8 @@ private:
   std::unique_ptr<AsioRuntime> runtime_;
 
   std::unique_ptr<CurlSession> curlSession_;
+
+  RateLimitScheduler rateLimitScheduler_;
 
   std::vector<std::shared_ptr<RpcBeastServer>> rpcServers_;
 
@@ -214,6 +217,15 @@ public:
   AsioRuntime& getRuntime();
 
   CurlSession& getCurlSession();
+
+  RateLimitScheduler& getRateLimitScheduler() { return rateLimitScheduler_; }
+
+  const RateLimitScheduler& getRateLimitScheduler() const
+  {
+    return rateLimitScheduler_;
+  }
+
+  void refreshRateLimits();
 
   void wakeRuntime();
 

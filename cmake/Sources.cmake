@@ -297,6 +297,10 @@ set(ARIA2_SOURCES_BASE
   src/Randomizer.h
   src/Range.cc
   src/Range.h
+  src/RateLimitScheduler.cc
+  src/RateLimitScheduler.h
+  src/RateLimitTokenBucket.cc
+  src/RateLimitTokenBucket.h
   src/RarestPieceSelector.cc
   src/RarestPieceSelector.h
   src/RealtimeCommand.cc

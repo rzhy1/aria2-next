@@ -71,6 +71,7 @@
 #include "util_security.h"
 #include "AsioRuntime.h"
 #include "CurlSession.h"
+#include "prefs.h"
 
 namespace aria2 {
 
@@ -259,6 +260,8 @@ void DownloadEngine::onEndOfRun()
 
 void DownloadEngine::afterEachIteration()
 {
+  refreshRateLimits();
+
   if (global::globalHaltRequested == 1) {
     ARIA2_LOG_INFO(_("Shutdown sequence commencing..."
                     " Press Ctrl-C again for emergency shutdown."));
@@ -304,6 +307,45 @@ void DownloadEngine::setNoWait(bool b) { noWait_ = b; }
 AsioRuntime& DownloadEngine::getRuntime() { return *runtime_; }
 
 CurlSession& DownloadEngine::getCurlSession() { return *curlSession_; }
+
+void DownloadEngine::refreshRateLimits()
+{
+  if (!option_) {
+    return;
+  }
+  rateLimitScheduler_.setGlobalLimit(
+      RateLimitDirection::Download,
+      option_->getAsInt(PREF_MAX_OVERALL_DOWNLOAD_LIMIT));
+  rateLimitScheduler_.setGlobalLimit(
+      RateLimitDirection::Upload,
+      option_->getAsInt(PREF_MAX_OVERALL_UPLOAD_LIMIT));
+  rateLimitScheduler_.setActive(RateLimitBackend::Curl,
+                                RateLimitDirection::Download,
+                                curlSession_->activeHandleCount() > 0);
+  rateLimitScheduler_.setActive(RateLimitBackend::Curl,
+                                RateLimitDirection::Upload,
+                                curlSession_->activeHandleCount() > 0);
+#ifdef ENABLE_BITTORRENT
+  rateLimitScheduler_.setActive(
+      RateLimitBackend::Libtorrent, RateLimitDirection::Download,
+      libtorrentSession_ && libtorrentSession_->torrentCount() > 0);
+  rateLimitScheduler_.setActive(
+      RateLimitBackend::Libtorrent, RateLimitDirection::Upload,
+      libtorrentSession_ && libtorrentSession_->torrentCount() > 0);
+#endif // ENABLE_BITTORRENT
+  rateLimitScheduler_.recalculate();
+  curlSession_->refreshRateLimits();
+#ifdef ENABLE_BITTORRENT
+  if (libtorrentSession_) {
+    libtorrentSession_->setSessionDownloadLimit(
+        rateLimitScheduler_.backendLimit(RateLimitBackend::Libtorrent,
+                                         RateLimitDirection::Download));
+    libtorrentSession_->setSessionUploadLimit(
+        rateLimitScheduler_.backendLimit(RateLimitBackend::Libtorrent,
+                                         RateLimitDirection::Upload));
+  }
+#endif // ENABLE_BITTORRENT
+}
 
 void DownloadEngine::wakeRuntime()
 {

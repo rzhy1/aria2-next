@@ -19,6 +19,7 @@
 #include "SegList.h"
 #include "a2functional.h"
 
+#include <algorithm>
 #include <vector>
 
 #include <libtorrent/add_torrent_params.hpp>
@@ -111,9 +112,9 @@ LibtorrentSession::LibtorrentSession(const Option* option)
   settings.set_int(lt::settings_pack::connections_limit,
                    option->getAsInt(PREF_BT_MAX_PEERS));
   settings.set_int(lt::settings_pack::download_rate_limit,
-                   option->getAsInt(PREF_MAX_DOWNLOAD_LIMIT));
+                   option->getAsInt(PREF_MAX_OVERALL_DOWNLOAD_LIMIT));
   settings.set_int(lt::settings_pack::upload_rate_limit,
-                   option->getAsInt(PREF_MAX_UPLOAD_LIMIT));
+                   option->getAsInt(PREF_MAX_OVERALL_UPLOAD_LIMIT));
   settings.set_int(lt::settings_pack::alert_mask,
                    static_cast<int>(static_cast<unsigned int>(
                        lt::alert_category::error |
@@ -191,6 +192,20 @@ void LibtorrentSession::setTorrentUploadLimit(a2_gid_t gid, int limit)
   if (itr != handles_.end() && itr->second.is_valid()) {
     itr->second.set_upload_limit(limit);
   }
+}
+
+void LibtorrentSession::setSessionDownloadLimit(int limit)
+{
+  lt::settings_pack settings;
+  settings.set_int(lt::settings_pack::download_rate_limit, std::max(0, limit));
+  session_->apply_settings(settings);
+}
+
+void LibtorrentSession::setSessionUploadLimit(int limit)
+{
+  lt::settings_pack settings;
+  settings.set_int(lt::settings_pack::upload_rate_limit, std::max(0, limit));
+  session_->apply_settings(settings);
 }
 
 void LibtorrentSession::setTorrentMaxConnections(a2_gid_t gid, int limit)

@@ -29,6 +29,7 @@
 #  include <libtorrent/load_torrent.hpp>
 #  include <libtorrent/magnet_uri.hpp>
 #  include <libtorrent/read_resume_data.hpp>
+#  include <libtorrent/settings_pack.hpp>
 #  include <libtorrent/torrent_flags.hpp>
 #  include <libtorrent/write_resume_data.hpp>
 #endif // ENABLE_BITTORRENT
@@ -970,6 +971,17 @@ void RequestGroupTest::testLibtorrentSessionTracksActiveTorrent()
   command->preProcess();
   auto& session = engine->getLibtorrentSession();
   CPPUNIT_ASSERT(session.hasTorrent(group.getGID()));
+
+  session.setSessionDownloadLimit(500_k);
+  session.setSessionUploadLimit(50_k);
+  CPPUNIT_ASSERT_EQUAL(
+      static_cast<int>(500_k),
+      session.nativeSession().get_settings().get_int(
+          libtorrent::settings_pack::download_rate_limit));
+  CPPUNIT_ASSERT_EQUAL(
+      static_cast<int>(50_k),
+      session.nativeSession().get_settings().get_int(
+          libtorrent::settings_pack::upload_rate_limit));
 
   session.setTorrentDownloadLimit(group.getGID(), 100_k);
   session.setTorrentUploadLimit(group.getGID(), 50_k);

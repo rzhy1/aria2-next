@@ -119,7 +119,11 @@ void Ed2kSharedPeerCommand::setWriteCheck(bool enabled)
 void Ed2kSharedPeerCommand::queuePacket(uint8_t protocol, uint8_t opcode,
                                         const std::string& payload)
 {
-  outbox_.push_back(ed2k::createPacket(protocol, opcode, payload));
+  ed2k::OutboundPacket packet;
+  packet.data = ed2k::createPacket(protocol, opcode, payload);
+  packet.fileData = opcode == ed2k::OP_SENDINGPART ||
+                    opcode == ed2k::OP_SENDINGPART_I64;
+  outbox_.push_back(std::move(packet));
 }
 
 void Ed2kSharedPeerCommand::queuePeerHelloAnswer()
@@ -140,8 +144,20 @@ void Ed2kSharedPeerCommand::queueEmuleInfo(bool answer)
 bool Ed2kSharedPeerCommand::flushOutbox()
 {
   while (!outbox_.empty()) {
-    auto& data = outbox_.front();
-    auto written = socket_->writeData(data.data(), data.size());
+    auto& packet = outbox_.front();
+    auto writeLength = packet.data.size();
+    if (packet.fileData) {
+      const auto allowed = uploadLimitBucket_.consume(ed2kUploadLimit(),
+                                                      writeLength);
+      if (allowed == 0) {
+        e_->scheduleRuntimeWake(std::chrono::milliseconds(50));
+        setWriteCheck(true);
+        addCommandSelf();
+        return false;
+      }
+      writeLength = allowed;
+    }
+    auto written = socket_->writeData(packet.data.data(), writeLength);
     if (written == 0) {
       setWriteCheck(socket_->wantWrite());
       if (socket_->wantRead()) {
@@ -150,8 +166,8 @@ bool Ed2kSharedPeerCommand::flushOutbox()
       addCommandSelf();
       return false;
     }
-    data.erase(0, static_cast<size_t>(written));
-    if (!data.empty()) {
+    packet.data.erase(0, static_cast<size_t>(written));
+    if (!packet.data.empty()) {
       setWriteCheck(true);
       addCommandSelf();
       return false;
@@ -162,6 +178,12 @@ bool Ed2kSharedPeerCommand::flushOutbox()
   setReadCheck();
   state_ = State::READ_HEADER;
   return true;
+}
+
+int64_t Ed2kSharedPeerCommand::ed2kUploadLimit() const
+{
+  auto rgman = e_->getRequestGroupMan().get();
+  return rgman ? rgman->getMaxOverallUploadSpeedLimit() : 0;
 }
 
 bool Ed2kSharedPeerCommand::readHeader()

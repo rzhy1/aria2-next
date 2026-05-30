@@ -18,6 +18,7 @@
 #include <curl/curl.h>
 
 #include <map>
+#include <set>
 
 #include "a2netcompat.h"
 
@@ -42,6 +43,13 @@ public:
 
   void remove(CURL* easy);
 
+  void refreshRateLimits();
+
+  size_t activeHandleCount() const { return active_.size(); }
+
+  int64_t testDownloadLimit(CURL* easy) const;
+  int64_t testUploadLimit(CURL* easy) const;
+
   bool takeDoneResult(CURL* easy, CURLcode& result);
 
   int runningHandles() const { return runningHandles_; }
@@ -65,6 +73,8 @@ private:
   int runningHandles_;
   std::map<curl_socket_t, std::pair<Command*, int>> sockets_;
   std::map<CURL*, CURLcode> doneResults_;
+  std::map<CURL*, Command*> active_;
+  std::map<CURL*, std::pair<int64_t, int64_t>> appliedLimits_;
 };
 
 } // namespace aria2

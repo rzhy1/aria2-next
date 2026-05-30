@@ -240,6 +240,10 @@ PrefPtr PREF_QUIET = makePref("quiet");
 PrefPtr PREF_SUMMARY_INTERVAL = makePref("summary-interval");
 // value: trace, debug, info, warn, error, critical, off
 PrefPtr PREF_LOG_LEVEL = makePref("log-level");
+// value: trace, debug, info, warn, error, critical, off
+PrefPtr PREF_TERMINAL_LOG_LEVEL = makePref("terminal-log-level");
+// value: trace, debug, info, warn, error, critical, off
+PrefPtr PREF_FILE_LOG_LEVEL = makePref("file-log-level");
 // value: 1*digit with optional unit suffix.
 PrefPtr PREF_LOG_MAX_SIZE = makePref("log-max-size");
 // value: 1*digit.

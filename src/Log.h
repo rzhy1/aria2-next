@@ -37,7 +37,8 @@ enum class Level {
 
 struct Config {
   std::string file;
-  Level level = Level::Info;
+  Level terminalLevel = Level::Info;
+  Level fileLevel = Level::Info;
   size_t maxFileSize = 10 * 1024 * 1024;
   size_t maxFiles = 5;
   bool color = true;

@@ -195,6 +195,10 @@ extern PrefPtr PREF_QUIET;
 extern PrefPtr PREF_SUMMARY_INTERVAL;
 // value: trace, debug, info, warn, error, critical, off
 extern PrefPtr PREF_LOG_LEVEL;
+// value: trace, debug, info, warn, error, critical, off
+extern PrefPtr PREF_TERMINAL_LOG_LEVEL;
+// value: trace, debug, info, warn, error, critical, off
+extern PrefPtr PREF_FILE_LOG_LEVEL;
 // value: 1*digit with optional unit suffix.
 extern PrefPtr PREF_LOG_MAX_SIZE;
 // value: 1*digit.

@@ -1106,9 +1106,19 @@ Advanced Options
 
 .. option:: --log-level=<LEVEL>
 
-  Set the log level for console and file output. LEVEL is one of ``trace``,
-  ``debug``, ``info``, ``warn``, ``error``, ``critical`` or ``off``.
+  Set the default log level for terminal and file output. LEVEL is one of
+  ``trace``, ``debug``, ``info``, ``warn``, ``error``, ``critical`` or ``off``.
   Default: ``info``
+
+.. option:: --terminal-log-level=<LEVEL>
+
+  Override the log level for terminal output. If this option is omitted,
+  terminal output uses :option:`--log-level`.
+
+.. option:: --file-log-level=<LEVEL>
+
+  Override the log level for file output. If this option is omitted, file
+  output uses :option:`--log-level`.
 
 .. option:: --log-max-size=<SIZE>
 
@@ -2808,9 +2818,11 @@ REMOVEME    >>> from pprint import pprint
   * :option:`download-result <--download-result>`
   * :option:`keep-unfinished-download-result <--keep-unfinished-download-result>`
   * :option:`log-file <--log-file>`
+  * :option:`file-log-level <--file-log-level>`
   * :option:`log-level <--log-level>`
   * :option:`log-max-files <--log-max-files>`
   * :option:`log-max-size <--log-max-size>`
+  * :option:`terminal-log-level <--terminal-log-level>`
   * :option:`max-concurrent-downloads <-j>`
   * :option:`max-download-result <--max-download-result>`
   * :option:`max-overall-download-limit <--max-overall-download-limit>`
@@ -2827,7 +2839,10 @@ REMOVEME    >>> from pprint import pprint
   :option:`select-file <--select-file>`.
 
   Logging options can be changed dynamically with :option:`log-file <--log-file>`,
-  :option:`log-level <--log-level>`, :option:`log-max-size <--log-max-size>` and
+  :option:`log-level <--log-level>`,
+  :option:`terminal-log-level <--terminal-log-level>`,
+  :option:`file-log-level <--file-log-level>`,
+  :option:`log-max-size <--log-max-size>` and
   :option:`log-max-files <--log-max-files>`. Use ``log-file=off`` to stop file
   logging. This method returns ``OK`` for success.
 

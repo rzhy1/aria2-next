@@ -344,7 +344,12 @@
   _(" --summary-interval=SEC       Set interval to output download progress summary.\n" \
     "                              Setting 0 suppresses the output.")
 #define TEXT_LOG_LEVEL                                                  \
-  _(" --log-level=LEVEL            Set log level for console and file output.")
+  _(" --log-level=LEVEL            Set the default log level for terminal and\n" \
+    "                              file output.")
+#define TEXT_TERMINAL_LOG_LEVEL                                         \
+  _(" --terminal-log-level=LEVEL   Override log level for terminal output.")
+#define TEXT_FILE_LOG_LEVEL                                             \
+  _(" --file-log-level=LEVEL       Override log level for file output.")
 #define TEXT_LOG_MAX_SIZE                                               \
   _(" --log-max-size=SIZE          Set maximum rotating log file size.")
 #define TEXT_LOG_MAX_FILES                                              \

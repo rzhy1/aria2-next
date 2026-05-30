@@ -482,6 +482,22 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
+    OptionHandler* op(new ParameterOptionHandler(
+        PREF_TERMINAL_LOG_LEVEL, TEXT_TERMINAL_LOG_LEVEL, NO_DEFAULT_VALUE,
+        {std::begin(logLevels), std::end(logLevels)}));
+    op->addTag(TAG_ADVANCED);
+    op->setChangeGlobalOption(true);
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new ParameterOptionHandler(
+        PREF_FILE_LOG_LEVEL, TEXT_FILE_LOG_LEVEL, NO_DEFAULT_VALUE,
+        {std::begin(logLevels), std::end(logLevels)}));
+    op->addTag(TAG_ADVANCED);
+    op->setChangeGlobalOption(true);
+    handlers.push_back(op);
+  }
+  {
     OptionHandler* op(new UnitNumberOptionHandler(
         PREF_LOG_MAX_SIZE, TEXT_LOG_MAX_SIZE, "10M", 1));
     op->addTag(TAG_ADVANCED);

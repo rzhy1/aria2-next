@@ -1983,9 +1983,11 @@ void changeGlobalOption(const Option& option, DownloadEngine* e)
     e->getRequestGroupMan()->setMaxDownloadResult(
         option.getAsInt(PREF_MAX_DOWNLOAD_RESULT));
   }
-  if (option.defined(PREF_LOG_LEVEL) || option.defined(PREF_LOG_FILE) ||
+  if (option.defined(PREF_LOG_LEVEL) ||
+      option.defined(PREF_TERMINAL_LOG_LEVEL) ||
+      option.defined(PREF_FILE_LOG_LEVEL) || option.defined(PREF_LOG_FILE) ||
       option.defined(PREF_LOG_MAX_SIZE) || option.defined(PREF_LOG_MAX_FILES)) {
-    log::configure(log::configFromOption(option));
+    log::configure(log::configFromOption(*e->getOption()));
   }
   if (option.defined(PREF_BT_MAX_OPEN_FILES)) {
     auto& openedFileCounter = e->getRequestGroupMan()->getOpenedFileCounter();

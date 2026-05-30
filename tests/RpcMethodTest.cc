@@ -60,6 +60,7 @@ class RpcMethodTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testChangeOption_withNotAllowedOption);
   CPPUNIT_TEST(testChangeOption_withoutGid);
   CPPUNIT_TEST(testChangeGlobalOption);
+  CPPUNIT_TEST(testChangeGlobalOptionKeepsExistingLogFile);
   CPPUNIT_TEST(testChangeGlobalOption_withBadOption);
   CPPUNIT_TEST(testChangeGlobalOption_withNotAllowedOption);
   CPPUNIT_TEST(testTellStatus_withoutGid);
@@ -139,6 +140,7 @@ public:
   void testChangeOption_withNotAllowedOption();
   void testChangeOption_withoutGid();
   void testChangeGlobalOption();
+  void testChangeGlobalOptionKeepsExistingLogFile();
   void testChangeGlobalOption_withBadOption();
   void testChangeGlobalOption_withNotAllowedOption();
   void testTellStatus_withoutGid();
@@ -639,6 +641,29 @@ void RpcMethodTest::testChangeGlobalOption()
   CPPUNIT_ASSERT_EQUAL(std::string("51200"),
                        e_->getOption()->get(PREF_MAX_OVERALL_UPLOAD_LIMIT));
 #endif // ENABLE_BITTORRENT
+}
+
+void RpcMethodTest::testChangeGlobalOptionKeepsExistingLogFile()
+{
+  option_->put(PREF_LOG_FILE, A2_TEST_OUT_DIR "/aria2_RpcMethodTest.log");
+  option_->put(PREF_LOG_LEVEL, V_INFO);
+  option_->put(PREF_LOG_MAX_SIZE, "1048576");
+  option_->put(PREF_LOG_MAX_FILES, "2");
+  option_->put(PREF_ENABLE_COLOR, A2_V_FALSE);
+  option_->put(PREF_QUIET, A2_V_FALSE);
+
+  ChangeGlobalOptionRpcMethod m;
+  auto req = createReq(ChangeGlobalOptionRpcMethod::getMethodName());
+  auto opt = Dict::g();
+  opt->put(PREF_TERMINAL_LOG_LEVEL->k, V_WARN);
+  req.params->append(std::move(opt));
+  auto res = m.execute(std::move(req), e_.get());
+
+  CPPUNIT_ASSERT_EQUAL(0, res.code);
+  CPPUNIT_ASSERT_EQUAL(std::string(V_WARN),
+                       e_->getOption()->get(PREF_TERMINAL_LOG_LEVEL));
+  CPPUNIT_ASSERT_EQUAL(std::string(A2_TEST_OUT_DIR "/aria2_RpcMethodTest.log"),
+                       e_->getOption()->get(PREF_LOG_FILE));
 }
 
 void RpcMethodTest::testChangeGlobalOption_withBadOption()

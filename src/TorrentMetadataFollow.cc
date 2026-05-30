@@ -21,6 +21,8 @@
 #include "PieceStorage.h"
 #include "RequestGroup.h"
 #include "download_helper.h"
+#include "fmt.h"
+#include "Log.h"
 #include "prefs.h"
 #include "util.h"
 
@@ -90,9 +92,15 @@ bool createTorrentMetadataFollowGroups(
                                       ? std::string()
                                       : group->getFirstFilePath(),
       readTorrentMetadata(group));
+  ARIA2_LOG_INFO(fmt("Remote torrent metadata completed: %s",
+                  entry->getPath().c_str()));
   group->followedBy(std::begin(groups), std::end(groups));
   for (auto& rg : groups) {
     rg->following(group->getGID());
+    ARIA2_LOG_INFO(fmt("Starting BitTorrent download GID#%s from metadata "
+                       "GID#%s",
+                    rg->getGroupId()->toHex().c_str(),
+                    group->getGroupId()->toHex().c_str()));
   }
   auto mi = createMetadataInfoFromFirstFileEntry(group->getGroupId(),
                                                 group->getDownloadContext());

@@ -13,6 +13,7 @@ namespace aria2 {
 class RpcHttpHandlerTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(RpcHttpHandlerTest);
   CPPUNIT_TEST(testCorsPreflight);
+  CPPUNIT_TEST(testCorsHeaderOnJsonRpcPostResponse);
   CPPUNIT_TEST(testRpcSecretRejectsMissingToken);
   CPPUNIT_TEST_SUITE_END();
 
@@ -27,6 +28,7 @@ public:
   }
 
   void testCorsPreflight();
+  void testCorsHeaderOnJsonRpcPostResponse();
   void testRpcSecretRejectsMissingToken();
 
 private:
@@ -57,6 +59,25 @@ void RpcHttpHandlerTest::testCorsPreflight()
                        res.headers["access-control-allow-methods"]);
   CPPUNIT_ASSERT_EQUAL(std::string("content-type"),
                        res.headers["access-control-allow-headers"]);
+}
+
+void RpcHttpHandlerTest::testCorsHeaderOnJsonRpcPostResponse()
+{
+  option_->put(PREF_RPC_ALLOW_ORIGIN_ALL, A2_V_TRUE);
+  option_->put(PREF_RPC_SECRET, "secret");
+  RpcHttpHandler handler(engine_.get());
+
+  RpcHttpRequest req;
+  req.method = "POST";
+  req.target = "/jsonrpc";
+  req.body = "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"aria2.getVersion\"}";
+
+  auto res = handler.handle(req);
+
+  CPPUNIT_ASSERT_EQUAL(400, res.status);
+  CPPUNIT_ASSERT_EQUAL(std::string("*"),
+                       res.headers["access-control-allow-origin"]);
+  CPPUNIT_ASSERT(res.body.find("Unauthorized") != std::string::npos);
 }
 
 void RpcHttpHandlerTest::testRpcSecretRejectsMissingToken()

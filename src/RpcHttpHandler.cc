@@ -124,6 +124,14 @@ RpcHttpResponse processJson(std::unique_ptr<ValueBase> json,
                           -32600, "Invalid Request.", Null::g()),
                       callback, gzip);
 }
+
+RpcHttpResponse finalizeResponse(RpcHttpResponse res, const Option* option)
+{
+  if (option->getAsBool(PREF_RPC_ALLOW_ORIGIN_ALL)) {
+    res.headers.emplace("access-control-allow-origin", "*");
+  }
+  return res;
+}
 } // namespace
 
 RpcHttpHandler::RpcHttpHandler(DownloadEngine* engine) : engine_(engine) {}
@@ -132,9 +140,6 @@ RpcHttpResponse RpcHttpHandler::handle(const RpcHttpRequest& req) const
 {
   RpcHttpResponse res;
   auto option = engine_->getOption();
-  if (option->getAsBool(PREF_RPC_ALLOW_ORIGIN_ALL)) {
-    res.headers.emplace("access-control-allow-origin", "*");
-  }
 
   if (req.method == "OPTIONS") {
     if (findHeader(req, "origin") &&
@@ -148,7 +153,7 @@ RpcHttpResponse RpcHttpHandler::handle(const RpcHttpRequest& req) const
         res.headers.emplace("access-control-allow-headers", *requestHeaders);
       }
     }
-    return res;
+    return finalizeResponse(std::move(res), option);
   }
 
   const auto path = getPath(req.target);
@@ -159,17 +164,20 @@ RpcHttpResponse RpcHttpHandler::handle(const RpcHttpRequest& req) const
             static_cast<size_t>(option->getAsInt(PREF_RPC_MAX_REQUEST_SIZE))) {
       res.status = 413;
       res.closeConnection = true;
-      return res;
+      return finalizeResponse(std::move(res), option);
     }
 
     bool ok = false;
     auto json = parseJson(req.body, ok);
     if (!ok) {
-      return jsonResponse(rpc::createJsonRpcErrorResponse(
-                              -32700, "Parse error.", Null::g()),
-                          A2STR::NIL, gzip);
+      return finalizeResponse(
+          jsonResponse(rpc::createJsonRpcErrorResponse(
+                           -32700, "Parse error.", Null::g()),
+                       A2STR::NIL, gzip),
+          option);
     }
-    return processJson(std::move(json), A2STR::NIL, gzip, engine_);
+    return finalizeResponse(
+        processJson(std::move(json), A2STR::NIL, gzip, engine_), option);
   }
 
   if (req.method == "GET" && path == "/jsonrpc") {
@@ -177,16 +185,19 @@ RpcHttpResponse RpcHttpHandler::handle(const RpcHttpRequest& req) const
     bool ok = false;
     auto json = parseJson(param.request, ok);
     if (!ok) {
-      return jsonResponse(rpc::createJsonRpcErrorResponse(
-                              -32700, "Parse error.", Null::g()),
-                          param.callback, gzip);
+      return finalizeResponse(
+          jsonResponse(rpc::createJsonRpcErrorResponse(
+                           -32700, "Parse error.", Null::g()),
+                       param.callback, gzip),
+          option);
     }
-    return processJson(std::move(json), param.callback, gzip, engine_);
+    return finalizeResponse(
+        processJson(std::move(json), param.callback, gzip, engine_), option);
   }
 
   res.status = 404;
   res.closeConnection = true;
-  return res;
+  return finalizeResponse(std::move(res), option);
 }
 
 } // namespace aria2

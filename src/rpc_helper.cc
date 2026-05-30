@@ -78,7 +78,7 @@ RpcResponse processJsonRpcRequest(Dict* jsondict, DownloadEngine* e)
     // TODO No support for Named params
     return createJsonRpcErrorResponse(-32602, "Invalid params.", std::move(id));
   }
-  ARIA2_LOG_INFO(fmt("Executing RPC method %s", methodName->s().c_str()));
+  ARIA2_LOG_DEBUG(fmt("Executing RPC method %s", methodName->s().c_str()));
   RpcRequest req = {methodName->s(), std::move(params), std::move(id), true};
   return getMethod(methodName->s())->execute(std::move(req), e);
 }

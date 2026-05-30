@@ -255,7 +255,9 @@
   _(" -T, --torrent-file=TORRENT_FILE  The path to the .torrent file.")
 #define TEXT_TORRENT_METADATA                                           \
   _(" --torrent-metadata=MODE    Control remote .torrent metadata URLs.\n" \
-    "                              Possible values are save, start and memory.\n" \
+    "                              save stores the .torrent file only.\n" \
+    "                              start stores it, then starts BitTorrent.\n" \
+    "                              memory starts BitTorrent without storing it.\n" \
     "                              Default: start.")
 #define TEXT_LISTEN_PORT                                                \
   _(" --listen-port=PORT...        Set TCP port number for BitTorrent downloads.\n" \

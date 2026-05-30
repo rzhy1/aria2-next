@@ -63,6 +63,7 @@ class RequestGroupManTest : public CppUnit::TestFixture {
 #ifdef ENABLE_BITTORRENT
   CPPUNIT_TEST(testTorrentMetadataResponseDetection);
   CPPUNIT_TEST(testCompletedTorrentMetadataStartsLibtorrentTask);
+  CPPUNIT_TEST(testSaveTorrentMetadataDoesNotStartLibtorrentTask);
 #endif // ENABLE_BITTORRENT
   CPPUNIT_TEST(testReduceMaxConcurrentDownloads);
   CPPUNIT_TEST(testUploadDeltaFeedsGlobalStat);
@@ -102,6 +103,7 @@ public:
 #ifdef ENABLE_BITTORRENT
   void testTorrentMetadataResponseDetection();
   void testCompletedTorrentMetadataStartsLibtorrentTask();
+  void testSaveTorrentMetadataDoesNotStartLibtorrentTask();
 #endif // ENABLE_BITTORRENT
   void testReduceMaxConcurrentDownloads();
   void testUploadDeltaFeedsGlobalStat();
@@ -320,6 +322,36 @@ void RequestGroupManTest::testCompletedTorrentMetadataStartsLibtorrentTask()
   CPPUNIT_ASSERT_EQUAL(group->getGID(), child->following());
   CPPUNIT_ASSERT_EQUAL((size_t)1, group->followedBy().size());
   CPPUNIT_ASSERT_EQUAL(child->getGID(), group->followedBy()[0]);
+}
+
+void RequestGroupManTest::testSaveTorrentMetadataDoesNotStartLibtorrentTask()
+{
+  option_->put(PREF_TORRENT_METADATA, "save");
+  option_->put(PREF_FILE_ALLOCATION, V_NONE);
+  const std::string path = A2_TEST_OUT_DIR "/saved-remote-metadata.torrent";
+  File(path).remove();
+  auto data = readFile(A2_TEST_DIR "/single.torrent");
+
+  auto group = createRequestGroup(data.size(), data.size(), path,
+                                  "http://example.test/file.torrent",
+                                  util::copy(option_));
+  group->getDownloadContext()->getFirstFileEntry()->setContentType(
+      "application/x-bittorrent");
+  group->setRequestGroupMan(rgman_);
+  group->setState(RequestGroup::STATE_ACTIVE);
+  group->initPieceStorage();
+  group->getPieceStorage()->getDiskAdaptor()->openFile();
+  group->getPieceStorage()->getDiskAdaptor()->writeData(
+      reinterpret_cast<const unsigned char*>(data.data()), data.size(), 0);
+  group->getPieceStorage()->markAllPiecesDone();
+
+  rgman_->addRequestGroup(group);
+  while (e_->run(true) != 0)
+    ;
+
+  CPPUNIT_ASSERT(rgman_->getReservedGroups().empty());
+  CPPUNIT_ASSERT(group->followedBy().empty());
+  CPPUNIT_ASSERT(File(path).isFile());
 }
 #endif // ENABLE_BITTORRENT
 

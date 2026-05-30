@@ -738,9 +738,11 @@ These options configure libtorrent-backed torrent and magnet downloads.
 
   Control remote ".torrent" URLs passed to :func:`aria2.addUri` or the command
   line. ``save`` downloads the ".torrent" file only. ``start`` downloads the
-  ".torrent" file and starts the BitTorrent download from it. ``memory`` starts
-  the BitTorrent download from the fetched metadata without saving the
-  ".torrent" file. Default: ``start``
+  ".torrent" file into the download directory and starts the BitTorrent
+  download from it. ``memory`` starts the BitTorrent download from the fetched
+  metadata without saving the ".torrent" file. BitTorrent resume state is
+  still kept in an infohash-named ``.aria2`` control file when resume data is
+  available. Default: ``start``
 
 RPC Options
 ~~~~~~~~~~~

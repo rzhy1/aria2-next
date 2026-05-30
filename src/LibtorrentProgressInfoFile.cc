@@ -36,6 +36,27 @@ namespace aria2 {
 namespace {
 constexpr unsigned char FORMAT_VERSION[] = {0x4cu, 0x54u, 0x00u, 0x01u};
 
+std::string resumeFileExistsMessage(const std::string& filename)
+{
+  return fmt("The BitTorrent resume file %s exists.", filename.c_str());
+}
+
+std::string resumeFileMissingMessage(const std::string& filename)
+{
+  return fmt("The BitTorrent resume file %s does not exist.",
+             filename.c_str());
+}
+
+std::string savingResumeFileMessage(const std::string& filename)
+{
+  return fmt("Saving the BitTorrent resume file %s", filename.c_str());
+}
+
+std::string loadingResumeFileMessage(const std::string& filename)
+{
+  return fmt("Loading the BitTorrent resume file %s.", filename.c_str());
+}
+
 std::string createFilename(const std::shared_ptr<DownloadContext>& dctx)
 {
   auto attrs = getLibtorrentAttrs(dctx);
@@ -215,7 +236,7 @@ void LibtorrentProgressInfoFile::save()
   }
   lastDigest_ = std::move(digest);
 
-  ARIA2_LOG_INFO(fmt(MSG_SAVING_SEGMENT_FILE, filename_.c_str()));
+  ARIA2_LOG_DEBUG(savingResumeFileMessage(filename_));
   File(File(filename_).getDirname()).mkdirs();
   auto filenameTemp = filename_ + "__temp";
   {
@@ -225,7 +246,7 @@ void LibtorrentProgressInfoFile::save()
     }
     save(fp);
   }
-  ARIA2_LOG_INFO(MSG_SAVED_SEGMENT_FILE);
+  ARIA2_LOG_DEBUG("The BitTorrent resume file was saved successfully.");
   if (!File(filenameTemp).renameTo(filename_)) {
     throw DL_ABORT_EX(fmt(EX_SEGMENT_FILE_WRITE, filename_.c_str()));
   }
@@ -233,7 +254,7 @@ void LibtorrentProgressInfoFile::save()
 
 void LibtorrentProgressInfoFile::load()
 {
-  ARIA2_LOG_INFO(fmt(MSG_LOADING_SEGMENT_FILE, filename_.c_str()));
+  ARIA2_LOG_DEBUG(loadingResumeFileMessage(filename_));
   BufferedFile fp(filename_.c_str(), BufferedFile::READ);
   if (!fp) {
     throw DL_ABORT_EX(fmt(EX_SEGMENT_FILE_READ, filename_.c_str()));
@@ -276,7 +297,7 @@ void LibtorrentProgressInfoFile::load()
       attrs->metadataPauseApplied = false;
       attrs->contentStarted = false;
       attrs->setResumeData("");
-      ARIA2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
+      ARIA2_LOG_DEBUG("The BitTorrent resume file was loaded successfully.");
       return;
     }
     if (!attrs->selectedFiles.empty() && !params.piece_priorities.empty()) {
@@ -293,7 +314,7 @@ void LibtorrentProgressInfoFile::load()
                             !attrs->selectedFiles.empty();
   }
   attrs->setResumeData(std::move(data));
-  ARIA2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
+  ARIA2_LOG_DEBUG("The BitTorrent resume file was loaded successfully.");
 }
 
 void LibtorrentProgressInfoFile::removeFile()
@@ -307,10 +328,10 @@ bool LibtorrentProgressInfoFile::exists()
 {
   File f(filename_);
   if (f.isFile()) {
-    ARIA2_LOG_INFO(fmt(MSG_SEGMENT_FILE_EXISTS, filename_.c_str()));
+    ARIA2_LOG_DEBUG(resumeFileExistsMessage(filename_));
     return true;
   }
-  ARIA2_LOG_INFO(fmt(MSG_SEGMENT_FILE_DOES_NOT_EXIST, filename_.c_str()));
+  ARIA2_LOG_DEBUG(resumeFileMissingMessage(filename_));
   return false;
 }
 

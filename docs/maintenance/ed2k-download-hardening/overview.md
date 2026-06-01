@@ -79,8 +79,9 @@ aMule entry points include `CDownloadQueue::Process`,
 Kad search, publish, routing, and firewall paths.
 
 The current aria2-next baseline already has native ED2K protocol modules,
-server and Kad packet paths, peer handshake and transfer paths, sharing, upload
-queue, credits, session serialization, RPC fields, and local tests. The runtime
+server and Kad packet paths, peer handshake and transfer paths, task-level
+sharing, upload queue, credits, session serialization, RPC fields, and local
+tests. The runtime
 hardening gap is in durable scheduling and state maintenance: identity
 persistence, source quality, source expiry, server/Kad cadence, peer lifecycle,
 queued-peer UDP reask, LowID callback boundaries, transfer pacing, and
@@ -123,7 +124,7 @@ Likely implementation owners:
 | Peer download lifecycle | `PeerState`, `ed2k_policy.*`, peer path in `Ed2kCommand` |
 | Queue reask | UDP path in `Ed2kKadCommand` plus peer state in `Ed2kAttribute` |
 | Transfer pacing | `Ed2kPeerTransfer`, `SegmentMan`, `PieceStorage`, `DiskAdaptor`, peer path in `Ed2kCommand` |
-| Sharing and upload | `Ed2kSharedStore`, `Ed2kSharedResponder`, `Ed2kSharedPeerCommand`, `Ed2kUploadQueue` |
+| Sharing and upload | `Ed2kShareIndex`, `Ed2kSharedResponder`, `Ed2kSharedFile`, `Ed2kUploadQueue` |
 | RPC and docs | existing aria2-next RPC, manual, completion, and Motrix Next documentation paths |
 
 ## Verification Policy

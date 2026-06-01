@@ -83,8 +83,8 @@ daemon APIs, and platform-specific helper stacks.
 
 The codebase contains native ED2K modules for links, hashes, packet helpers,
 server parsing, peer helpers, Kad state, source policy, AICH, compression,
-shared files, upload queue, request-group integration, session serialization,
-RPC status, and documentation.
+task-level sharing, upload queue, request-group integration, session
+serialization, RPC status, and documentation.
 
 RA0 through RA71 are verified. The refactor aligns the native implementation
 with the authoritative local references through local parser, packet, state,
@@ -101,9 +101,9 @@ Current source inventory after the RA1 audit:
 | Server UDP and Kad | `src/Ed2kKadCommand.*`, `src/Ed2kKadState.*`, `src/ed2k_kad.*`, `src/ed2k_kad_search.*` | Correct single UDP event-loop owner, but ED2K server UDP and Kad traversal are interleaved in one command |
 | Source policy | `src/ed2k_policy.*` | Focused source selection and piece-selection helpers preserve retry, queue, availability, and endgame behavior |
 | Transfer and disk safety | `src/Ed2kPeerTransfer.*`, `src/ed2k_compression.*` | Existing disk path is used through `PieceStorage` and `DiskAdaptor`; RA40 verified range and corruption paths |
-| Sharing and upload | `src/Ed2kSharedFile.*`, `src/Ed2kSharedStore.*`, `src/Ed2kSharedResponder.*`, `src/Ed2kSharedPeerCommand.*`, `src/Ed2kUploadQueue.*` | Native sharing, upload queue, responder, and credit surfaces align with non-pruned reference behavior |
+| Sharing and upload | `src/Ed2kShareIndex.*`, `src/Ed2kSharedFile.*`, `src/Ed2kSharedResponder.*`, `src/Ed2kUploadQueue.*` | Active ED2K request groups expose verified pieces and completed files as task-level shared sources; upload queue, responder, and credit surfaces align with non-pruned reference behavior |
 | CLI/RPC/session | `src/download_helper.cc`, `src/SessionSerializer.cc`, `src/RpcMethodImpl.cc`, `src/OptionHandlerFactory.cc`, `docs/completion/aria2-next` | Existing aria2-next integration points are preserved; RA70 and RA71 verified field and documentation truth |
-| Tests | `tests/Ed2kHelperTest.cc`, `tests/Ed2kKadStateTest.cc`, `tests/Ed2kSharedStoreTest.cc`, `tests/ProtocolDetectorTest.cc` | Coverage is local and parser/state focused; `tests/Ed2kHelperTest.cc` is broad and should be split only when future changes need clearer ownership |
+| Tests | `tests/Ed2kHelperTest.cc`, `tests/Ed2kKadStateTest.cc`, `tests/Ed2kShareIndexTest.cc`, `tests/Ed2kUploadQueueTest.cc`, `tests/ProtocolDetectorTest.cc` | Coverage is local and parser/state focused; `tests/Ed2kHelperTest.cc` is broad and should be split only when future changes need clearer ownership |
 
 Capability truth was aligned in RA30. Local peer info advertises implemented
 AICH, Unicode, compression, Source Exchange 1, extended requests, large files,
@@ -130,7 +130,7 @@ with explicit state ownership:
 | Server TCP | A focused server-session path for login, IDChange, source requests, callback, status, search, server list, retry, and persistence |
 | Server UDP | Existing UDP command path with clear ED2K server UDP ownership and bounded packet parsing |
 | Peer download | A focused peer-download session path for hello, capability truth, request flow, queue state, parts, compression, AICH, and failure handling |
-| Peer upload and sharing | `Ed2kSharedStore`, `Ed2kSharedResponder`, `Ed2kSharedPeerCommand`, and `Ed2kUploadQueue` |
+| Peer upload and sharing | `Ed2kShareIndex`, `Ed2kSharedResponder`, `Ed2kSharedFile`, and `Ed2kUploadQueue` |
 | Source policy | `ed2k_policy.*`, `PeerState`, and request-level scheduling state |
 | Kad | `Ed2kKadCommand`, `Ed2kKadState`, and focused Kad packet/traversal helpers |
 | Persistence | Existing aria2-next session/control-file mechanisms plus documented hidden ED2K state |

@@ -20,8 +20,8 @@ downloading a file.
 Aria2 Next includes native ED2K/eMule support reimplemented inside aria2's
 existing engine architecture from authoritative eMule, aMule, MLDonkey,
 Wireshark, and protocol documentation references. Core ED2K/eMule behavior has
-been ported where it fits aria2-next, while obsolete legacy structures were
-removed or replaced with existing compatible integration surfaces.
+been ported where it fits aria2-next, including task-level sharing for active
+ED2K downloads and completed ED2K seed tasks.
 
 OPTIONS
 -------
@@ -690,16 +690,6 @@ ED2K Specific Options
 
   Set the maximum number of active ED2K upload slots. Default: ``3``
 
-.. option:: --ed2k-share-file=<FILE>
-
-  Import a completed local file into the ED2K shared store. This option can be
-  used multiple times.
-
-  .. note::
-
-    ED2K support is native to aria2-next and uses existing compatible
-    integration surfaces for downloads, search, sharing, and saved sessions.
-
 BitTorrent Specific Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1017,8 +1007,8 @@ BitTorrent Specific Options
 
 .. option:: --seed-ratio=<RATIO>
 
-  Specify share ratio. Seed completed torrents until share ratio reaches
-  RATIO.
+  Specify share ratio. Seed completed torrents and ED2K tasks until share ratio
+  reaches RATIO.
   You are strongly encouraged to specify equals or more than ``1.0`` here.
   Specify ``0.0`` if you intend to do seeding regardless of share ratio.
   If :option:`--seed-time` option is specified along with this option, seeding ends when
@@ -2207,7 +2197,6 @@ of URIs. These optional lines must start with white space(s).
   * :option:`ed2k-udp-listen-port <--ed2k-udp-listen-port>`
   * :option:`ed2k-server <--ed2k-server>`
   * :option:`ed2k-server-list <--ed2k-server-list>`
-  * :option:`ed2k-share-file <--ed2k-share-file>`
   * :option:`ed2k-upload-slots <--ed2k-upload-slots>`
   * :option:`enable-http-keep-alive <--enable-http-keep-alive>`
   * :option:`enable-http-pipelining <--enable-http-pipelining>`
@@ -2908,9 +2897,6 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
     ``searchResultCount``
       Number of accumulated ED2K search results.
-
-    ``sharedFileCount``
-      Number of files currently indexed by the ED2K shared-file store.
 
     ``uploadingPeerCount``
       Number of ED2K peers currently occupying upload slots.
@@ -4402,8 +4388,8 @@ Change the listening ports for incoming peer connections
   Since aria2 doesn't configure firewalls or routers for port forwarding, it's
   up to you to do so manually.
 
-Specify conditions to stop seeding after torrent downloads finish
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Specify conditions to stop seeding after BitTorrent or ED2K downloads finish
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: console
 
   $ aria2-next --seed-time=120 --seed-ratio=1.0 file.torrent

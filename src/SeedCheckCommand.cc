@@ -62,7 +62,7 @@ SeedCheckCommand::~SeedCheckCommand() { requestGroup_->decreaseNumCommand(); }
 
 bool SeedCheckCommand::execute()
 {
-  if (btRuntime_->isHalt()) {
+  if (btRuntime_ && btRuntime_->isHalt()) {
     return true;
   }
   if (!seedCriteria_.get()) {
@@ -77,7 +77,14 @@ bool SeedCheckCommand::execute()
   if (checkStarted_) {
     if (seedCriteria_->evaluate()) {
       A2_LOG_NOTICE(MSG_SEEDING_END);
-      btRuntime_->setHalt(true);
+      if (btRuntime_) {
+        btRuntime_->setHalt(true);
+      }
+      else {
+        requestGroup_->setForceHaltRequested(true);
+        e_->setRefreshInterval(std::chrono::milliseconds(0));
+        return true;
+      }
     }
   }
   e_->addCommand(std::unique_ptr<Command>(this));

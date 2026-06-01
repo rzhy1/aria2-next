@@ -69,6 +69,7 @@
 #include "WrDiskCache.h"
 #include "RequestGroup.h"
 #include "SimpleRandomizer.h"
+#include "ContextAttribute.h"
 #ifdef ENABLE_BITTORRENT
 #  include "bittorrent_helper.h"
 #endif // ENABLE_BITTORRENT
@@ -507,6 +508,9 @@ void DefaultPieceStorage::completePiece(const std::shared_ptr<Piece>& piece)
       }
     }
 #endif // ENABLE_BITTORRENT
+    if (downloadContext_->hasAttribute(CTX_ATTR_ED2K)) {
+      downloadContext_->getOwnerRequestGroup()->enableSeedOnly();
+    }
   }
 }
 

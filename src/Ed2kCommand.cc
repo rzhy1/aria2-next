@@ -27,6 +27,7 @@
 #include "DownloadFailureException.h"
 #include "Ed2kAttribute.h"
 #include "Ed2kPeerTransfer.h"
+#include "Ed2kShareIndex.h"
 #include "Ed2kSharedResponder.h"
 #include "Ed2kUploadQueue.h"
 #include "FileEntry.h"
@@ -567,8 +568,9 @@ void Ed2kCommand::releaseCompletedCompressedPartState(
 bool Ed2kCommand::execute()
 {
   try {
-    if (getRequestGroup()->downloadFinished() ||
-        getRequestGroup()->isHaltRequested()) {
+    if (getRequestGroup()->isHaltRequested() ||
+        (getRequestGroup()->downloadFinished() && mode_ == Mode::PEER &&
+         !incoming_ && outbox_.empty())) {
       return true;
     }
     return executeInternal();
@@ -630,6 +632,30 @@ void Ed2kCommand::queueServerLogin()
                                               0,
                                               localEd2kTcpPort(getDownloadEngine()),
                                               "aria2-next"));
+}
+
+void Ed2kCommand::queueServerOfferFiles()
+{
+  auto rgman = getDownloadEngine()->getRequestGroupMan().get();
+  auto state = getEd2kServerState(getEd2kAttrs(getDownloadContext()),
+                                  endpoint_);
+  if (!rgman || !state || !state->handshakeCompleted) {
+    return;
+  }
+  auto sources = ed2k::listSharedSources(rgman);
+  std::string payload;
+  const auto limit = state->softFiles == 0 ? static_cast<size_t>(200)
+                                           : std::min<size_t>(state->softFiles,
+                                                              200);
+  const bool supportsLarge =
+      (state->tcpFlags & ed2k::SRV_TCPFLG_LARGEFILES) != 0;
+  if (!ed2k::createOfferFilesPayload(
+          payload, sources, supportsLarge, limit,
+          state->highId ? state->clientId : 0,
+          state->highId ? localEd2kTcpPort(getDownloadEngine()) : 0)) {
+    return;
+  }
+  queuePacket(ed2k::PROTO_EDONKEY, ed2k::OP_OFFERFILES, payload);
 }
 
 bool Ed2kCommand::queueGetSources()
@@ -849,6 +875,7 @@ void Ed2kCommand::queuePeerStartUpload()
 void Ed2kCommand::queuePeerPartRequest()
 {
   if (getRequestGroup()->downloadFinished()) {
+    closeAfterOutbox_ = true;
     return;
   }
   std::vector<ed2k::PartRange> ranges;
@@ -1054,9 +1081,8 @@ bool Ed2kCommand::expireStalledTransfer()
 ed2k::SharedResponder Ed2kCommand::createSharedResponder()
 {
   auto rgman = getDownloadEngine()->getRequestGroupMan().get();
-  auto store = rgman ? rgman->getEd2kSharedStore() : nullptr;
   auto uploadQueue = rgman ? rgman->getEd2kUploadQueue() : nullptr;
-  return ed2k::SharedResponder(store, uploadQueue, rgman, endpoint_,
+  return ed2k::SharedResponder(uploadQueue, rgman, endpoint_,
                                remotePeerInfo_.userHash, outbox_);
 }
 
@@ -1319,6 +1345,9 @@ void Ed2kCommand::handlePartData(int64_t begin, const std::string& data)
   if (transfer.completeVerifiedSegment(completedSegment)) {
     clearEd2kPeerRequestedParts(getEd2kAttrs(getDownloadContext()), endpoint_);
   }
+  if (getRequestGroup()->downloadFinished()) {
+    getRequestGroup()->enableSeedOnly();
+  }
 }
 
 void Ed2kCommand::handleServerPacket()
@@ -1335,9 +1364,11 @@ void Ed2kCommand::handleServerPacket()
                     getCuid(), endpoint_.host.c_str(), endpoint_.port,
                     idChange.highId ? "High" : "Low", idChange.clientId));
     if (attrs->searchActive) {
+      queueServerOfferFiles();
       queueSearchRequest();
     }
     else {
+      queueServerOfferFiles();
       A2_LOG_INFO(fmt("CUID#%" PRId64
                       " - ED2K server %s:%u requesting sources for %s.",
                       getCuid(), endpoint_.host.c_str(), endpoint_.port,

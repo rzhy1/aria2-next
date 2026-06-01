@@ -36,6 +36,7 @@
 
 #include <cassert>
 #include <algorithm>
+#include <array>
 
 #include "PostDownloadHandler.h"
 #include "DownloadEngine.h"
@@ -66,6 +67,12 @@
 #include "Ed2kCommand.h"
 #include "Ed2kListenCommand.h"
 #include "Ed2kKadCommand.h"
+#include "ed2k_hash.h"
+#include "SeedCheckCommand.h"
+#include "SeedCriteria.h"
+#include "ShareRatioSeedCriteria.h"
+#include "TimeSeedCriteria.h"
+#include "UnionSeedCriteria.h"
 #include "MemoryBufferPreDownloadHandler.h"
 #include "DownloadHandlerConstants.h"
 #include "Option.h"
@@ -122,6 +129,70 @@
 #endif // ENABLE_METALINK
 
 namespace aria2 {
+
+namespace {
+
+bool validateCompleteEd2kFile(PieceStorage* pieceStorage,
+                              const Ed2kAttribute* attrs)
+{
+  if (!pieceStorage || !attrs || attrs->link.hash.size() != ed2k::HASH_LENGTH ||
+      attrs->link.size <= 0) {
+    return false;
+  }
+  auto disk = pieceStorage->getDiskAdaptor();
+  if (!disk || disk->size() != attrs->link.size) {
+    return false;
+  }
+  std::vector<std::string> pieceHashes;
+  std::array<unsigned char, 64_k> buf;
+  int64_t offset = 0;
+  while (offset < attrs->link.size) {
+    const auto partLength = static_cast<size_t>(
+        std::min<int64_t>(ed2k::PIECE_LENGTH, attrs->link.size - offset));
+    std::string part;
+    part.reserve(partLength);
+    size_t partRead = 0;
+    while (partRead < partLength) {
+      const auto requestLength = std::min(buf.size(), partLength - partRead);
+      const auto nread = disk->readData(buf.data(), requestLength,
+                                        offset + partRead);
+      if (nread <= 0) {
+        return false;
+      }
+      part.append(reinterpret_cast<const char*>(buf.data()),
+                  static_cast<size_t>(nread));
+      partRead += static_cast<size_t>(nread);
+    }
+    pieceHashes.push_back(ed2k::md4Digest(part));
+    offset += static_cast<int64_t>(partLength);
+  }
+  return ed2k::rootHash(pieceHashes) == attrs->link.hash;
+}
+
+std::unique_ptr<SeedCriteria>
+createEd2kSeedCriteria(const std::shared_ptr<Option>& option,
+                       const std::shared_ptr<DownloadContext>& dctx,
+                       const std::shared_ptr<PieceStorage>& pieceStorage)
+{
+  auto unionCri = make_unique<UnionSeedCriteria>();
+  if (option->defined(PREF_SEED_TIME)) {
+    unionCri->addSeedCriteria(
+        make_unique<TimeSeedCriteria>(std::chrono::seconds(
+            static_cast<int>(option->getAsDouble(PREF_SEED_TIME) * 60))));
+  }
+  const auto ratio = option->getAsDouble(PREF_SEED_RATIO);
+  if (ratio > 0.0) {
+    auto ratioCri = make_unique<ShareRatioSeedCriteria>(ratio, dctx);
+    ratioCri->setPieceStorage(pieceStorage);
+    unionCri->addSeedCriteria(std::move(ratioCri));
+  }
+  if (unionCri->getSeedCriterion().empty()) {
+    return nullptr;
+  }
+  return std::move(unionCri);
+}
+
+} // namespace
 
 RequestGroup::RequestGroup(const std::shared_ptr<GroupId>& gid,
                            const std::shared_ptr<Option>& option)
@@ -292,32 +363,41 @@ void RequestGroup::createInitialCommand(
               downloadContext_->getBasePath().c_str()),
           error_code::DUPLICATE_DOWNLOAD);
     }
-    auto progressInfoFile = std::make_shared<DefaultBtProgressInfoFile>(
-        downloadContext_, nullptr, option_.get());
-    adjustFilename(progressInfoFile);
     initPieceStorage();
-    progressInfoFile = std::make_shared<DefaultBtProgressInfoFile>(
+    auto progressInfoFile = std::make_shared<DefaultBtProgressInfoFile>(
         downloadContext_, pieceStorage_, option_.get());
+    if (!option_->getAsBool(PREF_DRY_RUN) &&
+        option_->getAsBool(PREF_REMOVE_CONTROL_FILE) &&
+        progressInfoFile->exists()) {
+      progressInfoFile->removeFile();
+      A2_LOG_NOTICE(fmt(_("Removed control file for %s because it is requested by"
+                          " user."),
+                        progressInfoFile->getFilename().c_str()));
+    }
     removeDefunctControlFile(progressInfoFile);
+    auto attrs = getEd2kAttrs(downloadContext_);
     if (progressInfoFile->exists()) {
       progressInfoFile->load();
       pieceStorage_->getDiskAdaptor()->openFile();
     }
     else if (pieceStorage_->getDiskAdaptor()->fileExists()) {
-      if (!option_->getAsBool(PREF_ALLOW_OVERWRITE)) {
-        throw DOWNLOAD_FAILURE_EXCEPTION2(
-            fmt(MSG_FILE_ALREADY_EXISTS,
-                downloadContext_->getBasePath().c_str()),
-            error_code::FILE_ALREADY_EXISTS);
+      pieceStorage_->getDiskAdaptor()->enableReadOnly();
+      pieceStorage_->getDiskAdaptor()->openExistingFile();
+      if (validateCompleteEd2kFile(pieceStorage_.get(), attrs)) {
+        pieceStorage_->markAllPiecesDone();
       }
-      pieceStorage_->getDiskAdaptor()->openFile();
+      else {
+        pieceStorage_->getDiskAdaptor()->closeFile();
+        pieceStorage_->getDiskAdaptor()->disableReadOnly();
+        shouldCancelDownloadForSafety();
+        pieceStorage_->getDiskAdaptor()->openFile();
+      }
     }
     else {
       pieceStorage_->getDiskAdaptor()->openFile();
     }
     progressInfoFile_ = progressInfoFile;
 
-    auto attrs = getEd2kAttrs(downloadContext_);
     const auto hasDiscoveryData = !attrs->servers.empty() ||
                                   (attrs->kadRoutingTable &&
                                    attrs->kadRoutingTable->liveSize() > 0);
@@ -334,6 +414,9 @@ void RequestGroup::createInitialCommand(
       commands.push_back(
           make_unique<Ed2kCommand>(e->newCUID(), this, e, peer, false));
     }
+    if (downloadFinished()) {
+      enableSeedOnly();
+    }
     if (!e->isEd2kTcpListenActive()) {
       auto listenCommand =
           make_unique<Ed2kListenCommand>(e->newCUID(), e, AF_INET);
@@ -344,6 +427,13 @@ void RequestGroup::createInitialCommand(
       }
     }
     commands.push_back(make_unique<Ed2kKadCommand>(e->newCUID(), this, e));
+    if (auto seedCriteria =
+            createEd2kSeedCriteria(option_, downloadContext_, pieceStorage_)) {
+      auto seedCheck = make_unique<SeedCheckCommand>(
+          e->newCUID(), this, e, std::move(seedCriteria));
+      seedCheck->setPieceStorage(pieceStorage_);
+      commands.push_back(std::move(seedCheck));
+    }
     if (commands.empty()) {
       throw DOWNLOAD_FAILURE_EXCEPTION(
           "ED2K download requires at least one server or source.");
@@ -1398,6 +1488,9 @@ void RequestGroup::setDownloadContext(
 
 bool RequestGroup::p2pInvolved() const
 {
+  if (downloadContext_->hasAttribute(CTX_ATTR_ED2K)) {
+    return true;
+  }
 #ifdef ENABLE_BITTORRENT
   return downloadContext_->hasAttribute(CTX_ATTR_BT);
 #else  // !ENABLE_BITTORRENT
@@ -1421,6 +1514,9 @@ void RequestGroup::enableSeedOnly()
 
 bool RequestGroup::isSeeder() const
 {
+  if (downloadContext_->hasAttribute(CTX_ATTR_ED2K) && downloadFinished()) {
+    return true;
+  }
 #ifdef ENABLE_BITTORRENT
   return downloadContext_->hasAttribute(CTX_ATTR_BT) &&
          !bittorrent::getTorrentAttrs(downloadContext_)->metadata.empty() &&

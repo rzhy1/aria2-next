@@ -21,6 +21,7 @@
 #include "DownloadContext.h"
 #include "DownloadEngine.h"
 #include "Ed2kAttribute.h"
+#include "Ed2kShareIndex.h"
 #include "Ed2kUploadQueue.h"
 #include "LogFactory.h"
 #include "Logger.h"
@@ -470,15 +471,10 @@ void Ed2kKadCommand::queueFirewalledCheck()
 
 void Ed2kKadCommand::queueSourcePublish()
 {
-  if (!requestGroup_->downloadFinished()) {
-    return;
-  }
   auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
-  if (!attrs->kadRoutingTable || attrs->kadRoutingTable->liveSize() == 0 ||
-      attrs->link.hash.empty()) {
+  if (!attrs->kadRoutingTable || attrs->kadRoutingTable->liveSize() == 0) {
     return;
   }
-  const auto kadFileId = ed2k::ed2kHashToKadId(attrs->link.hash);
   const auto tcpPort = localEd2kTcpPort(e_);
   if (tcpPort == 0) {
     return;
@@ -494,24 +490,36 @@ void Ed2kKadCommand::queueSourcePublish()
   if (observed == attrs->kadObservedAddresses.end()) {
     return;
   }
-  auto contacts = attrs->kadRoutingTable->findClosest(kadFileId, 8, true);
-  if (contacts.empty()) {
-    return;
-  }
   ed2k::Endpoint source;
   source.host = *observed;
   source.port = tcpPort;
   const auto sourceId = ed2k::ed2kHashToKadId(attrs->clientHash);
-  const auto payload = ed2k::createKadPublishSourceRequestPayload(
-      kadFileId, source, sourceId, attrs->link.size);
-  ed2k::KadPublishSourceRequest request;
-  if (!ed2k::parseKadPublishSourceRequestPayload(request, payload)) {
-    return;
+
+  bool queued = false;
+  auto sharedSources = ed2k::listSharedSources(e_->getRequestGroupMan().get());
+  for (const auto& shared : sharedSources) {
+    if (!shared || shared->hash().empty()) {
+      continue;
+    }
+    const auto kadFileId = ed2k::ed2kHashToKadId(shared->hash());
+    auto contacts = attrs->kadRoutingTable->findClosest(kadFileId, 8, true);
+    if (contacts.empty()) {
+      continue;
+    }
+    const auto payload = ed2k::createKadPublishSourceRequestPayload(
+        kadFileId, source, sourceId, shared->size());
+    ed2k::KadPublishSourceRequest request;
+    if (!ed2k::parseKadPublishSourceRequestPayload(request, payload)) {
+      continue;
+    }
+    attrs->kadSourceIndex.store(kadFileId, request.source);
+    for (const auto& contact : contacts) {
+      queueKadContactPacket(contact, ed2k::KAD_PUBLISH_SOURCE_REQ, payload);
+      queued = true;
+    }
   }
-  attrs->kadSourceIndex.store(kadFileId, request.source);
-  attrs->lastKadSourcePublish = now;
-  for (const auto& contact : contacts) {
-    queueKadContactPacket(contact, ed2k::KAD_PUBLISH_SOURCE_REQ, payload);
+  if (queued) {
+    attrs->lastKadSourcePublish = now;
   }
 }
 

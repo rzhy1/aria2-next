@@ -69,6 +69,8 @@ public:
   void setBtRuntime(const std::shared_ptr<BtRuntime>& btRuntime);
 
   void setPieceStorage(const std::shared_ptr<PieceStorage>& pieceStorage);
+
+  PieceStorage* getPieceStorage() const;
 };
 
 } // namespace aria2

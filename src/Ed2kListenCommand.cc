@@ -16,8 +16,7 @@
 #include "DownloadEngine.h"
 #include "Ed2kAttribute.h"
 #include "Ed2kCommand.h"
-#include "Ed2kSharedPeerCommand.h"
-#include "Ed2kSharedStore.h"
+#include "Ed2kShareIndex.h"
 #include "LogFactory.h"
 #include "Logger.h"
 #include "RecoverableException.h"
@@ -75,18 +74,14 @@ bool Ed2kListenCommand::bindPort(uint16_t port)
 RequestGroup* Ed2kListenCommand::findEd2kRequestGroup() const
 {
   const auto& groups = e_->getRequestGroupMan()->getRequestGroups();
-  RequestGroup* match = nullptr;
   for (const auto& group : groups) {
     auto dctx = group->getDownloadContext();
     if (dctx && dctx->hasAttribute(CTX_ATTR_ED2K) &&
-        !group->downloadFinished() && !group->isHaltRequested()) {
-      if (match) {
-        return nullptr;
-      }
-      match = group.get();
+        !group->isHaltRequested()) {
+      return group.get();
     }
   }
-  return match;
+  return nullptr;
 }
 
 bool Ed2kListenCommand::peerAlreadyActive(RequestGroup* group,
@@ -107,9 +102,7 @@ bool Ed2kListenCommand::peerAlreadyActive(RequestGroup* group,
 
 bool Ed2kListenCommand::execute()
 {
-  auto sharedStore = e_->getRequestGroupMan()->getEd2kSharedStore();
-  const bool hasSharedFiles = sharedStore && sharedStore->size() != 0;
-  if (e_->isHaltRequested() || (!findEd2kRequestGroup() && !hasSharedFiles)) {
+  if (e_->isHaltRequested() || !findEd2kRequestGroup()) {
     return true;
   }
 
@@ -123,14 +116,7 @@ bool Ed2kListenCommand::execute()
       peer.host = endpoint.addr;
       peer.port = endpoint.port;
       if (!group) {
-        if (!hasSharedFiles) {
-          peerSocket->closeConnection();
-          continue;
-        }
-        e_->addCommand(make_unique<Ed2kSharedPeerCommand>(
-            e_->newCUID(), e_, peer, peerSocket));
-        A2_LOG_DEBUG(fmt("Accepted ED2K shared peer connection from %s:%u.",
-                         peer.host.c_str(), peer.port));
+        peerSocket->closeConnection();
         continue;
       }
       if (peerAlreadyActive(group, peer)) {

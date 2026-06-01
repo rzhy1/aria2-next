@@ -48,12 +48,12 @@
 #include "LogFactory.h"
 #include "Logger.h"
 #include "DownloadEngine.h"
-#include "Ed2kSharedStore.h"
 #include "Ed2kUploadQueue.h"
 #include "message.h"
 #include "a2functional.h"
 #include "DownloadResult.h"
 #include "DownloadContext.h"
+#include "ContextAttribute.h"
 #include "ServerStatMan.h"
 #include "ServerStat.h"
 #include "SegmentMan.h"
@@ -126,7 +126,6 @@ RequestGroupMan::RequestGroupMan(
       maxDownloadResult_(option->getAsInt(PREF_MAX_DOWNLOAD_RESULT)),
       openedFileCounter_(std::make_shared<OpenedFileCounter>(
           this, option->getAsInt(PREF_BT_MAX_OPEN_FILES))),
-      ed2kSharedStore_(make_unique<ed2k::SharedStore>()),
       ed2kUploadQueue_(make_unique<ed2k::UploadQueue>(
           option->getAsInt(PREF_ED2K_UPLOAD_SLOTS))),
       numStoppedTotal_(0)
@@ -135,8 +134,6 @@ RequestGroupMan::RequestGroupMan(
   const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                        global::wallclock().getTime().time_since_epoch())
                        .count();
-  ed2kSharedStore_->loadOptionState(option_);
-  ed2kSharedStore_->importOptionFiles(option_, now);
   ed2kUploadQueue_->credits().loadOptionState(option_);
   appendReservedGroup(reservedGroups_, requestGroups.begin(),
                       requestGroups.end());
@@ -364,6 +361,11 @@ public:
       collectStat(group);
       const std::shared_ptr<DownloadContext>& dctx =
           group->getDownloadContext();
+
+      if (group->isSeedOnlyEnabled() && dctx->hasAttribute(CTX_ATTR_ED2K) &&
+          !group->isHaltRequested()) {
+        return false;
+      }
 
       if (!group->isSeedOnlyEnabled()) {
         e_->getRequestGroupMan()->decreaseNumActive();
@@ -963,10 +965,6 @@ void RequestGroupMan::addDownloadResult(
     const std::shared_ptr<DownloadResult>& dr)
 {
   ++numStoppedTotal_;
-  ed2kSharedStore_->addCompletedDownload(
-      *dr, std::chrono::duration_cast<std::chrono::seconds>(
-               global::wallclock().getTime().time_since_epoch())
-               .count());
   bool rv = downloadResults_.push_back(dr->gid->getNumericId(), dr);
   assert(rv);
   while (downloadResults_.size() > maxDownloadResult_) {

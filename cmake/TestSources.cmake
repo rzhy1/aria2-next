@@ -104,7 +104,8 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/Ed2kPolicyWindowsMacroSmokeTest.cc
   tests/Ed2kCommandTest.cc
   tests/Ed2kKadStateTest.cc
-  tests/Ed2kSharedStoreTest.cc
+  tests/Ed2kShareIndexTest.cc
+  tests/Ed2kUploadQueueTest.cc
 )
 
 set(ARIA2_TEST_SOURCES_ENABLE_XML_RPC

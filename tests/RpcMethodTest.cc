@@ -1178,8 +1178,6 @@ void RpcMethodTest::testGatherProgressEd2kStatus()
   CPPUNIT_ASSERT(downcast<Bool>(ed2kStatus->get("searchActive"))->val());
   CPPUNIT_ASSERT(downcast<Bool>(ed2kStatus->get("searchMoreResults"))->val());
   CPPUNIT_ASSERT_EQUAL(std::string("0"),
-                       getString(ed2kStatus, "sharedFileCount"));
-  CPPUNIT_ASSERT_EQUAL(std::string("0"),
                        getString(ed2kStatus, "uploadingPeerCount"));
   CPPUNIT_ASSERT_EQUAL(std::string("0"),
                        getString(ed2kStatus, "waitingUploadPeerCount"));

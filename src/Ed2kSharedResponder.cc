@@ -14,8 +14,8 @@
 
 #include <vector>
 
+#include "Ed2kShareIndex.h"
 #include "Ed2kSharedFile.h"
-#include "Ed2kSharedStore.h"
 #include "Ed2kUploadQueue.h"
 #include "RequestGroupMan.h"
 #include "ed2k_aich.h"
@@ -28,13 +28,11 @@ namespace aria2 {
 
 namespace ed2k {
 
-SharedResponder::SharedResponder(SharedStore* store, UploadQueue* uploadQueue,
-                                 RequestGroupMan* rgman,
+SharedResponder::SharedResponder(UploadQueue* uploadQueue, RequestGroupMan* rgman,
                                  const Endpoint& endpoint,
                                  const std::string& userHash,
                                  std::deque<std::string>& outbox)
-    : store_(store),
-      uploadQueue_(uploadQueue),
+    : uploadQueue_(uploadQueue),
       outbox_(&outbox),
       endpoint_(endpoint),
       userHash_(userHash),
@@ -42,9 +40,10 @@ SharedResponder::SharedResponder(SharedStore* store, UploadQueue* uploadQueue,
 {
 }
 
-const SharedFile* SharedResponder::findFile(const std::string& hash) const
+std::unique_ptr<SharedSource> SharedResponder::findFile(
+    const std::string& hash) const
 {
-  return store_ ? store_->findByHash(hash) : nullptr;
+  return rgman_ ? findSharedSource(rgman_, hash) : nullptr;
 }
 
 bool SharedResponder::hasFile(const std::string& hash) const
@@ -125,11 +124,12 @@ bool SharedResponder::queueSourceExchangeAnswer(const std::string& fileHash,
 bool SharedResponder::queueAichFileHashAnswer(const std::string& fileHash)
 {
   auto file = findFile(fileHash);
-  if (!file || file->aichRootHash.empty()) {
+  if (!file || file->aichRootHash().empty()) {
     return false;
   }
   queuePacket(PROTO_EMULE, OP_AICHFILEHASHANS,
-              createAichFileHashAnswerPayload(fileHash, file->aichRootHash));
+              createAichFileHashAnswerPayload(fileHash,
+                                              file->aichRootHash()));
   return true;
 }
 
@@ -141,8 +141,8 @@ bool SharedResponder::queueAichAnswer(const std::string& fileHash,
     return false;
   }
   auto file = findFile(fileHash);
-  if (!file || file->aichRootHash.empty() ||
-      request.rootHash != file->aichRootHash) {
+  if (!file || file->aichRootHash().empty() ||
+      request.rootHash != file->aichRootHash()) {
     queuePacket(PROTO_EMULE, OP_AICHANSWER, fileHash);
     return false;
   }

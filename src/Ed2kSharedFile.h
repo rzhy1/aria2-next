@@ -23,20 +23,18 @@ namespace aria2 {
 namespace ed2k {
 
 struct PartRange;
-struct SharedFile;
+class SharedSource;
 
-std::vector<bool> createSharedFileBitfield(const SharedFile& file);
-std::string createSharedFileNameAnswerPayload(const SharedFile& file);
-std::string createSharedFileStatusPayload(const SharedFile& file);
+std::string createSharedFileNameAnswerPayload(const SharedSource& source);
+std::string createSharedFileStatusPayload(const SharedSource& source);
 bool createSharedFileHashSetPayload(std::string& payload,
-                                    const SharedFile& file);
-bool readSharedFileRange(std::string& data, const SharedFile& file,
-                         int64_t begin, int64_t end);
-bool createSharedFilePartPayload(std::string& payload, const SharedFile& file,
+                                    const SharedSource& source);
+bool createSharedFilePartPayload(std::string& payload,
+                                 const SharedSource& source,
                                  const PartRange& range,
                                  bool use64BitOffsets);
 bool createSharedFileAichAnswerPayload(std::string& payload,
-                                       const SharedFile& file,
+                                       const SharedSource& source,
                                        uint16_t partIndex,
                                        const std::string& rootHash);
 bool parsePartRequestPayload(std::vector<PartRange>& ranges,

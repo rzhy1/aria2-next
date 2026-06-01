@@ -55,7 +55,6 @@
 #include "DownloadContext.h"
 #include "DiskAdaptor.h"
 #include "Ed2kAttribute.h"
-#include "Ed2kSharedStore.h"
 #include "Ed2kUploadQueue.h"
 #include "FileEntry.h"
 #include "prefs.h"
@@ -847,10 +846,6 @@ std::unique_ptr<Dict> createEd2kStatusEntry(const Ed2kAttribute* attrs,
   dict->put("searchMoreResults",
             attrs->searchMoreResults ? Bool::gTrue() : Bool::gFalse());
   dict->put("searchResultCount", util::uitos(attrs->searchResults.size()));
-  if (rgman && rgman->getEd2kSharedStore()) {
-    dict->put("sharedFileCount",
-              util::uitos(rgman->getEd2kSharedStore()->size()));
-  }
   if (rgman && rgman->getEd2kUploadQueue()) {
     auto uploadQueue = rgman->getEd2kUploadQueue();
     dict->put("uploadingPeerCount",

@@ -17,7 +17,6 @@
 #include "DownloadEngine.h"
 #include "Ed2kAttribute.h"
 #include "Ed2kKadState.h"
-#include "Ed2kSharedStore.h"
 #include "Ed2kUploadQueue.h"
 #include "util.h"
 
@@ -29,7 +28,6 @@ class SessionSerializerTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testSave);
   CPPUNIT_TEST(testSaveErrorDownload);
   CPPUNIT_TEST(testSaveEd2kDownload);
-  CPPUNIT_TEST(testSaveEd2kSharedStore);
   CPPUNIT_TEST(testSaveEd2kPeerCredits);
   CPPUNIT_TEST_SUITE_END();
 
@@ -37,7 +35,6 @@ public:
   void testSave();
   void testSaveErrorDownload();
   void testSaveEd2kDownload();
-  void testSaveEd2kSharedStore();
   void testSaveEd2kPeerCredits();
 };
 
@@ -277,35 +274,6 @@ void SessionSerializerTest::testSaveEd2kDownload()
   CPPUNIT_ASSERT_EQUAL(std::string(" dir=/tmp"), line);
   std::getline(in, line);
   CPPUNIT_ASSERT(!in);
-}
-
-void SessionSerializerTest::testSaveEd2kSharedStore()
-{
-  const std::string path =
-      A2_TEST_OUT_DIR "/aria2_SessionSerializerTest_testSaveEd2kSharedStore";
-  createFile(path, 111);
-  auto option = std::make_shared<Option>();
-  option->put(PREF_MAX_DOWNLOAD_RESULT, "10");
-  option->put(PREF_ED2K_SHARE_FILE, path + "\n");
-  RequestGroupMan rgman{std::vector<std::shared_ptr<RequestGroup>>(), 1,
-                        option.get()};
-  CPPUNIT_ASSERT_EQUAL((size_t)1, rgman.getEd2kSharedStore()->size());
-
-  SessionSerializer serializer(&rgman);
-  std::string filename = path + ".session";
-  CPPUNIT_ASSERT(serializer.save(filename));
-
-  std::ifstream in(filename.c_str(), std::ios::binary);
-  std::string line;
-  std::getline(in, line);
-  CPPUNIT_ASSERT(util::startsWith(line, " ed2k-shared-file-state="));
-  auto value = line.substr(std::string(" ed2k-shared-file-state=").size());
-  ed2k::SharedFile restored;
-  CPPUNIT_ASSERT(ed2k::parseSharedFileStatePayload(
-      restored, util::fromHex(value.begin(), value.end())));
-  CPPUNIT_ASSERT_EQUAL(path, restored.path);
-  CPPUNIT_ASSERT_EQUAL((int64_t)111, restored.size);
-  CPPUNIT_ASSERT(restored.origin == ed2k::SharedOrigin::IMPORTED_FILE);
 }
 
 void SessionSerializerTest::testSaveEd2kPeerCredits()

@@ -6,7 +6,6 @@
 
 #include "TestUtil.h"
 #include "Ed2kAttribute.h"
-#include "Ed2kSharedStore.h"
 #include "DefaultBtProgressInfoFile.h"
 #include "DiskAdaptor.h"
 #include "prefs.h"
@@ -65,7 +64,6 @@ class RequestGroupManTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testUserRemoveDoesNotKeepControlFile);
   CPPUNIT_TEST(testInsertReservedGroup);
   CPPUNIT_TEST(testAddDownloadResult);
-  CPPUNIT_TEST(testAddDownloadResultSharesCompletedEd2kFile);
   CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -100,7 +98,6 @@ public:
   void testUserRemoveDoesNotKeepControlFile();
   void testInsertReservedGroup();
   void testAddDownloadResult();
-  void testAddDownloadResultSharesCompletedEd2kFile();
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION(RequestGroupManTest);
@@ -383,30 +380,6 @@ void RequestGroupManTest::testAddDownloadResult()
   rgman_->addDownloadResult(createDownloadResult(error_code::FINISHED, uri));
   CPPUNIT_ASSERT_EQUAL(error_code::TIME_OUT,
                        rgman_->getDownloadStat().getLastErrorResult());
-}
-
-void RequestGroupManTest::testAddDownloadResultSharesCompletedEd2kFile()
-{
-  const std::string hash(16, '\x44');
-  const std::string path =
-      A2_TEST_OUT_DIR "/request-group-man-ed2k-shared.bin";
-  createFile(path, 321);
-  auto result = createDownloadResult(error_code::FINISHED, "ed2k://test");
-  result->totalLength = 321;
-  result->fileEntries.clear();
-  result->fileEntries.push_back(std::make_shared<FileEntry>(path, 321, 0));
-  auto attrs = std::make_shared<Ed2kAttribute>();
-  attrs->link.name = "request-group-man-ed2k-shared.bin";
-  attrs->link.size = 321;
-  attrs->link.hash = hash;
-  result->attrs.push_back(attrs);
-
-  rgman_->addDownloadResult(result);
-
-  auto file = rgman_->getEd2kSharedStore()->findByHash(hash);
-  CPPUNIT_ASSERT(file);
-  CPPUNIT_ASSERT_EQUAL(path, file->path);
-  CPPUNIT_ASSERT_EQUAL((int64_t)321, file->size);
 }
 
 } // namespace aria2

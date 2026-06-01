@@ -13,10 +13,12 @@ class ShareRatioSeedCriteriaTest : public CppUnit::TestFixture {
 
   CPPUNIT_TEST_SUITE(ShareRatioSeedCriteriaTest);
   CPPUNIT_TEST(testEvaluate);
+  CPPUNIT_TEST(testEvaluateWithoutBtRuntime);
   CPPUNIT_TEST_SUITE_END();
 
 public:
   void testEvaluate();
+  void testEvaluateWithoutBtRuntime();
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ShareRatioSeedCriteriaTest);
@@ -40,6 +42,25 @@ void ShareRatioSeedCriteriaTest::testEvaluate()
   CPPUNIT_ASSERT(!cri.evaluate());
   // check div by zero
   dctx->getFirstFileEntry()->setLength(0);
+  CPPUNIT_ASSERT(!cri.evaluate());
+}
+
+void ShareRatioSeedCriteriaTest::testEvaluateWithoutBtRuntime()
+{
+  std::shared_ptr<DownloadContext> dctx(new DownloadContext(1_m, 1000000));
+  dctx->getNetStat().updateUpload(1000000);
+
+  std::shared_ptr<MockPieceStorage> pieceStorage(new MockPieceStorage());
+  pieceStorage->setCompletedLength(1000000);
+
+  ShareRatioSeedCriteria cri(1.0, dctx);
+  CPPUNIT_ASSERT(!cri.getPieceStorage());
+  cri.setPieceStorage(pieceStorage);
+  CPPUNIT_ASSERT(pieceStorage.get() == cri.getPieceStorage());
+
+  CPPUNIT_ASSERT(cri.evaluate());
+
+  cri.setRatio(2.0);
   CPPUNIT_ASSERT(!cri.evaluate());
 }
 

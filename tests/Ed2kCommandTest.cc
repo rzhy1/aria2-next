@@ -14,6 +14,9 @@
 #include "DefaultPieceStorage.h"
 #include "DiskAdaptor.h"
 #include "DownloadResult.h"
+#include "SeedCheckCommand.h"
+#include "ShareRatioSeedCriteria.h"
+#include "TimeSeedCriteria.h"
 #include "FileEntry.h"
 #include "File.h"
 #include "Option.h"
@@ -51,6 +54,7 @@ std::shared_ptr<Option> createOption()
   option->put(PREF_MAX_OVERALL_DOWNLOAD_LIMIT, "0");
   option->put(PREF_MAX_OVERALL_UPLOAD_LIMIT, "0");
   option->put(PREF_BT_MAX_OPEN_FILES, "100");
+  option->put(PREF_BT_DETACH_SEED_ONLY, A2_V_TRUE);
   option->put(PREF_ENABLE_RPC, A2_V_FALSE);
   return option;
 }
@@ -267,6 +271,13 @@ class Ed2kCommandTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testPeerHandshakeQueuesFileRequestAndQueueRank);
   CPPUNIT_TEST(testCryptPeerStartsWithObfuscatedHandshake);
   CPPUNIT_TEST(testPeerCommandFinishesGroupAfterLastPart);
+  CPPUNIT_TEST(testFinishedEd2kGroupEntersSeedOnly);
+  CPPUNIT_TEST(testCompleteLocalEd2kFileStartsAsSeed);
+  CPPUNIT_TEST(testInvalidLocalEd2kFileUsesSafetyRename);
+  CPPUNIT_TEST(testCompletedEd2kSeedServesIncomingPeer);
+  CPPUNIT_TEST(testEd2kSeedTimeStopsSeedOnlyGroup);
+  CPPUNIT_TEST(testEd2kSeedRatioStopsSeedOnlyGroup);
+  CPPUNIT_TEST(testEd2kListenerKeepsMultipleTasks);
   CPPUNIT_TEST(testPendingConnectDrainsAfterHalt);
   CPPUNIT_TEST(testForceHaltDrainsIdleKadGroup);
   CPPUNIT_TEST(testKadBootstrapSourceSearchAddsPeer);
@@ -279,6 +290,13 @@ public:
   void testPeerHandshakeQueuesFileRequestAndQueueRank();
   void testCryptPeerStartsWithObfuscatedHandshake();
   void testPeerCommandFinishesGroupAfterLastPart();
+  void testFinishedEd2kGroupEntersSeedOnly();
+  void testCompleteLocalEd2kFileStartsAsSeed();
+  void testInvalidLocalEd2kFileUsesSafetyRename();
+  void testCompletedEd2kSeedServesIncomingPeer();
+  void testEd2kSeedTimeStopsSeedOnlyGroup();
+  void testEd2kSeedRatioStopsSeedOnlyGroup();
+  void testEd2kListenerKeepsMultipleTasks();
   void testPendingConnectDrainsAfterHalt();
   void testForceHaltDrainsIdleKadGroup();
   void testKadBootstrapSourceSearchAddsPeer();
@@ -575,10 +593,6 @@ void Ed2kCommandTest::testPeerCommandFinishesGroupAfterLastPart()
   addEd2kPeer(getEd2kAttrs(dctx), peer, ed2k::PEER_SOURCE_INLINE);
   engine.addCommand(make_unique<Ed2kCommand>(engine.newCUID(), group.get(),
                                              &engine, peer, false));
-  auto listener = make_unique<Ed2kListenCommand>(engine.newCUID(), &engine,
-                                                 AF_INET);
-  CPPUNIT_ASSERT(listener->bindPort(0));
-  engine.addCommand(std::move(listener));
 
   runEngineTicks(engine, 1);
   auto peerSocket = acceptPeer(listenSocket, engine);
@@ -632,20 +646,323 @@ void Ed2kCommandTest::testPeerCommandFinishesGroupAfterLastPart()
                              ed2k::packUInt32(split) +
                              ed2k::packUInt32(data.size()) +
                              data.substr(split)));
-  engine.setRefreshInterval(std::chrono::milliseconds(0));
-  for (int i = 0; i < MAX_ENGINE_TICKS &&
-                  engine.getRequestGroupMan()->getDownloadResults().empty();
-       ++i) {
-    engine.run(true);
-  }
+  runEngineTicks(engine, 2);
 
   CPPUNIT_ASSERT(group->downloadFinished());
   CPPUNIT_ASSERT_EQUAL((int32_t)0, group->getNumCommand());
+  CPPUNIT_ASSERT(group->isSeedOnlyEnabled());
+  CPPUNIT_ASSERT_EQUAL((size_t)0,
+                       engine.getRequestGroupMan()->getDownloadResults().size());
+  engine.requestHalt();
+  runEngineTicks(engine, 1);
+}
+
+void Ed2kCommandTest::testFinishedEd2kGroupEntersSeedOnly()
+{
+  auto option = createOption();
+  auto dctx = createEd2kContext();
+  auto group = createRequestGroup(option, dctx);
+  group->initPieceStorage();
+  group->getPieceStorage()->markAllPiecesDone();
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option.get());
+  engine.setRequestGroupMan(
+      make_unique<RequestGroupMan>(
+          std::vector<std::shared_ptr<RequestGroup>>{group}, 5,
+          option.get()));
+  engine.getRequestGroupMan()->addRequestGroup(group);
+  group->setRequestGroupMan(engine.getRequestGroupMan().get());
+
+  group->enableSeedOnly();
+
+  CPPUNIT_ASSERT(group->isSeedOnlyEnabled());
+  engine.getRequestGroupMan()->removeStoppedGroup(&engine);
+  CPPUNIT_ASSERT_EQUAL((size_t)1,
+                       engine.getRequestGroupMan()->countRequestGroup());
+  CPPUNIT_ASSERT_EQUAL((size_t)0,
+                       engine.getRequestGroupMan()->getDownloadResults().size());
+}
+
+void Ed2kCommandTest::testCompleteLocalEd2kFileStartsAsSeed()
+{
+  auto option = createOption();
+  option->put(PREF_ALLOW_OVERWRITE, A2_V_FALSE);
+  const std::string data = "existing-ed2k-seed-data";
+  const std::string path = A2_TEST_OUT_DIR "/ed2k-existing-seed.bin";
+  {
+    std::ofstream out(path.c_str(), std::ios::binary);
+    out << data;
+  }
+
+  auto dctx = std::make_shared<DownloadContext>();
+  const std::shared_ptr<FileEntry> entries[] = {
+      std::make_shared<FileEntry>(path, data.size(), 0)};
+  dctx->setFileEntries(std::begin(entries), std::end(entries));
+  dctx->setPieceLength(ed2k::PIECE_LENGTH);
+  auto attrs = make_unique<Ed2kAttribute>();
+  attrs->link.type = ed2k::LinkType::FILE;
+  attrs->link.name = "ed2k-existing-seed.bin";
+  attrs->link.size = data.size();
+  attrs->link.hash = ed2k::md4Digest(data);
+  attrs->clientHash = normalizeEd2kClientHash(std::string(ed2k::HASH_LENGTH,
+                                                          '\x42'));
+  dctx->setAttribute(CTX_ATTR_ED2K, std::move(attrs));
+
+  auto group = createRequestGroup(option, dctx);
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option.get());
+  engine.setRequestGroupMan(
+      make_unique<RequestGroupMan>(
+          std::vector<std::shared_ptr<RequestGroup>>{group}, 5,
+          option.get()));
+  engine.getRequestGroupMan()->addRequestGroup(group);
+  group->setRequestGroupMan(engine.getRequestGroupMan().get());
+
+  std::vector<std::unique_ptr<Command>> commands;
+  group->createInitialCommand(commands, &engine);
+
+  CPPUNIT_ASSERT(group->downloadFinished());
+  CPPUNIT_ASSERT(group->isSeedOnlyEnabled());
+}
+
+void Ed2kCommandTest::testInvalidLocalEd2kFileUsesSafetyRename()
+{
+  auto option = createOption();
+  option->put(PREF_ALLOW_OVERWRITE, A2_V_FALSE);
+  option->put(PREF_AUTO_FILE_RENAMING, A2_V_TRUE);
+  const std::string data = "invalid-ed2k-seed-data";
+  const std::string path = A2_TEST_OUT_DIR "/ed2k-invalid-seed.bin";
+  File(path).remove();
+  const std::string renamedPath = A2_TEST_OUT_DIR "/ed2k-invalid-seed.1.bin";
+  File(renamedPath).remove();
+  {
+    std::ofstream out(path.c_str(), std::ios::binary);
+    out << data;
+  }
+
+  auto dctx = std::make_shared<DownloadContext>();
+  const std::shared_ptr<FileEntry> entries[] = {
+      std::make_shared<FileEntry>(path, data.size(), 0)};
+  dctx->setFileEntries(std::begin(entries), std::end(entries));
+  dctx->setPieceLength(ed2k::PIECE_LENGTH);
+  auto attrs = make_unique<Ed2kAttribute>();
+  attrs->link.type = ed2k::LinkType::FILE;
+  attrs->link.name = "ed2k-invalid-seed.bin";
+  attrs->link.size = data.size();
+  attrs->link.hash.assign(ed2k::HASH_LENGTH, '\x55');
+  attrs->clientHash = normalizeEd2kClientHash(std::string(ed2k::HASH_LENGTH,
+                                                          '\x42'));
+  dctx->setAttribute(CTX_ATTR_ED2K, std::move(attrs));
+
+  auto group = createRequestGroup(option, dctx);
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option.get());
+  engine.setRequestGroupMan(
+      make_unique<RequestGroupMan>(
+          std::vector<std::shared_ptr<RequestGroup>>{group}, 5,
+          option.get()));
+  engine.getRequestGroupMan()->addRequestGroup(group);
+  group->setRequestGroupMan(engine.getRequestGroupMan().get());
+
+  std::vector<std::unique_ptr<Command>> commands;
+  group->createInitialCommand(commands, &engine);
+
+  CPPUNIT_ASSERT(!group->downloadFinished());
+  CPPUNIT_ASSERT(!group->isSeedOnlyEnabled());
+  CPPUNIT_ASSERT_EQUAL(renamedPath, group->getFirstFilePath());
+}
+
+void Ed2kCommandTest::testCompletedEd2kSeedServesIncomingPeer()
+{
+  auto option = createOption();
+  const std::string data = "completed-ed2k-seed-data";
+  const std::string path = A2_TEST_OUT_DIR "/ed2k-incoming-seed.bin";
+  File(path).remove();
+  {
+    std::ofstream out(path.c_str(), std::ios::binary);
+    out << data;
+  }
+
+  auto dctx = std::make_shared<DownloadContext>();
+  const std::shared_ptr<FileEntry> entries[] = {
+      std::make_shared<FileEntry>(path, data.size(), 0)};
+  dctx->setFileEntries(std::begin(entries), std::end(entries));
+  dctx->setPieceLength(ed2k::PIECE_LENGTH);
+  auto attrs = make_unique<Ed2kAttribute>();
+  attrs->link.type = ed2k::LinkType::FILE;
+  attrs->link.name = "ed2k-incoming-seed.bin";
+  attrs->link.size = data.size();
+  attrs->link.hash = ed2k::md4Digest(data);
+  attrs->clientHash = normalizeEd2kClientHash(std::string(ed2k::HASH_LENGTH,
+                                                          '\x42'));
+  dctx->setAttribute(CTX_ATTR_ED2K, std::move(attrs));
+
+  auto group = createRequestGroup(option, dctx);
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option.get());
+  engine.setRequestGroupMan(
+      make_unique<RequestGroupMan>(
+          std::vector<std::shared_ptr<RequestGroup>>{group}, 5,
+          option.get()));
+  engine.getRequestGroupMan()->addRequestGroup(group);
+  group->setRequestGroupMan(engine.getRequestGroupMan().get());
+
+  std::vector<std::unique_ptr<Command>> commands;
+  group->createInitialCommand(commands, &engine);
+  engine.addCommand(std::move(commands));
+  runEngineTicks(engine, 1);
+
+  SocketCore client;
+  client.establishConnection("127.0.0.1", engine.getEd2kTcpPort());
+  for (int i = 0; i < MAX_ENGINE_TICKS && !client.isWritable(0); ++i) {
+    engine.run(true);
+  }
+  CPPUNIT_ASSERT(client.isWritable(0));
+
+  auto remoteInfo = ed2k::createLocalEmulePeerInfo();
+  client.writeData(ed2k::createPacket(
+      ed2k::PROTO_EDONKEY, ed2k::OP_HELLO,
+      ed2k::createPeerHelloPayload(
+          std::string(ed2k::HASH_LENGTH, '\x24'), 0x04030201, 4662,
+          ed2k::Endpoint(), "incoming-peer", remoteInfo, true)));
+  runEngineTicks(engine, 1);
+
+  auto helloAnswer = readPacket(
+      std::shared_ptr<SocketCore>(&client, [](SocketCore*) {}), engine);
+  CPPUNIT_ASSERT_EQUAL(ed2k::OP_HELLOANSWER,
+                       packetHeaderOf(helloAnswer).opcode);
+  auto emuleInfo = readPacket(
+      std::shared_ptr<SocketCore>(&client, [](SocketCore*) {}), engine);
+  CPPUNIT_ASSERT_EQUAL(ed2k::OP_EMULEINFOANSWER,
+                       packetHeaderOf(emuleInfo).opcode);
+  auto fileRequest = readPacket(
+      std::shared_ptr<SocketCore>(&client, [](SocketCore*) {}), engine);
+  CPPUNIT_ASSERT_EQUAL(ed2k::OP_REQUESTFILENAME,
+                       packetHeaderOf(fileRequest).opcode);
+
+  const auto fileHash = getEd2kAttrs(dctx)->link.hash;
+  client.writeData(ed2k::createPacket(ed2k::PROTO_EDONKEY,
+                                      ed2k::OP_STARTUPLOADREQ, fileHash));
+  runEngineTicks(engine, 1);
+  auto accept = readPacket(
+      std::shared_ptr<SocketCore>(&client, [](SocketCore*) {}), engine);
+  CPPUNIT_ASSERT_EQUAL(ed2k::OP_ACCEPTUPLOADREQ, packetHeaderOf(accept).opcode);
+
+  std::vector<ed2k::PartRange> ranges(1);
+  ranges[0].begin = 0;
+  ranges[0].end = static_cast<int64_t>(data.size());
+  client.writeData(ed2k::createPacket(
+      ed2k::PROTO_EDONKEY, ed2k::OP_REQUESTPARTS,
+      ed2k::createRequestPartsPayload(fileHash, ranges, false)));
+  runEngineTicks(engine, 1);
+  auto part = readPacket(
+      std::shared_ptr<SocketCore>(&client, [](SocketCore*) {}), engine);
+  CPPUNIT_ASSERT_EQUAL(ed2k::OP_SENDINGPART, packetHeaderOf(part).opcode);
+  const auto body = packetBodyOf(part);
+  CPPUNIT_ASSERT_EQUAL(fileHash, body.substr(0, ed2k::HASH_LENGTH));
+  CPPUNIT_ASSERT_EQUAL(static_cast<uint32_t>(0),
+                       ed2k::readUInt32(body.data() + ed2k::HASH_LENGTH));
+  CPPUNIT_ASSERT_EQUAL(static_cast<uint32_t>(data.size()),
+                       ed2k::readUInt32(body.data() + ed2k::HASH_LENGTH + 4));
+  CPPUNIT_ASSERT_EQUAL(data, body.substr(ed2k::HASH_LENGTH + 8));
+
+  engine.requestHalt();
+  runEngineTicks(engine, 1);
+}
+
+void Ed2kCommandTest::testEd2kSeedTimeStopsSeedOnlyGroup()
+{
+  auto option = createOption();
+  auto dctx = createEd2kContext();
+  auto group = createRequestGroup(option, dctx);
+  group->initPieceStorage();
+  group->getPieceStorage()->markAllPiecesDone();
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option.get());
+  engine.setRequestGroupMan(
+      make_unique<RequestGroupMan>(
+          std::vector<std::shared_ptr<RequestGroup>>{group}, 5,
+          option.get()));
+  engine.getRequestGroupMan()->addRequestGroup(group);
+  group->setRequestGroupMan(engine.getRequestGroupMan().get());
+  group->enableSeedOnly();
+
+  auto seedCheck = make_unique<SeedCheckCommand>(
+      engine.newCUID(), group.get(), &engine, make_unique<TimeSeedCriteria>(0_s));
+  seedCheck->setPieceStorage(group->getPieceStorage());
+  engine.addCommand(std::move(seedCheck));
+  runEngineTicks(engine, 3);
+  engine.getRequestGroupMan()->removeStoppedGroup(&engine);
+
+  CPPUNIT_ASSERT(group->isHaltRequested());
+  CPPUNIT_ASSERT_EQUAL((size_t)0,
+                       engine.getRequestGroupMan()->countRequestGroup());
   CPPUNIT_ASSERT_EQUAL((size_t)1,
                        engine.getRequestGroupMan()->getDownloadResults().size());
-  CPPUNIT_ASSERT_EQUAL(error_code::FINISHED,
-                       engine.getRequestGroupMan()->getDownloadResults()[0]
-                           ->result);
+}
+
+void Ed2kCommandTest::testEd2kSeedRatioStopsSeedOnlyGroup()
+{
+  auto option = createOption();
+  auto dctx = createEd2kContext();
+  auto group = createRequestGroup(option, dctx);
+  group->initPieceStorage();
+  group->getPieceStorage()->markAllPiecesDone();
+  dctx->getNetStat().updateUpload(group->getPieceStorage()->getCompletedLength());
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option.get());
+  engine.setRequestGroupMan(
+      make_unique<RequestGroupMan>(
+          std::vector<std::shared_ptr<RequestGroup>>{group}, 5,
+          option.get()));
+  engine.getRequestGroupMan()->addRequestGroup(group);
+  group->setRequestGroupMan(engine.getRequestGroupMan().get());
+  group->enableSeedOnly();
+
+  auto ratioCriteria = make_unique<ShareRatioSeedCriteria>(1.0, dctx);
+  ratioCriteria->setPieceStorage(group->getPieceStorage());
+  auto seedCheck = make_unique<SeedCheckCommand>(
+      engine.newCUID(), group.get(), &engine, std::move(ratioCriteria));
+  seedCheck->setPieceStorage(group->getPieceStorage());
+  engine.addCommand(std::move(seedCheck));
+  runEngineTicks(engine, 3);
+  engine.getRequestGroupMan()->removeStoppedGroup(&engine);
+
+  CPPUNIT_ASSERT(group->isHaltRequested());
+  CPPUNIT_ASSERT_EQUAL((size_t)0,
+                       engine.getRequestGroupMan()->countRequestGroup());
+  CPPUNIT_ASSERT_EQUAL((size_t)1,
+                       engine.getRequestGroupMan()->getDownloadResults().size());
+}
+
+void Ed2kCommandTest::testEd2kListenerKeepsMultipleTasks()
+{
+  auto option = createOption();
+  auto dctx1 = createEd2kContext();
+  auto dctx2 = createEd2kContext();
+  getEd2kAttrs(dctx2)->link.hash.assign(ed2k::HASH_LENGTH, '\x72');
+  auto group1 = createRequestGroup(option, dctx1);
+  auto group2 = createRequestGroup(option, dctx2);
+  DownloadEngine engine(make_unique<SelectEventPoll>());
+  engine.setOption(option.get());
+  engine.setRequestGroupMan(
+      make_unique<RequestGroupMan>(
+          std::vector<std::shared_ptr<RequestGroup>>{group1, group2}, 5,
+          option.get()));
+  engine.getRequestGroupMan()->addRequestGroup(group1);
+  engine.getRequestGroupMan()->addRequestGroup(group2);
+  group1->setRequestGroupMan(engine.getRequestGroupMan().get());
+  group2->setRequestGroupMan(engine.getRequestGroupMan().get());
+
+  auto command = make_unique<Ed2kListenCommand>(engine.newCUID(), &engine,
+                                                AF_INET);
+  CPPUNIT_ASSERT(command->bindPort(0));
+  engine.addCommand(std::move(command));
+  runEngineTicks(engine, 2);
+
+  CPPUNIT_ASSERT(engine.isEd2kTcpListenActive());
+  engine.requestHalt();
+  runEngineTicks(engine, 1);
 }
 
 void Ed2kCommandTest::testPendingConnectDrainsAfterHalt()

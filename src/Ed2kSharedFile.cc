@@ -15,10 +15,8 @@
 #include <algorithm>
 #include <limits>
 
-#include "DefaultDiskWriter.h"
-#include "DiskWriter.h"
 #include "DlAbortEx.h"
-#include "Ed2kSharedStore.h"
+#include "Ed2kShareIndex.h"
 #include "ed2k_aich.h"
 #include "ed2k_hash.h"
 #include "ed2k_packet.h"
@@ -29,20 +27,6 @@ namespace aria2 {
 namespace ed2k {
 
 namespace {
-
-void validateSharedFile(const SharedFile& file)
-{
-  if (file.hash.size() != HASH_LENGTH || file.size <= 0 || file.name.empty() ||
-      file.path.empty() || !file.completed) {
-    throw DL_ABORT_EX("Bad ED2K shared file.");
-  }
-}
-
-bool checkedRange(const SharedFile& file, int64_t begin, int64_t end)
-{
-  return file.completed && begin >= 0 && end > begin && end <= file.size &&
-         end - begin <= BLOCK_LENGTH;
-}
 
 std::string createUInt16String(const std::string& value)
 {
@@ -57,38 +41,27 @@ size_t countBlocks(size_t length, size_t baseSize)
   return (length + baseSize - 1) / baseSize;
 }
 
-bool readSharedFileHash(std::string& hash, const SharedFile& file,
-                        int64_t begin, size_t length)
-{
-  std::string data;
-  if (!readSharedFileRange(data, file, begin, begin + length)) {
-    return false;
-  }
-  hash = aichRootHash(data.data(), data.size());
-  return true;
-}
-
-bool appendAichHashForRange(std::string& recovery, const SharedFile& file,
+bool appendAichHashForRange(std::string& recovery, const SharedSource& source,
                             uint32_t ident, int64_t begin, size_t length,
                             bool use32BitIdent)
 {
-  std::string hash;
-  if (!readSharedFileHash(hash, file, begin, length)) {
+  std::string data;
+  if (!source.readRange(data, begin, begin + length)) {
     return false;
   }
   recovery += use32BitIdent ? packUInt32(ident) : packUInt16(ident);
-  recovery += hash;
+  recovery += aichRootHash(data.data(), data.size());
   return true;
 }
 
-bool appendAichLowestLevel(std::string& recovery, const SharedFile& file,
+bool appendAichLowestLevel(std::string& recovery, const SharedSource& source,
                            int64_t nodeBegin, size_t nodeSize,
                            size_t nodeBase, bool leftBranch,
                            uint32_t ident, bool use32BitIdent)
 {
   const auto nextIdent = (ident << 1) | (leftBranch ? 1 : 0);
   if (nodeSize <= nodeBase) {
-    return appendAichHashForRange(recovery, file, nextIdent, nodeBegin,
+    return appendAichHashForRange(recovery, source, nextIdent, nodeBegin,
                                   nodeSize, use32BitIdent);
   }
 
@@ -102,21 +75,22 @@ bool appendAichLowestLevel(std::string& recovery, const SharedFile& file,
   const auto rightBase =
       rightSize <= static_cast<size_t>(PIECE_LENGTH) ? EMBLOCK_LENGTH
                                                      : PIECE_LENGTH;
-  return appendAichLowestLevel(recovery, file, nodeBegin, leftSize, leftBase,
+  return appendAichLowestLevel(recovery, source, nodeBegin, leftSize, leftBase,
                                true, nextIdent, use32BitIdent) &&
-         appendAichLowestLevel(recovery, file, nodeBegin + leftSize, rightSize,
-                               rightBase, false, nextIdent, use32BitIdent);
+         appendAichLowestLevel(recovery, source, nodeBegin + leftSize,
+                               rightSize, rightBase, false, nextIdent,
+                               use32BitIdent);
 }
 
-bool appendAichPartRecovery(std::string& recovery, const SharedFile& file,
+bool appendAichPartRecovery(std::string& recovery, const SharedSource& source,
                             int64_t nodeBegin, size_t nodeSize,
                             size_t nodeBase, bool leftBranch,
                             int64_t targetBegin, size_t targetSize,
                             uint32_t ident, bool use32BitIdent)
 {
   if (targetBegin == nodeBegin && targetSize == nodeSize) {
-    return appendAichLowestLevel(recovery, file, nodeBegin, nodeSize, nodeBase,
-                                 leftBranch, ident, use32BitIdent);
+    return appendAichLowestLevel(recovery, source, nodeBegin, nodeSize,
+                                 nodeBase, leftBranch, ident, use32BitIdent);
   }
   if (nodeSize <= nodeBase) {
     return false;
@@ -138,89 +112,62 @@ bool appendAichPartRecovery(std::string& recovery, const SharedFile& file,
         nodeBegin + static_cast<int64_t>(leftSize)) {
       return false;
     }
-    if (!appendAichHashForRange(recovery, file, nextIdent << 1,
+    if (!appendAichHashForRange(recovery, source, nextIdent << 1,
                                 nodeBegin + leftSize, rightSize,
                                 use32BitIdent)) {
       return false;
     }
-    return appendAichPartRecovery(recovery, file, nodeBegin, leftSize,
+    return appendAichPartRecovery(recovery, source, nodeBegin, leftSize,
                                   leftBase, true, targetBegin, targetSize,
                                   nextIdent, use32BitIdent);
   }
-  if (!appendAichHashForRange(recovery, file, (nextIdent << 1) | 1,
+  if (!appendAichHashForRange(recovery, source, (nextIdent << 1) | 1,
                               nodeBegin, leftSize, use32BitIdent)) {
     return false;
   }
   return appendAichPartRecovery(
-      recovery, file, nodeBegin + leftSize, rightSize, rightBase, false,
+      recovery, source, nodeBegin + leftSize, rightSize, rightBase, false,
       targetBegin, targetSize, nextIdent, use32BitIdent);
 }
 
 } // namespace
 
-std::vector<bool> createSharedFileBitfield(const SharedFile& file)
+std::string createSharedFileNameAnswerPayload(const SharedSource& source)
 {
-  validateSharedFile(file);
-  auto count = static_cast<size_t>((file.size + PIECE_LENGTH - 1) /
-                                   PIECE_LENGTH);
-  return std::vector<bool>(count, true);
+  return source.hash() + createUInt16String(source.name());
 }
 
-std::string createSharedFileNameAnswerPayload(const SharedFile& file)
+std::string createSharedFileStatusPayload(const SharedSource& source)
 {
-  validateSharedFile(file);
-  return file.hash + createUInt16String(file.name);
-}
-
-std::string createSharedFileStatusPayload(const SharedFile& file)
-{
-  return createFileStatusPayload(file.hash, createSharedFileBitfield(file));
+  return createFileStatusPayload(source.hash(), source.bitfield());
 }
 
 bool createSharedFileHashSetPayload(std::string& payload,
-                                    const SharedFile& file)
+                                    const SharedSource& source)
 {
-  validateSharedFile(file);
-  const auto expectedHashCount = hashSetPartCount(file.size);
+  const auto expectedHashCount = hashSetPartCount(source.size());
   if (expectedHashCount == 0) {
-    payload = createHashSetAnswerPayload(file.hash, std::vector<std::string>());
+    payload = createHashSetAnswerPayload(source.hash(),
+                                         std::vector<std::string>());
     return true;
   }
-  if (!file.pieceHashes.empty()) {
-    if (file.pieceHashes.size() != expectedHashCount) {
-      return false;
-    }
-    payload = createHashSetAnswerPayload(file.hash, file.pieceHashes);
-    return true;
-  }
-  return false;
-}
-
-bool readSharedFileRange(std::string& data, const SharedFile& file,
-                         int64_t begin, int64_t end)
-{
-  if (!checkedRange(file, begin, end)) {
+  if (source.pieceHashes().size() != expectedHashCount) {
     return false;
   }
-  const auto length = static_cast<size_t>(end - begin);
-  std::shared_ptr<DiskWriter> writer(new DefaultDiskWriter(file.path));
-  writer->enableReadOnly();
-  writer->openExistingFile();
-  data.assign(length, '\0');
-  const auto read = writer->readData(
-      reinterpret_cast<unsigned char*>(&data[0]), length, begin);
-  return read == static_cast<ssize_t>(length);
+  payload = createHashSetAnswerPayload(source.hash(), source.pieceHashes());
+  return true;
 }
 
-bool createSharedFilePartPayload(std::string& payload, const SharedFile& file,
+bool createSharedFilePartPayload(std::string& payload,
+                                 const SharedSource& source,
                                  const PartRange& range,
                                  bool use64BitOffsets)
 {
   std::string data;
-  if (!readSharedFileRange(data, file, range.begin, range.end)) {
+  if (!source.readRange(data, range.begin, range.end)) {
     return false;
   }
-  payload = file.hash;
+  payload = source.hash();
   if (use64BitOffsets) {
     payload += packUInt64(range.begin);
     payload += packUInt64(range.end);
@@ -238,31 +185,31 @@ bool createSharedFilePartPayload(std::string& payload, const SharedFile& file,
 }
 
 bool createSharedFileAichAnswerPayload(std::string& payload,
-                                       const SharedFile& file,
+                                       const SharedSource& source,
                                        uint16_t partIndex,
                                        const std::string& rootHash)
 {
-  validateSharedFile(file);
-  if (file.aichRootHash.empty() || file.aichRootHash != rootHash) {
+  if (!source.complete() || source.aichRootHash().empty() ||
+      source.aichRootHash() != rootHash) {
     return false;
   }
   const auto partBegin =
       static_cast<int64_t>(partIndex) * static_cast<int64_t>(PIECE_LENGTH);
-  if (partBegin >= file.size) {
+  if (partBegin >= source.size()) {
     return false;
   }
   const auto partSize = static_cast<size_t>(
-      std::min<int64_t>(PIECE_LENGTH, file.size - partBegin));
+      std::min<int64_t>(PIECE_LENGTH, source.size() - partBegin));
   if (partSize <= EMBLOCK_LENGTH) {
     return false;
   }
-  const auto use32BitIdent = file.size > std::numeric_limits<uint32_t>::max();
+  const auto use32BitIdent = source.size() > std::numeric_limits<uint32_t>::max();
   const auto fileBase =
-      file.size <= PIECE_LENGTH ? EMBLOCK_LENGTH : PIECE_LENGTH;
+      source.size() <= PIECE_LENGTH ? EMBLOCK_LENGTH : PIECE_LENGTH;
   std::string recoveryHashes;
-  if (!appendAichPartRecovery(recoveryHashes, file, 0,
-                              static_cast<size_t>(file.size), fileBase, true,
-                              partBegin, partSize, 0, use32BitIdent)) {
+  if (!appendAichPartRecovery(
+          recoveryHashes, source, 0, static_cast<size_t>(source.size()),
+          fileBase, true, partBegin, partSize, 0, use32BitIdent)) {
     return false;
   }
   const auto entrySize = AICH_HASH_LENGTH + (use32BitIdent ? 4 : 2);
@@ -285,10 +232,12 @@ bool createSharedFileAichAnswerPayload(std::string& payload,
   AichRecoveryData parsed;
   if (!parseAichRecoveryData(parsed, recovery, partSize, use32BitIdent) ||
       !verifyAichRecoveryData(parsed, rootHash,
-                              static_cast<size_t>(file.size), partIndex)) {
+                              static_cast<size_t>(source.size()),
+                              partIndex)) {
     return false;
   }
-  payload = createAichAnswerPayload(file.hash, partIndex, rootHash, recovery);
+  payload = createAichAnswerPayload(source.hash(), partIndex, rootHash,
+                                    recovery);
   return true;
 }
 

@@ -55,9 +55,10 @@ bool ShareRatioSeedCriteria::evaluate()
   if (completedLength == 0) {
     return true;
   }
-  int64_t uploadLength =
-      btRuntime_->getUploadLengthAtStartup() +
-      downloadContext_->getNetStat().getSessionUploadLength();
+  int64_t uploadLength = downloadContext_->getNetStat().getSessionUploadLength();
+  if (btRuntime_) {
+    uploadLength += btRuntime_->getUploadLengthAtStartup();
+  }
   return ratio_ <= 1.0 * uploadLength / completedLength;
 }
 
@@ -71,6 +72,11 @@ void ShareRatioSeedCriteria::setPieceStorage(
     const std::shared_ptr<PieceStorage>& pieceStorage)
 {
   pieceStorage_ = pieceStorage;
+}
+
+PieceStorage* ShareRatioSeedCriteria::getPieceStorage() const
+{
+  return pieceStorage_.get();
 }
 
 } // namespace aria2

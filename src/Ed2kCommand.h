@@ -32,7 +32,6 @@ class SocketCore;
 class ARC4Encryptor;
 
 namespace ed2k {
-struct SharedFile;
 class SharedResponder;
 } // namespace ed2k
 
@@ -121,6 +120,7 @@ private:
   void handlePeerPacket();
   void queuePacket(uint8_t protocol, uint8_t opcode, const std::string& payload);
   void queueServerLogin();
+  void queueServerOfferFiles();
   bool queueGetSources();
   void queueSearchRequest();
   void queueCallbackRequest(uint32_t clientId);

@@ -30,6 +30,7 @@ constexpr uint8_t OP_REJECT = 0x05;
 constexpr uint8_t OP_GETSERVERLIST = 0x14;
 constexpr uint8_t OP_SEARCHREQUEST = 0x16;
 constexpr uint8_t OP_GETSOURCES = 0x19;
+constexpr uint8_t OP_OFFERFILES = 0x15;
 constexpr uint8_t OP_CALLBACKREQUEST = 0x1c;
 constexpr uint8_t OP_QUERY_MORE_RESULT = 0x21;
 constexpr uint8_t OP_GETSOURCES_OBFU = 0x23;

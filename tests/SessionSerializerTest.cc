@@ -9,6 +9,7 @@
 #include "RequestGroupMan.h"
 #include "array_fun.h"
 #include "download_helper.h"
+#include "DefaultPieceStorage.h"
 #include "prefs.h"
 #include "Option.h"
 #include "a2functional.h"
@@ -28,6 +29,7 @@ class SessionSerializerTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testSave);
   CPPUNIT_TEST(testSaveErrorDownload);
   CPPUNIT_TEST(testSaveEd2kDownload);
+  CPPUNIT_TEST(testSaveActiveEd2kSharing);
   CPPUNIT_TEST(testSaveEd2kPeerCredits);
   CPPUNIT_TEST_SUITE_END();
 
@@ -35,6 +37,7 @@ public:
   void testSave();
   void testSaveErrorDownload();
   void testSaveEd2kDownload();
+  void testSaveActiveEd2kSharing();
   void testSaveEd2kPeerCredits();
 };
 
@@ -274,6 +277,46 @@ void SessionSerializerTest::testSaveEd2kDownload()
   CPPUNIT_ASSERT_EQUAL(std::string(" dir=/tmp"), line);
   std::getline(in, line);
   CPPUNIT_ASSERT(!in);
+}
+
+void SessionSerializerTest::testSaveActiveEd2kSharing()
+{
+  std::vector<std::string> uris{
+      "ed2k://|file|aria2%20sharing.bin|9728001|"
+      "0123456789abcdef0123456789abcdef|/"};
+  auto option = std::make_shared<Option>();
+  option->put(PREF_DIR, "/tmp");
+  option->put(PREF_FORCE_SAVE, A2_V_FALSE);
+  option->put(PREF_BT_DETACH_SEED_ONLY, A2_V_TRUE);
+  option->put(PREF_MAX_DOWNLOAD_RESULT, "10");
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option, uris);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, result.size());
+
+  RequestGroupMan rgman{std::vector<std::shared_ptr<RequestGroup>>(), 1,
+                        option.get()};
+  auto group = result[0];
+  group->initPieceStorage();
+  group->getPieceStorage()->markAllPiecesDone();
+  group->setRequestGroupMan(&rgman);
+  rgman.addRequestGroup(group);
+  group->enableSeedOnly();
+  group->setPauseRequested(true);
+
+  SessionSerializer serializer(&rgman);
+  std::string filename =
+      A2_TEST_OUT_DIR "/aria2_SessionSerializerTest_testSaveActiveEd2kSharing";
+  CPPUNIT_ASSERT(serializer.save(filename));
+
+  std::ifstream in(filename.c_str(), std::ios::binary);
+  std::string line;
+  std::getline(in, line);
+  CPPUNIT_ASSERT(util::startsWith(line, "ed2k://|file|aria2%20sharing.bin|"));
+  std::getline(in, line);
+  CPPUNIT_ASSERT_EQUAL(
+      fmt(" gid=%s", GroupId::toHex(group->getGID()).c_str()), line);
+  std::getline(in, line);
+  CPPUNIT_ASSERT_EQUAL(std::string(" pause=true"), line);
 }
 
 void SessionSerializerTest::testSaveEd2kPeerCredits()

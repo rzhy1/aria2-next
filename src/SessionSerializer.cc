@@ -46,6 +46,7 @@
 #include "download_helper.h"
 #include "Option.h"
 #include "DownloadResult.h"
+#include "DownloadContext.h"
 #include "Ed2kUploadQueue.h"
 #include "FileEntry.h"
 #include "prefs.h"
@@ -387,6 +388,15 @@ bool saveDownloadResult(IOFile& fp, std::set<a2_gid_t>& metainfoCache,
 }
 } // namespace
 
+namespace {
+bool isActiveEd2kSharingGroup(const std::shared_ptr<RequestGroup>& rg)
+{
+  return rg->isSeedOnlyEnabled() && !rg->isHaltRequested() &&
+         rg->downloadFinished() &&
+         rg->getDownloadContext()->hasAttribute(CTX_ATTR_ED2K);
+}
+} // namespace
+
 bool SessionSerializer::save(IOFile& fp) const
 {
   std::set<a2_gid_t> metainfoCache;
@@ -416,6 +426,7 @@ bool SessionSerializer::save(IOFile& fp) const
       bool stopped = dr->result == error_code::FINISHED ||
                      dr->result == error_code::REMOVED;
       if ((!stopped && saveInProgress_) ||
+          isActiveEd2kSharingGroup(rg) ||
           (stopped && dr->option->getAsBool(PREF_FORCE_SAVE))) {
         if (!writeDownloadResult(fp, metainfoCache, dr,
                                  rg->isPauseRequested())) {

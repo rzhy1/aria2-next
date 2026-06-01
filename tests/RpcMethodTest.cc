@@ -20,6 +20,7 @@
 #include "array_fun.h"
 #include "download_helper.h"
 #include "FileEntry.h"
+#include "DefaultPieceStorage.h"
 #include "RpcMethodFactory.h"
 #include "Ed2kAttribute.h"
 #include "ed2k_hash.h"
@@ -1144,6 +1145,20 @@ void RpcMethodTest::testGatherProgressEd2kStatus()
   group->setDownloadContext(dctx);
   group->setRequestGroupMan(e_->getRequestGroupMan().get());
 
+  auto seederEntry = Dict::g();
+  gatherProgressCommon(seederEntry.get(), group, {"seeder"});
+  CPPUNIT_ASSERT_EQUAL((size_t)1, seederEntry->size());
+  CPPUNIT_ASSERT(seederEntry->containsKey("seeder"));
+  CPPUNIT_ASSERT_EQUAL(std::string("false"), getString(seederEntry.get(), "seeder"));
+
+  group->initPieceStorage();
+  group->getPieceStorage()->markAllPiecesDone();
+  seederEntry = Dict::g();
+  gatherProgressCommon(seederEntry.get(), group, {"seeder"});
+  CPPUNIT_ASSERT_EQUAL((size_t)1, seederEntry->size());
+  CPPUNIT_ASSERT(seederEntry->containsKey("seeder"));
+  CPPUNIT_ASSERT_EQUAL(std::string("true"), getString(seederEntry.get(), "seeder"));
+
   auto entry = Dict::g();
   gatherProgressCommon(entry.get(), group, {"ed2k"});
 
@@ -1254,7 +1269,15 @@ void RpcMethodTest::testGatherProgressCommon()
   CPPUNIT_ASSERT_EQUAL(e_->getOption()->get(PREF_DIR),
                        downcast<String>(entry->get("dir"))->s());
 
-  keys.push_back("gid");
+  keys = {"seeder"};
+  entry = Dict::g();
+  gatherProgressCommon(entry.get(), group, keys);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, entry->size());
+  CPPUNIT_ASSERT(entry->containsKey("seeder"));
+  CPPUNIT_ASSERT_EQUAL(std::string("false"), getString(entry.get(), "seeder"));
+
+  keys = {"gid"};
   entry = Dict::g();
   gatherProgressCommon(entry.get(), group, keys);
 

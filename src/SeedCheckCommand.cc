@@ -62,6 +62,12 @@ SeedCheckCommand::~SeedCheckCommand() { requestGroup_->decreaseNumCommand(); }
 
 bool SeedCheckCommand::execute()
 {
+  if (requestGroup_->isHaltRequested()) {
+    if (!btRuntime_) {
+      return true;
+    }
+    btRuntime_->setHalt(true);
+  }
   if (btRuntime_ && btRuntime_->isHalt()) {
     return true;
   }

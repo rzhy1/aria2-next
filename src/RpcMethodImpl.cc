@@ -886,6 +886,9 @@ void gatherProgressCommon(Dict* entryDict,
   if (requested_key(keys, KEY_UPLOAD_LENGTH)) {
     entryDict->put(KEY_UPLOAD_LENGTH, util::itos(stat.allTimeUploadLength));
   }
+  if (requested_key(keys, KEY_SEEDER)) {
+    entryDict->put(KEY_SEEDER, group->isSeeder() ? VLB_TRUE : VLB_FALSE);
+  }
   if (requested_key(keys, KEY_CONNECTIONS)) {
     entryDict->put(KEY_CONNECTIONS, util::itos(group->getNumConnection()));
   }
@@ -997,9 +1000,6 @@ void gatherProgressBitTorrent(Dict* entryDict,
       entryDict->put(KEY_NUM_SEEDERS,
                      util::uitos(countSeeder(peers.begin(), peers.end())));
     }
-  }
-  if (requested_key(keys, KEY_SEEDER)) {
-    entryDict->put(KEY_SEEDER, group->isSeeder() ? VLB_TRUE : VLB_FALSE);
   }
 }
 } // namespace

@@ -581,7 +581,7 @@ PrefPtr PREF_BT_TRACKER = makePref("bt-tracker");
 PrefPtr PREF_BT_EXCLUDE_TRACKER = makePref("bt-exclude-tracker");
 // values: true | false
 PrefPtr PREF_BT_REMOVE_UNSELECTED_FILE = makePref("bt-remove-unselected-file");
-PrefPtr PREF_BT_DETACH_SEED_ONLY = makePref("bt-detach-seed-only");
+PrefPtr PREF_DETACH_SHARE_ONLY = makePref("detach-share-only");
 PrefPtr PREF_BT_FORCE_ENCRYPTION = makePref("bt-force-encryption");
 // values: true | false
 PrefPtr PREF_BT_ENABLE_HOOK_AFTER_HASH_CHECK =

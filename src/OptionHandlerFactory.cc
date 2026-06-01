@@ -1523,15 +1523,39 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
 #endif // ENABLE_BITTORRENT || ENABLE_METALINK
-// BitTorrent Specific Options
-#ifdef ENABLE_BITTORRENT
+// P2P sharing options
+#if defined(ENABLE_BITTORRENT) || defined(ENABLE_ED2K)
   {
     OptionHandler* op(new BooleanOptionHandler(
-        PREF_BT_DETACH_SEED_ONLY, TEXT_BT_DETACH_SEED_ONLY, A2_V_FALSE,
+        PREF_DETACH_SHARE_ONLY, TEXT_DETACH_SHARE_ONLY, A2_V_FALSE,
         OptionHandler::OPT_ARG));
     op->addTag(TAG_BITTORRENT);
+    op->addTag(TAG_ED2K);
     handlers.push_back(op);
   }
+  {
+    OptionHandler* op(new FloatNumberOptionHandler(
+        PREF_SEED_TIME, TEXT_SEED_TIME, NO_DEFAULT_VALUE, 0));
+    op->addTag(TAG_BITTORRENT);
+    op->addTag(TAG_ED2K);
+    op->setInitialOption(true);
+    op->setChangeGlobalOption(true);
+    op->setChangeOptionForReserved(true);
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new FloatNumberOptionHandler(
+        PREF_SEED_RATIO, TEXT_SEED_RATIO, "1.0", 0.0));
+    op->addTag(TAG_BITTORRENT);
+    op->addTag(TAG_ED2K);
+    op->setInitialOption(true);
+    op->setChangeGlobalOption(true);
+    op->setChangeOptionForReserved(true);
+    handlers.push_back(op);
+  }
+#endif // ENABLE_BITTORRENT || ENABLE_ED2K
+// BitTorrent Specific Options
+#ifdef ENABLE_BITTORRENT
   {
     OptionHandler* op(
         new BooleanOptionHandler(PREF_BT_ENABLE_HOOK_AFTER_HASH_CHECK,
@@ -1931,24 +1955,6 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     OptionHandler* op(new DefaultOptionHandler(PREF_PEER_AGENT, TEXT_PEER_AGENT,
                                                "aria2-next/" PACKAGE_VERSION));
     op->addTag(TAG_BITTORRENT);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new FloatNumberOptionHandler(
-        PREF_SEED_TIME, TEXT_SEED_TIME, NO_DEFAULT_VALUE, 0));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
-    handlers.push_back(op);
-  }
-  {
-    OptionHandler* op(new FloatNumberOptionHandler(
-        PREF_SEED_RATIO, TEXT_SEED_RATIO, "1.0", 0.0));
-    op->addTag(TAG_BITTORRENT);
-    op->setInitialOption(true);
-    op->setChangeGlobalOption(true);
-    op->setChangeOptionForReserved(true);
     handlers.push_back(op);
   }
   {

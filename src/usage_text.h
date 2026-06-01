@@ -326,16 +326,16 @@
     "                              To limit the overall upload speed, use\n" \
     "                              --max-overall-upload-limit option.")
 #define TEXT_SEED_TIME                                                  \
-  _(" --seed-time=MINUTES          Specify seeding time in (fractional) minutes.\n" \
+  _(" --seed-time=MINUTES          Specify sharing time in (fractional) minutes.\n" \
     "                              Also see the --seed-ratio option.")
 #define TEXT_SEED_RATIO                                                 \
-  _(" --seed-ratio=RATIO           Specify share ratio. Seed completed torrents\n" \
-    "                              until share ratio reaches RATIO.\n"  \
+  _(" --seed-ratio=RATIO           Specify share ratio. Share completed P2P\n" \
+    "                              downloads until share ratio reaches RATIO.\n" \
     "                              You are strongly encouraged to specify equals or\n" \
     "                              more than 1.0 here. Specify 0.0 if you intend to\n" \
-    "                              do seeding regardless of share ratio.\n" \
+    "                              keep sharing regardless of share ratio.\n" \
     "                              If --seed-time option is specified along with\n" \
-    "                              this option, seeding ends when at least one of\n" \
+    "                              this option, sharing ends when at least one of\n" \
     "                              the conditions is satisfied.")
 #define TEXT_PEER_ID_PREFIX                                             \
   _(" --peer-id-prefix=PEER_ID_PREFIX Specify the prefix of peer ID. The peer ID in\n" \
@@ -1089,16 +1089,16 @@
     "                              using their metadata. This option pauses these\n" \
     "                              subsequent downloads. This option is effective\n" \
     "                              only when --enable-rpc=true is given.")
-#define TEXT_BT_DETACH_SEED_ONLY                \
-  _(" --bt-detach-seed-only[=true|false]\n"     \
-    "                              Exclude seed only downloads when counting\n" \
+#define TEXT_DETACH_SHARE_ONLY                \
+  _(" --detach-share-only[=true|false]\n"     \
+    "                              Exclude share-only P2P downloads when counting\n" \
     "                              concurrent active downloads (See -j option).\n" \
     "                              This means that if -j3 is given and this option\n" \
     "                              is turned on and 3 downloads are active and one\n" \
-    "                              of those enters seed mode, then it is excluded\n" \
+    "                              of those enters share-only mode, then it is excluded\n" \
     "                              from active download count (thus it becomes 2),\n" \
     "                              and the next download waiting in queue gets\n" \
-    "                              started. But be aware that seeding item is still\n" \
+    "                              started. But be aware that share-only item is still\n" \
     "                              recognized as active download in RPC method.")
 #define TEXT_MIN_TLS_VERSION                                            \
   _(" --min-tls-version=VERSION    Specify minimum SSL/TLS version to enable.")

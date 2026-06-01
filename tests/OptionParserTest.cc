@@ -26,6 +26,7 @@ class OptionParserTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testFindById);
   CPPUNIT_TEST(testParseDefaultValues);
   CPPUNIT_TEST(testParseDefaultValuesDoesNotInjectCompileTimeCABundle);
+  CPPUNIT_TEST(testP2PSharingOptionsAreNotBtOnly);
   CPPUNIT_TEST(testParseArg);
   CPPUNIT_TEST(testParse);
   CPPUNIT_TEST(testParseKeyVals);
@@ -75,6 +76,7 @@ public:
   void testFindById();
   void testParseDefaultValues();
   void testParseDefaultValuesDoesNotInjectCompileTimeCABundle();
+  void testP2PSharingOptionsAreNotBtOnly();
   void testParseArg();
   void testParse();
   void testParseKeyVals();
@@ -154,6 +156,26 @@ void OptionParserTest::testParseDefaultValuesDoesNotInjectCompileTimeCABundle()
   OptionParser::getInstance()->parseDefaultValues(option);
 
   CPPUNIT_ASSERT(!option.defined(PREF_CA_CERTIFICATE));
+}
+
+void OptionParserTest::testP2PSharingOptionsAreNotBtOnly()
+{
+  auto parser = OptionParser::getInstance();
+  const auto seedRatio = parser->find(PREF_SEED_RATIO);
+  const auto seedTime = parser->find(PREF_SEED_TIME);
+  const auto detachShareOnly = parser->find(PREF_DETACH_SHARE_ONLY);
+  const auto oldBtDetachSeedOnly = option::k2p("bt-detach-seed-only");
+
+  CPPUNIT_ASSERT(seedRatio);
+  CPPUNIT_ASSERT(seedRatio->hasTag(TAG_BITTORRENT));
+  CPPUNIT_ASSERT(seedRatio->hasTag(TAG_ED2K));
+  CPPUNIT_ASSERT(seedTime);
+  CPPUNIT_ASSERT(seedTime->hasTag(TAG_BITTORRENT));
+  CPPUNIT_ASSERT(seedTime->hasTag(TAG_ED2K));
+  CPPUNIT_ASSERT(detachShareOnly);
+  CPPUNIT_ASSERT(detachShareOnly->hasTag(TAG_BITTORRENT));
+  CPPUNIT_ASSERT(detachShareOnly->hasTag(TAG_ED2K));
+  CPPUNIT_ASSERT_EQUAL((size_t)0, oldBtDetachSeedOnly->i);
 }
 
 void OptionParserTest::testParseArg()

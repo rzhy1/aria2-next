@@ -690,18 +690,40 @@ ED2K Specific Options
 
   Set the maximum number of active ED2K upload slots. Default: ``3``
 
-BitTorrent Specific Options
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P2P Sharing Options
+~~~~~~~~~~~~~~~~~~~
 
-.. option:: --bt-detach-seed-only [true|false]
+.. option:: --detach-share-only [true|false]
 
-  Exclude seed only downloads when counting concurrent active
+  Exclude share-only P2P downloads when counting concurrent active
   downloads (See :option:`-j` option).  This means that if ``-j3`` is
   given and this option is turned on and 3 downloads are active and
-  one of those enters seed mode, then it is excluded from active
+  one of those enters share-only mode, then it is excluded from active
   download count (thus it becomes 2), and the next download waiting in
-  queue gets started. But be aware that seeding item is still
+  queue gets started. But be aware that share-only item is still
   recognized as active download in RPC method.  Default: ``false``
+
+.. option:: --seed-ratio=<RATIO>
+
+  Specify share ratio. Share completed BitTorrent and ED2K downloads until share
+  ratio reaches RATIO.
+  You are strongly encouraged to specify equals or more than ``1.0`` here.
+  Specify ``0.0`` if you intend to keep sharing regardless of share ratio.
+  If :option:`--seed-time` option is specified along with this option, sharing ends when
+  at least one of the conditions is satisfied.
+  Default: ``1.0``
+
+.. option:: --seed-time=<MINUTES>
+
+  Specify sharing time in (fractional) minutes. Also see the
+  :option:`--seed-ratio` option.
+
+  .. note::
+
+    Specifying :option:`--seed-time=0 <--seed-time>` disables sharing after download completed.
+
+BitTorrent Specific Options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. option:: --bt-enable-hook-after-hash-check [true|false]
 
@@ -1004,25 +1026,6 @@ BitTorrent Specific Options
   Default: ``aria2-next/$MAJOR.$MINOR.$PATCH``, $MAJOR, $MINOR and $PATCH are
   replaced by major, minor and patch version number respectively.  For
   instance, Aria2 Next version 2.0.5 has peer agent ``aria2-next/2.0.5``.
-
-.. option:: --seed-ratio=<RATIO>
-
-  Specify share ratio. Seed completed torrents and ED2K tasks until share ratio
-  reaches RATIO.
-  You are strongly encouraged to specify equals or more than ``1.0`` here.
-  Specify ``0.0`` if you intend to do seeding regardless of share ratio.
-  If :option:`--seed-time` option is specified along with this option, seeding ends when
-  at least one of the conditions is satisfied.
-  Default: ``1.0``
-
-.. option:: --seed-time=<MINUTES>
-
-  Specify seeding time in (fractional) minutes. Also see the
-  :option:`--seed-ratio` option.
-
-  .. note::
-
-    Specifying :option:`--seed-time=0 <--seed-time>` disables seeding after download completed.
 
 .. option:: -T, --torrent-file=<TORRENT_FILE>
 
@@ -2723,7 +2726,7 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
     GID of the download.
 
   ``status``
-    ``active`` for currently downloading/seeding downloads.
+    ``active`` for currently downloading or sharing downloads.
     ``waiting`` for downloads in the queue; download is not started.
     ``paused`` for paused downloads.
     ``error`` for downloads that were stopped  because of error.
@@ -2759,8 +2762,8 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
     The number of seeders aria2 has connected to. BitTorrent only.
 
   ``seeder``
-    ``true`` if the local endpoint is a seeder. Otherwise ``false``.
-    BitTorrent only.
+    ``true`` if the local endpoint has completed a P2P download and is sharing
+    it. Otherwise ``false``.
 
   ``pieceLength``
     Piece length in bytes.
@@ -4116,7 +4119,7 @@ This section describes what these numbers and strings mean.
   :option:`--select-file` is used, this is the sum of selected files.
 
 ``SEED``
-  Share ratio when the aria2 is seeding a finished torrent.
+  Share ratio when aria2 is sharing a finished P2P download.
 
 ``CN``
   The number of connections aria2 has established.
@@ -4388,16 +4391,16 @@ Change the listening ports for incoming peer connections
   Since aria2 doesn't configure firewalls or routers for port forwarding, it's
   up to you to do so manually.
 
-Specify conditions to stop seeding after BitTorrent or ED2K downloads finish
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Specify conditions to stop sharing after BitTorrent or ED2K downloads finish
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: console
 
   $ aria2-next --seed-time=120 --seed-ratio=1.0 file.torrent
 
 .. note::
 
-  In the above example, the program stops seeding after 120 minutes since
-  download completed or seed ratio reaches 1.0.
+  In the above example, the program stops sharing after 120 minutes since
+  download completed or share ratio reaches 1.0.
 
 Throttle upload speed
 ^^^^^^^^^^^^^^^^^^^^^

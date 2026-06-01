@@ -54,7 +54,7 @@ std::shared_ptr<Option> createOption()
   option->put(PREF_MAX_OVERALL_DOWNLOAD_LIMIT, "0");
   option->put(PREF_MAX_OVERALL_UPLOAD_LIMIT, "0");
   option->put(PREF_BT_MAX_OPEN_FILES, "100");
-  option->put(PREF_BT_DETACH_SEED_ONLY, A2_V_TRUE);
+  option->put(PREF_DETACH_SHARE_ONLY, A2_V_TRUE);
   option->put(PREF_ENABLE_RPC, A2_V_FALSE);
   return option;
 }

@@ -287,7 +287,7 @@ void SessionSerializerTest::testSaveActiveEd2kSharing()
   auto option = std::make_shared<Option>();
   option->put(PREF_DIR, "/tmp");
   option->put(PREF_FORCE_SAVE, A2_V_FALSE);
-  option->put(PREF_BT_DETACH_SEED_ONLY, A2_V_TRUE);
+  option->put(PREF_DETACH_SHARE_ONLY, A2_V_TRUE);
   option->put(PREF_MAX_DOWNLOAD_RESULT, "10");
   std::vector<std::shared_ptr<RequestGroup>> result;
   createRequestGroupForUri(result, option, uris);

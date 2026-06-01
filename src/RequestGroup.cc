@@ -1208,8 +1208,8 @@ void RequestGroup::releaseRuntimeResource(DownloadEngine* e)
   // progress information via RPC
   progressInfoFile_ = std::make_shared<NullProgressInfoFile>();
   downloadContext_->releaseRuntimeResource();
-  // Reset seedOnly_, so that we can handle pause/unpause-ing seeding
-  // torrent with --bt-detach-seed-only.
+  // Reset seedOnly_, so that we can handle pause/unpause-ing share-only
+  // downloads with --detach-share-only.
   seedOnly_ = false;
 }
 
@@ -1500,7 +1500,7 @@ bool RequestGroup::p2pInvolved() const
 
 void RequestGroup::enableSeedOnly()
 {
-  if (seedOnly_ || !option_->getAsBool(PREF_BT_DETACH_SEED_ONLY)) {
+  if (seedOnly_ || !option_->getAsBool(PREF_DETACH_SHARE_ONLY)) {
     return;
   }
 

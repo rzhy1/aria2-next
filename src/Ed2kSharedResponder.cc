@@ -208,9 +208,7 @@ bool SharedResponder::queuePartAnswers(const std::string& requestPayload,
     if (uploadQueue_) {
       uploadQueue_->noteUploaded(endpoint_, range.end - range.begin);
     }
-    if (rgman_) {
-      rgman_->getNetStat().updateUpload(range.end - range.begin);
-    }
+    file->recordUpload(static_cast<size_t>(range.end - range.begin));
   }
   return true;
 }

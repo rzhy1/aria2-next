@@ -40,6 +40,7 @@ public:
   virtual std::vector<bool> bitfield() const = 0;
   virtual bool readRange(std::string& data, int64_t begin,
                          int64_t end) const = 0;
+  virtual void recordUpload(size_t bytes) = 0;
 };
 
 std::unique_ptr<SharedSource>

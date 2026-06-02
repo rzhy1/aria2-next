@@ -1157,6 +1157,7 @@ void RequestGroup::decreaseNumCommand()
 TransferStat RequestGroup::calculateStat() const
 {
   TransferStat stat = downloadContext_->getNetStat().toTransferStat();
+  stat.allTimeUploadLength = stat.sessionUploadLength;
 #ifdef ENABLE_BITTORRENT
   if (btRuntime_) {
     stat.allTimeUploadLength =

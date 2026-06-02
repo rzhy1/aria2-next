@@ -865,6 +865,12 @@ void Ed2kCommandTest::testCompletedEd2kSeedServesIncomingPeer()
   CPPUNIT_ASSERT_EQUAL(static_cast<uint32_t>(data.size()),
                        ed2k::readUInt32(body.data() + ed2k::HASH_LENGTH + 4));
   CPPUNIT_ASSERT_EQUAL(data, body.substr(ed2k::HASH_LENGTH + 8));
+  CPPUNIT_ASSERT_EQUAL(static_cast<int64_t>(data.size()),
+                       group->calculateStat().allTimeUploadLength);
+  CPPUNIT_ASSERT_EQUAL(static_cast<int64_t>(data.size()),
+                       static_cast<int64_t>(engine.getRequestGroupMan()
+                                                ->getNetStat()
+                                                .getSessionUploadLength()));
 
   engine.requestHalt();
   runEngineTicks(engine, 1);

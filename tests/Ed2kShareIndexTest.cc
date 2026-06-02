@@ -75,6 +75,7 @@ public:
     data.assign(static_cast<size_t>(end - begin), '\0');
     return true;
   }
+  void recordUpload(size_t bytes) CXX11_OVERRIDE {}
 };
 
 std::shared_ptr<DownloadContext> createEd2kContext(const std::string& path,

@@ -61,6 +61,7 @@ private:
   std::string path_;
   int64_t size_;
   int64_t pieceLength_;
+  DownloadContext* dctx_;
   PieceStorage* pieceStorage_;
 
   bool verifiedRange(int64_t begin, int64_t end) const
@@ -89,6 +90,7 @@ public:
         path_(std::move(path)),
         size_(attrs.link.size),
         pieceLength_(dctx ? dctx->getPieceLength() : PIECE_LENGTH),
+        dctx_(dctx),
         pieceStorage_(pieceStorage)
   {
     if (name_.empty() && dctx && !dctx->getFileEntries().empty()) {
@@ -127,6 +129,14 @@ public:
                  int64_t end) const CXX11_OVERRIDE
   {
     return verifiedRange(begin, end) && readDiskRange(path_, data, begin, end);
+  }
+  void recordUpload(size_t bytes) CXX11_OVERRIDE
+  {
+    if (!dctx_ || bytes == 0) {
+      return;
+    }
+    dctx_->updateUploadSpeed(bytes);
+    dctx_->updateUploadLength(bytes);
   }
 };
 

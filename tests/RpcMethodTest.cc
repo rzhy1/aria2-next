@@ -18,6 +18,7 @@
 #include "FeatureConfig.h"
 #include "util.h"
 #include "array_fun.h"
+#include "base64.h"
 #include "download_helper.h"
 #include "FileEntry.h"
 #include "DefaultPieceStorage.h"
@@ -41,6 +42,8 @@ class RpcMethodTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(RpcMethodTest);
   CPPUNIT_TEST(testAuthorize);
   CPPUNIT_TEST(testAddUri);
+  CPPUNIT_TEST(testAddUri_thunder);
+  CPPUNIT_TEST(testAddUri_badThunder);
   CPPUNIT_TEST(testAddUri_acceptsJsonBoolOption);
   CPPUNIT_TEST(testAddUri_withoutUri);
   CPPUNIT_TEST(testAddUri_notUri);
@@ -115,6 +118,8 @@ public:
 
   void testAuthorize();
   void testAddUri();
+  void testAddUri_thunder();
+  void testAddUri_badThunder();
   void testAddUri_acceptsJsonBoolOption();
   void testAddUri_withoutUri();
   void testAddUri_notUri();
@@ -264,6 +269,49 @@ void RpcMethodTest::testAddUri()
                              ->getOption()
                              ->get(PREF_DIR));
   }
+}
+
+void RpcMethodTest::testAddUri_thunder()
+{
+  const std::string url = "https://example.com/file.bin";
+  std::string payload = "AA" + url + "ZZ";
+  std::string thunder =
+      "thunder://" + base64::encode(payload.begin(), payload.end());
+  thunder.erase(thunder.find_last_not_of('=') + 1);
+
+  AddUriRpcMethod m;
+  auto req = createReq(AddUriRpcMethod::getMethodName());
+  auto urisParam = List::g();
+  urisParam->append(thunder);
+  req.params->append(std::move(urisParam));
+
+  auto res = m.execute(std::move(req), e_.get());
+
+  CPPUNIT_ASSERT_EQUAL(0, res.code);
+  const RequestGroupList& rgs = e_->getRequestGroupMan()->getReservedGroups();
+  CPPUNIT_ASSERT_EQUAL((size_t)1, rgs.size());
+  CPPUNIT_ASSERT_EQUAL(url, (*rgs.begin())
+                                ->getDownloadContext()
+                                ->getFirstFileEntry()
+                                ->getRemainingUris()
+                                .front());
+}
+
+void RpcMethodTest::testAddUri_badThunder()
+{
+  AddUriRpcMethod m;
+  auto req = createReq(AddUriRpcMethod::getMethodName());
+  auto urisParam = List::g();
+  urisParam->append("thunder://bad!");
+  req.params->append(std::move(urisParam));
+
+  auto res = m.execute(std::move(req), e_.get());
+
+  CPPUNIT_ASSERT_EQUAL(1, res.code);
+  const auto error = downcast<Dict>(res.param);
+  CPPUNIT_ASSERT(error);
+  CPPUNIT_ASSERT(
+      util::startsWith(getString(error, "faultString"), "Malformed Thunder URI"));
 }
 
 void RpcMethodTest::testAddUri_acceptsJsonBoolOption()
@@ -1170,6 +1218,10 @@ void RpcMethodTest::testGatherProgressEd2kStatus()
   CPPUNIT_ASSERT_EQUAL(std::string("ed2k-status.bin"),
                        getString(ed2kStatus, "name"));
   CPPUNIT_ASSERT_EQUAL(std::string("1024"), getString(ed2kStatus, "length"));
+  CPPUNIT_ASSERT_EQUAL(
+      std::string("ed2k://|file|ed2k-status.bin|1024|"
+                  "42424242424242424242424242424242|/"),
+      getString(ed2kStatus, "ed2kLink"));
   CPPUNIT_ASSERT_EQUAL(std::string("1"),
                        getString(ed2kStatus, "partHashCount"));
   CPPUNIT_ASSERT_EQUAL(std::string("2222222222222222222222222222222222222222"),
@@ -1303,6 +1355,13 @@ void RpcMethodTest::testGatherBitTorrentMetadata()
   CPPUNIT_ASSERT_EQUAL(
       std::string("aria2-test"),
       downcast<String>(downcast<Dict>(btDict->get("info"))->get("name"))->s());
+  CPPUNIT_ASSERT_EQUAL(
+      std::string("magnet:?xt=urn:btih:248D0A1CD08284299DE78D5C1ED359BB46717D8C"
+                  "&dn=aria2-test"
+                  "&tr=http%3A%2F%2Ftracker1"
+                  "&tr=http%3A%2F%2Ftracker2"
+                  "&tr=http%3A%2F%2Ftracker3"),
+      downcast<String>(btDict->get("magnetLink"))->s());
   const List* announceList = downcast<List>(btDict->get("announceList"));
   CPPUNIT_ASSERT_EQUAL((size_t)3, announceList->size());
   CPPUNIT_ASSERT_EQUAL(

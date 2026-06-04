@@ -71,6 +71,7 @@
 #include "ed2k_search.h"
 #include "ed2k_server.h"
 #include "SimpleRandomizer.h"
+#include "base64.h"
 #ifdef ENABLE_BITTORRENT
 #  include "bittorrent_helper.h"
 #  include "BtConstants.h"
@@ -725,6 +726,74 @@ void createRequestGroupForMetalink(
 #endif // ENABLE_METALINK
 
 namespace {
+bool isThunderUri(const std::string& uri)
+{
+  return util::startsWith(uri, "thunder://") ||
+         util::startsWith(uri, "THUNDER://");
+}
+
+bool isBase64Char(char c)
+{
+  return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') ||
+         ('0' <= c && c <= '9') || c == '+' || c == '/';
+}
+
+std::string normalizeThunderPayload(std::string payload)
+{
+  if (payload.empty()) {
+    throw DL_ABORT_EX("Malformed Thunder URI: empty payload.");
+  }
+  bool padding = false;
+  for (size_t i = 0; i < payload.size(); ++i) {
+    const char c = payload[i];
+    if (c == '=') {
+      padding = true;
+      continue;
+    }
+    if (padding || !isBase64Char(c)) {
+      throw DL_ABORT_EX("Malformed Thunder URI: invalid Base64 payload.");
+    }
+  }
+  switch (payload.size() % 4) {
+  case 0:
+    break;
+  case 2:
+    payload += "==";
+    break;
+  case 3:
+    payload += "=";
+    break;
+  default:
+    throw DL_ABORT_EX("Malformed Thunder URI: invalid Base64 payload.");
+  }
+  return payload;
+}
+
+std::string decodeThunderUri(const std::string& uri)
+{
+  auto payload = normalizeThunderPayload(uri.substr(10));
+  const auto decoded = base64::decode(payload.begin(), payload.end());
+  if (decoded.size() < 4 || !util::startsWith(decoded, "AA") ||
+      decoded.compare(decoded.size() - 2, 2, "ZZ") != 0) {
+    throw DL_ABORT_EX(
+        "Malformed Thunder URI: decoded payload must be AA<URI>ZZ.");
+  }
+  auto canonical = decoded.substr(2, decoded.size() - 4);
+  ProtocolDetector detector;
+  if (!detector.isStreamProtocol(canonical)) {
+    throw DL_ABORT_EX(
+        "Malformed Thunder URI: decoded payload is not a downloadable URI.");
+  }
+  return canonical;
+}
+
+std::string normalizeInputUri(const std::string& uri)
+{
+  return isThunderUri(uri) ? decodeThunderUri(uri) : uri;
+}
+} // namespace
+
+namespace {
 class AccRequestGroup {
 private:
   std::vector<std::shared_ptr<RequestGroup>>& requestGroups_;
@@ -746,32 +815,43 @@ public:
 
   void operator()(const std::string& uri)
   {
-    if (detector_.isStreamProtocol(uri)) {
+    std::string normalizedUri;
+    try {
+      normalizedUri = normalizeInputUri(uri);
+    }
+    catch (RecoverableException& e) {
+      if (throwOnError_) {
+        throw;
+      }
+      A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
+      return;
+    }
+    if (detector_.isStreamProtocol(normalizedUri)) {
       std::vector<std::string> streamURIs;
       size_t numIter = option_->getAsInt(PREF_MAX_CONNECTION_PER_SERVER);
       size_t numSplit = option_->getAsInt(PREF_SPLIT);
       size_t num = std::min(numIter, numSplit);
       for (size_t i = 0; i < num; ++i) {
-        streamURIs.push_back(uri);
+        streamURIs.push_back(normalizedUri);
       }
       auto rg = createRequestGroup(option_, streamURIs);
       rg->setNumConcurrentCommand(numSplit);
       requestGroups_.push_back(rg);
     }
 #ifdef ENABLE_BITTORRENT
-    else if (detector_.guessTorrentMagnet(uri)) {
-      requestGroups_.push_back(createBtMagnetRequestGroup(uri, option_));
+    else if (detector_.guessTorrentMagnet(normalizedUri)) {
+      requestGroups_.push_back(createBtMagnetRequestGroup(normalizedUri, option_));
     }
-    else if (!ignoreLocalPath_ && detector_.guessTorrentFile(uri)) {
+    else if (!ignoreLocalPath_ && detector_.guessTorrentFile(normalizedUri)) {
       try {
         bittorrent::ValueBaseBencodeParser parser;
-        auto torrent = parseFile(parser, uri);
+        auto torrent = parseFile(parser, normalizedUri);
         if (!torrent) {
           throw DL_ABORT_EX2("Bencode decoding failed",
                              error_code::BENCODE_PARSE_ERROR);
         }
         requestGroups_.push_back(
-            createBtRequestGroup(uri, option_, {}, torrent.get()));
+            createBtRequestGroup(normalizedUri, option_, {}, torrent.get()));
       }
       catch (RecoverableException& e) {
         if (throwOnError_) {
@@ -785,9 +865,9 @@ public:
       }
     }
 #endif // ENABLE_BITTORRENT
-    else if (detector_.guessEd2kLink(uri)) {
+    else if (detector_.guessEd2kLink(normalizedUri)) {
       try {
-        requestGroups_.push_back(createEd2kRequestGroup(uri, option_));
+        requestGroups_.push_back(createEd2kRequestGroup(normalizedUri, option_));
       }
       catch (RecoverableException& e) {
         if (throwOnError_) {
@@ -799,9 +879,9 @@ public:
       }
     }
 #ifdef ENABLE_METALINK
-    else if (!ignoreLocalPath_ && detector_.guessMetalinkFile(uri)) {
+    else if (!ignoreLocalPath_ && detector_.guessMetalinkFile(normalizedUri)) {
       try {
-        Metalink2RequestGroup().generate(requestGroups_, uri, option_,
+        Metalink2RequestGroup().generate(requestGroups_, normalizedUri, option_,
                                          option_->get(PREF_METALINK_BASE_URI));
       }
       catch (RecoverableException& e) {
@@ -818,10 +898,10 @@ public:
 #endif // ENABLE_METALINK
     else {
       if (throwOnError_) {
-        throw DL_ABORT_EX(fmt(MSG_UNRECOGNIZED_URI, uri.c_str()));
+        throw DL_ABORT_EX(fmt(MSG_UNRECOGNIZED_URI, normalizedUri.c_str()));
       }
       else {
-        A2_LOG_ERROR(fmt(MSG_UNRECOGNIZED_URI, uri.c_str()));
+        A2_LOG_ERROR(fmt(MSG_UNRECOGNIZED_URI, normalizedUri.c_str()));
       }
     }
   }
@@ -836,9 +916,35 @@ private:
 public:
   bool operator()(const std::string& uri)
   {
-    return detector_.isStreamProtocol(uri);
+    try {
+      return detector_.isStreamProtocol(normalizeInputUri(uri));
+    }
+    catch (RecoverableException& e) {
+      return false;
+    }
   }
 };
+} // namespace
+
+namespace {
+bool normalizeStreamUris(std::vector<std::string>& result,
+                         std::vector<std::string>::const_iterator first,
+                         std::vector<std::string>::const_iterator last,
+                         bool throwOnError)
+{
+  for (; first != last; ++first) {
+    try {
+      result.push_back(normalizeInputUri(*first));
+    }
+    catch (RecoverableException& e) {
+      if (throwOnError) {
+        throw;
+      }
+      A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
+    }
+  }
+  return !result.empty();
+}
 } // namespace
 
 void createRequestGroupForUri(
@@ -867,7 +973,14 @@ void createRequestGroupForUri(
       size_t numIter = option->getAsInt(PREF_MAX_CONNECTION_PER_SERVER);
       size_t numSplit = option->getAsInt(PREF_SPLIT);
       std::vector<std::string> streamURIs;
-      splitURI(streamURIs, std::begin(nargs), strmProtoEnd, numSplit, numIter);
+      std::vector<std::string> normalizedStreamUris;
+      normalizedStreamUris.reserve(std::distance(std::begin(nargs), strmProtoEnd));
+      if (!normalizeStreamUris(normalizedStreamUris, std::begin(nargs),
+                               strmProtoEnd, throwOnError)) {
+        return;
+      }
+      splitURI(streamURIs, std::begin(normalizedStreamUris),
+               std::end(normalizedStreamUris), numSplit, numIter);
       try {
         auto rg = createRequestGroup(option, streamURIs, true);
         rg->setNumConcurrentCommand(numSplit);

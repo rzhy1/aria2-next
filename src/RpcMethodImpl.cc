@@ -164,6 +164,7 @@ const char KEY_MEDIA_BITRATE[] = "mediaBitrate";
 const char KEY_MEDIA_CODEC[] = "mediaCodec";
 const char KEY_SOURCE_NETWORK[] = "sourceNetwork";
 const char KEY_ED2K_LINK[] = "ed2kLink";
+const char KEY_MAGNET_LINK[] = "magnetLink";
 const char KEY_MORE_RESULTS[] = "moreResults";
 } // namespace
 
@@ -265,7 +266,8 @@ std::unique_ptr<ValueBase> AddUriRpcMethod::process(const RpcRequest& req,
   std::vector<std::shared_ptr<RequestGroup>> result;
   createRequestGroupForUri(result, requestOption, uris,
                            /* ignoreForceSeq = */ true,
-                           /* ignoreLocalPath = */ true);
+                           /* ignoreLocalPath = */ true,
+                           /* throwOnError = */ true);
 
   if (!result.empty()) {
     return addRequestGroup(result.front(), e, posGiven, pos);
@@ -815,6 +817,10 @@ std::unique_ptr<Dict> createEd2kStatusEntry(const Ed2kAttribute* attrs,
   if (attrs->link.size > 0) {
     dict->put(KEY_LENGTH, util::itos(attrs->link.size));
   }
+  if (attrs->link.type == ed2k::LinkType::FILE && !attrs->link.hash.empty() &&
+      !attrs->link.name.empty() && attrs->link.size > 0) {
+    dict->put(KEY_ED2K_LINK, ed2k::toFileLink(attrs->link));
+  }
   dict->put("partHashCount", util::uitos(attrs->pieceHashes.size()));
   if (!attrs->aichRootHash.empty()) {
     dict->put("aichRoot", util::toHex(attrs->aichRootHash));
@@ -949,6 +955,10 @@ void gatherProgressCommon(Dict* entryDict,
 #ifdef ENABLE_BITTORRENT
 void gatherBitTorrentMetadata(Dict* btDict, TorrentAttribute* torrentAttrs)
 {
+  const auto magnetLink = bittorrent::torrent2Magnet(torrentAttrs);
+  if (!magnetLink.empty()) {
+    btDict->put(KEY_MAGNET_LINK, magnetLink);
+  }
   if (!torrentAttrs->comment.empty()) {
     btDict->put(KEY_COMMENT, torrentAttrs->comment);
   }

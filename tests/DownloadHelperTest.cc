@@ -27,6 +27,7 @@
 #include "DefaultBtProgressInfoFile.h"
 #include "array_fun.h"
 #include "base32.h"
+#include "base64.h"
 #include "ed2k_constants.h"
 #include "ed2k_aich.h"
 #include "ed2k_endpoint.h"
@@ -53,6 +54,8 @@ class DownloadHelperTest : public CppUnit::TestFixture {
 
   CPPUNIT_TEST_SUITE(DownloadHelperTest);
   CPPUNIT_TEST(testCreateRequestGroupForUri);
+  CPPUNIT_TEST(testCreateRequestGroupForUri_Thunder);
+  CPPUNIT_TEST(testCreateRequestGroupForUri_BadThunder);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2K);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KClientHash);
   CPPUNIT_TEST(testCreateRequestGroupForUri_ED2KDefaultKadBootstrap);
@@ -128,6 +131,8 @@ public:
   void tearDown() {}
 
   void testCreateRequestGroupForUri();
+  void testCreateRequestGroupForUri_Thunder();
+  void testCreateRequestGroupForUri_BadThunder();
   void testCreateRequestGroupForUri_ED2K();
   void testCreateRequestGroupForUri_ED2KClientHash();
   void testCreateRequestGroupForUri_ED2KDefaultKadBootstrap();
@@ -260,6 +265,39 @@ void DownloadHelperTest::testCreateRequestGroupForUri()
     // See filename is not assigned yet
     CPPUNIT_ASSERT_EQUAL(std::string(""), alphaCtx->getBasePath());
   }
+}
+
+void DownloadHelperTest::testCreateRequestGroupForUri_Thunder()
+{
+  const std::string url =
+      "https://example.com/download/file.bin?token=abc123";
+  std::string payload = "AA" + url + "ZZ";
+  std::string thunder =
+      "thunder://" + base64::encode(payload.begin(), payload.end());
+  thunder.erase(thunder.find_last_not_of('=') + 1);
+  std::vector<std::string> uris{thunder};
+  option_->put(PREF_SPLIT, "2");
+  option_->put(PREF_MAX_CONNECTION_PER_SERVER, "2");
+
+  std::vector<std::shared_ptr<RequestGroup>> result;
+  createRequestGroupForUri(result, option_, uris, false, false, true);
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, result.size());
+  const auto xuris =
+      result[0]->getDownloadContext()->getFirstFileEntry()->getUris();
+  CPPUNIT_ASSERT_EQUAL((size_t)2, xuris.size());
+  CPPUNIT_ASSERT_EQUAL(url, xuris[0]);
+  CPPUNIT_ASSERT_EQUAL(url, xuris[1]);
+}
+
+void DownloadHelperTest::testCreateRequestGroupForUri_BadThunder()
+{
+  std::vector<std::string> uris{"thunder://bad!"};
+  std::vector<std::shared_ptr<RequestGroup>> result;
+
+  CPPUNIT_ASSERT_THROW(createRequestGroupForUri(result, option_, uris, false,
+                                                false, true),
+                       RecoverableException);
 }
 
 void DownloadHelperTest::testCreateRequestGroupForUri_ED2K()

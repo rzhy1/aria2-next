@@ -2437,11 +2437,12 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 .. function:: aria2.addUri([secret], uris[, options[, position]])
 
   This method adds a new download. *uris* is an array of
-  HTTP/FTP/SFTP/BitTorrent URIs (strings) pointing to the same
+  HTTP/FTP/SFTP/BitTorrent/Thunder URIs (strings) pointing to the same
   resource.  If you mix URIs pointing to different resources, then the
   download may fail or be corrupted without aria2 complaining.  When
   adding BitTorrent Magnet URIs, *uris* must have only one element and
-  it should be BitTorrent Magnet URI.  *options* is a struct and its
+  it should be BitTorrent Magnet URI.  Thunder URIs are decoded to their
+  underlying URL before the download is created.  *options* is a struct and its
   members are pairs of option name and value.  See :ref:`rpc_options`
   below for more details.  If *position* is given, it must be an
   integer starting from 0. The new download will be inserted at
@@ -2818,6 +2819,10 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
       and no ``announce-list``, ``announce`` is converted to the
       ``announce-list`` format.
 
+    ``magnetLink``
+      Magnet URI generated from the torrent metadata, when the info hash is
+      available.
+
     ``comment``
       The comment of the torrent. ``comment.utf-8`` is used if available.
 
@@ -2848,6 +2853,10 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
     ``length``
       ED2K file length in bytes, when the task has file metadata.
+
+    ``ed2kLink``
+      ED2K file link generated from the task metadata, when the task is a
+      normal ED2K file download.
 
     ``partHashCount``
       Number of known ED2K MD4 part hashes.

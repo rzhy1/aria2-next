@@ -657,7 +657,10 @@ void DefaultPieceStorage::initStorage()
     multiDiskAdaptor->setPieceLength(downloadContext_->getPieceLength());
     diskAdaptor_ = std::move(multiDiskAdaptor);
   }
-  if (option_->get(PREF_FILE_ALLOCATION) == V_FALLOC) {
+  if (option_->get(PREF_FILE_ALLOCATION) == V_NONE) {
+    diskAdaptor_->setFileAllocationMethod(DiskAdaptor::FILE_ALLOC_NONE);
+  }
+  else if (option_->get(PREF_FILE_ALLOCATION) == V_FALLOC) {
     diskAdaptor_->setFileAllocationMethod(DiskAdaptor::FILE_ALLOC_FALLOC);
   }
   else if (option_->get(PREF_FILE_ALLOCATION) == V_TRUNC) {

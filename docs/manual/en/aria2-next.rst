@@ -1389,24 +1389,24 @@ Advanced Options
 .. option:: --file-allocation=<METHOD>
 
   Specify file allocation method.
-  ``none`` doesn't pre-allocate file space. ``prealloc`` pre-allocates file space
-  before download begins. This may take some time depending on the size of the
-  file.
+  ``none`` doesn't pre-allocate file space. On Windows, files created with
+  ``none`` are marked sparse to avoid expensive high-offset writes during
+  multi-connection downloads. ``prealloc`` pre-allocates file space before
+  download begins using the native platform allocator when available.
   If you are using newer file systems such as ext4
-  (with extents support), btrfs, xfs or NTFS(MinGW build only), ``falloc`` is
-  your best choice. It allocates large(few GiB)
-  files almost instantly. Don't use ``falloc`` with
+  (with extents support), btrfs, xfs, APFS or NTFS(MinGW build only),
+  ``falloc`` is your best choice. It allocates large(few GiB)
+  files quickly. Don't use ``falloc`` with
   legacy file systems such as ext3 and FAT32 because it takes
   almost the same time as ``prealloc`` and it blocks aria2
   entirely until allocation finishes. ``falloc`` may
-  not be available if your system doesn't have
-  :manpage:`posix_fallocate(3)` function.
+  not be available if your system doesn't have a native file allocation API.
   ``trunc`` uses :manpage:`ftruncate(2)` system call or
   platform-specific counterpart to truncate a file to a specified
-  length.
+  length. On Windows, ``trunc`` also marks the file sparse.
 
   Possible Values: ``none``, ``prealloc``, ``trunc``, ``falloc``
-  Default: ``prealloc``
+  Default: ``trunc``
 
   .. Warning::
 

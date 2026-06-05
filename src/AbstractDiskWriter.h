@@ -91,6 +91,8 @@ public:
   virtual void allocate(int64_t offset, int64_t length,
                         bool sparse) CXX11_OVERRIDE;
 
+  virtual void enableSparse() CXX11_OVERRIDE;
+
   virtual int64_t size() CXX11_OVERRIDE;
 
   virtual void enableReadOnly() CXX11_OVERRIDE;

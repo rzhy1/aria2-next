@@ -52,6 +52,7 @@
 #include "SimpleRandomizer.h"
 #include "WrDiskCacheEntry.h"
 #include "OpenedFileCounter.h"
+#include "DiskAdaptor.h"
 
 namespace aria2 {
 
@@ -97,6 +98,13 @@ void DiskWriterEntry::closeFile()
   if (open_) {
     diskWriter_->closeFile();
     open_ = false;
+  }
+}
+
+void DiskWriterEntry::enableSparse()
+{
+  if (diskWriter_) {
+    diskWriter_->enableSparse();
   }
 }
 
@@ -221,6 +229,9 @@ void MultiDiskAdaptor::openIfNot(DiskWriterEntry* entry,
       openedFileCounter->ensureMaxOpenFileLimit(1);
     }
     (entry->*open)();
+    if (getFileAllocationMethod() == DiskAdaptor::FILE_ALLOC_NONE) {
+      entry->enableSparse();
+    }
     openedDiskWriterEntries_.push_back(entry);
   }
   else {

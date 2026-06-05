@@ -56,11 +56,17 @@ AbstractSingleDiskAdaptor::~AbstractSingleDiskAdaptor() = default;
 void AbstractSingleDiskAdaptor::initAndOpenFile()
 {
   diskWriter_->initAndOpenFile(totalLength_);
+  if (getFileAllocationMethod() == DiskAdaptor::FILE_ALLOC_NONE) {
+    diskWriter_->enableSparse();
+  }
 }
 
 void AbstractSingleDiskAdaptor::openFile()
 {
   diskWriter_->openFile(totalLength_);
+  if (getFileAllocationMethod() == DiskAdaptor::FILE_ALLOC_NONE) {
+    diskWriter_->enableSparse();
+  }
 }
 
 void AbstractSingleDiskAdaptor::closeFile() { diskWriter_->closeFile(); }
@@ -142,6 +148,14 @@ std::unique_ptr<FileAllocationIterator>
 AbstractSingleDiskAdaptor::fileAllocationIterator()
 {
   switch (getFileAllocationMethod()) {
+  case (DiskAdaptor::FILE_ALLOC_ADAPTIVE):
+#ifdef HAVE_SOME_FALLOCATE
+    return make_unique<FallocFileAllocationIterator>(diskWriter_.get(), size(),
+                                                     totalLength_);
+#else  // !HAVE_SOME_FALLOCATE
+    return make_unique<AdaptiveFileAllocationIterator>(diskWriter_.get(),
+                                                       size(), totalLength_);
+#endif // !HAVE_SOME_FALLOCATE
 #ifdef HAVE_SOME_FALLOCATE
   case (DiskAdaptor::FILE_ALLOC_FALLOC):
     return make_unique<FallocFileAllocationIterator>(diskWriter_.get(), size(),
@@ -150,6 +164,9 @@ AbstractSingleDiskAdaptor::fileAllocationIterator()
   case (DiskAdaptor::FILE_ALLOC_TRUNC):
     return make_unique<TruncFileAllocationIterator>(diskWriter_.get(), size(),
                                                     totalLength_);
+  case (DiskAdaptor::FILE_ALLOC_NONE):
+    return make_unique<TruncFileAllocationIterator>(diskWriter_.get(), size(),
+                                                    size());
   default:
     return make_unique<AdaptiveFileAllocationIterator>(diskWriter_.get(),
                                                        size(), totalLength_);

@@ -10,6 +10,7 @@
 #include "TestUtil.h"
 #include "ByteArrayDiskWriter.h"
 #include "WrDiskCacheEntry.h"
+#include "FallocFileAllocationIterator.h"
 
 namespace aria2 {
 
@@ -17,6 +18,8 @@ class DirectDiskAdaptorTest : public CppUnit::TestFixture {
 
   CPPUNIT_TEST_SUITE(DirectDiskAdaptorTest);
   CPPUNIT_TEST(testCutTrailingGarbage);
+  CPPUNIT_TEST(testNoAllocationEnablesSparse);
+  CPPUNIT_TEST(testAdaptiveAllocationUsesPlatformAllocator);
   CPPUNIT_TEST(testWriteCache);
   CPPUNIT_TEST(testWriteCache_mergesContiguousCells);
   CPPUNIT_TEST_SUITE_END();
@@ -27,6 +30,8 @@ public:
   void tearDown() {}
 
   void testCutTrailingGarbage();
+  void testNoAllocationEnablesSparse();
+  void testAdaptiveAllocationUsesPlatformAllocator();
   void testWriteCache();
   void testWriteCache_mergesContiguousCells();
 };
@@ -50,6 +55,95 @@ void DirectDiskAdaptorTest::testCutTrailingGarbage()
 
   CPPUNIT_ASSERT_EQUAL((int64_t)entry->getLength(),
                        File(entry->getPath()).size());
+}
+
+namespace {
+class SparseRecordingDiskWriter : public DiskWriter {
+public:
+  virtual void initAndOpenFile(int64_t totalLength = 0) CXX11_OVERRIDE
+  {
+    ++initAndOpenFileCount;
+  }
+
+  virtual void openFile(int64_t totalLength = 0) CXX11_OVERRIDE
+  {
+    ++openFileCount;
+  }
+
+  virtual void closeFile() CXX11_OVERRIDE {}
+
+  virtual void openExistingFile(int64_t totalLength = 0) CXX11_OVERRIDE
+  {
+    ++openExistingFileCount;
+  }
+
+  virtual void writeData(const unsigned char* data, size_t len,
+                         int64_t offset) CXX11_OVERRIDE
+  {
+  }
+
+  virtual ssize_t readData(unsigned char* data, size_t len,
+                           int64_t offset) CXX11_OVERRIDE
+  {
+    return 0;
+  }
+
+  virtual void truncate(int64_t length) CXX11_OVERRIDE
+  {
+    ++truncateCount;
+  }
+
+  virtual void enableSparse() CXX11_OVERRIDE { ++enableSparseCount; }
+
+  virtual int64_t size() CXX11_OVERRIDE { return 0; }
+
+  size_t initAndOpenFileCount = 0;
+  size_t openFileCount = 0;
+  size_t openExistingFileCount = 0;
+  size_t truncateCount = 0;
+  size_t enableSparseCount = 0;
+};
+} // namespace
+
+void DirectDiskAdaptorTest::testNoAllocationEnablesSparse()
+{
+  auto entry = std::make_shared<FileEntry>(
+      A2_TEST_OUT_DIR "/aria2_DirectDiskAdaptorTest_testNoAllocationEnablesSparse",
+      256, 0);
+  auto fileEntries = std::vector<std::shared_ptr<FileEntry>>{entry};
+  DirectDiskAdaptor adaptor;
+  auto writer = make_unique<SparseRecordingDiskWriter>();
+  auto writerPtr = writer.get();
+  adaptor.setDiskWriter(std::move(writer));
+  adaptor.setTotalLength(entry->getLength());
+  adaptor.setFileEntries(fileEntries.begin(), fileEntries.end());
+  adaptor.setFileAllocationMethod(DiskAdaptor::FILE_ALLOC_NONE);
+
+  adaptor.initAndOpenFile();
+
+  CPPUNIT_ASSERT_EQUAL((size_t)1, writerPtr->initAndOpenFileCount);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, writerPtr->enableSparseCount);
+  CPPUNIT_ASSERT_EQUAL((size_t)0, writerPtr->truncateCount);
+}
+
+void DirectDiskAdaptorTest::testAdaptiveAllocationUsesPlatformAllocator()
+{
+  auto entry = std::make_shared<FileEntry>(
+      A2_TEST_OUT_DIR
+      "/aria2_DirectDiskAdaptorTest_testAdaptiveAllocationUsesPlatformAllocator",
+      256, 0);
+  auto fileEntries = std::vector<std::shared_ptr<FileEntry>>{entry};
+  DirectDiskAdaptor adaptor;
+  adaptor.setDiskWriter(make_unique<ByteArrayDiskWriter>());
+  adaptor.setTotalLength(entry->getLength());
+  adaptor.setFileEntries(fileEntries.begin(), fileEntries.end());
+  adaptor.setFileAllocationMethod(DiskAdaptor::FILE_ALLOC_ADAPTIVE);
+
+  auto itr = adaptor.fileAllocationIterator();
+
+#ifdef HAVE_SOME_FALLOCATE
+  CPPUNIT_ASSERT(dynamic_cast<FallocFileAllocationIterator*>(itr.get()));
+#endif // HAVE_SOME_FALLOCATE
 }
 
 void DirectDiskAdaptorTest::testWriteCache()

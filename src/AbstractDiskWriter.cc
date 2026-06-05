@@ -505,29 +505,25 @@ void AbstractDiskWriter::allocate(int64_t offset, int64_t length, bool sparse)
     throw DL_ABORT_EX("File not yet opened.");
   }
   if (sparse) {
-#ifdef __MINGW32__
-    DWORD bytesReturned;
-    if (!DeviceIoControl(fd_, FSCTL_SET_SPARSE, 0, 0, 0, 0, &bytesReturned,
-                         0)) {
-      A2_LOG_WARN(fmt("Making file sparse failed or pending: %s",
-                      fileStrerror(GetLastError()).c_str()));
-    }
-#endif // __MINGW32__
+    enableSparse();
     truncate(offset + length);
     return;
   }
 #ifdef HAVE_SOME_FALLOCATE
 #  ifdef __MINGW32__
-  truncate(offset + length);
-  if (!SetFileValidData(fd_, offset + length)) {
+  FILE_ALLOCATION_INFO allocationInfo;
+  allocationInfo.AllocationSize.QuadPart = offset + length;
+  if (!SetFileInformationByHandle(fd_, FileAllocationInfo, &allocationInfo,
+                                  sizeof(allocationInfo))) {
     auto errNum = fileError();
-    A2_LOG_WARN(fmt(
-        "File allocation (SetFileValidData) failed (cause: %s). File will be "
-        "allocated by filling zero, which blocks whole aria2 execution. Run "
-        "aria2 as an administrator or use a different file allocation method "
-        "(see --file-allocation).",
-        fileStrerror(errNum).c_str()));
+    throw DL_ABORT_EX3(
+        errNum,
+        fmt("SetFileInformationByHandle(FileAllocationInfo) of %" PRId64
+            " failed. cause: %s",
+            offset + length, fileStrerror(errNum).c_str()),
+        error_code::FILE_IO_ERROR);
   }
+  truncate(offset + length);
 #  elif defined(__APPLE__) && defined(__MACH__)
   const auto toalloc = offset + length - size();
   fstore_t fstore = {F_ALLOCATECONTIG | F_ALLOCATEALL, F_PEOFPOSMODE, 0,
@@ -573,6 +569,20 @@ void AbstractDiskWriter::allocate(int64_t offset, int64_t length, bool sparse)
 #    error "no *_fallocate function available."
 #  endif
 #endif // HAVE_SOME_FALLOCATE
+}
+
+void AbstractDiskWriter::enableSparse()
+{
+  if (fd_ == A2_BAD_FD) {
+    throw DL_ABORT_EX("File not yet opened.");
+  }
+#ifdef __MINGW32__
+  DWORD bytesReturned;
+  if (!DeviceIoControl(fd_, FSCTL_SET_SPARSE, 0, 0, 0, 0, &bytesReturned, 0)) {
+    A2_LOG_WARN(fmt("Making file sparse failed or pending: %s",
+                    fileStrerror(GetLastError()).c_str()));
+  }
+#endif // __MINGW32__
 }
 
 int64_t AbstractDiskWriter::size() { return File(filename_).size(); }

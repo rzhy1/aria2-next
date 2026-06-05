@@ -62,6 +62,8 @@ public:
 
   void openExistingFile();
 
+  void enableSparse();
+
   void closeFile();
 
   bool isOpen() const { return open_; }

@@ -100,6 +100,16 @@ void MultiFileAllocationIterator::allocateChunk()
                       (*entryItr_)->getFilePath().c_str(),
                       fileEntry->getLength(), (*entryItr_)->size()));
       switch (diskAdaptor_->getFileAllocationMethod()) {
+      case (DiskAdaptor::FILE_ALLOC_ADAPTIVE):
+#ifdef HAVE_SOME_FALLOCATE
+        fileAllocationIterator_ = make_unique<FallocFileAllocationIterator>(
+            diskWriter_.get(), (*entryItr_)->size(), fileEntry->getLength());
+        break;
+#else  // !HAVE_SOME_FALLOCATE
+        fileAllocationIterator_ = make_unique<AdaptiveFileAllocationIterator>(
+            diskWriter_.get(), (*entryItr_)->size(), fileEntry->getLength());
+        break;
+#endif // !HAVE_SOME_FALLOCATE
 #ifdef HAVE_SOME_FALLOCATE
       case (DiskAdaptor::FILE_ALLOC_FALLOC):
         fileAllocationIterator_ = make_unique<FallocFileAllocationIterator>(

@@ -139,19 +139,16 @@
 #define TEXT_FILE_ALLOCATION                                            \
   _(" --file-allocation=METHOD     Specify file allocation method.\n"   \
     "                              'none' doesn't pre-allocate file space. 'prealloc'\n" \
-    "                              pre-allocates file space before download begins.\n" \
-    "                              This may take some time depending on the size of\n" \
-    "                              the file.\n"                         \
+    "                              pre-allocates file space before download begins\n" \
+    "                              using native platform allocation when available.\n" \
     "                              If you are using newer file systems such as ext4\n" \
-    "                              (with extents support), btrfs, xfs or NTFS\n" \
+    "                              (with extents support), btrfs, xfs, APFS or NTFS\n" \
     "                              (MinGW build only), 'falloc' is your best\n"   \
-    "                              choice. It allocates large(few GiB) files\n" \
-    "                              almost instantly. Don't use 'falloc' with legacy\n" \
+    "                              choice. It allocates large(few GiB) files quickly.\n" \
+    "                              Don't use 'falloc' with legacy\n" \
     "                              file systems such as ext3 and FAT32 because it\n" \
     "                              takes almost the same time as 'prealloc' and it\n" \
     "                              blocks aria2 entirely until allocation finishes.\n" \
-    "                              'falloc' may not be available if your system\n" \
-    "                              doesn't have posix_fallocate() function.\n" \
     "                              'trunc' uses ftruncate() system call or\n" \
     "                              platform-specific counterpart to truncate a file\n" \
     "                              to a specified length.")

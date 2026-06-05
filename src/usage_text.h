@@ -142,8 +142,8 @@
     "                              pre-allocates file space before download begins\n" \
     "                              using native platform allocation when available.\n" \
     "                              If you are using newer file systems such as ext4\n" \
-    "                              (with extents support), btrfs, xfs, APFS or NTFS\n" \
-    "                              (MinGW build only), 'falloc' is your best\n"   \
+    "                              (with extents support), btrfs, xfs or APFS,\n" \
+    "                              'falloc' is your best\n"   \
     "                              choice. It allocates large(few GiB) files quickly.\n" \
     "                              Don't use 'falloc' with legacy\n" \
     "                              file systems such as ext3 and FAT32 because it\n" \

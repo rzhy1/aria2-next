@@ -511,18 +511,7 @@ void AbstractDiskWriter::allocate(int64_t offset, int64_t length, bool sparse)
   }
 #ifdef HAVE_SOME_FALLOCATE
 #  ifdef __MINGW32__
-  FILE_ALLOCATION_INFO allocationInfo;
-  allocationInfo.AllocationSize.QuadPart = offset + length;
-  if (!SetFileInformationByHandle(fd_, FileAllocationInfo, &allocationInfo,
-                                  sizeof(allocationInfo))) {
-    auto errNum = fileError();
-    throw DL_ABORT_EX3(
-        errNum,
-        fmt("SetFileInformationByHandle(FileAllocationInfo) of %" PRId64
-            " failed. cause: %s",
-            offset + length, fileStrerror(errNum).c_str()),
-        error_code::FILE_IO_ERROR);
-  }
+  enableSparse();
   truncate(offset + length);
 #  elif defined(__APPLE__) && defined(__MACH__)
   const auto toalloc = offset + length - size();

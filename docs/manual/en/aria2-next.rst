@@ -1394,7 +1394,7 @@ Advanced Options
   multi-connection downloads. ``prealloc`` pre-allocates file space before
   download begins using the native platform allocator when available.
   If you are using newer file systems such as ext4
-  (with extents support), btrfs, xfs, APFS or NTFS(MinGW build only),
+  (with extents support), btrfs, xfs or APFS,
   ``falloc`` is your best choice. It allocates large(few GiB)
   files quickly. Don't use ``falloc`` with
   legacy file systems such as ext3 and FAT32 because it takes
@@ -1403,7 +1403,7 @@ Advanced Options
   not be available if your system doesn't have a native file allocation API.
   ``trunc`` uses :manpage:`ftruncate(2)` system call or
   platform-specific counterpart to truncate a file to a specified
-  length. On Windows, ``trunc`` also marks the file sparse.
+  length. On Windows, ``trunc`` and ``falloc`` also mark the file sparse.
 
   Possible Values: ``none``, ``prealloc``, ``trunc``, ``falloc``
   Default: ``trunc``

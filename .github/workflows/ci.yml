@@ -24,10 +24,13 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            cmake ninja-build pkg-config \
+          sudo apt-get install -y --no-install-recommends \
+            make cmake ninja-build pkg-config curl tar ca-certificates \
             libcppunit-dev libssl-dev libsqlite3-dev \
             libxml2-dev zlib1g-dev libssh2-1-dev
+
+      - name: Verify runner tools
+        run: packaging/scripts/verify-runner-tools ci
 
       - name: Build c-ares
         run: |
@@ -73,5 +76,6 @@ jobs:
           bash -n scripts/release.sh
           bash -n packaging/scripts/common.sh
           bash -n packaging/scripts/check-runtime-deps
+          bash -n packaging/scripts/verify-runner-tools
           bash -n packaging/scripts/mingw-release
           bash -n packaging/scripts/android-release

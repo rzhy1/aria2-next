@@ -1,6 +1,6 @@
 # Packaging
 
-This directory owns release packaging, cross-compilation helpers, Docker build contexts, platform package resources, and release dependency metadata.
+This directory owns release packaging, cross-compilation helpers, platform package resources, and release dependency metadata.
 
 `dependencies.env` is the authoritative dependency source for maintained release automation. It records versions, archive names, URLs, and SHA-256 hashes for downloaded release inputs.
 
@@ -9,14 +9,14 @@ This directory owns release packaging, cross-compilation helpers, Docker build c
 | Path | Purpose |
 | --- | --- |
 | `notes/` | Platform notes copied into binary packages |
-| `docker/` | Dockerfiles for reproducible cross-platform build images |
+| `docker/` | Legacy Windows Docker build context for local reproduction |
 | `macos/` | macOS package resources |
 | `scripts/` | Release packaging helpers |
 | `dependencies.env` | Maintained dependency baseline and source archive hashes |
 
 Supported packaging paths build this repository checkout through CMake. Third-party dependencies may use their own upstream build systems while they are being built as release dependencies.
 
-Official release builds use `packaging/scripts/release-size-profile` to apply size-oriented compiler flags, per-function and per-data sections, and platform linker dead-code elimination. The profile is used by GitHub release jobs and Docker cross-build images so portable artifacts keep the maintained dependency baseline without retaining avoidable unused code.
+Official release builds use `packaging/scripts/release-size-profile` to apply size-oriented compiler flags, per-function and per-data sections, and platform linker dead-code elimination. The profile is used by GitHub release jobs so portable artifacts keep the maintained dependency baseline without retaining avoidable unused code.
 
 GitHub Release assets are bare executable binaries named `aria2-next-<version>-<platform>-<architecture>`, plus a SHA-256 checksum file. Source code and license material are provided by the GitHub release tag source archives.
 

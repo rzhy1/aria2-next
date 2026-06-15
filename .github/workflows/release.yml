@@ -1012,31 +1012,161 @@ jobs:
       ARIA2_BUILD_PROFILE: ${{ needs.resolve-release.outputs.build_profile }}
       ARTIFACT_SUFFIX: ${{ needs.resolve-release.outputs.artifact_suffix }}
       CMAKE_BUILD_TYPE: ${{ needs.resolve-release.outputs.cmake_build_type }}
+      HOST: aarch64-linux-android
+      API: "33"
+      PREFIX: ${{ github.workspace }}/packaging/android-deps
       STRIP_BINARY: ${{ needs.resolve-release.outputs.strip_binary }}
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name || github.sha }}
 
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            make binutils cmake ninja-build pkg-config curl tar unzip ca-certificates \
+            dpkg-dev perl
+
       - name: Verify runner tools
         run: packaging/scripts/verify-runner-tools android
 
-      - name: Build Android image
+      - name: Resolve Android NDK
         run: |
-          docker build \
-            --build-arg ARIA2_BUILD_PROFILE="$ARIA2_BUILD_PROFILE" \
-            --build-arg CMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
-            --build-arg STRIP_BINARY="$STRIP_BINARY" \
-            -f packaging/docker/Dockerfile.android \
-            -t aria2-next-android-arm64 .
+          . packaging/dependencies.env
+          NDK_HOME="${ANDROID_NDK_LATEST_HOME:-}"
+          if [ -z "$NDK_HOME" ] || [ ! -d "$NDK_HOME" ]; then
+            echo "ANDROID_NDK_LATEST_HOME is not available on this runner" >&2
+            exit 1
+          fi
+          version_major=$(sed -n 's/^Pkg\\.Revision *= *\\([0-9][0-9]*\\).*/\1/p' "$NDK_HOME/source.properties" | head -n 1)
+          if [ "$version_major" != "$ANDROID_NDK_VERSION" ]; then
+            echo "Unexpected Android NDK major version: $version_major, expected $ANDROID_NDK_VERSION" >&2
+            exit 1
+          fi
+          {
+            echo "NDK=$NDK_HOME"
+            echo "TOOLCHAIN=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
+            echo "AR=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+            echo "CC=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${HOST}${API}-clang"
+            echo "CXX=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${HOST}${API}-clang++"
+            echo "RANLIB=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+            echo "STRIP=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          } >> "$GITHUB_ENV"
+
+      - name: Download dependency sources
+        run: |
+          . packaging/dependencies.env
+          . packaging/scripts/common.sh
+          curl_fetch "$OPENSSL_URL" "$OPENSSL_ARCHIVE" "$OPENSSL_SHA256"
+          curl_fetch "$EXPAT_URL" "$EXPAT_ARCHIVE" "$EXPAT_SHA256"
+          curl_fetch "$ZLIB_URL" "$ZLIB_ARCHIVE" "$ZLIB_SHA256"
+          curl_fetch "$CARES_URL" "$CARES_ARCHIVE" "$CARES_SHA256"
+          curl_fetch "$LIBSSH2_URL" "$LIBSSH2_ARCHIVE" "$LIBSSH2_SHA256"
+
+      - name: Build OpenSSL
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/release-size-profile android
+          tar xf "$OPENSSL_ARCHIVE" && cd "openssl-$OPENSSL_VERSION"
+          ANDROID_NDK_HOME="$NDK" PATH="$TOOLCHAIN/bin:$PATH" \
+          ./Configure no-shared no-module no-tests --prefix="$PREFIX" android-arm64 $RELEASE_CFLAGS
+          make -j$(nproc)
+          make install_sw
+
+      - name: Build expat
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/release-size-profile android
+          tar xf "$EXPAT_ARCHIVE" && cd "expat-$EXPAT_VERSION"
+          CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
+          ./configure \
+            --host="$HOST" \
+            --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" \
+            --prefix="$PREFIX" \
+            --disable-shared
+          make -j$(nproc) install
+
+      - name: Build zlib
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/release-size-profile android
+          tar xf "$ZLIB_ARCHIVE" && cd "zlib-$ZLIB_VERSION"
+          CC="$CC" AR="$AR" RANLIB="$RANLIB" STRIP="$STRIP" \
+          CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
+          ./configure \
+            --prefix="$PREFIX" \
+            --libdir="$PREFIX/lib" \
+            --includedir="$PREFIX/include" \
+            --static
+          make -j$(nproc) install
+
+      - name: Build c-ares
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/release-size-profile android
+          tar xf "$CARES_ARCHIVE" && cd "c-ares-$CARES_VERSION"
+          CPPFLAGS="$RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
+          ./configure \
+            --host="$HOST" \
+            --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" \
+            --prefix="$PREFIX" \
+            --disable-shared
+          make -j$(nproc) install
+
+      - name: Build libssh2
+        run: |
+          source packaging/dependencies.env
+          . packaging/scripts/release-size-profile android
+          tar xf "$LIBSSH2_ARCHIVE" && cd "libssh2-$LIBSSH2_VERSION"
+          CPPFLAGS="-I$PREFIX/include $RELEASE_CPPFLAGS" CFLAGS="$RELEASE_CFLAGS" LDFLAGS="$RELEASE_LDFLAGS" \
+          ./configure \
+            --host="$HOST" \
+            --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" \
+            --prefix="$PREFIX" \
+            --disable-shared \
+            --with-crypto=openssl \
+            --with-libssl-prefix="$PREFIX" \
+            PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+          make -j$(nproc) install
+
+      - name: Build aria2
+        run: |
+          . packaging/scripts/release-size-profile android
+          PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" \
+          cmake -S . -B build/release -G Ninja \
+            -DCMAKE_SYSTEM_NAME=Android \
+            -DCMAKE_ANDROID_NDK="$NDK" \
+            -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a \
+            -DCMAKE_ANDROID_STL_TYPE=c++_static \
+            -DCMAKE_SYSTEM_VERSION="$API" \
+            -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
+            -DARIA2_STATIC_DEPENDENCIES=ON \
+            -DARIA2_WITH_WINTLS=OFF \
+            -DARIA2_WITH_GNUTLS=OFF \
+            -DARIA2_WITH_OPENSSL=ON \
+            -DARIA2_WITH_LIBXML2=OFF \
+            -DARIA2_WITH_EXPAT=ON \
+            -DARIA2_WITH_CARES=ON \
+            -DARIA2_WITH_ZLIB=ON \
+            -DARIA2_WITH_SQLITE3=OFF \
+            -DARIA2_WITH_LIBSSH2=ON \
+            -DARIA2_RELEASE_SIZE_OPTIMIZED=ON \
+            -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
+            -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$RELEASE_LDFLAGS" \
+            -DCMAKE_PREFIX_PATH="$PREFIX"
+          cmake --build build/release -j$(nproc)
+          if [ "$STRIP_BINARY" = true ]; then
+            "$STRIP" build/release/aria2-next
+          fi
+          READELF="$TOOLCHAIN/bin/llvm-readelf" packaging/scripts/check-runtime-deps android-arm64 build/release/aria2-next
+          READELF="$TOOLCHAIN/bin/llvm-readelf" SIZE="$TOOLCHAIN/bin/llvm-size" packaging/scripts/size-audit android-arm64 build/release/aria2-next
 
       - name: Package
         run: |
           VERSION="${{ needs.resolve-release.outputs.version }}"
-          container=$(docker create aria2-next-android-arm64)
-          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
-          docker cp "$container:/root/build/aria2/build/release/aria2-next" \
-            "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-android-arm64"
+          cp build/release/aria2-next "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-android-arm64"
           chmod 755 "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-android-arm64"
 
       - uses: actions/upload-artifact@v7

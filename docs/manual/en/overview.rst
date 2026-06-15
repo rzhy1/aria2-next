@@ -321,9 +321,9 @@ NDK cross-compiler on Debian Linux.
 The maintained Android NDK baseline is recorded in
 ``packaging/dependencies.env``.
 
-The maintained release workflow and Android Dockerfile are the reference Android
-cross-build implementations. They assume the following libraries have been built
-for cross-compilation:
+The maintained release workflow is the reference Android cross-build
+implementation. It assumes the following libraries have been built for
+cross-compilation:
 
 * c-ares
 * openssl
@@ -333,8 +333,8 @@ for cross-compilation:
 
 Build the dependency libraries as static libraries and install them under a
 single Android prefix. Then configure aria2 with CMake using the Android NDK
-toolchain variables. The maintained Dockerfile reads the NDK baseline from
-``packaging/dependencies.env`` and passes
+toolchain variables. The maintained release workflow reads the NDK baseline
+from ``packaging/dependencies.env`` and passes
 ``CMAKE_SYSTEM_NAME=Android``, ``CMAKE_ANDROID_NDK``,
 ``CMAKE_ANDROID_ARCH_ABI=arm64-v8a``, ``CMAKE_SYSTEM_VERSION``,
 ``CMAKE_PREFIX_PATH``, and ``PKG_CONFIG_LIBDIR``.

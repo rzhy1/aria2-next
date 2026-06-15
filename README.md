@@ -146,7 +146,7 @@ The same file records versions, archive names, download URLs, and SHA-256 hashes
 | `src/includes/aria2/` | public libaria2 headers |
 | `tests/` | CppUnit test suite registered through CTest |
 | `docs/` | manual sources, completion tooling, and maintenance records |
-| `packaging/` | release dependencies, cross-build scripts, Dockerfiles, and package assets |
+| `packaging/` | release dependencies, cross-build scripts, and package assets |
 | `third_party/` | vendored source with explicit ownership rules |
 | `tools/` | local developer helpers |
 

@@ -28,7 +28,7 @@ This file defines repository rules for AI coding agents. Human contributors shou
 | `src/includes/aria2/` | Public libaria2 headers |
 | `tests/` | CppUnit tests and fixtures |
 | `docs/` | Manual sources, completion tooling, and maintenance records |
-| `packaging/` | Release dependencies, Dockerfiles, cross-build scripts, and package assets |
+| `packaging/` | Release dependencies, cross-build scripts, and package assets |
 | `packaging/dependencies.env` | Release dependency version source |
 | `third_party/` | Bundled third-party source |
 | `tools/` | Local developer helpers |
@@ -66,7 +66,7 @@ Treat published release tags as immutable. If a failed release has not been cons
 
 ## Dependency Management
 
-`packaging/dependencies.env` is the authoritative dependency baseline for maintained release packaging. It owns dependency versions, source archive names, download URLs, and SHA-256 hashes. Update it before changing dependency versions in scripts, Dockerfiles, workflow files, package notes, or README tables.
+`packaging/dependencies.env` is the authoritative dependency baseline for maintained release packaging. It owns dependency versions, source archive names, download URLs, and SHA-256 hashes. Update it before changing dependency versions in scripts, workflow files, package notes, or README tables.
 
 Do not add automated dependency PR systems, scheduled dependency update workflows, or Dependabot configuration unless explicitly requested. Dependency updates should be intentional and verified through the affected release path.
 

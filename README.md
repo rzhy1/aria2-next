@@ -114,6 +114,12 @@ Prebuilt artifacts are published on the [GitHub Releases](https://github.com/AnI
 
 Linux, macOS, and Android downloads are executable files. If your browser clears the executable bit, run `chmod +x ./aria2-next-<version>-<platform>`.
 
+Container images are published to GitHub Container Registry for Linux x86_64 and Linux ARM64:
+
+```bash
+docker run --rm ghcr.io/aninsomniacy/aria2-next:v<version> --version
+```
+
 Release binaries verify HTTPS certificates by default. Windows releases use WinTLS and the Windows trust store. Linux OpenSSL builds use the system OpenSSL 3 runtime so certificate discovery follows the host distribution. macOS OpenSSL and GnuTLS builds use their backend's system trust loading. Explicit CA files remain available through `--ca-certificate`.
 
 ## Maintenance Audit
@@ -126,14 +132,14 @@ The audit separates confirmed fixes, already-fixed reports, documented behavior,
 
 `CMakeLists.txt` is the project version source of truth. Release tags use `v{PROJECT_VERSION}`.
 
-The release workflow runs when a matching GitHub Release is published. It validates the tag against `CMakeLists.txt`, builds all maintained platform binaries, generates SHA-256 checksums, and uploads the release executables to the published release. Source code is provided by the GitHub release tag source archives.
+The release workflow runs when a matching GitHub Release is published. It validates the tag against `CMakeLists.txt`, builds all maintained platform binaries, generates SHA-256 checksums, uploads the release executables to the published release, and publishes the Linux multi-architecture container image to GitHub Container Registry. Source code is provided by the GitHub release tag source archives.
 
-Tag pushes alone do not publish release builds. `workflow_dispatch` remains available for release-path validation of the current workflow commit and uploads the final binaries and checksum file only to the workflow run artifact named `aria2-next-<version>-release-assets`. Published GitHub Releases must use a `v{PROJECT_VERSION}` tag that matches `CMakeLists.txt`.
+Tag pushes alone do not publish release builds. `workflow_dispatch` remains available for release-path validation of the current workflow commit, archives the final binaries and checksum file to the workflow run artifact named `aria2-next-<version>-release-assets`, and validates the container image without pushing it. Published GitHub Releases must use a `v{PROJECT_VERSION}` tag that matches `CMakeLists.txt`.
 
 ## Dependency Baseline
 
 Release dependency versions are tracked in [`packaging/dependencies.env`](packaging/dependencies.env).
-The same file records versions, archive names, download URLs, and SHA-256 hashes for source archives consumed by release workflows and Docker build contexts.
+The same file records versions, archive names, download URLs, and SHA-256 hashes for source archives consumed by release workflows.
 
 ## Repository Layout
 

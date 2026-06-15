@@ -9,7 +9,7 @@ This directory owns release packaging, cross-compilation helpers, platform packa
 | Path | Purpose |
 | --- | --- |
 | `notes/` | Platform notes copied into binary packages |
-| `docker/` | Legacy Windows Docker build context for local reproduction |
+| `docker/` | Linux runtime container image definition |
 | `macos/` | macOS package resources |
 | `scripts/` | Release packaging helpers |
 | `dependencies.env` | Maintained dependency baseline and source archive hashes |
@@ -19,6 +19,8 @@ Supported packaging paths build this repository checkout through CMake. Third-pa
 Official release builds use `packaging/scripts/release-size-profile` to apply size-oriented compiler flags, per-function and per-data sections, and platform linker dead-code elimination. The profile is used by GitHub release jobs so portable artifacts keep the maintained dependency baseline without retaining avoidable unused code.
 
 GitHub Release assets are bare executable binaries named `aria2-next-<version>-<platform>-<architecture>`, plus a SHA-256 checksum file. Source code and license material are provided by the GitHub release tag source archives.
+
+Container images are published to GitHub Container Registry as `ghcr.io/aninsomniacy/aria2-next:v<version>` and `ghcr.io/aninsomniacy/aria2-next:latest`. The image is assembled from the maintained Linux x86_64 and Linux ARM64 release binaries instead of rebuilding aria2-next inside Docker.
 
 Release jobs must verify runtime dependency closure before packaging. Use `packaging/scripts/check-runtime-deps` on the final stripped binary so unintended compiler runtimes and third-party shared libraries cannot leak into release artifacts.
 

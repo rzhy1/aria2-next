@@ -276,10 +276,6 @@ mingw-w64 (http://mingw-w64.org/doku.php) cross-compiler on Debian
 Linux. The MinGW (http://www.mingw.org/) may not be able to build
 aria2.
 
-The easiest way to build a Windows binary is using
-``packaging/docker/Dockerfile.mingw``. If you cannot use Dockerfile, then
-continue to read the following paragraphs.
-
 After compiling and installing dependency libraries, cross-compile with a CMake
 toolchain file or explicit ``CMAKE_SYSTEM_NAME``, compiler, prefix, and
 ``PKG_CONFIG_LIBDIR`` settings. The maintained release workflow is the reference

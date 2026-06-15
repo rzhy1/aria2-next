@@ -2,7 +2,7 @@
 set -eu
 
 usage() {
-  echo "Usage: $0 <linux|macos|windows-x86_64|windows-arm64|release-tools|ci>" >&2
+  echo "Usage: $0 <linux|macos|windows-x86_64|windows-arm64|android|release-tools|ci>" >&2
   exit 2
 }
 
@@ -22,6 +22,9 @@ case "$profile" in
     ;;
   windows-arm64)
     tools="cmake ninja pkg-config make curl tar aarch64-w64-mingw32-clang aarch64-w64-mingw32-clang++ aarch64-w64-mingw32-ar aarch64-w64-mingw32-ranlib aarch64-w64-mingw32-strip aarch64-w64-mingw32-objdump"
+    ;;
+  android)
+    tools="docker"
     ;;
   release-tools)
     tools="git gh sha256sum sed grep sort"

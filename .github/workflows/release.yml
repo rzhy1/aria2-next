@@ -1002,6 +1002,50 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
+  # Android ARM64
+  # ---------------------------------------------------------------------------
+  build-android-arm64:
+    name: Android ARM64
+    needs: resolve-release
+    runs-on: ubuntu-24.04
+    env:
+      ARIA2_BUILD_PROFILE: ${{ needs.resolve-release.outputs.build_profile }}
+      ARTIFACT_SUFFIX: ${{ needs.resolve-release.outputs.artifact_suffix }}
+      CMAKE_BUILD_TYPE: ${{ needs.resolve-release.outputs.cmake_build_type }}
+      STRIP_BINARY: ${{ needs.resolve-release.outputs.strip_binary }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name || github.sha }}
+
+      - name: Verify runner tools
+        run: packaging/scripts/verify-runner-tools android
+
+      - name: Build Android image
+        run: |
+          docker build \
+            --build-arg ARIA2_BUILD_PROFILE="$ARIA2_BUILD_PROFILE" \
+            --build-arg CMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
+            --build-arg STRIP_BINARY="$STRIP_BINARY" \
+            -f packaging/docker/Dockerfile.android \
+            -t aria2-next-android-arm64 .
+
+      - name: Package
+        run: |
+          VERSION="${{ needs.resolve-release.outputs.version }}"
+          container=$(docker create aria2-next-android-arm64)
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          docker cp "$container:/root/build/aria2/build/release/aria2-next" \
+            "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-android-arm64"
+          chmod 755 "aria2-next-${VERSION}${ARTIFACT_SUFFIX}-android-arm64"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-arm64${{ needs.resolve-release.outputs.artifact_suffix }}
+          path: aria2-next-${{ needs.resolve-release.outputs.version }}${{ needs.resolve-release.outputs.artifact_suffix }}-android-arm64
+          archive: false
+
+  # ---------------------------------------------------------------------------
   # Publish or archive release assets
   # ---------------------------------------------------------------------------
   upload-release-assets:
@@ -1014,6 +1058,7 @@ jobs:
       - build-macos-intel
       - build-windows-x64
       - build-windows-arm64
+      - build-android-arm64
     runs-on: ubuntu-24.04
     env:
       ARTIFACT_SUFFIX: ${{ needs.resolve-release.outputs.artifact_suffix }}

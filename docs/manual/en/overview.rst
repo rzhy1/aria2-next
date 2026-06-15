@@ -339,6 +339,9 @@ toolchain variables. The maintained Dockerfile reads the NDK baseline from
 ``CMAKE_ANDROID_ARCH_ABI=arm64-v8a``, ``CMAKE_SYSTEM_VERSION``,
 ``CMAKE_PREFIX_PATH``, and ``PKG_CONFIG_LIBDIR``.
 
+Official Android releases are published as bare ARM64 executable assets named
+``aria2-next-<version>-android-arm64``.
+
 Building documentation
 ----------------------
 

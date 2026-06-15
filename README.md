@@ -72,8 +72,7 @@ aria2-next --help=#ed2k
 | Primary consumer | Motrix Next sidecar engine |
 | External consumers | Existing aria2 scripts, frontends, RPC clients, and automation |
 | Build system | CMake 3.25+ with Ninja presets |
-| Release targets | macOS, Windows, and Linux on x64 and ARM64 |
-| Additional packaging | Android ARM64 release builds |
+| Release targets | macOS, Windows, Linux, and Android on maintained CPU architectures |
 | Maintenance | Maintained by AnInsomniacy since 2026 |
 | Maintenance record | Preserved upstream issue review matrix |
 
@@ -110,9 +109,10 @@ Prebuilt artifacts are published on the [GitHub Releases](https://github.com/AnI
 | macOS | Intel | `aria2-next-<version>-macos-x86_64` |
 | Windows | x86_64 | `aria2-next-<version>-windows-x86_64.exe` |
 | Windows | ARM64 | `aria2-next-<version>-windows-arm64.exe` |
+| Android | ARM64 | `aria2-next-<version>-android-arm64` |
 | Checksums | all release assets | `aria2-next-<version>-checksums.sha256` |
 
-Linux and macOS downloads are executable files. If your browser clears the executable bit, run `chmod +x ./aria2-next-<version>-<platform>`.
+Linux, macOS, and Android downloads are executable files. If your browser clears the executable bit, run `chmod +x ./aria2-next-<version>-<platform>`.
 
 Release binaries verify HTTPS certificates by default. Windows releases use WinTLS and the Windows trust store. Linux OpenSSL builds use the system OpenSSL 3 runtime so certificate discovery follows the host distribution. macOS OpenSSL and GnuTLS builds use their backend's system trust loading. Explicit CA files remain available through `--ca-certificate`.
 

@@ -12,6 +12,9 @@ LABEL org.opencontainers.image.description="Builds aria2-next for Android with C
 ENV HOST=aarch64-linux-android \
     API=33 \
     PREFIX=/root/usr/local
+ARG ARIA2_BUILD_PROFILE=release
+ARG CMAKE_BUILD_TYPE=Release
+ARG STRIP_BINARY=true
 
 WORKDIR /root
 RUN apt-get update && \
@@ -117,7 +120,7 @@ RUN . packaging/scripts/release-size-profile android && \
       -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a \
       -DCMAKE_ANDROID_STL_TYPE=c++_static \
       -DCMAKE_SYSTEM_VERSION="$API" \
-      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
       -DARIA2_STATIC_DEPENDENCIES=ON \
       -DARIA2_WITH_WINTLS=OFF \
       -DARIA2_WITH_GNUTLS=OFF \
@@ -134,6 +137,6 @@ RUN . packaging/scripts/release-size-profile android && \
       -DCMAKE_EXE_LINKER_FLAGS="$RELEASE_LDFLAGS" \
       -DCMAKE_PREFIX_PATH="$PREFIX" && \
     cmake --build build/release -j"$(nproc)" && \
-    "$STRIP" build/release/aria2-next && \
+    if [ "$STRIP_BINARY" = true ]; then "$STRIP" build/release/aria2-next; fi && \
     READELF="$TOOLCHAIN/bin/llvm-readelf" packaging/scripts/check-runtime-deps android-arm64 build/release/aria2-next && \
     READELF="$TOOLCHAIN/bin/llvm-readelf" SIZE="$TOOLCHAIN/bin/llvm-size" packaging/scripts/size-audit android-arm64 build/release/aria2-next

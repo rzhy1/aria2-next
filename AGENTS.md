@@ -74,7 +74,7 @@ Do not add automated dependency PR systems, scheduled dependency update workflow
 
 The release workflow is `.github/workflows/release.yml`. It runs on `release: published` and on manual `workflow_dispatch` validation. Tag pushes do not publish release builds directly.
 
-Maintained release artifacts are standalone executable assets named `aria2-next-<version>-linux-x86_64`, `aria2-next-<version>-linux-aarch64`, `aria2-next-<version>-macos-arm64`, `aria2-next-<version>-macos-x86_64`, `aria2-next-<version>-windows-x86_64.exe`, `aria2-next-<version>-windows-arm64.exe`, and `aria2-next-<version>-checksums.sha256`.
+Maintained release artifacts are standalone executable assets named `aria2-next-<version>-linux-x86_64`, `aria2-next-<version>-linux-aarch64`, `aria2-next-<version>-macos-arm64`, `aria2-next-<version>-macos-x86_64`, `aria2-next-<version>-windows-x86_64.exe`, `aria2-next-<version>-windows-arm64.exe`, `aria2-next-<version>-android-arm64`, and `aria2-next-<version>-checksums.sha256`.
 
 Manual workflow runs are for release-path validation. Official release assets are uploaded only when a GitHub Release is published. Release jobs must check runtime dependency closure before assets are uploaded.
 
@@ -121,6 +121,7 @@ One short paragraph covering the release scope, supported artifacts, and operati
 | macOS Intel | `aria2-next-{VERSION}-macos-x86_64` |
 | Windows x86_64 | `aria2-next-{VERSION}-windows-x86_64.exe` |
 | Windows ARM64 | `aria2-next-{VERSION}-windows-arm64.exe` |
+| Android ARM64 | `aria2-next-{VERSION}-android-arm64` |
 | Checksums | `aria2-next-{VERSION}-checksums.sha256` |
 ```
 
@@ -143,7 +144,6 @@ bash -n scripts/bump-version.sh
 bash -n scripts/release.sh
 bash -n packaging/scripts/common.sh
 bash -n packaging/scripts/mingw-release
-bash -n packaging/scripts/android-release
 ```
 
 ## Failed Release Recovery

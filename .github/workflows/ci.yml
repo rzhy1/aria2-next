@@ -78,4 +78,3 @@ jobs:
           bash -n packaging/scripts/check-runtime-deps
           bash -n packaging/scripts/verify-runner-tools
           bash -n packaging/scripts/mingw-release
-          bash -n packaging/scripts/android-release

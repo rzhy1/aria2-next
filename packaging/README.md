@@ -18,7 +18,7 @@ Supported packaging paths build this repository checkout through CMake. Third-pa
 
 Official release builds use `packaging/scripts/release-size-profile` to apply size-oriented compiler flags, per-function and per-data sections, and platform linker dead-code elimination. The profile is used by GitHub release jobs and Docker cross-build images so portable artifacts keep the maintained dependency baseline without retaining avoidable unused code.
 
-GitHub Release assets are executable binaries named `aria2-next-<version>-<platform>-<architecture>`, plus a SHA-256 checksum file. Source code and license material are provided by the GitHub release tag source archives.
+GitHub Release assets are bare executable binaries named `aria2-next-<version>-<platform>-<architecture>`, plus a SHA-256 checksum file. Source code and license material are provided by the GitHub release tag source archives.
 
 Release jobs must verify runtime dependency closure before packaging. Use `packaging/scripts/check-runtime-deps` on the final stripped binary so unintended compiler runtimes and third-party shared libraries cannot leak into release artifacts.
 

@@ -1047,12 +1047,30 @@ jobs:
           {
             echo "NDK=$NDK_HOME"
             echo "TOOLCHAIN=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
-            echo "AR=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-            echo "CC=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${HOST}${API}-clang"
-            echo "CXX=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${HOST}${API}-clang++"
-            echo "RANLIB=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
-            echo "STRIP=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
           } >> "$GITHUB_ENV"
+
+      - name: Prepare Android compiler wrappers
+        run: |
+          wrapper_dir="$RUNNER_TEMP/android-toolchain-wrappers"
+          mkdir -p "$wrapper_dir"
+          cat > "$wrapper_dir/${HOST}${API}-clang" <<EOF
+          #!/bin/sh
+          exec "$TOOLCHAIN/bin/clang" --target=${HOST}${API} "\$@"
+          EOF
+          cat > "$wrapper_dir/${HOST}${API}-clang++" <<EOF
+          #!/bin/sh
+          exec "$TOOLCHAIN/bin/clang++" --target=${HOST}${API} "\$@"
+          EOF
+          chmod 755 "$wrapper_dir/${HOST}${API}-clang" "$wrapper_dir/${HOST}${API}-clang++"
+          {
+            echo "ANDROID_WRAPPER_DIR=$wrapper_dir"
+            echo "AR=$TOOLCHAIN/bin/llvm-ar"
+            echo "CC=$wrapper_dir/${HOST}${API}-clang"
+            echo "CXX=$wrapper_dir/${HOST}${API}-clang++"
+            echo "RANLIB=$TOOLCHAIN/bin/llvm-ranlib"
+            echo "STRIP=$TOOLCHAIN/bin/llvm-strip"
+          } >> "$GITHUB_ENV"
+          echo "$wrapper_dir" >> "$GITHUB_PATH"
 
       - name: Download dependency sources
         run: |

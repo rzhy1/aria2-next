@@ -1164,7 +1164,11 @@ jobs:
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
             -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="-L$PREFIX/lib $RELEASE_LDFLAGS" \
-            -DCMAKE_PREFIX_PATH="$PREFIX"
+            -DCMAKE_PREFIX_PATH="$PREFIX" \
+            -DCMAKE_FIND_ROOT_PATH="$PREFIX;$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
+            -DCMAKE_FIND_LIBRARY_SUFFIXES=.a
           cmake --build build/release -j$(nproc)
           if [ "$STRIP_BINARY" = true ]; then
             "$STRIP" build/release/aria2-next

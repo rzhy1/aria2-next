@@ -1,4 +1,4 @@
-name: Bug Report
+name: "\U0001F41B Bug Report"
 description: Report a reproducible aria2-next engine bug
 title: "[BUG]: "
 labels: ["bug"]

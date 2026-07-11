@@ -1676,6 +1676,15 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     handlers.push_back(op);
   }
   {
+    OptionHandler* op(new LocalFilePathOptionHandler(
+        PREF_BT_PEER_BLOCKLIST, TEXT_BT_PEER_BLOCKLIST, NO_DEFAULT_VALUE,
+        /* acceptStdin = */ false, 0, /* mustExist = */ false));
+    op->addTag(TAG_ADVANCED);
+    op->addTag(TAG_BITTORRENT);
+    op->setChangeGlobalOption(true);
+    handlers.push_back(op);
+  }
+  {
     OptionHandler* op(
         new BooleanOptionHandler(PREF_BT_METADATA_ONLY, TEXT_BT_METADATA_ONLY,
                                  A2_V_FALSE, OptionHandler::OPT_ARG));

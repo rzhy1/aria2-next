@@ -45,6 +45,8 @@
 #include "fmt.h"
 #include "wallclock.h"
 #include "util.h"
+#include "BtRegistry.h"
+#include "BtPeerBlocklist.h"
 
 namespace aria2 {
 
@@ -61,7 +63,8 @@ PeerAbstractCommand::PeerAbstractCommand(cuid_t cuid,
       peer_(peer),
       checkSocketIsReadable_(false),
       checkSocketIsWritable_(false),
-      noCheck_(false)
+      noCheck_(false),
+      peerBlocklistRevision_(0)
 {
   if (socket_ && socket_->isOpen()) {
     setReadCheckSocket(socket_);
@@ -83,6 +86,29 @@ bool PeerAbstractCommand::execute()
   if (exitBeforeExecute()) {
     onAbort();
     return true;
+  }
+  const auto& peerBlocklist = e_->getBtRegistry()->getPeerBlocklist();
+  const bool blocklistChanged =
+      peerBlocklistRevision_ != peerBlocklist->revision();
+  if (blocklistChanged) {
+    peerBlocklistRevision_ = peerBlocklist->revision();
+    auto peerAddress = peer_->getIPAddress();
+    if (socket_ && socket_->isOpen()) {
+      try {
+        auto endpoint = socket_->getPeerInfo();
+        if (!endpoint.addr.empty()) {
+          peerAddress = endpoint.addr;
+        }
+      }
+      catch (RecoverableException&) {
+        // The socket may still be connecting; keep the advertised address.
+      }
+    }
+    if (peerBlocklist->contains(peerAddress)) {
+      A2_LOG_INFO(fmt("CUID#%" PRId64 " - Blocked BitTorrent peer %s:%u.",
+                      getCuid(), peerAddress.c_str(), peer_->getPort()));
+      return onBlocked();
+    }
   }
   try {
     if (noCheck_ || (checkSocketIsReadable_ && readEventEnabled()) ||
@@ -106,8 +132,8 @@ bool PeerAbstractCommand::execute()
   }
   catch (RecoverableException& err) {
     A2_LOG_TRACE_EX(fmt(MSG_TORRENT_DOWNLOAD_ABORTED, getCuid()), err);
-    A2_LOG_TRACE(fmt(MSG_PEER_BANNED, getCuid(), peer_->getIPAddress().c_str(),
-                     peer_->getPort()));
+    A2_LOG_TRACE(fmt(MSG_PEER_CONNECTION_DROPPED, getCuid(),
+                     peer_->getIPAddress().c_str(), peer_->getPort()));
     onAbort();
     return prepareForNextPeer(0);
   }

@@ -37,6 +37,7 @@
 
 #include "Command.h"
 
+#include <cstdint>
 #include <memory>
 
 #include "TimerA2.h"
@@ -61,6 +62,7 @@ private:
   std::shared_ptr<SocketCore> readCheckTarget_;
   std::shared_ptr<SocketCore> writeCheckTarget_;
   bool noCheck_;
+  uint64_t peerBlocklistRevision_;
 
 protected:
   DownloadEngine* getDownloadEngine() const { return e_; }
@@ -78,6 +80,11 @@ protected:
 
   virtual bool prepareForNextPeer(time_t wait);
   virtual void onAbort(){};
+  virtual bool onBlocked()
+  {
+    onAbort();
+    return prepareForNextPeer(0);
+  }
   // This function is called when DownloadFailureException is caught right after
   // the invocation of onAbort().
   virtual void onFailure(const Exception& err){};

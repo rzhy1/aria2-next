@@ -487,7 +487,8 @@ void RequestGroup::createInitialCommand(
       progressInfoFile->setBtRuntime(btRuntime);
     }
 
-    auto peerStorage = std::make_shared<DefaultPeerStorage>();
+    auto peerStorage = std::make_shared<DefaultPeerStorage>(
+        btRegistry->getPeerBlocklist());
     peerStorage->setBtRuntime(btRuntime);
     peerStorage->setPieceStorage(pieceStorage_);
     peerStorage_ = peerStorage.get();

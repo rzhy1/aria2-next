@@ -759,6 +759,8 @@ set(ARIA2_SOURCES_ENABLE_BITTORRENT
   src/BtPieceMessageValidator.h
   src/BtPortMessage.cc
   src/BtPortMessage.h
+  src/BtPeerBlocklist.cc
+  src/BtPeerBlocklist.h
   src/BtPostDownloadHandler.cc
   src/BtPostDownloadHandler.h
   src/BtRegistry.cc

@@ -43,11 +43,15 @@
 #include "bittorrent_helper.h"
 #include "LpdMessageReceiver.h"
 #include "UDPTrackerClient.h"
+#include "BtPeerBlocklist.h"
 #include "NullHandle.h"
 
 namespace aria2 {
 
-BtRegistry::BtRegistry() : tcpPort_{0}, udpPort_{0} {}
+BtRegistry::BtRegistry()
+    : tcpPort_{0}, udpPort_{0}, peerBlocklist_{std::make_shared<BtPeerBlocklist>()}
+{
+}
 
 const std::shared_ptr<DownloadContext>&
 BtRegistry::getDownloadContext(a2_gid_t gid) const

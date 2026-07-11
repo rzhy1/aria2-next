@@ -48,6 +48,8 @@
 #include "SimpleRandomizer.h"
 #include "util.h"
 #include "fmt.h"
+#include "BtRegistry.h"
+#include "BtPeerBlocklist.h"
 
 namespace aria2 {
 
@@ -107,6 +109,13 @@ bool PeerListenCommand::execute()
       peerSocket = socket_->acceptConnection();
       peerSocket->applyIpDscp();
       auto endpoint = peerSocket->getPeerInfo();
+
+      if (e_->getBtRegistry()->getPeerBlocklist()->contains(endpoint.addr)) {
+        A2_LOG_INFO(fmt("Rejected blocked BitTorrent peer %s:%u.",
+                        endpoint.addr.c_str(), endpoint.port));
+        peerSocket->closeConnection();
+        continue;
+      }
 
       auto peer = std::make_shared<Peer>(endpoint.addr, endpoint.port, true);
       cuid_t cuid = e_->newCUID();

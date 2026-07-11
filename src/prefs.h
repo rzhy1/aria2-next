@@ -503,6 +503,8 @@ extern PrefPtr PREF_BT_SEED_UNVERIFIED;
 extern PrefPtr PREF_BT_HASH_CHECK_SEED;
 // values: 1*digit
 extern PrefPtr PREF_BT_MAX_PEERS;
+// values: a string (file path)
+extern PrefPtr PREF_BT_PEER_BLOCKLIST;
 // values: a string (IP address)
 extern PrefPtr PREF_BT_EXTERNAL_IP;
 // values: 1*digit '=' a string that your file system recognizes as a file name.

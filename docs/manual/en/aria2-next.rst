@@ -800,6 +800,14 @@ BitTorrent Specific Options
   unlimited.  See also :option:`--bt-request-peer-speed-limit` option.
   Default: ``55``
 
+.. option:: --bt-peer-blocklist=<PATH>
+
+  Reject BitTorrent data peers whose IP address matches a rule in ``PATH``.
+  The file accepts one IPv4 address, IPv6 address, or CIDR range per line.
+  Empty lines and lines beginning with ``#`` are ignored. This option can be
+  changed through :func:`aria2.changeGlobalOption` to reload the file while
+  aria2 is running. Setting it to an empty string clears the active blocklist.
+
 .. option:: --bt-metadata-only [true|false]
 
   Download metadata only. The file(s) described in metadata will not
@@ -3548,6 +3556,7 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   The following options are available:
 
   * :option:`bt-max-open-files <--bt-max-open-files>`
+  * :option:`bt-peer-blocklist <--bt-peer-blocklist>`
   * :option:`download-result <--download-result>`
   * :option:`keep-unfinished-download-result <--keep-unfinished-download-result>`
   * :option:`log <-l>`

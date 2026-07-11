@@ -52,6 +52,7 @@ class BtProgressInfoFile;
 class DownloadContext;
 class LpdMessageReceiver;
 class UDPTrackerClient;
+class BtPeerBlocklist;
 
 struct BtObject {
   std::shared_ptr<DownloadContext> downloadContext;
@@ -80,6 +81,7 @@ private:
   uint16_t udpPort_;
   std::shared_ptr<LpdMessageReceiver> lpdMessageReceiver_;
   std::shared_ptr<UDPTrackerClient> udpTrackerClient_;
+  std::shared_ptr<BtPeerBlocklist> peerBlocklist_;
 
 public:
   BtRegistry();
@@ -124,6 +126,11 @@ public:
   const std::shared_ptr<UDPTrackerClient>& getUDPTrackerClient() const
   {
     return udpTrackerClient_;
+  }
+
+  const std::shared_ptr<BtPeerBlocklist>& getPeerBlocklist() const
+  {
+    return peerBlocklist_;
   }
 };
 

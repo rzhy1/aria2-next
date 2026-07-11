@@ -76,12 +76,16 @@ public:
 
   virtual const PeerSet& getUsedPeers() CXX11_OVERRIDE { return usedPeers; }
 
-  virtual bool isBadPeer(const std::string& ipaddr) CXX11_OVERRIDE
+  virtual bool
+  isTemporarilyRejectedPeer(const std::string& ipaddr) CXX11_OVERRIDE
   {
     return false;
   }
 
-  virtual void addBadPeer(const std::string& ipaddr) CXX11_OVERRIDE {}
+  virtual void
+  rejectPeerTemporarily(const std::string& ipaddr) CXX11_OVERRIDE
+  {
+  }
 
   virtual std::shared_ptr<Peer> checkoutPeer(cuid_t cuid) CXX11_OVERRIDE
   {

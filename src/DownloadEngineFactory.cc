@@ -78,6 +78,10 @@
 #include "FileAllocationEntry.h"
 #include "HttpListenCommand.h"
 #include "Log.h"
+#ifdef ENABLE_BITTORRENT
+#  include "BtRegistry.h"
+#  include "BtPeerBlocklist.h"
+#endif // ENABLE_BITTORRENT
 
 namespace aria2 {
 
@@ -152,6 +156,12 @@ std::unique_ptr<DownloadEngine> DownloadEngineFactory::newDownloadEngine(
       op->getAsInt(PREF_MAX_CONCURRENT_DOWNLOADS);
   auto e = make_unique<DownloadEngine>(createEventPoll(op));
   e->setOption(op);
+#ifdef ENABLE_BITTORRENT
+  if (!op->blank(PREF_BT_PEER_BLOCKLIST)) {
+    e->getBtRegistry()->getPeerBlocklist()->load(
+        op->get(PREF_BT_PEER_BLOCKLIST));
+  }
+#endif // ENABLE_BITTORRENT
   {
     auto requestGroupMan = make_unique<RequestGroupMan>(
         std::move(requestGroups), MAX_CONCURRENT_DOWNLOADS, op);

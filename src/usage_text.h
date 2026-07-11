@@ -391,6 +391,10 @@
   _(" --bt-max-peers=NUM           Specify the maximum number of peers per torrent.\n" \
     "                              0 means unlimited.\n"                \
     "                              See also --bt-request-peer-speed-limit option.")
+#define TEXT_BT_PEER_BLOCKLIST                                           \
+  _(" --bt-peer-blocklist=PATH      Reject BitTorrent peers whose IP address matches\n" \
+    "                              an IP or CIDR rule in PATH. Both IPv4 and IPv6\n" \
+    "                              are supported. Lines beginning with '#' are ignored.")
 #define TEXT_METALINK_FILE                                              \
   _(" -M, --metalink-file=METALINK_FILE The file path to the .meta4 and .metalink\n" \
     "                              file. Reads input from stdin when '-' is\n" \

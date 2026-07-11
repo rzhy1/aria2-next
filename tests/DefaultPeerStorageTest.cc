@@ -1,6 +1,7 @@
 #include "DefaultPeerStorage.h"
 
 #include <algorithm>
+#include <sstream>
 
 #include <cppunit/extensions/HelperMacros.h>
 
@@ -9,6 +10,7 @@
 #include "Peer.h"
 #include "Option.h"
 #include "BtRuntime.h"
+#include "BtPeerBlocklist.h"
 #include "array_fun.h"
 
 namespace aria2 {
@@ -24,7 +26,8 @@ class DefaultPeerStorageTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testCheckoutPeer);
   CPPUNIT_TEST(testReturnPeer);
   CPPUNIT_TEST(testOnErasingPeer);
-  CPPUNIT_TEST(testAddBadPeer);
+  CPPUNIT_TEST(testTemporarilyRejectPeer);
+  CPPUNIT_TEST(testRejectBlocklistedPeer);
   CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -48,14 +51,15 @@ public:
   void testCheckoutPeer();
   void testReturnPeer();
   void testOnErasingPeer();
-  void testAddBadPeer();
+  void testTemporarilyRejectPeer();
+  void testRejectBlocklistedPeer();
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION(DefaultPeerStorageTest);
 
 void DefaultPeerStorageTest::testCountAllPeer()
 {
-  DefaultPeerStorage ps;
+  DefaultPeerStorage ps(std::make_shared<BtPeerBlocklist>());
 
   CPPUNIT_ASSERT_EQUAL((size_t)0, ps.countAllPeer());
   for (int i = 0; i < 2; ++i) {
@@ -72,7 +76,7 @@ void DefaultPeerStorageTest::testCountAllPeer()
 
 void DefaultPeerStorageTest::testDeleteUnusedPeer()
 {
-  DefaultPeerStorage ps;
+  DefaultPeerStorage ps(std::make_shared<BtPeerBlocklist>());
 
   auto peer1 = std::make_shared<Peer>("192.168.0.1", 6889);
   auto peer2 = std::make_shared<Peer>("192.168.0.2", 6889);
@@ -94,7 +98,7 @@ void DefaultPeerStorageTest::testDeleteUnusedPeer()
 
 void DefaultPeerStorageTest::testAddPeer()
 {
-  DefaultPeerStorage ps;
+  DefaultPeerStorage ps(std::make_shared<BtPeerBlocklist>());
   std::shared_ptr<BtRuntime> btRuntime(new BtRuntime());
   ps.setMaxPeerListSize(2);
   ps.setBtRuntime(btRuntime);
@@ -125,7 +129,7 @@ void DefaultPeerStorageTest::testAddPeer()
 
 void DefaultPeerStorageTest::testAddAndCheckoutPeer()
 {
-  DefaultPeerStorage ps;
+  DefaultPeerStorage ps(std::make_shared<BtPeerBlocklist>());
   auto btRuntime = std::make_shared<BtRuntime>();
 
   ps.setBtRuntime(btRuntime);
@@ -157,7 +161,7 @@ void DefaultPeerStorageTest::testAddAndCheckoutPeer()
 
 void DefaultPeerStorageTest::testIsPeerAvailable()
 {
-  DefaultPeerStorage ps;
+  DefaultPeerStorage ps(std::make_shared<BtPeerBlocklist>());
   ps.setBtRuntime(btRuntime);
   std::shared_ptr<Peer> peer1(new Peer("192.168.0.1", 6889));
 
@@ -170,7 +174,7 @@ void DefaultPeerStorageTest::testIsPeerAvailable()
 
 void DefaultPeerStorageTest::testCheckoutPeer()
 {
-  DefaultPeerStorage ps;
+  DefaultPeerStorage ps(std::make_shared<BtPeerBlocklist>());
 
   auto peers = {
       std::make_shared<Peer>("192.168.0.1", 1000),
@@ -193,7 +197,7 @@ void DefaultPeerStorageTest::testCheckoutPeer()
 
 void DefaultPeerStorageTest::testReturnPeer()
 {
-  DefaultPeerStorage ps;
+  DefaultPeerStorage ps(std::make_shared<BtPeerBlocklist>());
 
   std::shared_ptr<Peer> peer1(new Peer("192.168.0.1", 0));
   peer1->allocateSessionResource(1_m, 10_m);
@@ -225,12 +229,25 @@ void DefaultPeerStorageTest::testOnErasingPeer()
   // test this
 }
 
-void DefaultPeerStorageTest::testAddBadPeer()
+void DefaultPeerStorageTest::testTemporarilyRejectPeer()
 {
-  DefaultPeerStorage ps;
-  ps.addBadPeer("192.168.0.1");
-  CPPUNIT_ASSERT(ps.isBadPeer("192.168.0.1"));
-  CPPUNIT_ASSERT(!ps.isBadPeer("192.168.0.2"));
+  DefaultPeerStorage ps(std::make_shared<BtPeerBlocklist>());
+  ps.rejectPeerTemporarily("192.168.0.1");
+  CPPUNIT_ASSERT(ps.isTemporarilyRejectedPeer("192.168.0.1"));
+  CPPUNIT_ASSERT(!ps.isTemporarilyRejectedPeer("192.168.0.2"));
+}
+
+void DefaultPeerStorageTest::testRejectBlocklistedPeer()
+{
+  auto blocklist = std::make_shared<BtPeerBlocklist>();
+  std::istringstream input("192.168.0.0/24\n");
+  blocklist->load(input, "memory");
+  DefaultPeerStorage ps(blocklist);
+
+  CPPUNIT_ASSERT(!ps.addPeer(std::make_shared<Peer>("192.168.0.1", 6881)));
+  CPPUNIT_ASSERT(!ps.addAndCheckoutPeer(
+      std::make_shared<Peer>("192.168.0.2", 6881, true), 1));
+  CPPUNIT_ASSERT(ps.addPeer(std::make_shared<Peer>("192.168.1.1", 6881)));
 }
 
 } // namespace aria2

@@ -552,6 +552,8 @@ PrefPtr PREF_BT_SEED_UNVERIFIED = makePref("bt-seed-unverified");
 PrefPtr PREF_BT_HASH_CHECK_SEED = makePref("bt-hash-check-seed");
 // values: 1*digit
 PrefPtr PREF_BT_MAX_PEERS = makePref("bt-max-peers");
+// values: a string (file path)
+PrefPtr PREF_BT_PEER_BLOCKLIST = makePref("bt-peer-blocklist");
 // values: a string  = makePref(IP address)
 PrefPtr PREF_BT_EXTERNAL_IP = makePref("bt-external-ip");
 // values: 1*digit '=' a string that your file system recognizes as a file name.

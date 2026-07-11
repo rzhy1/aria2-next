@@ -48,6 +48,7 @@ class BtRuntime;
 class BtSeederStateChoke;
 class BtLeecherStateChoke;
 class PieceStorage;
+class BtPeerBlocklist;
 
 class DefaultPeerStorage : public PeerStorage {
 private:
@@ -71,8 +72,9 @@ private:
 
   Timer lastTransferStatMapUpdated_;
 
-  std::map<std::string, Timer> badPeers_;
-  Timer lastBadPeerCleaned_;
+  std::map<std::string, Timer> temporarilyRejectedPeers_;
+  Timer lastTemporaryPeerCleanup_;
+  std::shared_ptr<BtPeerBlocklist> peerBlocklist_;
 
   bool isPeerAlreadyAdded(const std::shared_ptr<Peer>& peer);
   void addUniqPeer(const std::shared_ptr<Peer>& peer);
@@ -80,7 +82,8 @@ private:
   void addDroppedPeer(const std::shared_ptr<Peer>& peer);
 
 public:
-  DefaultPeerStorage();
+  explicit DefaultPeerStorage(
+      const std::shared_ptr<BtPeerBlocklist>& peerBlocklist);
 
   virtual ~DefaultPeerStorage();
 
@@ -106,9 +109,10 @@ public:
 
   virtual bool isPeerAvailable() CXX11_OVERRIDE;
 
-  virtual bool isBadPeer(const std::string& ipaddr) CXX11_OVERRIDE;
+  virtual bool
+  isTemporarilyRejectedPeer(const std::string& ipaddr) CXX11_OVERRIDE;
 
-  virtual void addBadPeer(const std::string& ipaddr) CXX11_OVERRIDE;
+  virtual void rejectPeerTemporarily(const std::string& ipaddr) CXX11_OVERRIDE;
 
   virtual std::shared_ptr<Peer> checkoutPeer(cuid_t cuid) CXX11_OVERRIDE;
 

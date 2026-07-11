@@ -95,15 +95,15 @@ public:
   virtual const PeerSet& getUsedPeers() = 0;
 
   /**
-   * Returns true if peer with ipaddr should be ignored because, for
-   * example, it sends bad data.
+   * Returns true if peer with ipaddr is temporarily rejected after sending
+   * invalid data.
    */
-  virtual bool isBadPeer(const std::string& ipaddr) = 0;
+  virtual bool isTemporarilyRejectedPeer(const std::string& ipaddr) = 0;
 
   /**
-   * Adds peer with ipaddr in bad peer set.
+   * Temporarily rejects peer with ipaddr.
    */
-  virtual void addBadPeer(const std::string& ipaddr) = 0;
+  virtual void rejectPeerTemporarily(const std::string& ipaddr) = 0;
 
   /**
    * Moves first peer in unused peer list to used peer set and calls

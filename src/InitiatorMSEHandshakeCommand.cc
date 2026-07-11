@@ -252,6 +252,13 @@ void InitiatorMSEHandshakeCommand::onAbort()
   }
 }
 
+bool InitiatorMSEHandshakeCommand::onBlocked()
+{
+  peerStorage_->returnPeer(getPeer());
+  tryNewPeer();
+  return true;
+}
+
 bool InitiatorMSEHandshakeCommand::exitBeforeExecute()
 {
   return btRuntime_->isHalt();

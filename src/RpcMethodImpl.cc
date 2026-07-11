@@ -74,6 +74,7 @@
 #ifdef ENABLE_BITTORRENT
 #  include "bittorrent_helper.h"
 #  include "BtRegistry.h"
+#  include "BtPeerBlocklist.h"
 #  include "PeerStorage.h"
 #  include "Peer.h"
 #  include "BtRuntime.h"
@@ -1909,6 +1910,17 @@ void changeOption(const std::shared_ptr<RequestGroup>& group,
 
 void changeGlobalOption(const Option& option, DownloadEngine* e)
 {
+#ifdef ENABLE_BITTORRENT
+  if (option.defined(PREF_BT_PEER_BLOCKLIST)) {
+    const auto& path = option.get(PREF_BT_PEER_BLOCKLIST);
+    if (path.empty()) {
+      e->getBtRegistry()->getPeerBlocklist()->clear();
+    }
+    else {
+      e->getBtRegistry()->getPeerBlocklist()->load(path);
+    }
+  }
+#endif // ENABLE_BITTORRENT
   e->getOption()->merge(option);
   bool reconfigureLogging = false;
   auto logSettings = logging::getSettings();

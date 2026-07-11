@@ -311,6 +311,8 @@ set(ARIA2_SOURCES_BASE
   src/LogFactory.h
   src/Logger.cc
   src/Logger.h
+  src/RotatingLogFile.cc
+  src/RotatingLogFile.h
   src/LongestSequencePieceSelector.cc
   src/LongestSequencePieceSelector.h
   src/MemoryBufferPreDownloadHandler.h

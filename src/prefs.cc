@@ -172,6 +172,10 @@ PrefPtr PREF_MAX_TRIES = makePref("max-tries");
 PrefPtr PREF_AUTO_SAVE_INTERVAL = makePref("auto-save-interval");
 // values: a string that your file system recognizes as a file name.
 PrefPtr PREF_LOG = makePref("log");
+// values: 1*digit
+PrefPtr PREF_LOG_MAX_SIZE = makePref("log-max-size");
+// values: 1*digit
+PrefPtr PREF_LOG_MAX_FILES = makePref("log-max-files");
 // values: a string that your file system recognizes as a directory.
 PrefPtr PREF_DIR = makePref("dir");
 // values: a string that your file system recognizes as a file name.

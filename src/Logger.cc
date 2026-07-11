@@ -45,6 +45,7 @@
 #include "A2STR.h"
 #include "a2time.h"
 #include "BufferedFile.h"
+#include "RotatingLogFile.h"
 #include "util.h"
 #include "console.h"
 
@@ -53,6 +54,7 @@ namespace aria2 {
 Logger::Logger()
     : logLevel_(Logger::A2_DEBUG),
       consoleLogLevel_(Logger::A2_NOTICE),
+      stdoutLog_(false),
       consoleOutput_(true),
       colorOutput_(global::cout()->supportsColor())
 {
@@ -60,33 +62,33 @@ Logger::Logger()
 
 Logger::~Logger() = default;
 
-void Logger::openFile(const std::string& filename)
+void Logger::openFile(const std::string& filename, int64_t maxFileSize,
+                      size_t maxFiles)
 {
   closeFile();
   if (filename == DEV_STDOUT) {
-    fpp_ = global::cout();
+    stdoutLog_ = true;
   }
   else {
-    fpp_ =
-        std::make_shared<BufferedFile>(filename.c_str(), BufferedFile::APPEND);
-    if (!*static_cast<BufferedFile*>(fpp_.get())) {
-      throw DL_ABORT_EX(fmt(EX_FILE_OPEN, filename.c_str(), "n/a"));
-    }
+    file_.reset(new RotatingLogFile(filename, maxFileSize, maxFiles));
+    file_->open();
   }
 }
 
 void Logger::closeFile()
 {
-  if (fpp_) {
-    fpp_.reset();
-  }
+  file_.reset();
+  stdoutLog_ = false;
 }
 
 void Logger::setConsoleOutput(bool enabled) { consoleOutput_ = enabled; }
 
 void Logger::setColorOutput(bool enabled) { colorOutput_ = enabled; }
 
-bool Logger::fileLogEnabled(LEVEL level) { return level >= logLevel_ && fpp_; }
+bool Logger::fileLogEnabled(LEVEL level)
+{
+  return level >= logLevel_ && (file_ || stdoutLog_);
+}
 
 bool Logger::consoleLogEnabled(LEVEL level)
 {
@@ -119,9 +121,8 @@ const char* levelToString(Logger::LEVEL level)
 } // namespace
 
 namespace {
-template <typename Output>
-void writeHeader(Output& fp, Logger::LEVEL level, const char* sourceFile,
-                 int lineNum)
+std::string createFileRecord(Logger::LEVEL level, const char* sourceFile,
+                             int lineNum, const char* msg, const char* trace)
 {
   struct timeval tv;
   gettimeofday(&tv, nullptr);
@@ -133,8 +134,11 @@ void writeHeader(Output& fp, Logger::LEVEL level, const char* sourceFile,
   size_t dateLength =
       strftime(datestr, sizeof(datestr), "%Y-%m-%d %H:%M:%S", &tm);
   assert(dateLength <= (size_t)20);
-  fp.printf("%s.%06ld [%s] [%s:%d] ", datestr, (unsigned long)tv.tv_usec,
-            levelToString(level), sourceFile, lineNum);
+  auto record = fmt("%s.%06ld [%s] [%s:%d] %s\n", datestr,
+                    (unsigned long)tv.tv_usec, levelToString(level), sourceFile,
+                    lineNum, msg);
+  record += trace;
+  return record;
 }
 } // namespace
 
@@ -181,28 +185,26 @@ void writeHeaderConsole(Output& fp, Logger::LEVEL level, bool useColor)
 }
 } // namespace
 
-namespace {
-template <typename Output>
-void writeStackTrace(Output& fp, const char* stackTrace)
-{
-  fp.write(stackTrace);
-}
-} // namespace
-
 void Logger::writeLog(Logger::LEVEL level, const char* sourceFile, int lineNum,
                       const char* msg, const char* trace)
 {
   if (fileLogEnabled(level)) {
-    writeHeader(*fpp_, level, sourceFile, lineNum);
-    fpp_->printf("%s\n", msg);
-    writeStackTrace(*fpp_, trace);
-    fpp_->flush();
+    const auto record = createFileRecord(level, sourceFile, lineNum, msg, trace);
+    if (stdoutLog_) {
+      global::cout()->write(record.c_str());
+      global::cout()->flush();
+    }
+    else if (!file_->write(record)) {
+      file_.reset();
+      global::cerr()->printf("Log file output disabled after a write failure.\n");
+      global::cerr()->flush();
+    }
   }
   if (consoleLogEnabled(level)) {
     global::cout()->printf("\n");
     writeHeaderConsole(*global::cout(), level, colorOutput_);
     global::cout()->printf("%s\n", msg);
-    writeStackTrace(*global::cout(), trace);
+    global::cout()->write(trace);
     global::cout()->flush();
   }
 }

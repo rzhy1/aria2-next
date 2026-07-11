@@ -26,6 +26,7 @@ class OptionParserTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(testFindById);
   CPPUNIT_TEST(testParseDefaultValues);
   CPPUNIT_TEST(testParseDefaultValuesDoesNotInjectCompileTimeCABundle);
+  CPPUNIT_TEST(testLogRotationOptions);
   CPPUNIT_TEST(testP2PSharingOptionsAreNotBtOnly);
   CPPUNIT_TEST(testParseArg);
   CPPUNIT_TEST(testParse);
@@ -77,6 +78,7 @@ public:
   void testFindById();
   void testParseDefaultValues();
   void testParseDefaultValuesDoesNotInjectCompileTimeCABundle();
+  void testLogRotationOptions();
   void testP2PSharingOptionsAreNotBtOnly();
   void testParseArg();
   void testParse();
@@ -158,6 +160,33 @@ void OptionParserTest::testParseDefaultValuesDoesNotInjectCompileTimeCABundle()
   OptionParser::getInstance()->parseDefaultValues(option);
 
   CPPUNIT_ASSERT(!option.defined(PREF_CA_CERTIFICATE));
+}
+
+void OptionParserTest::testLogRotationOptions()
+{
+  auto parser = OptionParser::getInstance();
+
+  Option defaults;
+  parser->parseDefaultValues(defaults);
+  CPPUNIT_ASSERT_EQUAL((int64_t)10_m,
+                       defaults.getAsLLInt(PREF_LOG_MAX_SIZE));
+  CPPUNIT_ASSERT_EQUAL(4, defaults.getAsInt(PREF_LOG_MAX_FILES));
+
+  Option configured;
+  std::stringstream input;
+  input << "log-max-size=20M\n";
+  input << "log-max-files=6\n";
+  parser->parse(configured, input);
+  CPPUNIT_ASSERT_EQUAL((int64_t)20_m,
+                       configured.getAsLLInt(PREF_LOG_MAX_SIZE));
+  CPPUNIT_ASSERT_EQUAL(6, configured.getAsInt(PREF_LOG_MAX_FILES));
+
+  try {
+    parser->find(PREF_LOG_MAX_FILES)->parse(configured, "0");
+    CPPUNIT_FAIL("zero log file count must be rejected");
+  }
+  catch (Exception&) {
+  }
 }
 
 void OptionParserTest::testP2PSharingOptionsAreNotBtOnly()

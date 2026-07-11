@@ -1911,6 +1911,7 @@ void changeOption(const std::shared_ptr<RequestGroup>& group,
 void changeGlobalOption(const Option& option, DownloadEngine* e)
 {
   e->getOption()->merge(option);
+  bool reconfigureLogger = false;
   if (option.defined(PREF_MAX_OVERALL_DOWNLOAD_LIMIT)) {
     e->getRequestGroupMan()->setMaxOverallDownloadSpeedLimit(
         option.getAsInt(PREF_MAX_OVERALL_DOWNLOAD_LIMIT));
@@ -1935,9 +1936,21 @@ void changeGlobalOption(const Option& option, DownloadEngine* e)
   }
   if (option.defined(PREF_LOG_LEVEL)) {
     LogFactory::setLogLevel(option.get(PREF_LOG_LEVEL));
+    reconfigureLogger = true;
   }
   if (option.defined(PREF_LOG)) {
     LogFactory::setLogFile(option.get(PREF_LOG));
+    reconfigureLogger = true;
+  }
+  if (option.defined(PREF_LOG_MAX_SIZE)) {
+    LogFactory::setLogMaxSize(option.getAsLLInt(PREF_LOG_MAX_SIZE));
+    reconfigureLogger = true;
+  }
+  if (option.defined(PREF_LOG_MAX_FILES)) {
+    LogFactory::setLogMaxFiles(option.getAsInt(PREF_LOG_MAX_FILES));
+    reconfigureLogger = true;
+  }
+  if (reconfigureLogger) {
     try {
       LogFactory::reconfigure();
     }

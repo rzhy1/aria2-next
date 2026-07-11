@@ -129,6 +129,10 @@ extern PrefPtr PREF_MAX_TRIES;
 extern PrefPtr PREF_AUTO_SAVE_INTERVAL;
 // values: a string that your file system recognizes as a file name.
 extern PrefPtr PREF_LOG;
+// values: 1*digit
+extern PrefPtr PREF_LOG_MAX_SIZE;
+// values: 1*digit
+extern PrefPtr PREF_LOG_MAX_FILES;
 // values: a string that your file system recognizes as a directory.
 extern PrefPtr PREF_DIR;
 // values: a string that your file system recognizes as a file name.

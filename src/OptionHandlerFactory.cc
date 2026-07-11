@@ -42,6 +42,7 @@
 #include "help_tags.h"
 #include "a2functional.h"
 #include "File.h"
+#include "RotatingLogFile.h"
 
 namespace aria2 {
 
@@ -509,6 +510,21 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
     OptionHandler* op(new ParameterOptionHandler(
         PREF_LOG_LEVEL, TEXT_LOG_LEVEL, V_DEBUG,
         {std::begin(logLevels), std::end(logLevels)}));
+    op->addTag(TAG_ADVANCED);
+    op->setChangeGlobalOption(true);
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new UnitNumberOptionHandler(
+        PREF_LOG_MAX_SIZE, TEXT_LOG_MAX_SIZE, "10M", 1_k, 1_g));
+    op->addTag(TAG_ADVANCED);
+    op->setChangeGlobalOption(true);
+    handlers.push_back(op);
+  }
+  {
+    OptionHandler* op(new NumberOptionHandler(
+        PREF_LOG_MAX_FILES, TEXT_LOG_MAX_FILES, "4", 1,
+        RotatingLogFile::MAX_FILES));
     op->addTag(TAG_ADVANCED);
     op->setChangeGlobalOption(true);
     handlers.push_back(op);

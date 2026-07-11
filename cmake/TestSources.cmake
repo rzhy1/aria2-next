@@ -25,6 +25,7 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/RequestTest.cc
   tests/HttpRequestTest.cc
   tests/RequestGroupManTest.cc
+  tests/RotatingLogFileTest.cc
   tests/AuthConfigFactoryTest.cc
   tests/NetrcAuthResolverTest.cc
   tests/DefaultAuthResolverTest.cc

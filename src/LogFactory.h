@@ -38,6 +38,7 @@
 #include "common.h"
 
 #include <string>
+#include <cstdint>
 #include <memory>
 
 #include "Logger.h"
@@ -52,6 +53,8 @@ private:
   static Logger::LEVEL logLevel_;
   static Logger::LEVEL consoleLogLevel_;
   static bool colorOutput_;
+  static int64_t logMaxSize_;
+  static size_t logMaxFiles_;
 
   static void openLogger(const std::shared_ptr<Logger>& logger);
 
@@ -71,6 +74,10 @@ public:
    * stdout. If name is "", log is not written to file.
    */
   static void setLogFile(const std::string& name);
+
+  static void setLogMaxSize(int64_t size);
+
+  static void setLogMaxFiles(size_t files);
 
   /**
    * Set flag whether the log is printed in console.

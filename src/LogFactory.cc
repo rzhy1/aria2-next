@@ -49,13 +49,15 @@ bool LogFactory::consoleOutput_ = true;
 Logger::LEVEL LogFactory::logLevel_ = Logger::A2_DEBUG;
 Logger::LEVEL LogFactory::consoleLogLevel_ = Logger::A2_NOTICE;
 bool LogFactory::colorOutput_ = true;
+int64_t LogFactory::logMaxSize_ = 10 * 1024 * 1024;
+size_t LogFactory::logMaxFiles_ = 4;
 
 void LogFactory::openLogger(const std::shared_ptr<Logger>& logger)
 {
   if (filename_ != DEV_NULL) {
     // don't open file DEV_NULL for performance sake.
     // This avoids costly unnecessary message formatting and write.
-    logger->openFile(filename_);
+    logger->openFile(filename_, logMaxSize_, logMaxFiles_);
   }
   logger->setLogLevel(logLevel_);
   logger->setConsoleLogLevel(consoleLogLevel_);
@@ -116,6 +118,10 @@ void LogFactory::setLogFile(const std::string& name)
   }
   adjustDependentLevels();
 }
+
+void LogFactory::setLogMaxSize(int64_t size) { logMaxSize_ = size; }
+
+void LogFactory::setLogMaxFiles(size_t files) { logMaxFiles_ = files; }
 
 namespace {
 Logger::LEVEL toLogLevel(const std::string& level)

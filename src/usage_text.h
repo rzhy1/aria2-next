@@ -470,6 +470,11 @@
 #define TEXT_LOG_LEVEL                                          \
   _(" --log-level=LEVEL            Set log level to output to file specified using\n" \
     "                             --log option.")
+#define TEXT_LOG_MAX_SIZE                                               \
+  _(" --log-max-size=SIZE          Set the maximum size of each log file.")
+#define TEXT_LOG_MAX_FILES                                              \
+  _(" --log-max-files=N            Set the maximum number of log files, including\n" \
+    "                              the active file.")
 #define TEXT_REMOTE_TIME                                                \
   _(" -R, --remote-time[=true|false] Retrieve timestamp of the remote file from the\n" \
     "                              remote HTTP/FTP server and if it is available,\n" \

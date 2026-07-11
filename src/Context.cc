@@ -169,6 +169,8 @@ Context::Context(bool standalone, int argc, char** argv, const KeyVals& options)
   bittorrent::generateStaticPeerAgent(op->get(PREF_PEER_AGENT));
 #endif // ENABLE_BITTORRENT
   LogFactory::setLogFile(op->get(PREF_LOG));
+  LogFactory::setLogMaxSize(op->getAsLLInt(PREF_LOG_MAX_SIZE));
+  LogFactory::setLogMaxFiles(op->getAsInt(PREF_LOG_MAX_FILES));
   LogFactory::setLogLevel(op->get(PREF_LOG_LEVEL));
   LogFactory::setConsoleLogLevel(op->get(PREF_CONSOLE_LOG_LEVEL));
   LogFactory::setColorOutput(op->getAsBool(PREF_ENABLE_COLOR));

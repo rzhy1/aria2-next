@@ -38,12 +38,14 @@
 #include "common.h"
 
 #include <string>
+#include <cstdint>
 #include <memory>
 
 namespace aria2 {
 
 class Exception;
 class OutputFile;
+class RotatingLogFile;
 
 class Logger {
 public:
@@ -58,7 +60,8 @@ public:
 private:
   // Minimum log level for file log output.
   LEVEL logLevel_;
-  std::shared_ptr<OutputFile> fpp_;
+  std::unique_ptr<RotatingLogFile> file_;
+  bool stdoutLog_;
   // Minimum log level for console log output.
   LEVEL consoleLogLevel_;
   // true if console log output is enabled.
@@ -94,7 +97,8 @@ public:
   void log(LEVEL level, const char* sourceFile, int lineNum,
            const std::string& msg, const Exception& ex);
 
-  void openFile(const std::string& filename);
+  void openFile(const std::string& filename, int64_t maxFileSize,
+                size_t maxFiles);
 
   void closeFile();
 

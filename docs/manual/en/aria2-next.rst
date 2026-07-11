@@ -1534,6 +1534,21 @@ Advanced Options
   LEVEL is either ``debug``, ``info``, ``notice``, ``warn`` or ``error``.
   Default: ``debug``
 
+.. option:: --log-max-size=<SIZE>
+
+  Set the maximum size of each log file. When the active log reaches this
+  limit, aria2-next rotates it before writing the next record. Existing log
+  files larger than this limit are truncated when logging starts.
+  Default: ``10M``
+
+.. option:: --log-max-files=<N>
+
+  Set the maximum number of log files, including the active file. Rotated
+  files use numbered suffixes such as ``aria2.log.1``. The total log size is
+  bounded by ``log-max-size`` multiplied by ``log-max-files``.
+  Possible Values: ``1``-``100``
+  Default: ``4``
+
 .. option:: --on-bt-download-complete=<COMMAND>
 
   For BitTorrent, a command specified in :option:`--on-download-complete` is
@@ -3536,6 +3551,8 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
   * :option:`keep-unfinished-download-result <--keep-unfinished-download-result>`
   * :option:`log <-l>`
   * :option:`log-level <--log-level>`
+  * :option:`log-max-files <--log-max-files>`
+  * :option:`log-max-size <--log-max-size>`
   * :option:`max-concurrent-downloads <-j>`
   * :option:`max-download-result <--max-download-result>`
   * :option:`max-overall-download-limit <--max-overall-download-limit>`
@@ -3555,8 +3572,8 @@ For information on the *secret* parameter, see :ref:`rpc_auth`.
 
   With the :option:`log <-l>` option, you can dynamically start logging or
   change log file. To stop logging, specify an empty string("") as the parameter
-  value. Note that log file is always opened in append mode. This method
-  returns ``OK`` for success.
+  value. Log path, size, file-count, and level changes take effect immediately.
+  This method returns ``OK`` for success.
 
 .. function:: aria2.getGlobalStat([secret])
 

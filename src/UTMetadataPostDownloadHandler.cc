@@ -39,8 +39,7 @@
 #include "RecoverableException.h"
 #include "A2STR.h"
 #include "DownloadContext.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "util.h"
 #include "a2functional.h"
 #include "DiskAdaptor.h"
@@ -90,10 +89,10 @@ void UTMetadataPostDownloadHandler::getNextRequestGroups(
         util::applyDir(requestGroup->getOption()->get(PREF_DIR),
                        util::toHex(attrs->infoHash) + ".torrent");
     if (util::saveAs(filename, torrent)) {
-      A2_LOG_NOTICE(fmt(MSG_METADATA_SAVED, filename.c_str()));
+      A2_LOG_INFO(fmt(MSG_METADATA_SAVED, filename.c_str()));
     }
     else {
-      A2_LOG_NOTICE(fmt(MSG_METADATA_NOT_SAVED, filename.c_str()));
+      A2_LOG_INFO(fmt(MSG_METADATA_NOT_SAVED, filename.c_str()));
     }
   }
   if (!requestGroup->getOption()->getAsBool(PREF_BT_METADATA_ONLY)) {

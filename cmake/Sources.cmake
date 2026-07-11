@@ -51,6 +51,8 @@ set(ARIA2_SOURCES_BASE
   src/BtProgressInfoFile.h
   src/BufferedFile.cc
   src/BufferedFile.h
+  src/BtRuntime.cc
+  src/BtRuntime.h
   src/ByteArrayDiskWriter.cc
   src/ByteArrayDiskWriter.h
   src/ByteArrayDiskWriterFactory.h
@@ -307,12 +309,8 @@ set(ARIA2_SOURCES_BASE
   src/JsonParser.cc
   src/JsonParser.h
   src/Lock.h
-  src/LogFactory.cc
-  src/LogFactory.h
-  src/Logger.cc
-  src/Logger.h
-  src/RotatingLogFile.cc
-  src/RotatingLogFile.h
+  src/Log.cc
+  src/Log.h
   src/LongestSequencePieceSelector.cc
   src/LongestSequencePieceSelector.h
   src/MemoryBufferPreDownloadHandler.h
@@ -420,6 +418,9 @@ set(ARIA2_SOURCES_BASE
   src/rpc_helper.h
   src/SaveSessionCommand.h
   src/SaveSessionCommand.cc
+  src/SeedCheckCommand.cc
+  src/SeedCheckCommand.h
+  src/SeedCriteria.h
   src/SegList.h
   src/Segment.h
   src/SegmentMan.cc
@@ -434,6 +435,8 @@ set(ARIA2_SOURCES_BASE
   src/ServerStatMan.h
   src/SessionSerializer.cc
   src/SessionSerializer.h
+  src/ShareRatioSeedCriteria.cc
+  src/ShareRatioSeedCriteria.h
   src/Signature.cc
   src/Signature.h
   src/SimpleRandomizer.cc
@@ -464,6 +467,8 @@ set(ARIA2_SOURCES_BASE
   src/TimeA2.h
   src/TimeBasedCommand.cc
   src/TimeBasedCommand.h
+  src/TimeSeedCriteria.cc
+  src/TimeSeedCriteria.h
   src/TimedHaltCommand.cc
   src/TimedHaltCommand.h
   src/TimerA2.cc
@@ -473,6 +478,8 @@ set(ARIA2_SOURCES_BASE
   src/TorrentAttribute.h
   src/TransferStat.cc
   src/TransferStat.h
+  src/UnionSeedCriteria.cc
+  src/UnionSeedCriteria.h
   src/TruncFileAllocationIterator.cc
   src/TruncFileAllocationIterator.h
   src/UnknownLengthPieceStorage.cc
@@ -761,8 +768,6 @@ set(ARIA2_SOURCES_ENABLE_BITTORRENT
   src/BtRequestFactory.h
   src/BtRequestMessage.cc
   src/BtRequestMessage.h
-  src/BtRuntime.cc
-  src/BtRuntime.h
   src/BtSeederStateChoke.cc
   src/BtSeederStateChoke.h
   src/BtSetup.cc
@@ -961,23 +966,14 @@ set(ARIA2_SOURCES_ENABLE_BITTORRENT
   src/ReceiverMSEHandshakeCommand.h
   src/RequestSlot.cc
   src/RequestSlot.h
-  src/SeedCheckCommand.cc
-  src/SeedCheckCommand.h
-  src/SeedCriteria.h
-  src/ShareRatioSeedCriteria.cc
-  src/ShareRatioSeedCriteria.h
   src/SimpleBtMessage.cc
   src/SimpleBtMessage.h
-  src/TimeSeedCriteria.cc
-  src/TimeSeedCriteria.h
   src/TrackerWatcherCommand.cc
   src/TrackerWatcherCommand.h
   src/UDPTrackerClient.cc
   src/UDPTrackerClient.h
   src/UDPTrackerRequest.cc
   src/UDPTrackerRequest.h
-  src/UnionSeedCriteria.cc
-  src/UnionSeedCriteria.h
   src/UTMetadataDataExtensionMessage.cc
   src/UTMetadataDataExtensionMessage.h
   src/UTMetadataExtensionMessage.cc

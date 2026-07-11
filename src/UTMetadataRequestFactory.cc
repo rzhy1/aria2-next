@@ -41,8 +41,7 @@
 #include "UTMetadataRequestExtensionMessage.h"
 #include "UTMetadataRequestTracker.h"
 #include "BtMessage.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 #include "ExtensionMessageRegistry.h"
 #include "BtExtendedMessage.h"
@@ -66,11 +65,11 @@ UTMetadataRequestFactory::create(size_t num, PieceStorage* pieceStorage)
     auto metadataRequests = tracker_->getAllTrackedIndex();
     auto p = pieceStorage->getMissingPiece(peer_, metadataRequests, cuid_);
     if (!p) {
-      A2_LOG_DEBUG("No ut_metadata piece is available to download.");
+      A2_LOG_TRACE("No ut_metadata piece is available to download.");
       break;
     }
     --num;
-    A2_LOG_DEBUG(fmt("Creating ut_metadata request index=%lu",
+    A2_LOG_TRACE(fmt("Creating ut_metadata request index=%lu",
                      static_cast<unsigned long>(p->getIndex())));
     auto m = make_unique<UTMetadataRequestExtensionMessage>(
         peer_->getExtensionMessageID(ExtensionMessageRegistry::UT_METADATA));

@@ -57,7 +57,7 @@
 #include "File.h"
 #include "FileEntry.h"
 #include "a2io.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "uri.h"
 #include "SegList.h"
 #include "array_fun.h"

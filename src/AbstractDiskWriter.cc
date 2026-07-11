@@ -52,7 +52,7 @@
 #include "fmt.h"
 #include "DownloadFailureException.h"
 #include "error_code.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 
@@ -150,7 +150,7 @@ void AbstractDiskWriter::closeFile()
                        fileStrerror(errNum).c_str()));
     }
     else {
-      A2_LOG_INFO(fmt("Unmapping file %s succeeded", filename_.c_str()));
+      A2_LOG_DEBUG(fmt("Unmapping file %s succeeded", filename_.c_str()));
     }
     mapaddr_ = nullptr;
     maplen_ = 0;
@@ -412,7 +412,7 @@ void AbstractDiskWriter::ensureMmapWrite(size_t len, int64_t offset)
         }
 #  endif // !__MINGW32__
         if (mapaddr_) {
-          A2_LOG_DEBUG(fmt("Mapping file %s succeeded, length=%" PRId64 "",
+          A2_LOG_TRACE(fmt("Mapping file %s succeeded, length=%" PRId64 "",
                            filename_.c_str(), static_cast<uint64_t>(filesize)));
           maplen_ = filesize;
         }

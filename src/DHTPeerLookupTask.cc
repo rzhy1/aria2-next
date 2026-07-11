@@ -35,8 +35,7 @@
 #include "DHTPeerLookupTask.h"
 #include "Peer.h"
 #include "DHTGetPeersReplyMessage.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "DHTMessageFactory.h"
 #include "DHTNode.h"
 #include "DHTNodeLookupEntry.h"
@@ -78,7 +77,7 @@ void DHTPeerLookupTask::onReceivedInternal(
   tokenStorage_[util::toHex(remoteNode->getID(), DHT_ID_LENGTH)] =
       message->getToken();
   peerStorage_->addPeer(message->getValues());
-  A2_LOG_INFO(fmt("Received %lu peers.",
+  A2_LOG_DEBUG(fmt("Received %lu peers.",
                   static_cast<unsigned long>(message->getValues().size())));
 }
 
@@ -95,7 +94,7 @@ std::unique_ptr<DHTMessageCallback> DHTPeerLookupTask::createCallback()
 
 void DHTPeerLookupTask::onFinish()
 {
-  A2_LOG_DEBUG(fmt("Peer lookup for %s finished",
+  A2_LOG_TRACE(fmt("Peer lookup for %s finished",
                    util::toHex(getTargetID(), DHT_ID_LENGTH).c_str()));
   // send announce_peer message to K closest nodes
   size_t num = DHTBucket::K;
@@ -108,7 +107,7 @@ void DHTPeerLookupTask::onFinish()
     std::string idHex = util::toHex(node->getID(), DHT_ID_LENGTH);
     std::string token = tokenStorage_[idHex];
     if (token.empty()) {
-      A2_LOG_DEBUG(fmt("Token is empty for ID:%s", idHex.c_str()));
+      A2_LOG_TRACE(fmt("Token is empty for ID:%s", idHex.c_str()));
       continue;
     }
     getMessageDispatcher()->addMessageToQueue(

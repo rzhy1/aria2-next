@@ -54,14 +54,14 @@
 #include "util.h"
 #include "File.h"
 #include "Option.h"
-#include "Logger.h"
+#include "Log.h"
 #include "SocketCore.h"
 #include "message.h"
 #include "prefs.h"
 #include "fmt.h"
 #include "HttpSkipResponseCommand.h"
 #include "HttpHeader.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "CookieStorage.h"
 #include "AuthConfigFactory.h"
 #include "AuthConfig.h"
@@ -110,7 +110,7 @@ getContentEncodingStreamFilter(HttpResponse* httpResponse,
   if (httpResponse->isContentEncodingSpecified()) {
     auto filter = httpResponse->getContentEncodingStreamFilter();
     if (!filter) {
-      A2_LOG_INFO(fmt("Content-Encoding %s is specified, but the current "
+      A2_LOG_DEBUG(fmt("Content-Encoding %s is specified, but the current "
                       "implementation doesn't support it. The decoding "
                       "process is skipped and the downloaded content will be "
                       "still encoded.",
@@ -197,7 +197,7 @@ bool HttpResponseCommand::executeInternal()
       fe->setSuffixPath(suffixPath);
     }
 
-    A2_LOG_NOTICE(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED,
+    A2_LOG_INFO(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED,
                       GroupId::toHex(grp->getGID()).c_str(),
                       grp->getFirstFilePath().c_str()));
     poolConnection();
@@ -214,7 +214,7 @@ bool HttpResponseCommand::executeInternal()
         httpResponse->getMetalinKHttpEntries(entries, getOption());
         for (const auto& e : entries) {
           fe->addUri(e.uri);
-          A2_LOG_DEBUG(fmt("Adding URI=%s", e.uri.c_str()));
+          A2_LOG_TRACE(fmt("Adding URI=%s", e.uri.c_str()));
         }
       }
     }
@@ -224,7 +224,7 @@ bool HttpResponseCommand::executeInternal()
       httpResponse->getDigest(checksums);
       for (const auto& checksum : checksums) {
         if (ctx->getHashType().empty()) {
-          A2_LOG_DEBUG(fmt("Setting digest: type=%s, digest=%s",
+          A2_LOG_TRACE(fmt("Setting digest: type=%s, digest=%s",
                            checksum.getHashType().c_str(),
                            checksum.getDigest().c_str()));
           ctx->setDigest(checksum.getHashType(), checksum.getDigest());
@@ -436,7 +436,7 @@ bool HttpResponseCommand::handleOtherEncoding(
     // on successful verification, because .aria2 file is not loaded.
     // See also FtpNegotiationCommand::onFileSizeDetermined()
     if (getDownloadContext()->isChecksumVerificationNeeded()) {
-      A2_LOG_DEBUG("Zero length file exists. Verify checksum.");
+      A2_LOG_TRACE("Zero length file exists. Verify checksum.");
       auto entry = make_unique<ChecksumCheckIntegrityEntry>(getRequestGroup());
       entry->initValidator();
       getPieceStorage()->getDiskAdaptor()->openExistingFile();
@@ -445,7 +445,7 @@ bool HttpResponseCommand::handleOtherEncoding(
     else {
       getPieceStorage()->markAllPiecesDone();
       getDownloadContext()->setChecksumVerified(true);
-      A2_LOG_NOTICE(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED,
+      A2_LOG_INFO(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED,
                         GroupId::toHex(getRequestGroup()->getGID()).c_str(),
                         getRequestGroup()->getFirstFilePath().c_str()));
     }
@@ -461,12 +461,12 @@ bool HttpResponseCommand::handleOtherEncoding(
   // is called. So zero-length file is complete if chunked encoding is
   // not used.
   if (!chunkedUsed && getDownloadContext()->knowsTotalLength()) {
-    A2_LOG_DEBUG("File length becomes zero and it means download completed.");
+    A2_LOG_TRACE("File length becomes zero and it means download completed.");
     // TODO Known issue: if .aria2 file exists, it will not be deleted
     // on successful verification, because .aria2 file is not loaded.
     // See also FtpNegotiationCommand::onFileSizeDetermined()
     if (getDownloadContext()->isChecksumVerificationNeeded()) {
-      A2_LOG_DEBUG("Verify checksum for zero-length file");
+      A2_LOG_TRACE("Verify checksum for zero-length file");
       auto entry = make_unique<ChecksumCheckIntegrityEntry>(getRequestGroup());
       entry->initValidator();
       getDownloadEngine()->getCheckIntegrityMan()->pushEntry(std::move(entry));
@@ -583,7 +583,7 @@ bool HttpResponseCommand::checkChecksum(
     if (dctx->getDigest() != checksum.getDigest()) {
       throw DL_ABORT_EX("Invalid hash found in Digest header field.");
     }
-    A2_LOG_INFO("Valid hash found in Digest header field.");
+    A2_LOG_DEBUG("Valid hash found in Digest header field.");
     return true;
   }
 

@@ -50,8 +50,7 @@
 #include "TimeSeedCriteria.h"
 #include "ShareRatioSeedCriteria.h"
 #include "prefs.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "util.h"
 #include "SegList.h"
 #include "DHTGetPeersCommand.h"
@@ -217,7 +216,7 @@ void BtSetup::setup(std::vector<std::unique_ptr<Command>>& commands,
   if (option->getAsBool(PREF_BT_ENABLE_LPD) && btReg->getTcpPort() &&
       (metadataGetMode || !torrentAttrs->privateTorrent)) {
     if (!btReg->getLpdMessageReceiver()) {
-      A2_LOG_INFO("Initializing LpdMessageReceiver.");
+      A2_LOG_DEBUG("Initializing LpdMessageReceiver.");
       auto receiver = std::make_shared<LpdMessageReceiver>(LPD_MULTICAST_ADDR,
                                                            LPD_MULTICAST_PORT);
       bool initialized = false;
@@ -243,7 +242,7 @@ void BtSetup::setup(std::vector<std::unique_ptr<Command>>& commands,
       }
       if (initialized) {
         btReg->setLpdMessageReceiver(receiver);
-        A2_LOG_INFO(fmt("LpdMessageReceiver initialized. multicastAddr=%s:%u,"
+        A2_LOG_DEBUG(fmt("LpdMessageReceiver initialized. multicastAddr=%s:%u,"
                         " localAddr=%s",
                         LPD_MULTICAST_ADDR, LPD_MULTICAST_PORT,
                         receiver->getLocalAddress().c_str()));
@@ -251,26 +250,26 @@ void BtSetup::setup(std::vector<std::unique_ptr<Command>>& commands,
             make_unique<LpdReceiveMessageCommand>(e->newCUID(), receiver, e));
       }
       else {
-        A2_LOG_INFO("LpdMessageReceiver not initialized.");
+        A2_LOG_DEBUG("LpdMessageReceiver not initialized.");
       }
     }
     if (btReg->getLpdMessageReceiver()) {
       const unsigned char* infoHash =
           bittorrent::getInfoHash(requestGroup->getDownloadContext());
-      A2_LOG_INFO("Initializing LpdMessageDispatcher.");
+      A2_LOG_DEBUG("Initializing LpdMessageDispatcher.");
       auto dispatcher = std::make_shared<LpdMessageDispatcher>(
           std::string(&infoHash[0], &infoHash[INFO_HASH_LENGTH]),
           btReg->getTcpPort(), LPD_MULTICAST_ADDR, LPD_MULTICAST_PORT);
       if (dispatcher->init(btReg->getLpdMessageReceiver()->getLocalAddress(),
                            /*ttl*/ 1, /*loop*/ 1)) {
-        A2_LOG_INFO("LpdMessageDispatcher initialized.");
+        A2_LOG_DEBUG("LpdMessageDispatcher initialized.");
         auto cmd =
             make_unique<LpdDispatchMessageCommand>(e->newCUID(), dispatcher, e);
         cmd->setBtRuntime(btRuntime);
         e->addCommand(std::move(cmd));
       }
       else {
-        A2_LOG_INFO("LpdMessageDispatcher not initialized.");
+        A2_LOG_DEBUG("LpdMessageDispatcher not initialized.");
       }
     }
   }

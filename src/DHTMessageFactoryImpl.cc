@@ -37,7 +37,7 @@
 #include <cstring>
 #include <utility>
 
-#include "LogFactory.h"
+#include "Log.h"
 #include "DlAbortEx.h"
 #include "DHTNode.h"
 #include "DHTRoutingTable.h"
@@ -59,7 +59,7 @@
 #include "BtRuntime.h"
 #include "util.h"
 #include "Peer.h"
-#include "Logger.h"
+#include "Log.h"
 #include "fmt.h"
 
 namespace aria2 {
@@ -258,12 +258,12 @@ DHTMessageFactoryImpl::createResponseMessage(const std::string& messageType,
     // for now, just report error message arrived and throw exception.
     const List* e = getList(dict, DHTUnknownMessage::E);
     if (e->size() == 2) {
-      A2_LOG_INFO(fmt("Received Error DHT message. code=%" PRId64 ", msg=%s",
+      A2_LOG_DEBUG(fmt("Received Error DHT message. code=%" PRId64 ", msg=%s",
                       getInteger(e, 0)->i(),
                       util::percentEncode(getString(e, 1)->s()).c_str()));
     }
     else {
-      A2_LOG_DEBUG("e doesn't have 2 elements.");
+      A2_LOG_TRACE("e doesn't have 2 elements.");
     }
     throw DL_ABORT_EX("Received Error DHT message.");
   }

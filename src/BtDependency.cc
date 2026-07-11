@@ -35,8 +35,7 @@
 #include "BtDependency.h"
 #include "RequestGroup.h"
 #include "Option.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "DownloadContext.h"
 #include "RecoverableException.h"
 #include "message.h"
@@ -161,11 +160,11 @@ bool BtDependency::resolve()
     }
     catch (RecoverableException& e) {
       A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
-      A2_LOG_INFO(fmt("BtDependency for GID#%s failed. Go without Bt.",
+      A2_LOG_DEBUG(fmt("BtDependency for GID#%s failed. Go without Bt.",
                       GroupId::toHex(dependant_->getGID()).c_str()));
       return true;
     }
-    A2_LOG_INFO(fmt("Dependency resolved for GID#%s",
+    A2_LOG_DEBUG(fmt("Dependency resolved for GID#%s",
                     GroupId::toHex(dependant_->getGID()).c_str()));
     if (!hashType.empty() && !digest.empty()) {
       context->setDigest(hashType, digest);
@@ -177,7 +176,7 @@ bool BtDependency::resolve()
     // dependee_'s download failed.
     // cut reference here
     dependee_.reset();
-    A2_LOG_INFO(fmt("BtDependency for GID#%s failed. Go without Bt.",
+    A2_LOG_DEBUG(fmt("BtDependency for GID#%s failed. Go without Bt.",
                     GroupId::toHex(dependant_->getGID()).c_str()));
     return true;
   }

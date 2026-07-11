@@ -1281,8 +1281,8 @@ Advanced Options
 
 .. option:: --console-log-level=<LEVEL>
 
-  Set log level to output to console.  LEVEL is either ``debug``,
-  ``info``, ``notice``, ``warn`` or ``error``.  Default: ``notice``
+  Set log level to output to console.  LEVEL is either ``trace``, ``debug``,
+  ``info``, ``warn`` or ``error``.  Default: ``info``
 
 .. option:: --content-disposition-default-utf8 [true|false]
 
@@ -1531,21 +1531,22 @@ Advanced Options
 .. option:: --log-level=<LEVEL>
 
   Set log level to output.
-  LEVEL is either ``debug``, ``info``, ``notice``, ``warn`` or ``error``.
-  Default: ``debug``
+  LEVEL is either ``trace``, ``debug``, ``info``, ``warn`` or ``error``.
+  Default: ``trace``
 
 .. option:: --log-max-size=<SIZE>
 
-  Set the maximum size of each log file. When the active log reaches this
-  limit, aria2-next rotates it before writing the next record. Existing log
-  files larger than this limit are truncated when logging starts.
+  Set the maximum size of each log file. aria2-next rotates the active log
+  before a record would exceed this limit. Existing active logs larger than
+  this limit are truncated when logging starts.
   Default: ``10M``
 
 .. option:: --log-max-files=<N>
 
   Set the maximum number of log files, including the active file. Rotated
-  files use numbered suffixes such as ``aria2.log.1``. The total log size is
-  bounded by ``log-max-size`` multiplied by ``log-max-files``.
+  files place the number before the extension, such as ``aria2.1.log``. Old
+  suffix-style histories are removed when logging starts. The total log size
+  is bounded by ``log-max-size`` multiplied by ``log-max-files``.
   Possible Values: ``1``-``100``
   Default: ``4``
 

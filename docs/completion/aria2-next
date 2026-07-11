@@ -32,7 +32,7 @@ _aria2_next()
             return 0
             ;;
         --log-level)
-            COMPREPLY=( $( compgen -W 'debug info notice warn error' -- "$cur" ) )
+            COMPREPLY=( $( compgen -W 'trace debug info warn error' -- "$cur" ) )
             return 0
             ;;
         --uri-selector)
@@ -60,7 +60,7 @@ _aria2_next()
             return 0
             ;;
         --console-log-level)
-            COMPREPLY=( $( compgen -W 'debug info notice warn error' -- "$cur" ) )
+            COMPREPLY=( $( compgen -W 'trace debug info warn error' -- "$cur" ) )
             return 0
             ;;
         --dir)

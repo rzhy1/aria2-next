@@ -45,7 +45,7 @@
 #include "DownloadContext.h"
 #include "SocketRecvBuffer.h"
 #include "fmt.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 

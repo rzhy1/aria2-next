@@ -45,8 +45,7 @@
 #include <vector>
 #include <iostream>
 
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "util.h"
 #include "FeatureConfig.h"
 #include "MultiUrlRequestInfo.h"
@@ -168,24 +167,25 @@ Context::Context(bool standalone, int argc, char** argv, const KeyVals& options)
   bittorrent::generateStaticPeerId(op->get(PREF_PEER_ID_PREFIX));
   bittorrent::generateStaticPeerAgent(op->get(PREF_PEER_AGENT));
 #endif // ENABLE_BITTORRENT
-  LogFactory::setLogFile(op->get(PREF_LOG));
-  LogFactory::setLogMaxSize(op->getAsLLInt(PREF_LOG_MAX_SIZE));
-  LogFactory::setLogMaxFiles(op->getAsInt(PREF_LOG_MAX_FILES));
-  LogFactory::setLogLevel(op->get(PREF_LOG_LEVEL));
-  LogFactory::setConsoleLogLevel(op->get(PREF_CONSOLE_LOG_LEVEL));
-  LogFactory::setColorOutput(op->getAsBool(PREF_ENABLE_COLOR));
-  if (op->getAsBool(PREF_QUIET)) {
-    LogFactory::setConsoleOutput(false);
-  }
-  LogFactory::reconfigure();
-  A2_LOG_INFO("<<--- --- --- ---");
-  A2_LOG_INFO("  --- --- --- ---");
-  A2_LOG_INFO("  --- --- --- --->>");
-  A2_LOG_INFO(fmt("%s %s", PACKAGE, PACKAGE_VERSION));
-  A2_LOG_INFO(usedCompilerAndPlatform());
-  A2_LOG_INFO(getOperatingSystemInfo());
-  A2_LOG_INFO(usedLibs());
-  A2_LOG_INFO(MSG_LOGGING_STARTED);
+  logging::Settings logSettings;
+  logSettings.file = op->get(PREF_LOG);
+  logSettings.maxFileSize = op->getAsLLInt(PREF_LOG_MAX_SIZE);
+  logSettings.maxFiles = op->getAsInt(PREF_LOG_MAX_FILES);
+  logSettings.fileLevel = logging::parseLevel(op->get(PREF_LOG_LEVEL));
+  logSettings.consoleLevel =
+      logging::parseLevel(op->get(PREF_CONSOLE_LOG_LEVEL));
+  logSettings.consoleOutput = standalone && !op->getAsBool(PREF_QUIET);
+  logSettings.colorOutput = op->getAsBool(PREF_ENABLE_COLOR);
+  logSettings.consoleToStderr = standalone && op->getAsBool(PREF_STDERR);
+  logging::configure(logSettings);
+  A2_LOG_DEBUG("<<--- --- --- ---");
+  A2_LOG_DEBUG("  --- --- --- ---");
+  A2_LOG_DEBUG("  --- --- --- --->>");
+  A2_LOG_DEBUG(fmt("%s %s", PACKAGE, PACKAGE_VERSION));
+  A2_LOG_DEBUG(usedCompilerAndPlatform());
+  A2_LOG_DEBUG(getOperatingSystemInfo());
+  A2_LOG_DEBUG(usedLibs());
+  A2_LOG_DEBUG(MSG_LOGGING_STARTED);
 
 #if defined(HAVE_SYS_RESOURCE_H) && defined(RLIMIT_NOFILE)
   rlimit r = {0, 0};
@@ -208,13 +208,13 @@ Context::Context(bool standalone, int argc, char** argv, const KeyVals& options)
                         util::safeStrerror(errNum).c_str()));
       }
       else {
-        A2_LOG_DEBUG(fmt("Set rlimit NO_FILE from %" PRIu64 " to %" PRIu64,
+        A2_LOG_TRACE(fmt("Set rlimit NO_FILE from %" PRIu64 " to %" PRIu64,
                          (uint64_t)r.rlim_cur, (uint64_t)rlim_new));
       }
     }
     else {
       rlim_new = op->getAsInt(PREF_RLIMIT_NOFILE);
-      A2_LOG_DEBUG(fmt("Not setting rlimit NO_FILE: %" PRIu64 " >= %" PRIu64,
+      A2_LOG_TRACE(fmt("Not setting rlimit NO_FILE: %" PRIu64 " >= %" PRIu64,
                        (uint64_t)r.rlim_cur, (uint64_t)rlim_new));
     }
   }
@@ -309,7 +309,7 @@ Context::Context(bool standalone, int argc, char** argv, const KeyVals& options)
   }
   else {
     if (!requestGroups.empty()) {
-      A2_LOG_NOTICE(fmt("Downloading %" PRId64 " item(s)",
+      A2_LOG_INFO(fmt("Downloading %" PRId64 " item(s)",
                         static_cast<uint64_t>(requestGroups.size())));
     }
     reqinfo = std::make_shared<MultiUrlRequestInfo>(std::move(requestGroups),

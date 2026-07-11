@@ -83,9 +83,9 @@ extern const std::string A2_V_GEOM;
 extern const std::string V_PREALLOC;
 extern const std::string V_FALLOC;
 extern const std::string V_TRUNC;
+extern const std::string V_TRACE;
 extern const std::string V_DEBUG;
 extern const std::string V_INFO;
-extern const std::string V_NOTICE;
 extern const std::string V_WARN;
 extern const std::string V_ERROR;
 extern const std::string V_INORDER;
@@ -203,9 +203,9 @@ extern PrefPtr PREF_QUIET;
 extern PrefPtr PREF_ASYNC_DNS;
 // value: 1*digit
 extern PrefPtr PREF_SUMMARY_INTERVAL;
-// value: debug, info, notice, warn, error
+// value: trace, debug, info, warn, error
 extern PrefPtr PREF_LOG_LEVEL;
-// value: debug, info, notice, warn, error
+// value: trace, debug, info, warn, error
 extern PrefPtr PREF_CONSOLE_LOG_LEVEL;
 // value: inorder | feedback | adaptive
 extern PrefPtr PREF_URI_SELECTOR;

@@ -39,8 +39,7 @@
 #include <sstream>
 
 #include "BufferedFile.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "fmt.h"
 #include "message.h"
 #include "util.h"

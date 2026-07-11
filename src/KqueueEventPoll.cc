@@ -40,8 +40,7 @@
 #include <numeric>
 
 #include "Command.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "util.h"
 #include "fmt.h"
 
@@ -133,7 +132,7 @@ void KqueueEventPoll::poll(const struct timeval& tv)
   }
   else if (res == -1) {
     int errNum = errno;
-    A2_LOG_INFO(fmt("kevent error: %s", util::safeStrerror(errNum).c_str()));
+    A2_LOG_DEBUG(fmt("kevent error: %s", util::safeStrerror(errNum).c_str()));
   }
 #ifdef ENABLE_ASYNC_DNS
   // It turns out that we have to call ares_process_fd before ares's
@@ -192,7 +191,7 @@ bool KqueueEventPoll::addEvents(sock_t socket,
   r = kevent(kqfd_, changelist, n, changelist, 0, &zeroTimeout);
   int errNum = errno;
   if (r == -1) {
-    A2_LOG_DEBUG(fmt("Failed to add socket event %d:%s", socket,
+    A2_LOG_TRACE(fmt("Failed to add socket event %d:%s", socket,
                      util::safeStrerror(errNum).c_str()));
     return false;
   }
@@ -221,7 +220,7 @@ bool KqueueEventPoll::deleteEvents(sock_t socket,
 {
   auto i = socketEntries_.find(socket);
   if (i == std::end(socketEntries_)) {
-    A2_LOG_DEBUG(fmt("Socket %d is not found in SocketEntries.", socket));
+    A2_LOG_TRACE(fmt("Socket %d is not found in SocketEntries.", socket));
     return false;
   }
 
@@ -237,7 +236,7 @@ bool KqueueEventPoll::deleteEvents(sock_t socket,
     socketEntries_.erase(i);
   }
   if (r == -1) {
-    A2_LOG_DEBUG(fmt("Failed to delete socket event:%s",
+    A2_LOG_TRACE(fmt("Failed to delete socket event:%s",
                      util::safeStrerror(errNum).c_str()));
     return false;
   }

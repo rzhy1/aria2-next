@@ -42,14 +42,14 @@
 #include "help_tags.h"
 #include "a2functional.h"
 #include "File.h"
-#include "RotatingLogFile.h"
+#include "Log.h"
 
 namespace aria2 {
 
 std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
 {
   std::vector<OptionHandler*> handlers;
-  static const std::string logLevels[] = {V_DEBUG, V_INFO, V_NOTICE, V_WARN,
+  static const std::string logLevels[] = {V_TRACE, V_DEBUG, V_INFO, V_WARN,
                                           V_ERROR};
   // General Options
   {
@@ -272,7 +272,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
   }
   {
     OptionHandler* op(new ParameterOptionHandler(
-        PREF_CONSOLE_LOG_LEVEL, TEXT_CONSOLE_LOG_LEVEL, V_NOTICE,
+        PREF_CONSOLE_LOG_LEVEL, TEXT_CONSOLE_LOG_LEVEL, V_INFO,
         {std::begin(logLevels), std::end(logLevels)}));
     op->addTag(TAG_ADVANCED);
     handlers.push_back(op);
@@ -508,7 +508,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
   }
   {
     OptionHandler* op(new ParameterOptionHandler(
-        PREF_LOG_LEVEL, TEXT_LOG_LEVEL, V_DEBUG,
+        PREF_LOG_LEVEL, TEXT_LOG_LEVEL, V_TRACE,
         {std::begin(logLevels), std::end(logLevels)}));
     op->addTag(TAG_ADVANCED);
     op->setChangeGlobalOption(true);
@@ -524,7 +524,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
   {
     OptionHandler* op(new NumberOptionHandler(
         PREF_LOG_MAX_FILES, TEXT_LOG_MAX_FILES, "4", 1,
-        RotatingLogFile::MAX_FILES));
+        logging::MAX_FILES));
     op->addTag(TAG_ADVANCED);
     op->setChangeGlobalOption(true);
     handlers.push_back(op);

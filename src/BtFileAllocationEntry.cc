@@ -46,7 +46,7 @@
 #include "DiskAdaptor.h"
 #include "Option.h"
 #include "prefs.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 
@@ -98,7 +98,7 @@ void BtFileAllocationEntry::prepareForNextAction(
       // right, some programs cannot open them aria2 is seeding. To
       // avoid this situation, re-open the files with read-only
       // enabled.
-      A2_LOG_INFO("Closing files and re-open them with read-only mode"
+      A2_LOG_DEBUG("Closing files and re-open them with read-only mode"
                   " enabled.");
       diskAdaptor->closeFile();
       diskAdaptor->enableReadOnly();

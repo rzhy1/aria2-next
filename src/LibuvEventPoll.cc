@@ -51,8 +51,7 @@
 #include <uv.h>
 
 #include "Command.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "a2functional.h"
 #include "fmt.h"
 #include "util.h"
@@ -251,7 +250,7 @@ bool LibuvEventPoll::deleteEvents(sock_t socket,
   auto i = socketEntries_.find(socket);
 
   if (i == socketEntries_.end()) {
-    A2_LOG_DEBUG(fmt("Socket %d is not found in SocketEntries.", socket));
+    A2_LOG_TRACE(fmt("Socket %d is not found in SocketEntries.", socket));
     return false;
   }
 

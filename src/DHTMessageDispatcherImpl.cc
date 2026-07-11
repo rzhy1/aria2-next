@@ -38,8 +38,7 @@
 #include "DHTMessageEntry.h"
 #include "DHTMessageTracker.h"
 #include "RecoverableException.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "DHTConstants.h"
 #include "fmt.h"
 #include "DHTNode.h"
@@ -76,14 +75,14 @@ bool DHTMessageDispatcherImpl::sendMessage(DHTMessageEntry* entry)
         tracker_->addMessage(entry->message.get(), entry->timeout,
                              std::move(entry->callback));
       }
-      A2_LOG_INFO(fmt("Message sent: %s", entry->message->toString().c_str()));
+      A2_LOG_DEBUG(fmt("Message sent: %s", entry->message->toString().c_str()));
     }
     else {
       return false;
     }
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX(
+    A2_LOG_DEBUG_EX(
         fmt("Failed to send message: %s", entry->message->toString().c_str()),
         e);
     // Add message to DHTMessageTracker with timeout 0 to treat it as
@@ -107,7 +106,7 @@ void DHTMessageDispatcherImpl::sendMessages()
     }
   }
   messageQueue_.erase(std::begin(messageQueue_), itr);
-  A2_LOG_DEBUG(fmt("%lu dht messages remaining in the queue.",
+  A2_LOG_TRACE(fmt("%lu dht messages remaining in the queue.",
                    static_cast<unsigned long>(messageQueue_.size())));
 }
 

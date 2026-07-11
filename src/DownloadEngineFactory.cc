@@ -77,7 +77,7 @@
 #include "DlAbortEx.h"
 #include "FileAllocationEntry.h"
 #include "HttpListenCommand.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 
@@ -203,7 +203,7 @@ std::unique_ptr<DownloadEngine> DownloadEngineFactory::newDownloadEngine(
     bool ok = false;
     bool secure = op->getAsBool(PREF_RPC_SECURE);
     if (secure) {
-      A2_LOG_NOTICE("RPC transport will be encrypted.");
+      A2_LOG_INFO("RPC transport will be encrypted.");
     }
     static int families[] = {AF_INET, AF_INET6};
     size_t familiesLength = op->getAsBool(PREF_DISABLE_IPV6) ? 1 : 2;

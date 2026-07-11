@@ -38,8 +38,7 @@
 #include "RequestGroupMan.h"
 #include "RecoverableException.h"
 #include "message.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 

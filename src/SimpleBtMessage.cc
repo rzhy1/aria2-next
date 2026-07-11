@@ -36,8 +36,7 @@
 #include "message.h"
 #include "Peer.h"
 #include "PeerConnection.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "util.h"
 #include "fmt.h"
 
@@ -53,11 +52,11 @@ void SimpleBtMessage::send()
   if (isInvalidate() || !sendPredicate()) {
     return;
   }
-  A2_LOG_INFO(fmt(MSG_SEND_PEER_MESSAGE, getCuid(),
+  A2_LOG_DEBUG(fmt(MSG_SEND_PEER_MESSAGE, getCuid(),
                   getPeer()->getIPAddress().c_str(), getPeer()->getPort(),
                   toString().c_str()));
   auto msg = createMessage();
-  A2_LOG_DEBUG(
+  A2_LOG_TRACE(
       fmt("msglength = %lu bytes", static_cast<unsigned long>(msg.size())));
   getPeerConnection()->pushBytes(std::move(msg), getProgressUpdate());
 }

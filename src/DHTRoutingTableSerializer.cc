@@ -41,13 +41,13 @@
 #include "DlAbortEx.h"
 #include "DHTConstants.h"
 #include "bittorrent_helper.h"
-#include "Logger.h"
+#include "Log.h"
 #include "a2netcompat.h"
 #include "util.h"
 #include "TimeA2.h"
 #include "fmt.h"
 #include "File.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "BufferedFile.h"
 
 namespace aria2 {
@@ -79,7 +79,7 @@ void DHTRoutingTableSerializer::setNodes(
 
 void DHTRoutingTableSerializer::serialize(const std::string& filename)
 {
-  A2_LOG_INFO(fmt("Saving DHT routing table to %s.", filename.c_str()));
+  A2_LOG_DEBUG(fmt("Saving DHT routing table to %s.", filename.c_str()));
   std::string filenameTemp = filename;
   filenameTemp += "__temp";
   BufferedFile fp(filenameTemp.c_str(), BufferedFile::WRITE);
@@ -155,7 +155,7 @@ void DHTRoutingTableSerializer::serialize(const std::string& filename)
     throw DL_ABORT_EX(
         fmt("Failed to save DHT routing table to %s.", filename.c_str()));
   }
-  A2_LOG_INFO("DHT routing table was saved successfully");
+  A2_LOG_DEBUG("DHT routing table was saved successfully");
 }
 
 } // namespace aria2

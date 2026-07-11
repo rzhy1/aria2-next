@@ -43,8 +43,7 @@
 #include "DHTRoutingTable.h"
 #include "DHTMessageFactory.h"
 #include "util.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "DlAbortEx.h"
 #include "DHTConstants.h"
 #include "fmt.h"
@@ -75,13 +74,13 @@ DHTMessageTracker::messageArrived(const Dict* dict, const std::string& ipaddr,
     throw DL_ABORT_EX(
         fmt("Malformed DHT message. From:%s:%u", ipaddr.c_str(), port));
   }
-  A2_LOG_DEBUG(fmt("Searching tracker entry for TransactionID=%s, Remote=%s:%u",
+  A2_LOG_TRACE(fmt("Searching tracker entry for TransactionID=%s, Remote=%s:%u",
                    util::toHex(tid->s()).c_str(), ipaddr.c_str(), port));
   for (auto i = std::begin(entries_), eoi = std::end(entries_); i != eoi; ++i) {
     if ((*i)->match(tid->s(), ipaddr, port)) {
       auto entry = std::move(*i);
       entries_.erase(i);
-      A2_LOG_DEBUG("Tracker entry found.");
+      A2_LOG_TRACE("Tracker entry found.");
       auto& targetNode = entry->getTargetNode();
       try {
         auto message = factory_->createResponseMessage(
@@ -90,13 +89,13 @@ DHTMessageTracker::messageArrived(const Dict* dict, const std::string& ipaddr,
 
         auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(
             entry->getElapsed());
-        A2_LOG_DEBUG(
+        A2_LOG_TRACE(
             fmt("RTT is %" PRId64 "", static_cast<int64_t>(rtt.count())));
         message->getRemoteNode()->updateRTT(rtt);
         if (*targetNode != *message->getRemoteNode()) {
           // Node ID has changed. Drop previous node ID from
           // DHTRoutingTable
-          A2_LOG_DEBUG(
+          A2_LOG_TRACE(
               fmt("Node ID has changed: old:%s, new:%s",
                   util::toHex(targetNode->getID(), DHT_ID_LENGTH).c_str(),
                   util::toHex(message->getRemoteNode()->getID(), DHT_ID_LENGTH)
@@ -111,7 +110,7 @@ DHTMessageTracker::messageArrived(const Dict* dict, const std::string& ipaddr,
       }
     }
   }
-  A2_LOG_DEBUG("Tracker entry not found.");
+  A2_LOG_TRACE("Tracker entry not found.");
   return std::pair<std::unique_ptr<DHTResponseMessage>,
                    std::unique_ptr<DHTMessageCallback>>{};
 }
@@ -120,13 +119,13 @@ void DHTMessageTracker::handleTimeoutEntry(DHTMessageTrackerEntry* entry)
 {
   try {
     auto& node = entry->getTargetNode();
-    A2_LOG_DEBUG(fmt("Message timeout: To:%s:%u", node->getIPAddress().c_str(),
+    A2_LOG_TRACE(fmt("Message timeout: To:%s:%u", node->getIPAddress().c_str(),
                      node->getPort()));
     node->updateRTT(std::chrono::duration_cast<std::chrono::milliseconds>(
         entry->getElapsed()));
     node->timeout();
     if (node->isBad()) {
-      A2_LOG_DEBUG(fmt("Marked bad: %s:%u", node->getIPAddress().c_str(),
+      A2_LOG_TRACE(fmt("Marked bad: %s:%u", node->getIPAddress().c_str(),
                        node->getPort()));
       routingTable_->dropNode(node);
     }
@@ -136,7 +135,7 @@ void DHTMessageTracker::handleTimeoutEntry(DHTMessageTrackerEntry* entry)
     }
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX("Exception thrown while handling timeouts.", e);
+    A2_LOG_DEBUG_EX("Exception thrown while handling timeouts.", e);
   }
 }
 

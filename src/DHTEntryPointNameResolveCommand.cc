@@ -46,8 +46,7 @@
 #include "DHTRoutingTable.h"
 #include "DHTTask.h"
 #include "RequestGroupMan.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 #include "SocketCore.h"
 #ifdef ENABLE_ASYNC_DNS
@@ -170,7 +169,7 @@ int DHTEntryPointNameResolveCommand::resolveHostname(
 
   switch (asyncNameResolverMan_->getStatus()) {
   case -1:
-    A2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_FAILED, getCuid(), hostname.c_str(),
+    A2_LOG_DEBUG(fmt(MSG_NAME_RESOLUTION_FAILED, getCuid(), hostname.c_str(),
                     asyncNameResolverMan_->getLastError().c_str()));
     return -1;
   case 0:
@@ -178,12 +177,12 @@ int DHTEntryPointNameResolveCommand::resolveHostname(
   case 1:
     asyncNameResolverMan_->getResolvedAddress(res);
     if (res.empty()) {
-      A2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_FAILED, getCuid(), hostname.c_str(),
+      A2_LOG_DEBUG(fmt(MSG_NAME_RESOLUTION_FAILED, getCuid(), hostname.c_str(),
                       "No address returned"));
       return -1;
     }
     else {
-      A2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_COMPLETE, getCuid(), hostname.c_str(),
+      A2_LOG_DEBUG(fmt(MSG_NAME_RESOLUTION_COMPLETE, getCuid(), hostname.c_str(),
                       res.front().c_str()));
       return 1;
     }

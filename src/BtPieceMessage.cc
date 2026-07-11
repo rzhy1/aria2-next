@@ -44,8 +44,7 @@
 #include "DlAbortEx.h"
 #include "message_digest_helper.h"
 #include "DiskAdaptor.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "Peer.h"
 #include "Piece.h"
 #include "PieceStorage.h"
@@ -107,12 +106,12 @@ void BtPieceMessage::doReceivedAction()
     int64_t offset =
         static_cast<int64_t>(index_) * downloadContext_->getPieceLength() +
         begin_;
-    A2_LOG_DEBUG(fmt(MSG_PIECE_RECEIVED, getCuid(),
+    A2_LOG_TRACE(fmt(MSG_PIECE_RECEIVED, getCuid(),
                      static_cast<unsigned long>(index_), begin_, blockLength_,
                      static_cast<int64_t>(offset),
                      static_cast<unsigned long>(slot->getBlockIndex())));
     if (piece->hasBlock(slot->getBlockIndex())) {
-      A2_LOG_DEBUG("Already have this block.");
+      A2_LOG_TRACE("Already have this block.");
       return;
     }
     if (piece->getWrDiskCacheEntry()) {
@@ -128,7 +127,7 @@ void BtPieceMessage::doReceivedAction()
                                                      offset);
     }
     piece->completeBlock(slot->getBlockIndex());
-    A2_LOG_DEBUG(fmt(
+    A2_LOG_TRACE(fmt(
         MSG_PIECE_BITFIELD, getCuid(),
         util::toHex(piece->getBitfield(), piece->getBitfieldLength()).c_str()));
     piece->updateHash(begin_, data_ + 9, blockLength_);
@@ -145,7 +144,7 @@ void BtPieceMessage::doReceivedAction()
     }
   }
   else {
-    A2_LOG_DEBUG(fmt("CUID#%" PRId64
+    A2_LOG_TRACE(fmt("CUID#%" PRId64
                      " - RequestSlot not found, index=%lu, begin=%d",
                      getCuid(), static_cast<unsigned long>(index_), begin_));
   }
@@ -203,7 +202,7 @@ void BtPieceMessage::send()
   if (isInvalidate()) {
     return;
   }
-  A2_LOG_INFO(fmt(MSG_SEND_PEER_MESSAGE, getCuid(),
+  A2_LOG_DEBUG(fmt(MSG_SEND_PEER_MESSAGE, getCuid(),
                   getPeer()->getIPAddress().c_str(), getPeer()->getPort(),
                   toString().c_str()));
   int64_t pieceDataOffset =
@@ -242,13 +241,13 @@ std::string BtPieceMessage::toString() const
 bool BtPieceMessage::checkPieceHash(const std::shared_ptr<Piece>& piece)
 {
   if (!getPieceStorage()->isEndGame() && piece->isHashCalculated()) {
-    A2_LOG_DEBUG(fmt("Hash is available!! index=%lu",
+    A2_LOG_TRACE(fmt("Hash is available!! index=%lu",
                      static_cast<unsigned long>(piece->getIndex())));
     return piece->getDigest() ==
            downloadContext_->getPieceHash(piece->getIndex());
   }
   else {
-    A2_LOG_DEBUG(fmt("Calculating hash index=%lu",
+    A2_LOG_TRACE(fmt("Calculating hash index=%lu",
                      static_cast<unsigned long>(piece->getIndex())));
     try {
       return piece->getDigestWithWrCache(downloadContext_->getPieceLength(),
@@ -276,7 +275,7 @@ void BtPieceMessage::onNewPiece(const std::shared_ptr<Piece>& piece)
           piece->getWrDiskCacheEntry()->getErrorCode());
     }
   }
-  A2_LOG_INFO(fmt(MSG_GOT_NEW_PIECE, getCuid(),
+  A2_LOG_DEBUG(fmt(MSG_GOT_NEW_PIECE, getCuid(),
                   static_cast<unsigned long>(piece->getIndex())));
   getPieceStorage()->completePiece(piece);
   getPieceStorage()->advertisePiece(getCuid(), piece->getIndex(),
@@ -285,7 +284,7 @@ void BtPieceMessage::onNewPiece(const std::shared_ptr<Piece>& piece)
 
 void BtPieceMessage::onWrongPiece(const std::shared_ptr<Piece>& piece)
 {
-  A2_LOG_INFO(fmt(MSG_GOT_WRONG_PIECE, getCuid(),
+  A2_LOG_DEBUG(fmt(MSG_GOT_WRONG_PIECE, getCuid(),
                   static_cast<unsigned long>(piece->getIndex())));
   piece->clearAllBlock(getPieceStorage()->getWrDiskCache());
   piece->destroyHashContext();
@@ -295,7 +294,7 @@ void BtPieceMessage::onWrongPiece(const std::shared_ptr<Piece>& piece)
 void BtPieceMessage::onChokingEvent(const BtChokingEvent& event)
 {
   if (!isInvalidate() && !getPeer()->isInAmAllowedIndexSet(index_)) {
-    A2_LOG_DEBUG(fmt(MSG_REJECT_PIECE_CHOKED, getCuid(),
+    A2_LOG_TRACE(fmt(MSG_REJECT_PIECE_CHOKED, getCuid(),
                      static_cast<unsigned long>(index_), begin_, blockLength_));
     if (getPeer()->isFastExtensionEnabled()) {
       getBtMessageDispatcher()->addMessageToQueue(
@@ -311,7 +310,7 @@ void BtPieceMessage::onCancelSendingPieceEvent(
 {
   if (!isInvalidate() && index_ == event.getIndex() &&
       begin_ == event.getBegin() && blockLength_ == event.getLength()) {
-    A2_LOG_DEBUG(fmt(MSG_REJECT_PIECE_CANCEL, getCuid(),
+    A2_LOG_TRACE(fmt(MSG_REJECT_PIECE_CANCEL, getCuid(),
                      static_cast<unsigned long>(index_), begin_, blockLength_));
     if (getPeer()->isFastExtensionEnabled()) {
       getBtMessageDispatcher()->addMessageToQueue(

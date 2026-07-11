@@ -17,8 +17,7 @@
 #include "Ed2kAttribute.h"
 #include "Ed2kCommand.h"
 #include "Ed2kShareIndex.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "RecoverableException.h"
 #include "RequestGroup.h"
 #include "RequestGroupMan.h"
@@ -59,7 +58,7 @@ bool Ed2kListenCommand::bindPort(uint16_t port)
     e_->addSocketForReadCheck(socket_, this);
     e_->setEd2kTcpPort(socket_->getAddrInfo().port);
     e_->setEd2kTcpListenActive(true);
-    A2_LOG_NOTICE(fmt(_("IPv%d ED2K: listening on TCP port %u"), ipv,
+    A2_LOG_INFO(fmt(_("IPv%d ED2K: listening on TCP port %u"), ipv,
                       socket_->getAddrInfo().port));
     return true;
   }
@@ -125,11 +124,11 @@ bool Ed2kListenCommand::execute()
       }
       e_->addCommand(make_unique<Ed2kCommand>(e_->newCUID(), group, e_, peer,
                                               peerSocket));
-      A2_LOG_DEBUG(fmt("Accepted ED2K peer connection from %s:%u.",
+      A2_LOG_TRACE(fmt("Accepted ED2K peer connection from %s:%u.",
                        peer.host.c_str(), peer.port));
     }
     catch (RecoverableException& ex) {
-      A2_LOG_DEBUG_EX(fmt(MSG_ACCEPT_FAILURE, getCuid()), ex);
+      A2_LOG_TRACE_EX(fmt(MSG_ACCEPT_FAILURE, getCuid()), ex);
     }
   }
 

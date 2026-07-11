@@ -39,7 +39,7 @@
 #include <vector>
 
 #include "DlAbortEx.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 #include "util.h"
 

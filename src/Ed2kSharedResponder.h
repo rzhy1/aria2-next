@@ -16,7 +16,7 @@
 #include "common.h"
 #include "ed2k_link.h"
 
-#include <deque>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -30,9 +30,13 @@ class SharedSource;
 class UploadQueue;
 
 class SharedResponder {
+public:
+  using PacketSink =
+      std::function<void(uint8_t, uint8_t, const std::string&)>;
+
 private:
   UploadQueue* uploadQueue_;
-  std::deque<std::string>* outbox_;
+  PacketSink packetSink_;
   Endpoint endpoint_;
   std::string userHash_;
   RequestGroupMan* rgman_;
@@ -44,7 +48,7 @@ private:
 public:
   SharedResponder(UploadQueue* uploadQueue, RequestGroupMan* rgman,
                   const Endpoint& endpoint, const std::string& userHash,
-                  std::deque<std::string>& outbox);
+                  PacketSink packetSink);
 
   bool hasFile(const std::string& hash) const;
   void queueNoFile(const std::string& fileHash);

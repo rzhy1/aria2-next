@@ -48,8 +48,7 @@
 #include "BtMessage.h"
 #include "Peer.h"
 #include "Piece.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "a2functional.h"
 #include "a2algo.h"
 #include "RequestGroupMan.h"
@@ -73,7 +72,7 @@ DefaultBtMessageDispatcher::DefaultBtMessageDispatcher()
 
 DefaultBtMessageDispatcher::~DefaultBtMessageDispatcher()
 {
-  A2_LOG_DEBUG("DefaultBtMessageDispatcher::deleted");
+  A2_LOG_TRACE("DefaultBtMessageDispatcher::deleted");
 }
 
 void DefaultBtMessageDispatcher::addMessageToQueue(
@@ -149,7 +148,7 @@ namespace {
 void abortOutstandingRequest(const RequestSlot* slot,
                              const std::shared_ptr<Piece>& piece, cuid_t cuid)
 {
-  A2_LOG_DEBUG(fmt(MSG_DELETING_REQUEST_SLOT, cuid,
+  A2_LOG_TRACE(fmt(MSG_DELETING_REQUEST_SLOT, cuid,
                    static_cast<unsigned long>(slot->getIndex()),
                    slot->getBegin(),
                    static_cast<unsigned long>(slot->getBlockIndex())));
@@ -186,7 +185,7 @@ void DefaultBtMessageDispatcher::doChokedAction()
 {
   for (auto& slot : requestSlots_) {
     if (!peer_->isInPeerAllowedIndexSet(slot->getIndex())) {
-      A2_LOG_DEBUG(fmt(MSG_DELETING_REQUEST_SLOT_CHOKED, cuid_,
+      A2_LOG_TRACE(fmt(MSG_DELETING_REQUEST_SLOT_CHOKED, cuid_,
                        static_cast<unsigned long>(slot->getIndex()),
                        slot->getBegin(),
                        static_cast<unsigned long>(slot->getBlockIndex())));
@@ -216,7 +215,7 @@ void DefaultBtMessageDispatcher::checkRequestSlotAndDoNecessaryThing()
 {
   for (auto& slot : requestSlots_) {
     if (slot->isTimeout(requestTimeout_)) {
-      A2_LOG_DEBUG(fmt(MSG_DELETING_REQUEST_SLOT_TIMEOUT, cuid_,
+      A2_LOG_TRACE(fmt(MSG_DELETING_REQUEST_SLOT_TIMEOUT, cuid_,
                        static_cast<unsigned long>(slot->getIndex()),
                        slot->getBegin(),
                        static_cast<unsigned long>(slot->getBlockIndex())));
@@ -224,7 +223,7 @@ void DefaultBtMessageDispatcher::checkRequestSlotAndDoNecessaryThing()
       peer_->snubbing(true);
     }
     else if (slot->getPiece()->hasBlock(slot->getBlockIndex())) {
-      A2_LOG_DEBUG(fmt(MSG_DELETING_REQUEST_SLOT_ACQUIRED, cuid_,
+      A2_LOG_TRACE(fmt(MSG_DELETING_REQUEST_SLOT_ACQUIRED, cuid_,
                        static_cast<unsigned long>(slot->getIndex()),
                        slot->getBegin(),
                        static_cast<unsigned long>(slot->getBlockIndex())));

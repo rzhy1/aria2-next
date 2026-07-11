@@ -43,8 +43,7 @@
 #include "PeerConnection.h"
 #include "BtMessageDispatcher.h"
 #include "BtMessageFactory.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "bittorrent_helper.h"
 #include "BtPieceMessage.h"
 #include "util.h"
@@ -65,7 +64,7 @@ DefaultBtMessageReceiver::DefaultBtMessageReceiver()
 std::unique_ptr<BtHandshakeMessage>
 DefaultBtMessageReceiver::receiveHandshake(bool quickReply)
 {
-  A2_LOG_DEBUG(
+  A2_LOG_TRACE(
       fmt("Receiving handshake bufferLength=%lu",
           static_cast<unsigned long>(peerConnection_->getBufferLength())));
   unsigned char data[BtHandshakeMessage::MESSAGE_LENGTH];

@@ -126,9 +126,9 @@ const std::string A2_V_GEOM("geom");
 const std::string V_PREALLOC("prealloc");
 const std::string V_FALLOC("falloc");
 const std::string V_TRUNC("trunc");
+const std::string V_TRACE("trace");
 const std::string V_DEBUG("debug");
 const std::string V_INFO("info");
-const std::string V_NOTICE("notice");
 const std::string V_WARN("warn");
 const std::string V_ERROR("error");
 const std::string V_INORDER("inorder");
@@ -250,9 +250,9 @@ PrefPtr PREF_QUIET = makePref("quiet");
 PrefPtr PREF_ASYNC_DNS = makePref("async-dns");
 // value: 1*digit
 PrefPtr PREF_SUMMARY_INTERVAL = makePref("summary-interval");
-// value: debug, info, notice, warn, error
+// value: trace, debug, info, warn, error
 PrefPtr PREF_LOG_LEVEL = makePref("log-level");
-// value: debug, info, notice, warn, error
+// value: trace, debug, info, warn, error
 PrefPtr PREF_CONSOLE_LOG_LEVEL = makePref("console-log-level");
 // value: inorder | feedback | adaptive
 PrefPtr PREF_URI_SELECTOR = makePref("uri-selector");

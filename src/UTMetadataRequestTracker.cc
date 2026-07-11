@@ -36,8 +36,7 @@
 
 #include <algorithm>
 
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 
 namespace aria2 {
@@ -75,7 +74,7 @@ std::vector<size_t> UTMetadataRequestTracker::removeTimeoutEntry()
       std::remove_if(std::begin(trackedRequests_), std::end(trackedRequests_),
                      [&indexes](const RequestEntry& ent) {
                        if (ent.elapsed(TIMEOUT)) {
-                         A2_LOG_DEBUG(
+                         A2_LOG_TRACE(
                              fmt("ut_metadata request timeout. index=%lu",
                                  static_cast<unsigned long>(ent.index_)));
                          indexes.push_back(ent.index_);

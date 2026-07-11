@@ -44,7 +44,7 @@
 #include "a2functional.h"
 #include "WrDiskCache.h"
 #include "WrDiskCacheEntry.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 #include "DiskAdaptor.h"
 #include "MessageDigest.h"
@@ -339,7 +339,7 @@ void Piece::updateWrCache(WrDiskCache* diskCache, unsigned char* data,
     return;
   }
   assert(wrCache_);
-  A2_LOG_DEBUG(fmt("updateWrCache entry=%p", wrCache_.get()));
+  A2_LOG_TRACE(fmt("updateWrCache entry=%p", wrCache_.get()));
   auto cell = new WrDiskCacheEntry::DataCell();
   cell->goff = goff;
   cell->data = data;

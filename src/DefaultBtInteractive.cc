@@ -72,8 +72,7 @@
 #include "BtMessageFactory.h"
 #include "BtRequestFactory.h"
 #include "PeerConnection.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 #include "RequestGroup.h"
 #include "RequestGroupMan.h"
@@ -143,7 +142,7 @@ DefaultBtInteractive::receiveHandshake(bool quickReply)
 
   if (message->isFastExtensionSupported()) {
     peer_->setFastExtensionEnabled(true);
-    A2_LOG_INFO(fmt(MSG_FAST_EXTENSION_ENABLED, cuid_));
+    A2_LOG_DEBUG(fmt(MSG_FAST_EXTENSION_ENABLED, cuid_));
   }
   if (message->isExtendedMessagingEnabled()) {
     peer_->setExtendedMessagingEnabled(true);
@@ -151,13 +150,13 @@ DefaultBtInteractive::receiveHandshake(bool quickReply)
       extensionMessageRegistry_->removeExtension(
           ExtensionMessageRegistry::UT_PEX);
     }
-    A2_LOG_INFO(fmt(MSG_EXTENDED_MESSAGING_ENABLED, cuid_));
+    A2_LOG_DEBUG(fmt(MSG_EXTENDED_MESSAGING_ENABLED, cuid_));
   }
   if (message->isDHTEnabled()) {
     peer_->setDHTEnabled(true);
-    A2_LOG_INFO(fmt(MSG_DHT_ENABLED_PEER, cuid_));
+    A2_LOG_DEBUG(fmt(MSG_DHT_ENABLED_PEER, cuid_));
   }
-  A2_LOG_INFO(fmt(MSG_RECEIVE_PEER_MESSAGE, cuid_,
+  A2_LOG_DEBUG(fmt(MSG_RECEIVE_PEER_MESSAGE, cuid_,
                   peer_->getIPAddress().c_str(), peer_->getPort(),
                   message->toString().c_str()));
   return message;
@@ -312,7 +311,7 @@ size_t DefaultBtInteractive::receiveMessages()
       break;
     }
     ++msgcount;
-    A2_LOG_INFO(fmt(MSG_RECEIVE_PEER_MESSAGE, cuid_,
+    A2_LOG_DEBUG(fmt(MSG_RECEIVE_PEER_MESSAGE, cuid_,
                     peer_->getIPAddress().c_str(), peer_->getPort(),
                     message->toString().c_str()));
     message->doReceivedAction();
@@ -353,7 +352,7 @@ void DefaultBtInteractive::decideInterest()
 {
   if (pieceStorage_->hasMissingPiece(peer_)) {
     if (!peer_->amInterested()) {
-      A2_LOG_DEBUG(fmt(MSG_PEER_INTERESTED, cuid_));
+      A2_LOG_TRACE(fmt(MSG_PEER_INTERESTED, cuid_));
       peer_->amInterested(true);
       dispatcher_->addMessageToQueue(
           messageFactory_->createInterestedMessage());
@@ -361,7 +360,7 @@ void DefaultBtInteractive::decideInterest()
   }
   else {
     if (peer_->amInterested()) {
-      A2_LOG_DEBUG(fmt(MSG_PEER_NOT_INTERESTED, cuid_));
+      A2_LOG_TRACE(fmt(MSG_PEER_NOT_INTERESTED, cuid_));
       peer_->amInterested(false);
       dispatcher_->addMessageToQueue(
           messageFactory_->createNotInterestedMessage());
@@ -440,7 +439,7 @@ void DefaultBtInteractive::cancelAllPiece()
     for (std::vector<size_t>::const_iterator i = metadataRequests.begin(),
                                              eoi = metadataRequests.end();
          i != eoi; ++i) {
-      A2_LOG_DEBUG(
+      A2_LOG_TRACE(
           fmt("Cancel metadata: piece=%lu", static_cast<unsigned long>(*i)));
       pieceStorage_->cancelPiece(pieceStorage_->getPiece(*i), cuid_);
     }

@@ -37,8 +37,7 @@
 #include "DownloadEngine.h"
 #include "HttpServer.h"
 #include "HttpHeader.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "RequestGroup.h"
 #include "RequestGroupMan.h"
 #include "HttpServerBodyCommand.h"
@@ -245,7 +244,7 @@ bool HttpServerCommand::execute()
       else {
         if (e_->getOption()->getAsInt(PREF_RPC_MAX_REQUEST_SIZE) <
             httpServer_->getContentLength()) {
-          A2_LOG_INFO(fmt("Request too long. ContentLength=%" PRId64 "."
+          A2_LOG_DEBUG(fmt("Request too long. ContentLength=%" PRId64 "."
                           " See --rpc-max-request-size option to loose"
                           " this limitation.",
                           httpServer_->getContentLength()));
@@ -259,7 +258,7 @@ bool HttpServerCommand::execute()
     }
     else {
       if (timeoutTimer_.difference(global::wallclock()) >= 30_s) {
-        A2_LOG_INFO("HTTP request timeout.");
+        A2_LOG_DEBUG("HTTP request timeout.");
         return true;
       }
       else {
@@ -269,7 +268,7 @@ bool HttpServerCommand::execute()
     }
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX(fmt("CUID#%" PRId64
+    A2_LOG_DEBUG_EX(fmt("CUID#%" PRId64
                        " - Error occurred while reading HTTP request",
                        getCuid()),
                    e);

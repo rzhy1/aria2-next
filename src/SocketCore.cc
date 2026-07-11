@@ -56,7 +56,7 @@
 #include "util.h"
 #include "TimeA2.h"
 #include "a2functional.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "A2STR.h"
 #ifdef ENABLE_SSL
 #  include "TLSContext.h"
@@ -465,7 +465,7 @@ void SocketCore::establishConnection(const std::string& host, uint16_t port,
         if (::bind(fd, &soaddr.su.sa, soaddr.suLength) == -1) {
           errNum = SOCKET_ERRNO;
           error = errorMsg(errNum);
-          A2_LOG_DEBUG(fmt(EX_SOCKET_BIND, error.c_str()));
+          A2_LOG_TRACE(fmt(EX_SOCKET_BIND, error.c_str()));
         }
         else {
           bindSuccess = true;
@@ -589,7 +589,7 @@ void SocketCore::applyIpDscp()
 #endif
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX("Applying DSCP value failed", e);
+    A2_LOG_DEBUG_EX("Applying DSCP value failed", e);
   }
 }
 
@@ -924,7 +924,7 @@ bool SocketCore::tlsHandshake(TLSContext* tlsctx, const std::string& hostname)
 
   if (secure_ == A2_TLS_NONE) {
     // Do some initial setup
-    A2_LOG_DEBUG("Creating TLS session");
+    A2_LOG_TRACE("Creating TLS session");
     tlsSession_.reset(TLSSession::make(tlsctx));
     auto rv = tlsSession_->init(sockfd_);
     if (rv != TLS_ERR_OK) {
@@ -944,7 +944,7 @@ bool SocketCore::tlsHandshake(TLSContext* tlsctx, const std::string& hostname)
     }
     // Done with the setup, now let handshaking begin immediately.
     secure_ = A2_TLS_HANDSHAKING;
-    A2_LOG_DEBUG("TLS Handshaking");
+    A2_LOG_TRACE("TLS Handshaking");
   }
 
   if (secure_ == A2_TLS_HANDSHAKING) {
@@ -990,7 +990,7 @@ bool SocketCore::tlsHandshake(TLSContext* tlsctx, const std::string& hostname)
 
       auto peerInfo = ss.str();
 
-      A2_LOG_DEBUG(fmt("Securely connected to %s with %s", peerInfo.c_str(),
+      A2_LOG_TRACE(fmt("Securely connected to %s with %s", peerInfo.c_str(),
                        tlsVersion.c_str()));
 
       // 2. We're connected now!
@@ -1290,7 +1290,7 @@ void SocketCore::bindAddress(const std::string& iface)
     s = getnameinfo(&a.su.sa, a.suLength, host, NI_MAXHOST, nullptr, 0,
                     NI_NUMERICHOST);
     if (s == 0) {
-      A2_LOG_DEBUG(fmt("Sockets will bind to %s", host));
+      A2_LOG_TRACE(fmt("Sockets will bind to %s", host));
     }
   }
   bindAddrsList_.push_back(bindAddrs_);
@@ -1320,7 +1320,7 @@ void SocketCore::bindAllAddress(const std::string& ifaces)
       s = getnameinfo(&a.su.sa, a.suLength, host, NI_MAXHOST, nullptr, 0,
                       NI_NUMERICHOST);
       if (s == 0) {
-        A2_LOG_DEBUG(fmt("Sockets will bind to %s", host));
+        A2_LOG_TRACE(fmt("Sockets will bind to %s", host));
       }
     }
   }
@@ -1352,14 +1352,14 @@ size_t SocketCore::getRecvBufferedLength() const
 std::vector<SockAddr> SocketCore::getInterfaceAddress(const std::string& iface,
                                                       int family, int aiFlags)
 {
-  A2_LOG_DEBUG(fmt("Finding interface %s", iface.c_str()));
+  A2_LOG_TRACE(fmt("Finding interface %s", iface.c_str()));
   std::vector<SockAddr> ifAddrs;
 #ifdef HAVE_GETIFADDRS
   // First find interface in interface addresses
   struct ifaddrs* ifaddr = nullptr;
   if (getifaddrs(&ifaddr) == -1) {
     int errNum = SOCKET_ERRNO;
-    A2_LOG_INFO(
+    A2_LOG_DEBUG(
         fmt(MSG_INTERFACE_NOT_FOUND, iface.c_str(), errorMsg(errNum).c_str()));
   }
   else {
@@ -1404,7 +1404,7 @@ std::vector<SockAddr> SocketCore::getInterfaceAddress(const std::string& iface,
     s = callGetaddrinfo(&res, iface.c_str(), nullptr, family, SOCK_STREAM,
                         aiFlags, 0);
     if (s) {
-      A2_LOG_INFO(fmt(MSG_INTERFACE_NOT_FOUND, iface.c_str(), gai_strerror(s)));
+      A2_LOG_DEBUG(fmt(MSG_INTERFACE_NOT_FOUND, iface.c_str(), gai_strerror(s)));
     }
     else {
       std::unique_ptr<addrinfo, decltype(&freeaddrinfo)> resDeleter(
@@ -1585,7 +1585,7 @@ const uint32_t APIPA_IPV4_END = 2852061183u;   // 169.254.255.255
 void checkAddrconfig()
 {
 #ifdef HAVE_IPHLPAPI_H
-  A2_LOG_INFO("Checking configured addresses");
+  A2_LOG_DEBUG("Checking configured addresses");
   ULONG bufsize = 15_k;
   ULONG retval = 0;
   IP_ADAPTER_ADDRESSES* buf = 0;
@@ -1601,7 +1601,7 @@ void checkAddrconfig()
     buf = 0;
   } while (retval == ERROR_BUFFER_OVERFLOW && numTry < MAX_TRY);
   if (retval != NO_ERROR) {
-    A2_LOG_INFO("GetAdaptersAddresses failed. Assume both IPv4 and IPv6 "
+    A2_LOG_DEBUG("GetAdaptersAddresses failed. Assume both IPv4 and IPv6 "
                 " addresses are configured.");
     return;
   }
@@ -1646,20 +1646,20 @@ void checkAddrconfig()
                        NI_MAXHOST, 0, 0, NI_NUMERICHOST);
       if (rv == 0) {
         if (found) {
-          A2_LOG_INFO(fmt("Found configured address: %s", host));
+          A2_LOG_DEBUG(fmt("Found configured address: %s", host));
         }
         else {
-          A2_LOG_INFO(fmt("Not considered: %s", host));
+          A2_LOG_DEBUG(fmt("Not considered: %s", host));
         }
       }
     }
   }
   free(buf);
 
-  A2_LOG_INFO(fmt("IPv4 configured=%d, IPv6 configured=%d", ipv4AddrConfigured,
+  A2_LOG_DEBUG(fmt("IPv4 configured=%d, IPv6 configured=%d", ipv4AddrConfigured,
                   ipv6AddrConfigured));
 #elif defined(HAVE_GETIFADDRS)
-  A2_LOG_INFO("Checking configured addresses");
+  A2_LOG_DEBUG("Checking configured addresses");
   ipv4AddrConfigured = false;
   ipv6AddrConfigured = false;
   ifaddrs* ifaddr = nullptr;
@@ -1667,7 +1667,7 @@ void checkAddrconfig()
   rv = getifaddrs(&ifaddr);
   if (rv == -1) {
     int errNum = SOCKET_ERRNO;
-    A2_LOG_INFO(fmt("getifaddrs failed. Cause: %s", errorMsg(errNum).c_str()));
+    A2_LOG_DEBUG(fmt("getifaddrs failed. Cause: %s", errorMsg(errNum).c_str()));
     return;
   }
   std::unique_ptr<ifaddrs, decltype(&freeifaddrs)> ifaddrDeleter(ifaddr,
@@ -1707,17 +1707,17 @@ void checkAddrconfig()
                      NI_NUMERICHOST);
     if (rv == 0) {
       if (found) {
-        A2_LOG_INFO(fmt("Found configured address: %s", host));
+        A2_LOG_DEBUG(fmt("Found configured address: %s", host));
       }
       else {
-        A2_LOG_INFO(fmt("Not considered: %s", host));
+        A2_LOG_DEBUG(fmt("Not considered: %s", host));
       }
     }
   }
-  A2_LOG_INFO(fmt("IPv4 configured=%d, IPv6 configured=%d", ipv4AddrConfigured,
+  A2_LOG_DEBUG(fmt("IPv4 configured=%d, IPv6 configured=%d", ipv4AddrConfigured,
                   ipv6AddrConfigured));
 #else  // !HAVE_GETIFADDRS
-  A2_LOG_INFO("getifaddrs is not available. Assume IPv4 and IPv6 addresses"
+  A2_LOG_DEBUG("getifaddrs is not available. Assume IPv4 and IPv6 addresses"
               " are configured.");
 #endif // !HAVE_GETIFADDRS
 }

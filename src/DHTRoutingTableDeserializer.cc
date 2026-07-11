@@ -43,12 +43,12 @@
 #include "DHTConstants.h"
 #include "bittorrent_helper.h"
 #include "DlAbortEx.h"
-#include "Logger.h"
+#include "Log.h"
 #include "a2netcompat.h"
 #include "fmt.h"
 #include "util.h"
 #include "array_fun.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "BufferedFile.h"
 
 namespace aria2 {
@@ -76,7 +76,7 @@ void readBytes(BufferedFile& fp, unsigned char* buf, size_t buflen,
 
 void DHTRoutingTableDeserializer::deserialize(const std::string& filename)
 {
-  A2_LOG_INFO(fmt("Loading DHT routing table from %s.", filename.c_str()));
+  A2_LOG_DEBUG(fmt("Loading DHT routing table from %s.", filename.c_str()));
   BufferedFile fp(filename.c_str(), BufferedFile::READ);
   if (!fp) {
     throw DL_ABORT_EX(
@@ -198,7 +198,7 @@ void DHTRoutingTableDeserializer::deserialize(const std::string& filename)
   }
   localNode_ = std::move(localNode);
   nodes_ = std::move(nodes);
-  A2_LOG_INFO("DHT routing table was loaded successfully");
+  A2_LOG_DEBUG("DHT routing table was loaded successfully");
 }
 
 } // namespace aria2

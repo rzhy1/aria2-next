@@ -33,8 +33,7 @@
  */
 /* copyright --> */
 #include "DefaultBtAnnounce.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "util.h"
 #include "prefs.h"
 #include "DlAbortEx.h"
@@ -291,7 +290,7 @@ void DefaultBtAnnounce::resetAnnounce()
 void DefaultBtAnnounce::processAnnounceResponse(
     const unsigned char* trackerResponse, size_t trackerResponseLength)
 {
-  A2_LOG_DEBUG("Now processing tracker response.");
+  A2_LOG_TRACE("Now processing tracker response.");
   auto decodedValue = bencode2::decode(trackerResponse, trackerResponseLength);
   const Dict* dict = downcast<Dict>(decodedValue);
   if (!dict) {
@@ -309,17 +308,17 @@ void DefaultBtAnnounce::processAnnounceResponse(
   const String* tid = downcast<String>(dict->get(BtAnnounce::TRACKER_ID));
   if (tid) {
     trackerId_ = tid->s();
-    A2_LOG_DEBUG(fmt("Tracker ID:%s", trackerId_.c_str()));
+    A2_LOG_TRACE(fmt("Tracker ID:%s", trackerId_.c_str()));
   }
   const Integer* ival = downcast<Integer>(dict->get(BtAnnounce::INTERVAL));
   if (ival && ival->i() > 0) {
     interval_ = std::chrono::seconds(ival->i());
-    A2_LOG_DEBUG(fmt("Interval:%ld", static_cast<long int>(interval_.count())));
+    A2_LOG_TRACE(fmt("Interval:%ld", static_cast<long int>(interval_.count())));
   }
   const Integer* mival = downcast<Integer>(dict->get(BtAnnounce::MIN_INTERVAL));
   if (mival && mival->i() > 0) {
     minInterval_ = std::chrono::seconds(mival->i());
-    A2_LOG_DEBUG(
+    A2_LOG_TRACE(
         fmt("Min interval:%ld", static_cast<long int>(minInterval_.count())));
     minInterval_ = std::min(minInterval_, interval_);
   }
@@ -330,16 +329,16 @@ void DefaultBtAnnounce::processAnnounceResponse(
   const Integer* comp = downcast<Integer>(dict->get(BtAnnounce::COMPLETE));
   if (comp && comp->i() >= 0) {
     complete_ = comp->i();
-    A2_LOG_DEBUG(fmt("Complete:%d", complete_));
+    A2_LOG_TRACE(fmt("Complete:%d", complete_));
   }
   const Integer* incomp = downcast<Integer>(dict->get(BtAnnounce::INCOMPLETE));
   if (incomp && incomp->i() >= 0) {
     incomplete_ = incomp->i();
-    A2_LOG_DEBUG(fmt("Incomplete:%d", incomplete_));
+    A2_LOG_TRACE(fmt("Incomplete:%d", incomplete_));
   }
   auto peerData = dict->get(BtAnnounce::PEERS);
   if (!peerData) {
-    A2_LOG_INFO(MSG_NO_PEER_LIST_RECEIVED);
+    A2_LOG_DEBUG(MSG_NO_PEER_LIST_RECEIVED);
   }
   else {
     if (!btRuntime_->isHalt() && btRuntime_->lessThanMinPeers()) {
@@ -350,7 +349,7 @@ void DefaultBtAnnounce::processAnnounceResponse(
   }
   auto peer6Data = dict->get(BtAnnounce::PEERS6);
   if (!peer6Data) {
-    A2_LOG_INFO("No peers6 received.");
+    A2_LOG_DEBUG("No peers6 received.");
   }
   else {
     if (!btRuntime_->isHalt() && btRuntime_->lessThanMinPeers()) {
@@ -365,17 +364,17 @@ void DefaultBtAnnounce::processUDPTrackerResponse(
     const std::shared_ptr<UDPTrackerRequest>& req)
 {
   const std::shared_ptr<UDPTrackerReply>& reply = req->reply;
-  A2_LOG_DEBUG("Now processing UDP tracker response.");
+  A2_LOG_TRACE("Now processing UDP tracker response.");
   if (reply->interval > 0) {
     minInterval_ = std::chrono::seconds(reply->interval);
-    A2_LOG_DEBUG(
+    A2_LOG_TRACE(
         fmt("Min interval:%ld", static_cast<long int>(minInterval_.count())));
     interval_ = minInterval_;
   }
   complete_ = reply->seeders;
-  A2_LOG_DEBUG(fmt("Complete:%d", reply->seeders));
+  A2_LOG_TRACE(fmt("Complete:%d", reply->seeders));
   incomplete_ = reply->leechers;
-  A2_LOG_DEBUG(fmt("Incomplete:%d", reply->leechers));
+  A2_LOG_TRACE(fmt("Incomplete:%d", reply->leechers));
   if (!btRuntime_->isHalt() && btRuntime_->lessThanMinPeers()) {
     for (auto& elem : reply->peers) {
       peerStorage_->addPeer(std::make_shared<Peer>(elem.first, elem.second));

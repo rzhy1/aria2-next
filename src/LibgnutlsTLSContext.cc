@@ -41,8 +41,7 @@
 #  include <gnutls/pkcs12.h>
 #endif // HAVE_LIBGNUTLS
 
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "fmt.h"
 #include "message.h"
 #include "BufferedFile.h"
@@ -89,7 +88,7 @@ bool GnuTLSContext::addCredentialFile(const std::string& certfile,
   int ret = gnutls_certificate_set_x509_key_file(
       certCred_, certfile.c_str(), keyfile.c_str(), GNUTLS_X509_FMT_PEM);
   if (ret == GNUTLS_E_SUCCESS) {
-    A2_LOG_INFO(
+    A2_LOG_DEBUG(
         fmt("Credential files(cert=%s, key=%s) were successfully added.",
             certfile.c_str(), keyfile.c_str()));
     return true;
@@ -131,16 +130,16 @@ bool GnuTLSContext::addSystemTrustedCACerts()
 #ifdef HAVE_GNUTLS_CERTIFICATE_SET_X509_SYSTEM_TRUST
   int ret = gnutls_certificate_set_x509_system_trust(certCred_);
   if (ret < 0) {
-    A2_LOG_INFO(
+    A2_LOG_DEBUG(
         fmt(MSG_LOADING_SYSTEM_TRUSTED_CA_CERTS_FAILED, gnutls_strerror(ret)));
     return false;
   }
   else {
-    A2_LOG_INFO(fmt("%d certificate(s) were imported.", ret));
+    A2_LOG_DEBUG(fmt("%d certificate(s) were imported.", ret));
     return true;
   }
 #else
-  A2_LOG_INFO("System certificates not supported");
+  A2_LOG_DEBUG("System certificates not supported");
   return false;
 #endif
 }
@@ -155,7 +154,7 @@ bool GnuTLSContext::addTrustedCACertFile(const std::string& certfile)
     return false;
   }
   else {
-    A2_LOG_INFO(fmt("%d certificate(s) were imported.", ret));
+    A2_LOG_DEBUG(fmt("%d certificate(s) were imported.", ret));
     return true;
   }
 }

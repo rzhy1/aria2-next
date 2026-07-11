@@ -41,8 +41,7 @@
 
 #include "RequestGroupMan.h"
 #include "DownloadEngine.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "RequestGroup.h"
 #include "prefs.h"
 #include "DownloadEngineFactory.h"
@@ -219,7 +218,7 @@ int MultiUrlRequestInfo::prepare()
       if (cookieFile.isFile() &&
           e_->getCookieStorage()->load(cookieFile.getPath(),
                                        Time().getTimeFromEpoch())) {
-        A2_LOG_INFO(
+        A2_LOG_DEBUG(
             fmt("Loaded cookies from '%s'.", cookieFile.getPath().c_str()));
       }
       else {
@@ -238,7 +237,7 @@ int MultiUrlRequestInfo::prepare()
       mode_t mode = netrccf.mode();
 #endif // !__MINGW32__
       if (mode & (S_IRWXG | S_IRWXO)) {
-        A2_LOG_NOTICE(fmt(MSG_INCORRECT_NETRC_PERMISSION,
+        A2_LOG_INFO(fmt(MSG_INCORRECT_NETRC_PERMISSION,
                           option_->get(PREF_NETRC_PATH).c_str()));
       }
       else {
@@ -261,12 +260,12 @@ int MultiUrlRequestInfo::prepare()
     if (!option_->blank(PREF_CA_CERTIFICATE)) {
       if (!clTlsContext->addTrustedCACertFile(
               option_->get(PREF_CA_CERTIFICATE))) {
-        A2_LOG_INFO(MSG_WARN_NO_CA_CERT);
+        A2_LOG_DEBUG(MSG_WARN_NO_CA_CERT);
       }
     }
     else if (option_->getAsBool(PREF_CHECK_CERTIFICATE)) {
       if (!clTlsContext->addSystemTrustedCACerts()) {
-        A2_LOG_INFO(MSG_WARN_NO_CA_CERT);
+        A2_LOG_DEBUG(MSG_WARN_NO_CA_CERT);
       }
     }
     clTlsContext->setVerifyPeer(option_->getAsBool(PREF_CHECK_CERTIFICATE));
@@ -333,11 +332,11 @@ error_code::Value MultiUrlRequestInfo::getResult()
   if (!option_->blank(PREF_SAVE_SESSION)) {
     const std::string& filename = option_->get(PREF_SAVE_SESSION);
     if (sessionSerializer.save(filename)) {
-      A2_LOG_NOTICE(
+      A2_LOG_INFO(
           fmt(_("Serialized session to '%s' successfully."), filename.c_str()));
     }
     else {
-      A2_LOG_NOTICE(
+      A2_LOG_INFO(
           fmt(_("Failed to serialize session to '%s'."), filename.c_str()));
     }
   }

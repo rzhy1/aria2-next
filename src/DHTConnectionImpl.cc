@@ -37,8 +37,7 @@
 #include <utility>
 #include <algorithm>
 
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "RecoverableException.h"
 #include "util.h"
 #include "SocketCore.h"
@@ -79,7 +78,7 @@ bool DHTConnectionImpl::bind(uint16_t& port, const std::string& addr)
     socket_->setNonBlockingMode();
     auto endpoint = socket_->getAddrInfo();
     port = endpoint.port;
-    A2_LOG_NOTICE(fmt(_("IPv%d DHT: listening on UDP port %u"), ipv, port));
+    A2_LOG_INFO(fmt(_("IPv%d DHT: listening on UDP port %u"), ipv, port));
     return true;
   }
   catch (RecoverableException& e) {

@@ -78,8 +78,7 @@
 #include "bitfield.h"
 #include "DownloadHandlerConstants.h"
 #include "RequestGroup.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "Option.h"
 #include "DownloadContext.h"
 #include "BufferedFile.h"
@@ -2333,7 +2332,7 @@ void executeHook(const std::string& command, a2_gid_t gid, size_t numFiles,
   const std::string gidStr = GroupId::toHex(gid);
   const std::string numFilesStr = util::uitos(numFiles);
 #ifndef __MINGW32__
-  A2_LOG_INFO(fmt("Executing user command: %s %s %s %s", command.c_str(),
+  A2_LOG_DEBUG(fmt("Executing user command: %s %s %s %s", command.c_str(),
                   gidStr.c_str(), numFilesStr.c_str(), firstFilename.c_str()));
   pid_t cpid = fork();
   if (cpid == 0) {
@@ -2370,7 +2369,7 @@ void executeHook(const std::string& command, a2_gid_t gid, size_t numFiles,
       cmdexe += "\\system32\\cmd.exe";
     }
     else {
-      A2_LOG_INFO("Failed to get windir environment variable."
+      A2_LOG_DEBUG("Failed to get windir environment variable."
                   " Executing batch file will fail.");
       // TODO Might be useless.
       cmdexe = "cmd.exe";
@@ -2395,7 +2394,7 @@ void executeHook(const std::string& command, a2_gid_t gid, size_t numFiles,
   auto wcharCmdline = make_unique<wchar_t[]>(cmdlineLen);
   cmdlineLen = utf8ToWChar(wcharCmdline.get(), cmdlineLen, cmdline.c_str());
   assert(cmdlineLen > 0);
-  A2_LOG_INFO(fmt("Executing user command: %s", cmdline.c_str()));
+  A2_LOG_DEBUG(fmt("Executing user command: %s", cmdline.c_str()));
   DWORD rc = CreateProcessW(batch ? utf8ToWChar(cmdexe).c_str() : nullptr,
                             wcharCmdline.get(), nullptr, nullptr, false, 0,
                             nullptr, 0, &si, &pi);

@@ -43,8 +43,7 @@
 #include "DHTTaskFactory.h"
 #include "DHTTask.h"
 #include "util.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "fmt.h"
 
 namespace aria2 {
@@ -73,20 +72,20 @@ bool DHTRoutingTable::addGoodNode(const std::shared_ptr<DHTNode>& node)
 
 bool DHTRoutingTable::addNode(const std::shared_ptr<DHTNode>& node, bool good)
 {
-  A2_LOG_DEBUG(fmt("Trying to add node:%s", node->toString().c_str()));
+  A2_LOG_TRACE(fmt("Trying to add node:%s", node->toString().c_str()));
   if (*localNode_ == *node) {
-    A2_LOG_DEBUG("Adding node with the same ID with localnode is not allowed.");
+    A2_LOG_TRACE("Adding node with the same ID with localnode is not allowed.");
     return false;
   }
   auto treeNode = dht::findTreeNodeFor(root_.get(), node->getID());
   while (1) {
     const std::shared_ptr<DHTBucket>& bucket = treeNode->getBucket();
     if (bucket->addNode(node)) {
-      A2_LOG_DEBUG("Added DHTNode.");
+      A2_LOG_TRACE("Added DHTNode.");
       return true;
     }
     else if (bucket->splitAllowed()) {
-      A2_LOG_DEBUG(fmt("Splitting bucket. Range:%s-%s",
+      A2_LOG_TRACE(fmt("Splitting bucket. Range:%s-%s",
                        util::toHex(bucket->getMinID(), DHT_ID_LENGTH).c_str(),
                        util::toHex(bucket->getMaxID(), DHT_ID_LENGTH).c_str()));
       treeNode->split();
@@ -101,7 +100,7 @@ bool DHTRoutingTable::addNode(const std::shared_ptr<DHTNode>& node, bool good)
     else {
       if (good) {
         bucket->cacheNode(node);
-        A2_LOG_DEBUG(fmt("Cached node=%s", node->toString().c_str()));
+        A2_LOG_TRACE(fmt("Cached node=%s", node->toString().c_str()));
       }
       return false;
     }

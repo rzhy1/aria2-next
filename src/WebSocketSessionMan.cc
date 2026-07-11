@@ -42,7 +42,7 @@
 #include "json.h"
 #include "util.h"
 #include "WebSocketInteractionCommand.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 
@@ -55,14 +55,14 @@ WebSocketSessionMan::~WebSocketSessionMan() = default;
 void WebSocketSessionMan::addSession(
     const std::shared_ptr<WebSocketSession>& wsSession)
 {
-  A2_LOG_DEBUG("WebSocket session added.");
+  A2_LOG_TRACE("WebSocket session added.");
   sessions_.insert(wsSession);
 }
 
 void WebSocketSessionMan::removeSession(
     const std::shared_ptr<WebSocketSession>& wsSession)
 {
-  A2_LOG_DEBUG("WebSocket session removed.");
+  A2_LOG_TRACE("WebSocket session removed.");
   sessions_.erase(wsSession);
 }
 

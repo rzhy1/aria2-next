@@ -36,8 +36,7 @@
 
 #include <algorithm>
 
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "util.h"
 #include "DHTNode.h"
 #include "DHTConnectionImpl.h"
@@ -137,7 +136,7 @@ DHTSetup::setup(DownloadEngine* e, int family)
       }
       localNode->setPort(port);
     }
-    A2_LOG_DEBUG(fmt("Initialized local node ID=%s",
+    A2_LOG_TRACE(fmt("Initialized local node ID=%s",
                      util::toHex(localNode->getID(), DHT_ID_LENGTH).c_str()));
     auto tracker = std::make_shared<DHTMessageTracker>();
     auto routingTable = make_unique<DHTRoutingTable>(localNode);
@@ -205,7 +204,7 @@ DHTSetup::setup(DownloadEngine* e, int family)
       }
     }
     else {
-      A2_LOG_INFO("No DHT entry point specified.");
+      A2_LOG_DEBUG("No DHT entry point specified.");
     }
     {
       auto command = make_unique<DHTInteractionCommand>(e->newCUID(), e);

@@ -42,7 +42,7 @@
 #endif // HAVE_SOME_FALLOCATE
 #include "DiskWriter.h"
 #include "DefaultDiskWriterFactory.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 
@@ -95,7 +95,7 @@ void MultiFileAllocationIterator::allocateChunk()
 
     if ((*entryItr_)->needsFileAllocation() &&
         (*entryItr_)->size() < fileEntry->getLength()) {
-      A2_LOG_INFO(fmt("Allocating file %s: target size=%" PRId64
+      A2_LOG_DEBUG(fmt("Allocating file %s: target size=%" PRId64
                       ", current size=%" PRId64,
                       (*entryItr_)->getFilePath().c_str(),
                       fileEntry->getLength(), (*entryItr_)->size()));

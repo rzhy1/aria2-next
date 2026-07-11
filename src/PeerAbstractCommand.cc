@@ -38,8 +38,7 @@
 #include "Option.h"
 #include "DlAbortEx.h"
 #include "SocketCore.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "message.h"
 #include "prefs.h"
 #include "DownloadFailureException.h"
@@ -77,7 +76,7 @@ PeerAbstractCommand::~PeerAbstractCommand()
 
 bool PeerAbstractCommand::execute()
 {
-  A2_LOG_DEBUG(fmt("CUID#%" PRId64 " -"
+  A2_LOG_TRACE(fmt("CUID#%" PRId64 " -"
                    " socket: read:%d, write:%d, hup:%d, err:%d, noCheck:%d",
                    getCuid(), readEventEnabled(), writeEventEnabled(),
                    hupEventEnabled(), errorEventEnabled(), noCheck_));
@@ -106,8 +105,8 @@ bool PeerAbstractCommand::execute()
     return true;
   }
   catch (RecoverableException& err) {
-    A2_LOG_DEBUG_EX(fmt(MSG_TORRENT_DOWNLOAD_ABORTED, getCuid()), err);
-    A2_LOG_DEBUG(fmt(MSG_PEER_BANNED, getCuid(), peer_->getIPAddress().c_str(),
+    A2_LOG_TRACE_EX(fmt(MSG_TORRENT_DOWNLOAD_ABORTED, getCuid()), err);
+    A2_LOG_TRACE(fmt(MSG_PEER_BANNED, getCuid(), peer_->getIPAddress().c_str(),
                      peer_->getPort()));
     onAbort();
     return prepareForNextPeer(0);

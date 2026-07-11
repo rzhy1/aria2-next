@@ -39,8 +39,7 @@
 #include <limits>
 #include <sstream>
 
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "DlAbortEx.h"
 #include "Option.h"
 #include "OptionParser.h"
@@ -422,12 +421,12 @@ std::unique_ptr<ValueBase> AddTorrentRpcMethod::process(const RpcRequest& req,
     // Save uploaded data in order to save this download in
     // --save-session file.
     if (util::saveAs(filename, torrentParam->s(), true)) {
-      A2_LOG_INFO(
+      A2_LOG_DEBUG(
           fmt("Uploaded torrent data was saved as %s", filename.c_str()));
       requestOption->put(PREF_TORRENT_FILE, filename);
     }
     else {
-      A2_LOG_INFO(fmt("Uploaded torrent data was not saved."
+      A2_LOG_DEBUG(fmt("Uploaded torrent data was not saved."
                       " Failed to write file %s",
                       filename.c_str()));
       filename.clear();
@@ -478,13 +477,13 @@ std::unique_ptr<ValueBase> AddMetalinkRpcMethod::process(const RpcRequest& req,
     // Save uploaded data in order to save this download in
     // --save-session file.
     if (util::saveAs(filename, metalinkParam->s(), true)) {
-      A2_LOG_INFO(
+      A2_LOG_DEBUG(
           fmt("Uploaded metalink data was saved as %s", filename.c_str()));
       requestOption->put(PREF_METALINK_FILE, filename);
       createRequestGroupForMetalink(result, requestOption);
     }
     else {
-      A2_LOG_INFO(fmt("Uploaded metalink data was not saved."
+      A2_LOG_DEBUG(fmt("Uploaded metalink data was not saved."
                       " Failed to write file %s",
                       filename.c_str()));
       createRequestGroupForMetalink(result, requestOption, metalinkParam->s());
@@ -1624,7 +1623,7 @@ std::unique_ptr<ValueBase> goingShutdown(const RpcRequest& req,
   // receive RPC response.
   e->addRoutineCommand(
       make_unique<TimedHaltCommand>(e->newCUID(), e, 3_s, forceHalt));
-  A2_LOG_INFO("Scheduled shutdown in 3 seconds.");
+  A2_LOG_DEBUG("Scheduled shutdown in 3 seconds.");
   return createOKResponse();
 }
 } // namespace
@@ -1665,7 +1664,7 @@ std::unique_ptr<ValueBase> SaveSessionRpcMethod::process(const RpcRequest& req,
   }
   SessionSerializer sessionSerializer(e->getRequestGroupMan().get());
   if (sessionSerializer.save(filename)) {
-    A2_LOG_NOTICE(
+    A2_LOG_INFO(
         fmt(_("Serialized session to '%s' successfully."), filename.c_str()));
     return createOKResponse();
   }
@@ -1734,7 +1733,7 @@ RpcResponse SystemMulticallRpcMethod::execute(RpcRequest req, DownloadEngine* e)
     return RpcResponse(0, authorized, std::move(list), std::move(req.id));
   }
   catch (RecoverableException& ex) {
-    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, ex);
+    A2_LOG_TRACE_EX(EX_EXCEPTION_CAUGHT, ex);
     return RpcResponse(1, authorized, createErrorResponse(ex, req),
                        std::move(req.id));
   }
@@ -1911,7 +1910,8 @@ void changeOption(const std::shared_ptr<RequestGroup>& group,
 void changeGlobalOption(const Option& option, DownloadEngine* e)
 {
   e->getOption()->merge(option);
-  bool reconfigureLogger = false;
+  bool reconfigureLogging = false;
+  auto logSettings = logging::getSettings();
   if (option.defined(PREF_MAX_OVERALL_DOWNLOAD_LIMIT)) {
     e->getRequestGroupMan()->setMaxOverallDownloadSpeedLimit(
         option.getAsInt(PREF_MAX_OVERALL_DOWNLOAD_LIMIT));
@@ -1935,24 +1935,24 @@ void changeGlobalOption(const Option& option, DownloadEngine* e)
         option.getAsInt(PREF_MAX_DOWNLOAD_RESULT));
   }
   if (option.defined(PREF_LOG_LEVEL)) {
-    LogFactory::setLogLevel(option.get(PREF_LOG_LEVEL));
-    reconfigureLogger = true;
+    logSettings.fileLevel = logging::parseLevel(option.get(PREF_LOG_LEVEL));
+    reconfigureLogging = true;
   }
   if (option.defined(PREF_LOG)) {
-    LogFactory::setLogFile(option.get(PREF_LOG));
-    reconfigureLogger = true;
+    logSettings.file = option.get(PREF_LOG);
+    reconfigureLogging = true;
   }
   if (option.defined(PREF_LOG_MAX_SIZE)) {
-    LogFactory::setLogMaxSize(option.getAsLLInt(PREF_LOG_MAX_SIZE));
-    reconfigureLogger = true;
+    logSettings.maxFileSize = option.getAsLLInt(PREF_LOG_MAX_SIZE);
+    reconfigureLogging = true;
   }
   if (option.defined(PREF_LOG_MAX_FILES)) {
-    LogFactory::setLogMaxFiles(option.getAsInt(PREF_LOG_MAX_FILES));
-    reconfigureLogger = true;
+    logSettings.maxFiles = option.getAsInt(PREF_LOG_MAX_FILES);
+    reconfigureLogging = true;
   }
-  if (reconfigureLogger) {
+  if (reconfigureLogging) {
     try {
-      LogFactory::reconfigure();
+      logging::configure(logSettings);
     }
     catch (RecoverableException& e) {
       // TODO no exception handling

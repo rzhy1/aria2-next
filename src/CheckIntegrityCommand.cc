@@ -36,8 +36,7 @@
 #include "CheckIntegrityEntry.h"
 #include "DownloadEngine.h"
 #include "RequestGroup.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "message.h"
 #include "prefs.h"
 #include "DownloadContext.h"
@@ -73,7 +72,7 @@ bool CheckIntegrityCommand::executeInternal()
     // needed.
     getRequestGroup()->enableSaveControlFile();
     if (getRequestGroup()->downloadFinished()) {
-      A2_LOG_NOTICE(
+      A2_LOG_INFO(
           fmt(MSG_VERIFICATION_SUCCESSFUL,
               getRequestGroup()->getDownloadContext()->getBasePath().c_str()));
       std::vector<std::unique_ptr<Command>> commands;

@@ -130,6 +130,20 @@ endif()
 
 list(REMOVE_DUPLICATES ARIA2_CORE_SOURCES)
 
+find_package(Threads REQUIRED)
+add_library(aria2_spdlog INTERFACE)
+add_library(spdlog::spdlog_header_only ALIAS aria2_spdlog)
+target_include_directories(aria2_spdlog INTERFACE
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include)
+target_compile_definitions(aria2_spdlog INTERFACE
+  SPDLOG_DISABLE_DEFAULT_LOGGER
+  SPDLOG_NO_THREAD_ID
+  SPDLOG_PREVENT_CHILD_FD)
+target_link_libraries(aria2_spdlog INTERFACE Threads::Threads)
+if(WIN32)
+  target_compile_definitions(aria2_spdlog INTERFACE SPDLOG_WCHAR_FILENAMES)
+endif()
+
 add_library(wslay STATIC
   third_party/wslay/lib/wslay_event.c
   third_party/wslay/lib/wslay_frame.c
@@ -160,6 +174,7 @@ target_include_directories(aria2_core
     ${CMAKE_CURRENT_BINARY_DIR}/src/includes
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/lib)
+target_link_libraries(aria2_core PRIVATE spdlog::spdlog_header_only)
 if(ENABLE_WEBSOCKET)
   target_link_libraries(aria2_core PUBLIC wslay)
 endif()
@@ -202,6 +217,10 @@ endif()
 if(WIN32)
   target_link_libraries(aria2_core PUBLIC ws2_32 wsock32 gdi32 winmm iphlpapi psapi crypt32 secur32 advapi32)
 endif()
+if(APPLE)
+  find_library(ARIA2_SECURITY_FRAMEWORK Security REQUIRED)
+  target_link_libraries(aria2_core PUBLIC ${ARIA2_SECURITY_FRAMEWORK})
+endif()
 if(CMAKE_SYSTEM_NAME MATCHES "SunOS")
   target_link_libraries(aria2_core PUBLIC nsl socket)
 endif()
@@ -227,7 +246,7 @@ if(ARIA2_ENABLE_WERROR)
 endif()
 
 add_executable(aria2-next src/main.cc)
-target_link_libraries(aria2-next PRIVATE aria2_core)
+target_link_libraries(aria2-next PRIVATE aria2_core spdlog::spdlog_header_only)
 
 if(ARIA2_RELEASE_SIZE_OPTIMIZED)
   foreach(target wslay aria2_core aria2-next)

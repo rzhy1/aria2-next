@@ -25,7 +25,8 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/RequestTest.cc
   tests/HttpRequestTest.cc
   tests/RequestGroupManTest.cc
-  tests/RotatingLogFileTest.cc
+  tests/LogTest.cc
+  tests/ShareRatioSeedCriteriaTest.cc
   tests/AuthConfigFactoryTest.cc
   tests/NetrcAuthResolverTest.cc
   tests/DefaultAuthResolverTest.cc
@@ -60,6 +61,7 @@ set(ARIA2_TEST_SOURCES_BASE
   tests/CookieTest.cc
   tests/CookieStorageTest.cc
   tests/TimeTest.cc
+  tests/TimeSeedCriteriaTest.cc
   tests/FtpConnectionTest.cc
   tests/OptionParserTest.cc
   tests/DNSCacheTest.cc
@@ -161,11 +163,9 @@ set(ARIA2_TEST_SOURCES_ENABLE_BITTORRENT
   tests/ByteArrayDiskWriterTest.cc
   tests/PeerTest.cc
   tests/PeerSessionResourceTest.cc
-  tests/ShareRatioSeedCriteriaTest.cc
   tests/BtRegistryTest.cc
   tests/BtDependencyTest.cc
   tests/BtPostDownloadHandlerTest.cc
-  tests/TimeSeedCriteriaTest.cc
   tests/BtExtendedMessageTest.cc
   tests/HandshakeExtensionMessageTest.cc
   tests/UTPexExtensionMessageTest.cc

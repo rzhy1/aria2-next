@@ -38,7 +38,7 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-#include "LogFactory.h"
+#include "Log.h"
 #include "util.h"
 #include "SocketCore.h"
 

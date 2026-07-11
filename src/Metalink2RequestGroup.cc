@@ -38,8 +38,7 @@
 
 #include "RequestGroup.h"
 #include "Option.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "prefs.h"
 #include "util.h"
 #include "message.h"
@@ -154,7 +153,7 @@ void Metalink2RequestGroup::createRequestGroup(
     const std::shared_ptr<Option>& optionTemplate)
 {
   if (entries.empty()) {
-    A2_LOG_NOTICE(EX_NO_RESULT_WITH_YOUR_PREFS);
+    A2_LOG_INFO(EX_NO_RESULT_WITH_YOUR_PREFS);
     return;
   }
   std::vector<std::string> locations;
@@ -204,7 +203,7 @@ void Metalink2RequestGroup::createRequestGroup(
   for (auto& entryGroup : entryGroups) {
     auto& metaurl = entryGroup.first;
     auto& mes = entryGroup.second;
-    A2_LOG_INFO(fmt("Processing metaurl group metaurl=%s", metaurl.c_str()));
+    A2_LOG_DEBUG(fmt("Processing metaurl group metaurl=%s", metaurl.c_str()));
 #ifdef ENABLE_BITTORRENT
     std::shared_ptr<RequestGroup> torrentRg;
     if (!metaurl.empty()) {
@@ -241,10 +240,10 @@ void Metalink2RequestGroup::createRequestGroup(
     int maxConn = option->getAsInt(PREF_MAX_CONNECTION_PER_SERVER);
     if (mes.size() == 1) {
       auto entry = mes[0];
-      A2_LOG_INFO(fmt(MSG_METALINK_QUEUEING, entry->getPath().c_str()));
+      A2_LOG_DEBUG(fmt(MSG_METALINK_QUEUEING, entry->getPath().c_str()));
       entry->reorderResourcesByPriority();
       for (auto& mr : entry->resources) {
-        A2_LOG_DEBUG(fmt("priority=%d url=%s", mr->priority, mr->url.c_str()));
+        A2_LOG_TRACE(fmt("priority=%d url=%s", mr->priority, mr->url.c_str()));
       }
       std::vector<std::string> uris;
       std::for_each(std::begin(entry->resources), std::end(entry->resources),
@@ -293,9 +292,9 @@ void Metalink2RequestGroup::createRequestGroup(
       std::vector<std::shared_ptr<FileEntry>> fileEntries;
       int64_t offset = 0;
       for (auto entry : mes) {
-        A2_LOG_INFO(fmt("Metalink: Queueing %s for download as a member.",
+        A2_LOG_DEBUG(fmt("Metalink: Queueing %s for download as a member.",
                         entry->getPath().c_str()));
-        A2_LOG_DEBUG(
+        A2_LOG_TRACE(
             fmt("originalName = %s", entry->metaurls[0]->name.c_str()));
         entry->reorderResourcesByPriority();
         std::vector<std::string> uris;

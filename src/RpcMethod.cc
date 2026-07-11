@@ -34,7 +34,7 @@
 /* copyright --> */
 #include "RpcMethod.h"
 #include "DownloadEngine.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "RecoverableException.h"
 #include "message.h"
 #include "OptionParser.h"
@@ -98,7 +98,7 @@ RpcResponse RpcMethod::execute(RpcRequest req, DownloadEngine* e)
     return RpcResponse(0, authorized, std::move(r), std::move(req.id));
   }
   catch (RecoverableException& ex) {
-    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, ex);
+    A2_LOG_TRACE_EX(EX_EXCEPTION_CAUGHT, ex);
     return RpcResponse(1, authorized, createErrorResponse(ex, req),
                        std::move(req.id));
   }

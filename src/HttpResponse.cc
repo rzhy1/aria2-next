@@ -39,8 +39,7 @@
 #include "HttpRequest.h"
 #include "HttpHeader.h"
 #include "Range.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "util.h"
 #include "message.h"
 #include "DlAbortEx.h"
@@ -136,7 +135,7 @@ std::string HttpResponse::determineFilename(bool contentDispositionUTF8) const
     return file;
   }
 
-  A2_LOG_INFO(
+  A2_LOG_DEBUG(
       fmt(MSG_CONTENT_DISPOSITION_DETECTED, cuid_, contentDisposition.c_str()));
   return contentDisposition;
 }
@@ -175,7 +174,7 @@ void HttpResponse::processRedirect()
         cuid_, req->getCurrentUri().c_str()));
   }
 
-  A2_LOG_NOTICE(fmt(MSG_REDIRECT, cuid_,
+  A2_LOG_INFO(fmt(MSG_REDIRECT, cuid_,
                     httpRequest_->getRequest()->getCurrentUri().c_str()));
 }
 

@@ -68,7 +68,7 @@
 #ifdef HAVE_LIBGMP
 #  include "a2gmp.h"
 #endif // HAVE_LIBGMP
-#include "LogFactory.h"
+#include "Log.h"
 #include "util.h"
 #include "SocketCore.h"
 
@@ -82,7 +82,7 @@ void gnutls_log_callback(int level, const char* str)
   // GnuTLS adds a newline. Drop it.
   std::string msg(str);
   msg.resize(msg.size() - 1);
-  A2_LOG_DEBUG(fmt("GnuTLS: <%d> %s", level, msg.c_str()));
+  A2_LOG_TRACE(fmt("GnuTLS: <%d> %s", level, msg.c_str()));
 }
 } // namespace
 #endif // HAVE_LIBGNUTLS

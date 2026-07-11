@@ -171,6 +171,8 @@ void OptionParserTest::testLogRotationOptions()
   CPPUNIT_ASSERT_EQUAL((int64_t)10_m,
                        defaults.getAsLLInt(PREF_LOG_MAX_SIZE));
   CPPUNIT_ASSERT_EQUAL(4, defaults.getAsInt(PREF_LOG_MAX_FILES));
+  CPPUNIT_ASSERT_EQUAL(V_TRACE, defaults.get(PREF_LOG_LEVEL));
+  CPPUNIT_ASSERT_EQUAL(V_INFO, defaults.get(PREF_CONSOLE_LOG_LEVEL));
 
   Option configured;
   std::stringstream input;
@@ -184,6 +186,13 @@ void OptionParserTest::testLogRotationOptions()
   try {
     parser->find(PREF_LOG_MAX_FILES)->parse(configured, "0");
     CPPUNIT_FAIL("zero log file count must be rejected");
+  }
+  catch (Exception&) {
+  }
+
+  try {
+    parser->find(PREF_LOG_LEVEL)->parse(configured, "notice");
+    CPPUNIT_FAIL("notice log level must be rejected");
   }
   catch (Exception&) {
   }

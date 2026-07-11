@@ -40,8 +40,7 @@
 #include <numeric>
 
 #include "Command.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "util.h"
 #include "a2functional.h"
 #include "fmt.h"
@@ -122,7 +121,7 @@ void EpollEventPoll::poll(const struct timeval& tv)
   }
   else if (res == -1) {
     int errNum = errno;
-    A2_LOG_INFO(
+    A2_LOG_DEBUG(
         fmt("epoll_wait error: %s", util::safeStrerror(errNum).c_str()));
   }
 #ifdef ENABLE_ASYNC_DNS
@@ -199,7 +198,7 @@ bool EpollEventPoll::addEvents(sock_t socket,
     errNum = errno;
   }
   if (r == -1) {
-    A2_LOG_DEBUG(fmt("Failed to add socket event %d:%s", socket,
+    A2_LOG_TRACE(fmt("Failed to add socket event %d:%s", socket,
                      util::safeStrerror(errNum).c_str()));
     return false;
   }
@@ -228,7 +227,7 @@ bool EpollEventPoll::deleteEvents(sock_t socket,
 {
   auto i = socketEntries_.find(socket);
   if (i == std::end(socketEntries_)) {
-    A2_LOG_DEBUG(fmt("Socket %d is not found in SocketEntries.", socket));
+    A2_LOG_TRACE(fmt("Socket %d is not found in SocketEntries.", socket));
     return false;
   }
 
@@ -251,12 +250,12 @@ bool EpollEventPoll::deleteEvents(sock_t socket,
     r = epoll_ctl(epfd_, EPOLL_CTL_MOD, socketEntry.getSocket(), &epEvent);
     errNum = errno;
     if (r == -1) {
-      A2_LOG_DEBUG(fmt("Failed to delete socket event, but may be ignored:%s",
+      A2_LOG_TRACE(fmt("Failed to delete socket event, but may be ignored:%s",
                        util::safeStrerror(errNum).c_str()));
     }
   }
   if (r == -1) {
-    A2_LOG_DEBUG(fmt("Failed to delete socket event:%s",
+    A2_LOG_TRACE(fmt("Failed to delete socket event:%s",
                      util::safeStrerror(errNum).c_str()));
     return false;
   }

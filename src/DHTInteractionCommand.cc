@@ -45,8 +45,7 @@
 #include "SocketCore.h"
 #include "message.h"
 #include "RequestGroupMan.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "DHTMessageCallback.h"
 #include "DHTNode.h"
 #include "DHTConnection.h"
@@ -98,12 +97,12 @@ bool DHTInteractionCommand::execute()
   // needs this.
   if (e_->getRequestGroupMan()->downloadFinished() ||
       (e_->isHaltRequested() && udpTrackerClient_->getNumWatchers() == 0)) {
-    A2_LOG_DEBUG("DHTInteractionCommand exiting");
+    A2_LOG_TRACE("DHTInteractionCommand exiting");
     return true;
   }
   else if (e_->isForceHaltRequested()) {
     udpTrackerClient_->failAll();
-    A2_LOG_DEBUG("DHTInteractionCommand exiting");
+    A2_LOG_TRACE("DHTInteractionCommand exiting");
     return true;
   }
 
@@ -142,7 +141,7 @@ bool DHTInteractionCommand::execute()
     }
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX("Exception thrown while receiving UDP message.", e);
+    A2_LOG_DEBUG_EX("Exception thrown while receiving UDP message.", e);
   }
   receiver_->handleTimeout();
   udpTrackerClient_->handleTimeout(global::wallclock());
@@ -160,7 +159,7 @@ bool DHTInteractionCommand::execute()
       udpTrackerClient_->requestSent(global::wallclock());
     }
     catch (RecoverableException& e) {
-      A2_LOG_INFO_EX("Exception thrown while sending UDP tracker request.", e);
+      A2_LOG_DEBUG_EX("Exception thrown while sending UDP tracker request.", e);
       udpTrackerClient_->requestFail(UDPT_ERR_NETWORK);
     }
   }

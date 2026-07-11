@@ -37,8 +37,7 @@
 #include "DlAbortEx.h"
 #include "util.h"
 #include "message.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "Peer.h"
 #include "DHTNode.h"
 #include "DHTRoutingTable.h"
@@ -75,7 +74,7 @@ void BtPortMessage::doReceivedAction()
 {
   if (taskFactory_ && taskQueue_) {
     if (port_ == 0) {
-      A2_LOG_DEBUG("Ignored port 0.");
+      A2_LOG_TRACE("Ignored port 0.");
       return;
     }
     // node id is random at this point. When ping reply received, new DHTNode
@@ -89,13 +88,13 @@ void BtPortMessage::doReceivedAction()
     }
     if (routingTable_->getNumBucket() == 1) {
       // initiate bootstrap
-      A2_LOG_INFO("Dispatch node_lookup since too few buckets.");
+      A2_LOG_DEBUG("Dispatch node_lookup since too few buckets.");
       taskQueue_->addImmediateTask(
           taskFactory_->createNodeLookupTask(localNode_->getID()));
     }
   }
   else {
-    A2_LOG_INFO(
+    A2_LOG_DEBUG(
         "DHT port message received while localhost didn't declare support it.");
   }
 }

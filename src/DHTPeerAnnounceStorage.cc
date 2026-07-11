@@ -43,8 +43,7 @@
 #include "DHTTaskQueue.h"
 #include "DHTTaskFactory.h"
 #include "DHTTask.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "util.h"
 #include "a2functional.h"
 #include "wallclock.h"
@@ -85,7 +84,7 @@ void DHTPeerAnnounceStorage::addPeerAnnounce(const unsigned char* infoHash,
                                              const std::string& ipaddr,
                                              uint16_t port)
 {
-  A2_LOG_DEBUG(fmt("Adding %s:%u to peer announce list: infoHash=%s",
+  A2_LOG_TRACE(fmt("Adding %s:%u to peer announce list: infoHash=%s",
                    ipaddr.c_str(), port,
                    util::toHex(infoHash, DHT_ID_LENGTH).c_str()));
   getPeerAnnounceEntry(infoHash)->addPeerAddrEntry(PeerAddrEntry(ipaddr, port));
@@ -111,7 +110,7 @@ void DHTPeerAnnounceStorage::getPeers(std::vector<std::shared_ptr<Peer>>& peers,
 
 void DHTPeerAnnounceStorage::handleTimeout()
 {
-  A2_LOG_DEBUG(fmt("Now purge peer announces(%lu entries) which are timed out.",
+  A2_LOG_TRACE(fmt("Now purge peer announces(%lu entries) which are timed out.",
                    static_cast<unsigned long>(entries_.size())));
   std::for_each(std::begin(entries_), std::end(entries_),
                 [](const std::shared_ptr<DHTPeerAnnounceEntry>& e) {
@@ -126,13 +125,13 @@ void DHTPeerAnnounceStorage::handleTimeout()
       ++i;
     }
   }
-  A2_LOG_DEBUG(fmt("Currently %lu peer announce entries",
+  A2_LOG_TRACE(fmt("Currently %lu peer announce entries",
                    static_cast<unsigned long>(entries_.size())));
 }
 
 void DHTPeerAnnounceStorage::announcePeer()
 {
-  A2_LOG_DEBUG("Now announcing peer.");
+  A2_LOG_TRACE("Now announcing peer.");
   for (auto& e : entries_) {
     if (e->getLastUpdated().difference(global::wallclock()) <
         DHT_PEER_ANNOUNCE_INTERVAL) {
@@ -141,7 +140,7 @@ void DHTPeerAnnounceStorage::announcePeer()
     e->notifyUpdate();
     auto task = taskFactory_->createPeerAnnounceTask(e->getInfoHash());
     taskQueue_->addPeriodicTask2(task);
-    A2_LOG_DEBUG(fmt("Added 1 peer announce: infoHash=%s",
+    A2_LOG_TRACE(fmt("Added 1 peer announce: infoHash=%s",
                      util::toHex(e->getInfoHash(), DHT_ID_LENGTH).c_str()));
   }
 }

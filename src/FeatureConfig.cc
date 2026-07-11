@@ -34,6 +34,8 @@
 /* copyright --> */
 #include "FeatureConfig.h"
 
+#include <spdlog/version.h>
+
 #include <sstream>
 #include <cstring>
 
@@ -195,6 +197,8 @@ const char* strSupportedFeature(int feature)
 std::string usedLibs()
 {
   std::string res;
+  res += fmt("spdlog/%d.%d.%d ", SPDLOG_VER_MAJOR, SPDLOG_VER_MINOR,
+             SPDLOG_VER_PATCH);
 #ifdef HAVE_ZLIB
   res += "zlib/" ZLIB_VERSION " ";
 #endif // HAVE_ZLIB

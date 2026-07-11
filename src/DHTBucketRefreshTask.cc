@@ -40,8 +40,7 @@
 #include "DHTNode.h"
 #include "DHTNodeLookupEntry.h"
 #include "util.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "DHTMessageCallback.h"
 #include "fmt.h"
 
@@ -69,7 +68,7 @@ void DHTBucketRefreshTask::startup()
     task->setTaskQueue(getTaskQueue());
     task->setLocalNode(getLocalNode());
 
-    A2_LOG_INFO(fmt("Dispating bucket refresh. targetID=%s",
+    A2_LOG_DEBUG(fmt("Dispating bucket refresh. targetID=%s",
                     util::toHex(targetID, DHT_ID_LENGTH).c_str()));
     getTaskQueue()->addPeriodicTask1(task);
   }

@@ -36,8 +36,7 @@
 #include "FileAllocationEntry.h"
 #include "FileAllocationCommand.h"
 #include "message.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "util.h"
 #include "fmt.h"
 
@@ -53,7 +52,7 @@ std::unique_ptr<Command>
 FileAllocationDispatcherCommand::createCommand(FileAllocationEntry* entry)
 {
   cuid_t newCUID = getDownloadEngine()->newCUID();
-  A2_LOG_INFO(fmt(MSG_FILE_ALLOCATION_DISPATCH, newCUID));
+  A2_LOG_DEBUG(fmt(MSG_FILE_ALLOCATION_DISPATCH, newCUID));
   return make_unique<FileAllocationCommand>(newCUID, entry->getRequestGroup(),
                                             getDownloadEngine(), entry);
 }

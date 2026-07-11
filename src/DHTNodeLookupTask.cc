@@ -37,7 +37,7 @@
 #include "DHTFindNodeReplyMessage.h"
 #include "DHTNode.h"
 #include "DHTNodeLookupEntry.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "util.h"
 #include "DHTNodeLookupTaskCallback.h"
 #include "DHTQueryMessage.h"

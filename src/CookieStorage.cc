@@ -39,8 +39,7 @@
 #include <algorithm>
 
 #include "util.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "DlAbortEx.h"
 #include "fmt.h"
 #include "NsCookieParser.h"
@@ -453,8 +452,8 @@ bool CookieStorage::load(const std::string& filename, time_t now)
                      std::make_move_iterator(std::end(cookies)), now);
       }
       catch (RecoverableException& e) {
-        A2_LOG_INFO_EX(EX_EXCEPTION_CAUGHT, e);
-        A2_LOG_INFO("This does not look like Firefox3 cookie file."
+        A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, e);
+        A2_LOG_DEBUG("This does not look like Firefox3 cookie file."
                     " Retrying, assuming it is Chromium cookie file.");
         // Try chrome cookie format
         auto cookies = Sqlite3ChromiumCookieParser(filename).parse();

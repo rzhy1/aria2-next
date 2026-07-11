@@ -47,7 +47,7 @@
 #include "Platform.h"
 #include "Exception.h"
 #include "console.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 
@@ -95,5 +95,6 @@ int main(int argc, char** argv)
                                   ex.stackTrace().c_str());
     r = ex.getErrorCode();
   }
+  aria2::logging::shutdown();
   return r;
 }

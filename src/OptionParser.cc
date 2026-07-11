@@ -52,7 +52,7 @@
 #include "DlAbortEx.h"
 #include "error_code.h"
 #include "UnknownOptionException.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 
 namespace aria2 {

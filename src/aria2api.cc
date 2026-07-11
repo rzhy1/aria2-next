@@ -49,7 +49,7 @@
 #include "MultiUrlRequestInfo.h"
 #include "prefs.h"
 #include "download_helper.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "PieceStorage.h"
 #include "DownloadContext.h"
 #include "FileEntry.h"
@@ -90,6 +90,9 @@ Platform* platform = nullptr;
 int libraryInit()
 {
   global::initConsole(true);
+  logging::Settings logSettings;
+  logSettings.consoleOutput = false;
+  logging::configure(logSettings);
   try {
     platform = new Platform();
   }
@@ -97,13 +100,13 @@ int libraryInit()
     A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, e);
     return -1;
   }
-  LogFactory::setConsoleOutput(false);
   return 0;
 }
 
 int libraryDeinit()
 {
   delete platform;
+  logging::shutdown();
   return 0;
 }
 
@@ -272,7 +275,7 @@ int addUri(Session* session, A2Gid* gid, const std::vector<std::string>& uris,
                            OptionParser::getInstance());
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX(EX_EXCEPTION_CAUGHT, e);
+    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, e);
     return -1;
   }
   std::vector<std::shared_ptr<RequestGroup>> result;
@@ -303,7 +306,7 @@ int addMetalink(Session* session, std::vector<A2Gid>* gids,
     createRequestGroupForMetalink(result, requestOption);
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX(EX_EXCEPTION_CAUGHT, e);
+    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, e);
     return -1;
   }
   if (!result.empty()) {
@@ -344,7 +347,7 @@ int addTorrent(Session* session, A2Gid* gid, const std::string& torrentFile,
                                     torrentFile);
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX(EX_EXCEPTION_CAUGHT, e);
+    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, e);
     return -1;
   }
   if (!result.empty()) {
@@ -431,7 +434,7 @@ int changePosition(Session* session, A2Gid gid, int pos, OffsetMode how)
     return e->getRequestGroupMan()->changeReservedGroupPosition(gid, pos, how);
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX(EX_EXCEPTION_CAUGHT, e);
+    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, e);
     return -1;
   }
 }
@@ -453,7 +456,7 @@ int changeOption(Session* session, A2Gid gid, const KeyVals& options)
       }
     }
     catch (RecoverableException& err) {
-      A2_LOG_INFO_EX(EX_EXCEPTION_CAUGHT, err);
+      A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, err);
       return -1;
     }
     changeOption(group, option, e.get());
@@ -501,7 +504,7 @@ int changeGlobalOption(Session* session, const KeyVals& options)
                                     OptionParser::getInstance());
   }
   catch (RecoverableException& err) {
-    A2_LOG_INFO_EX(EX_EXCEPTION_CAUGHT, err);
+    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, err);
     return -1;
   }
   changeGlobalOption(option, e.get());

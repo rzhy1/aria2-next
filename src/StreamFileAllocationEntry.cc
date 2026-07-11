@@ -46,7 +46,7 @@
 #include "FileEntry.h"
 #include "PieceStorage.h"
 #include "DiskAdaptor.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 

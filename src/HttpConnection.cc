@@ -39,7 +39,7 @@
 #include "util.h"
 #include "message.h"
 #include "prefs.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "DlRetryEx.h"
 #include "DlAbortEx.h"
 #include "Request.h"
@@ -48,7 +48,7 @@
 #include "HttpResponse.h"
 #include "HttpHeaderProcessor.h"
 #include "HttpHeader.h"
-#include "Logger.h"
+#include "Log.h"
 #include "SocketCore.h"
 #include "Option.h"
 #include "CookieStorage.h"
@@ -125,7 +125,7 @@ std::string HttpConnection::eraseConfidentialInfo(const std::string& request)
 void HttpConnection::sendRequest(std::unique_ptr<HttpRequest> httpRequest,
                                  std::string request)
 {
-  A2_LOG_INFO(
+  A2_LOG_DEBUG(
       fmt(MSG_SENDING_REQUEST, cuid_, eraseConfidentialInfo(request).c_str()));
   socketBuffer_.pushStr(std::move(request));
   socketBuffer_.send();
@@ -160,7 +160,7 @@ std::unique_ptr<HttpResponse> HttpConnection::receiveResponse()
   const auto& proc = outstandingHttpRequests_.front()->getHttpHeaderProcessor();
   if (proc->parse(socketRecvBuffer_->getBuffer(),
                   socketRecvBuffer_->getBufferLength())) {
-    A2_LOG_INFO(fmt(MSG_RECEIVE_RESPONSE, cuid_,
+    A2_LOG_DEBUG(fmt(MSG_RECEIVE_RESPONSE, cuid_,
                     eraseConfidentialInfo(proc->getHeaderString()).c_str()));
     auto result = proc->getResult();
     if (result->getStatusCode() / 100 == 1) {

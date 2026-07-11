@@ -42,8 +42,7 @@
 #include "HttpProxyRequestCommand.h"
 #include "DlAbortEx.h"
 #include "Option.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "SocketCore.h"
 #include "message.h"
 #include "prefs.h"
@@ -80,7 +79,7 @@ std::unique_ptr<Command> HttpInitiateConnectionCommand::createNextCommand(
             proxyRequest->getHost(), proxyRequest->getPort());
     std::string proxyMethod = resolveProxyMethod(getRequest()->getProtocol());
     if (!pooledSocket) {
-      A2_LOG_INFO(fmt(MSG_CONNECTING_TO_SERVER, getCuid(), addr.c_str(), port));
+      A2_LOG_DEBUG(fmt(MSG_CONNECTING_TO_SERVER, getCuid(), addr.c_str(), port));
       createSocket();
       getSocket()->establishConnection(addr, port);
 
@@ -120,7 +119,7 @@ std::unique_ptr<Command> HttpInitiateConnectionCommand::createNextCommand(
         getDownloadEngine()->popPooledSocketForHostname(
             resolvedAddresses, getRequest()->getPort(), getRequest()->getHost());
     if (!pooledSocket) {
-      A2_LOG_INFO(fmt(MSG_CONNECTING_TO_SERVER, getCuid(), addr.c_str(), port));
+      A2_LOG_DEBUG(fmt(MSG_CONNECTING_TO_SERVER, getCuid(), addr.c_str(), port));
       createSocket();
       getSocket()->establishConnection(addr, port);
 

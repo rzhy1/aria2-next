@@ -51,8 +51,7 @@
 #include "BtConstants.h"
 #include "message.h"
 #include "SocketCore.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "prefs.h"
 #include "Option.h"
 #include "RequestGroupMan.h"
@@ -117,7 +116,7 @@ bool PeerReceiveHandshakeCommand::executeInternal()
           fmt("Unknown info hash %s", util::toHex(infoHash).c_str()));
     }
     if (btRuntime->isHalt()) {
-      A2_LOG_DEBUG("Info hash found but the download is over."
+      A2_LOG_TRACE("Info hash found but the download is over."
                    " Dropping connection.");
       return true;
     }
@@ -142,7 +141,7 @@ bool PeerReceiveHandshakeCommand::executeInternal()
             getDownloadEngine(), btRuntime, pieceStorage, peerStorage,
             getSocket(), PeerInteractionCommand::RECEIVER_WAIT_HANDSHAKE,
             std::move(peerConnection_)));
-        A2_LOG_DEBUG(
+        A2_LOG_TRACE(
             fmt(MSG_INCOMING_PEER_CONNECTION, getCuid(), getPeer()->usedBy()));
       }
     }

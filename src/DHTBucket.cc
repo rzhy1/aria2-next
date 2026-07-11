@@ -39,8 +39,7 @@
 #include <algorithm>
 
 #include "DHTNode.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "util.h"
 #include "DHTConstants.h"
 #include "a2functional.h"
@@ -200,11 +199,11 @@ std::unique_ptr<DHTBucket> DHTBucket::split()
   }
   nodes_ = lNodes;
   // TODO create toString() and use it.
-  A2_LOG_DEBUG(fmt("New bucket. prefixLength=%u, Range:%s-%s",
+  A2_LOG_TRACE(fmt("New bucket. prefixLength=%u, Range:%s-%s",
                    static_cast<unsigned int>(rBucket->getPrefixLength()),
                    util::toHex(rBucket->getMinID(), DHT_ID_LENGTH).c_str(),
                    util::toHex(rBucket->getMaxID(), DHT_ID_LENGTH).c_str()));
-  A2_LOG_DEBUG(fmt("Existing bucket. prefixLength=%u, Range:%s-%s",
+  A2_LOG_TRACE(fmt("Existing bucket. prefixLength=%u, Range:%s-%s",
                    static_cast<unsigned int>(prefixLength_),
                    util::toHex(getMinID(), DHT_ID_LENGTH).c_str(),
                    util::toHex(getMaxID(), DHT_ID_LENGTH).c_str()));

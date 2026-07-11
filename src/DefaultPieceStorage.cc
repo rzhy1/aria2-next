@@ -40,8 +40,7 @@
 #include "DownloadContext.h"
 #include "Piece.h"
 #include "Peer.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "prefs.h"
 #include "DirectDiskAdaptor.h"
 #include "MultiDiskAdaptor.h"
@@ -166,7 +165,7 @@ std::shared_ptr<Piece> DefaultPieceStorage::getPiece(size_t index)
 void DefaultPieceStorage::addUsedPiece(const std::shared_ptr<Piece>& piece)
 {
   usedPieces_.insert(piece);
-  A2_LOG_DEBUG(fmt("usedPieces_.size()=%lu",
+  A2_LOG_TRACE(fmt("usedPieces_.size()=%lu",
                    static_cast<unsigned long>(usedPieces_.size())));
 }
 
@@ -475,13 +474,13 @@ void DefaultPieceStorage::completePiece(const std::shared_ptr<Piece>& piece)
   if (downloadFinished()) {
     downloadContext_->resetDownloadStopTime();
     if (isSelectiveDownloadingMode()) {
-      A2_LOG_NOTICE(MSG_SELECTIVE_DOWNLOAD_COMPLETED);
+      A2_LOG_INFO(MSG_SELECTIVE_DOWNLOAD_COMPLETED);
       // following line was commented out in order to stop sending request
       // message after user-specified files were downloaded.
       // finishSelectiveDownloadingMode();
     }
     else {
-      A2_LOG_INFO(MSG_DOWNLOAD_COMPLETED);
+      A2_LOG_DEBUG(MSG_DOWNLOAD_COMPLETED);
     }
 #ifdef ENABLE_BITTORRENT
     if (downloadContext_->hasAttribute(CTX_ATTR_BT)) {
@@ -491,7 +490,7 @@ void DefaultPieceStorage::completePiece(const std::shared_ptr<Piece>& piece)
         // right, some programs cannot open them aria2 is seeding. To
         // avoid this situation, re-open the files with read-only
         // enabled.
-        A2_LOG_INFO("Closing files and re-open them with read-only mode"
+        A2_LOG_DEBUG("Closing files and re-open them with read-only mode"
                     " enabled.");
         diskAdaptor_->closeFile();
         diskAdaptor_->enableReadOnly();
@@ -638,7 +637,7 @@ bool DefaultPieceStorage::allDownloadFinished()
 void DefaultPieceStorage::initStorage()
 {
   if (downloadContext_->getFileEntries().size() == 1) {
-    A2_LOG_DEBUG("Instantiating DirectDiskAdaptor");
+    A2_LOG_TRACE("Instantiating DirectDiskAdaptor");
     auto directDiskAdaptor = std::make_shared<DirectDiskAdaptor>();
     directDiskAdaptor->setTotalLength(downloadContext_->getTotalLength());
     directDiskAdaptor->setFileEntries(
@@ -650,7 +649,7 @@ void DefaultPieceStorage::initStorage()
     diskAdaptor_ = std::move(directDiskAdaptor);
   }
   else {
-    A2_LOG_DEBUG("Instantiating MultiDiskAdaptor");
+    A2_LOG_TRACE("Instantiating MultiDiskAdaptor");
     auto multiDiskAdaptor = std::make_shared<MultiDiskAdaptor>();
     multiDiskAdaptor->setFileEntries(downloadContext_->getFileEntries().begin(),
                                      downloadContext_->getFileEntries().end());
@@ -749,7 +748,7 @@ void DefaultPieceStorage::removeAdvertisedPiece(const Timer& expiry)
                                return expiry < have.registeredTime;
                              });
 
-  A2_LOG_DEBUG(
+  A2_LOG_TRACE(
       fmt(MSG_REMOVED_HAVE_ENTRY,
           static_cast<unsigned long>(std::distance(std::begin(haves_), it))));
 

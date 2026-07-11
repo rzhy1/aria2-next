@@ -36,8 +36,7 @@
 #include "PieceStorage.h"
 #include "RequestGroup.h"
 #include "BtRuntime.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "wallclock.h"
 #include "util.h"
 #include "fmt.h"
@@ -62,7 +61,7 @@ void BtStopDownloadCommand::preProcess()
     enableExit();
   }
   if (checkPoint_.difference(global::wallclock()) >= timeout_) {
-    A2_LOG_NOTICE(fmt(_("GID#%s Stop downloading torrent due to"
+    A2_LOG_INFO(fmt(_("GID#%s Stop downloading torrent due to"
                         " --bt-stop-timeout option."),
                       GroupId::toHex(requestGroup_->getGID()).c_str()));
     requestGroup_->setForceHaltRequested(true);

@@ -43,8 +43,7 @@
 #include "message.h"
 #include "util.h"
 #include "util_security.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "base64.h"
 #include "a2functional.h"
 #include "fmt.h"
@@ -183,12 +182,12 @@ bool HttpServer::receiveRequest()
   if (headerProcessor_->parse(socketRecvBuffer_->getBuffer(),
                               socketRecvBuffer_->getBufferLength())) {
     lastRequestHeader_ = headerProcessor_->getResult();
-    A2_LOG_INFO(fmt("HTTP Server received request\n%s",
+    A2_LOG_DEBUG(fmt("HTTP Server received request\n%s",
                     headerProcessor_->getHeaderString().c_str()));
     socketRecvBuffer_->drain(headerProcessor_->getLastBytesProcessed());
     bodyConsumed_ = 0;
     if (setupResponseRecv() < 0) {
-      A2_LOG_INFO("Request path is invalid. Ignore the request body.");
+      A2_LOG_DEBUG("Request path is invalid. Ignore the request body.");
     }
     const std::string& contentLengthHdr =
         lastRequestHeader_->find(HttpHeader::CONTENT_LENGTH);
@@ -293,7 +292,7 @@ void HttpServer::feedResponse(int status, const std::string& headers,
   }
   header += headers;
   header += "\r\n";
-  A2_LOG_DEBUG(fmt("HTTP Server sends response:\n%s", header.c_str()));
+  A2_LOG_TRACE(fmt("HTTP Server sends response:\n%s", header.c_str()));
   socketBuffer_.pushStr(std::move(header));
   socketBuffer_.pushStr(std::move(text));
 }
@@ -307,7 +306,7 @@ void HttpServer::feedUpgradeResponse(const std::string& protocol,
                            "%s"
                            "\r\n",
                            protocol.c_str(), headers.c_str());
-  A2_LOG_DEBUG(fmt("HTTP Server sends upgrade response:\n%s", header.c_str()));
+  A2_LOG_TRACE(fmt("HTTP Server sends upgrade response:\n%s", header.c_str()));
   socketBuffer_.pushStr(std::move(header));
 }
 

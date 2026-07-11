@@ -48,8 +48,7 @@
 #include "util.h"
 #include "A2STR.h"
 #include "array_fun.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 
 namespace aria2 {
@@ -200,7 +199,7 @@ bool File::mkdirs()
       for (; i != eoi && *i != '/'; ++i)
         ;
       dbegin = i;
-      A2_LOG_DEBUG(
+      A2_LOG_TRACE(
           fmt("UNC Prefix %s", std::string(path.begin(), dbegin).c_str()));
     }
   }
@@ -231,13 +230,13 @@ bool File::mkdirs()
     }
 #endif // __MINGW32__
     std::string dir(begin, j);
-    A2_LOG_DEBUG(fmt("Making directory %s", dir.c_str()));
+    A2_LOG_TRACE(fmt("Making directory %s", dir.c_str()));
     if (File(dir).isDir()) {
-      A2_LOG_DEBUG(fmt("%s exists and is a directory.", dir.c_str()));
+      A2_LOG_TRACE(fmt("%s exists and is a directory.", dir.c_str()));
       continue;
     }
     if (a2mkdir(utf8ToWChar(dir).c_str(), DIR_OPEN_MODE) == -1) {
-      A2_LOG_DEBUG(fmt("Failed to create %s", dir.c_str()));
+      A2_LOG_TRACE(fmt("Failed to create %s", dir.c_str()));
       return false;
     }
   }

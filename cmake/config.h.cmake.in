@@ -18,6 +18,9 @@
 /* Define to 1 if BitTorrent support is enabled. */
 #cmakedefine ENABLE_BITTORRENT @ENABLE_BITTORRENT@
 
+/* Define to 1 if ED2K support is enabled. */
+#cmakedefine ENABLE_ED2K @ENABLE_ED2K@
+
 /* Define to 1 if Metalink support is enabled. */
 #cmakedefine ENABLE_METALINK @ENABLE_METALINK@
 

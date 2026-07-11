@@ -51,7 +51,7 @@
 #include "message.h"
 #include "fmt.h"
 #include "FileEntry.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "File.h"
 #include "util.h"
 #include "array_fun.h"
@@ -619,7 +619,7 @@ createBtMagnetRequestGroup(const std::string& magnetLink,
           bittorrent::getTorrentAttrs(rg->getDownloadContext())->infoHash;
 
       if (torrentAttrs->infoHash == actualInfoHash) {
-        A2_LOG_NOTICE(fmt("BitTorrent metadata was loaded from %s",
+        A2_LOG_INFO(fmt("BitTorrent metadata was loaded from %s",
                           torrentFilename.c_str()));
         rg->setMetadataInfo(createMetadataInfo(rg->getGroupId(), magnetLink));
         return rg;

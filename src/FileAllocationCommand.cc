@@ -37,8 +37,7 @@
 #include "FileAllocationEntry.h"
 #include "DownloadEngine.h"
 #include "RequestGroup.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "message.h"
 #include "prefs.h"
 #include "util.h"
@@ -72,7 +71,7 @@ bool FileAllocationCommand::executeInternal()
   }
   fileAllocationEntry_->allocateChunk();
   if (fileAllocationEntry_->finished()) {
-    A2_LOG_DEBUG(fmt(
+    A2_LOG_TRACE(fmt(
         MSG_ALLOCATION_COMPLETED,
         static_cast<long int>(std::chrono::duration_cast<std::chrono::seconds>(
                                   timer_.difference(global::wallclock()))

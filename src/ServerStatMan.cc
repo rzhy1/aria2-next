@@ -47,7 +47,7 @@
 #include "BufferedFile.h"
 #include "message.h"
 #include "fmt.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "File.h"
 
 namespace aria2 {
@@ -107,7 +107,7 @@ bool ServerStatMan::save(const std::string& filename) const
     }
   }
   if (File(tempfile).renameTo(filename)) {
-    A2_LOG_NOTICE(fmt(MSG_SERVER_STAT_SAVED, filename.c_str()));
+    A2_LOG_INFO(fmt(MSG_SERVER_STAT_SAVED, filename.c_str()));
     return true;
   }
   else {
@@ -227,7 +227,7 @@ bool ServerStatMan::load(const std::string& filename)
     sstat->setStatus(m[S_STATUS]);
     add(sstat);
   }
-  A2_LOG_NOTICE(fmt(MSG_SERVER_STAT_LOADED, filename.c_str()));
+  A2_LOG_INFO(fmt(MSG_SERVER_STAT_LOADED, filename.c_str()));
   return true;
 }
 

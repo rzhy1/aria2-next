@@ -35,7 +35,7 @@
 #include "FallocFileAllocationIterator.h"
 #include "DlAbortEx.h"
 #include "util.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 

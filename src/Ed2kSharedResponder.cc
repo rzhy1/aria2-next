@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <utility>
 #include <vector>
 
 #include "Ed2kShareIndex.h"
@@ -33,9 +34,9 @@ namespace ed2k {
 SharedResponder::SharedResponder(UploadQueue* uploadQueue, RequestGroupMan* rgman,
                                  const Endpoint& endpoint,
                                  const std::string& userHash,
-                                 std::deque<std::string>& outbox)
+                                 PacketSink packetSink)
     : uploadQueue_(uploadQueue),
-      outbox_(&outbox),
+      packetSink_(std::move(packetSink)),
       endpoint_(endpoint),
       userHash_(userHash),
       rgman_(rgman)
@@ -56,7 +57,7 @@ bool SharedResponder::hasFile(const std::string& hash) const
 void SharedResponder::queuePacket(uint8_t protocol, uint8_t opcode,
                                   const std::string& payload)
 {
-  outbox_->push_back(createPacket(protocol, opcode, payload));
+  packetSink_(protocol, opcode, payload);
 }
 
 void SharedResponder::queueNoFile(const std::string& fileHash)

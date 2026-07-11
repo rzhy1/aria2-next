@@ -38,7 +38,7 @@
 #include <cassert>
 #include <sstream>
 
-#include "LogFactory.h"
+#include "Log.h"
 #include "a2functional.h"
 #include "fmt.h"
 #include "util.h"
@@ -173,12 +173,12 @@ int WinTLSSession::closeConnection()
       status_ = SEC_E_INVALID_HANDLE;
       state_ = st_error;
     }
-    A2_LOG_DEBUG("WinTLS: Cannot close connection");
+    A2_LOG_TRACE("WinTLS: Cannot close connection");
     return TLS_ERR_ERROR;
   }
 
   if (state_ == st_connected) {
-    A2_LOG_DEBUG("WinTLS: Closing connection");
+    A2_LOG_TRACE("WinTLS: Closing connection");
     state_ = st_closing;
 
     DWORD dwShut = SCHANNEL_SHUTDOWN;
@@ -222,7 +222,7 @@ int WinTLSSession::closeConnection()
     }
   }
 
-  A2_LOG_DEBUG("WinTLS: Closed Connection");
+  A2_LOG_TRACE("WinTLS: Closed Connection");
   state_ = st_closed;
   return TLS_ERR_OK;
 }
@@ -276,7 +276,7 @@ size_t WinTLSSession::getLeftTLSRecordSize() const
 
 int WinTLSSession::sendTLSRecord()
 {
-  A2_LOG_DEBUG(fmt("WinTLS: TLS record %" PRIu64 " bytes left",
+  A2_LOG_TRACE(fmt("WinTLS: TLS record %" PRIu64 " bytes left",
                    static_cast<uint64_t>(getLeftTLSRecordSize())));
 
   while (getLeftTLSRecordSize()) {
@@ -333,7 +333,7 @@ ssize_t WinTLSSession::writeData(const void* data, size_t len)
     return TLS_ERR_ERROR;
   }
 
-  A2_LOG_DEBUG(fmt("WinTLS: Write request: %" PRIu64 " buffered: %" PRIu64,
+  A2_LOG_TRACE(fmt("WinTLS: Write request: %" PRIu64 " buffered: %" PRIu64,
                    (uint64_t)len, (uint64_t)recordBytesSent_));
 
   auto rv = sendTLSRecord();
@@ -394,14 +394,14 @@ ssize_t WinTLSSession::writeData(const void* data, size_t len)
         // On closing state, don't log this message in error level
         // because it seems that the encryption tends to fail in that
         // state.
-        A2_LOG_DEBUG(fmt("WinTLS: Failed to encrypt a message! %s",
+        A2_LOG_TRACE(fmt("WinTLS: Failed to encrypt a message! %s",
                          getLastErrorString().c_str()));
       }
       state_ = st_error;
       return TLS_ERR_ERROR;
     }
 
-    A2_LOG_DEBUG(fmt("WinTLS: Write TLS record header: %" PRIu64
+    A2_LOG_TRACE(fmt("WinTLS: Write TLS record header: %" PRIu64
                      " body: %" PRIu64 " trailer: %" PRIu64,
                      static_cast<uint64_t>(sendRecordBuffers_[0].cbBuffer),
                      static_cast<uint64_t>(sendRecordBuffers_[1].cbBuffer),
@@ -425,14 +425,14 @@ ssize_t WinTLSSession::writeData(const void* data, size_t len)
     writeBuffered_ = 0;
   }
 
-  A2_LOG_DEBUG(fmt("WinTLS: Write result: %" PRIu64, (uint64_t)len));
+  A2_LOG_TRACE(fmt("WinTLS: Write result: %" PRIu64, (uint64_t)len));
 
   return len;
 }
 
 ssize_t WinTLSSession::readData(void* data, size_t len)
 {
-  A2_LOG_DEBUG(fmt("WinTLS: Read request: %" PRIu64 " buffered: %" PRIu64,
+  A2_LOG_TRACE(fmt("WinTLS: Read request: %" PRIu64 " buffered: %" PRIu64,
                    (uint64_t)len, (uint64_t)readBuf_.size()));
   if (len == 0) {
     return 0;
@@ -440,7 +440,7 @@ ssize_t WinTLSSession::readData(void* data, size_t len)
 
   // Can be filled from decBuffer entirely?
   if (decBuf_.size() >= len) {
-    A2_LOG_DEBUG("WinTLS: Fulfilling req from buffer");
+    A2_LOG_TRACE("WinTLS: Fulfilling req from buffer");
     memcpy(data, decBuf_.data(), len);
     decBuf_.eat(len);
     return len;
@@ -452,11 +452,11 @@ ssize_t WinTLSSession::readData(void* data, size_t len)
       assert(nread < len);
       memcpy(data, decBuf_.data(), nread);
       decBuf_.clear();
-      A2_LOG_DEBUG("WinTLS: Sending out decrypted buffer after EOF");
+      A2_LOG_TRACE("WinTLS: Sending out decrypted buffer after EOF");
       return nread;
     }
 
-    A2_LOG_DEBUG("WinTLS: Read request aborted. Connection already closed");
+    A2_LOG_TRACE("WinTLS: Read request aborted. Connection already closed");
     return state_ == st_error ? TLS_ERR_ERROR : 0;
   }
 
@@ -494,7 +494,7 @@ ssize_t WinTLSSession::readData(void* data, size_t len)
       return TLS_ERR_ERROR;
     }
     if (read == 0) {
-      A2_LOG_DEBUG("WinTLS: Connection abruptly closed!");
+      A2_LOG_TRACE("WinTLS: Connection abruptly closed!");
       // At least try to gracefully close our write end.
       closeConnection();
       break;
@@ -539,7 +539,7 @@ ssize_t WinTLSSession::readData(void* data, size_t len)
     if (status_ == SEC_I_RENEGOTIATE) {
       // Renegotiation basically means performing another handshake
       state_ = st_initialized;
-      A2_LOG_INFO("WinTLS: Renegotiate");
+      A2_LOG_DEBUG("WinTLS: Renegotiate");
       std::string hn, err;
       TLSVersion ver;
       auto connect = tlsConnect(hn, ver, err);
@@ -553,7 +553,7 @@ ssize_t WinTLSSession::readData(void* data, size_t len)
     }
     if (status_ == SEC_I_CONTEXT_EXPIRED) {
       // Connection is gone now, but the buffered bytes are still valid.
-      A2_LOG_DEBUG("WinTLS: Connection gracefully closed!");
+      A2_LOG_TRACE("WinTLS: Connection gracefully closed!");
       closeConnection();
       break;
     }
@@ -582,7 +582,7 @@ int WinTLSSession::tlsConnect(const std::string& hostname, TLSVersion& version,
   // either complete and successful, or something went wrong.
   // The server works analog to that.
 
-  A2_LOG_DEBUG("WinTLS: Starting/Resuming TLS Connect");
+  A2_LOG_TRACE("WinTLS: Starting/Resuming TLS Connect");
   ULONG flags = 0;
 
 restart:
@@ -601,7 +601,7 @@ restart:
     if (!hostname.empty()) {
       setSNIHostname(hostname);
     }
-    A2_LOG_DEBUG("WinTLS: Initializing handshake");
+    A2_LOG_TRACE("WinTLS: Initializing handshake");
     TLSBuffer buf(SECBUFFER_EMPTY, 0, nullptr);
     TLSBufferDesc desc(&buf, 1);
     SEC_CHAR* host =
@@ -627,7 +627,7 @@ restart:
 
   case st_handshake_write_last:
   case st_handshake_write: {
-    A2_LOG_DEBUG("WinTLS: Writing handshake");
+    A2_LOG_TRACE("WinTLS: Writing handshake");
 
     // Write the currently queued handshake message until all data is sent.
     while (writeBuf_.size()) {
@@ -659,7 +659,7 @@ restart:
 
   case st_handshake_read: {
   read:
-    A2_LOG_DEBUG("WinTLS: Reading handshake...");
+    A2_LOG_TRACE("WinTLS: Reading handshake...");
 
     // All write buffered data is invalid at this point!
     writeBuf_.clear();
@@ -683,7 +683,7 @@ restart:
         return TLS_ERR_ERROR;
       }
       if (read == 0) {
-        A2_LOG_DEBUG("WinTLS: Connection abruptly closed during handshake!");
+        A2_LOG_TRACE("WinTLS: Connection abruptly closed during handshake!");
         status_ = SEC_E_INCOMPLETE_MESSAGE;
         state_ = st_error;
         return TLS_ERR_ERROR;
@@ -755,7 +755,7 @@ restart:
 
     // Need to read additional messages?
     if (status_ == SEC_I_CONTINUE_NEEDED) {
-      A2_LOG_DEBUG("WinTLS: Continuing with handshake");
+      A2_LOG_TRACE("WinTLS: Continuing with handshake");
       goto restart;
     }
 
@@ -770,7 +770,7 @@ restart:
     }
 
     if (state_ == st_handshake_write) {
-      A2_LOG_DEBUG("WinTLS: Continuing with handshake (last write)");
+      A2_LOG_TRACE("WinTLS: Continuing with handshake (last write)");
       state_ = st_handshake_write_last;
       goto restart;
     }
@@ -785,7 +785,7 @@ restart:
 
     // All ready now :D
     state_ = st_connected;
-    A2_LOG_INFO(
+    A2_LOG_DEBUG(
         fmt("WinTLS: connected with: %s", getCipherSuite(&handle_).c_str()));
     switch (getProtocolVersion(&handle_)) {
     case 0x302:

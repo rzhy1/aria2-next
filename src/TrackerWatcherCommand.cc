@@ -52,8 +52,7 @@
 #include "RequestGroup.h"
 #include "Option.h"
 #include "DlAbortEx.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "A2STR.h"
 #include "SocketCore.h"
 #include "Request.h"
@@ -93,7 +92,7 @@ bool HTTPAnnRequest::issue(DownloadEngine* e)
     rg_->createInitialCommand(commands, e);
     e->addCommand(std::move(commands));
     e->setNoWait(true);
-    A2_LOG_DEBUG("added tracker request command");
+    A2_LOG_TRACE("added tracker request command");
     return true;
   }
   catch (RecoverableException& ex) {
@@ -223,14 +222,14 @@ bool TrackerWatcherCommand::execute()
     }
   }
   if (btAnnounce_->noMoreAnnounce()) {
-    A2_LOG_DEBUG("no more announce");
+    A2_LOG_TRACE("no more announce");
     return true;
   }
   if (!trackerRequest_) {
     trackerRequest_ = createAnnounce(e_);
     if (trackerRequest_) {
       trackerRequest_->issue(e_);
-      A2_LOG_DEBUG("tracker request created");
+      A2_LOG_TRACE("tracker request created");
     }
   }
   else if (trackerRequest_->stopped()) {
@@ -263,7 +262,7 @@ bool TrackerWatcherCommand::execute()
   }
 
   if (!trackerRequest_ && btAnnounce_->noMoreAnnounce()) {
-    A2_LOG_DEBUG("no more announce");
+    A2_LOG_TRACE("no more announce");
     return true;
   }
 
@@ -288,7 +287,7 @@ void TrackerWatcherCommand::addConnection()
     command->setPeerStorage(peerStorage_);
     command->setPieceStorage(pieceStorage_);
     e_->addCommand(std::move(command));
-    A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Adding new command CUID#%" PRId64 "",
+    A2_LOG_TRACE(fmt("CUID#%" PRId64 " - Adding new command CUID#%" PRId64 "",
                      getCuid(), peer->usedBy()));
   }
 }
@@ -366,10 +365,10 @@ TrackerWatcherCommand::createHTTPAnnRequest(const std::string& uri)
   auto option = util::copy(getOption());
   auto rg = make_unique<RequestGroup>(GroupId::create(), option);
   if (backupTrackerIsAvailable(requestGroup_->getDownloadContext())) {
-    A2_LOG_DEBUG("This is multi-tracker announce.");
+    A2_LOG_TRACE("This is multi-tracker announce.");
   }
   else {
-    A2_LOG_DEBUG("This is single-tracker announce.");
+    A2_LOG_TRACE("This is single-tracker announce.");
   }
   rg->setNumConcurrentCommand(1);
   // If backup tracker is available, try 2 times for each tracker
@@ -398,7 +397,7 @@ TrackerWatcherCommand::createHTTPAnnRequest(const std::string& uri)
   rg->clearPreDownloadHandler();
   rg->clearPostDownloadHandler();
   dctx->setAcceptMetalink(false);
-  A2_LOG_INFO(fmt("Creating tracker request group GID#%s",
+  A2_LOG_DEBUG(fmt("Creating tracker request group GID#%s",
                   GroupId::toHex(rg->getGID()).c_str()));
   return make_unique<HTTPAnnRequest>(std::move(rg));
 }

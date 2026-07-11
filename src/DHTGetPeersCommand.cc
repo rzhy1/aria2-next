@@ -43,8 +43,7 @@
 #include "BtRuntime.h"
 #include "PeerStorage.h"
 #include "Peer.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "bittorrent_helper.h"
 #include "DownloadContext.h"
 #include "wallclock.h"
@@ -97,7 +96,7 @@ bool DHTGetPeersCommand::execute()
                      elapsed >= GET_PEER_INTERVAL_LOW)) ||
                    (btRuntime_->getConnections() == 0 &&
                     elapsed >= GET_PEER_INTERVAL_ZERO))))) {
-    A2_LOG_DEBUG(
+    A2_LOG_TRACE(
         fmt("Issuing PeerLookup for infoHash=%s",
             bittorrent::getInfoHashString(requestGroup_->getDownloadContext())
                 .c_str()));
@@ -107,14 +106,14 @@ bool DHTGetPeersCommand::execute()
     taskQueue_->addPeriodicTask2(task_);
   }
   else if (task_ && task_->finished()) {
-    A2_LOG_DEBUG("task finished detected");
+    A2_LOG_TRACE("task finished detected");
     lastGetPeerTime_ = global::wallclock();
     if (numRetry_ < MAX_RETRIES &&
         (btRuntime_->getMaxPeers() == 0 ||
          btRuntime_->getMaxPeers() >
              static_cast<int>(peerStorage_->countAllPeer()))) {
       ++numRetry_;
-      A2_LOG_DEBUG(fmt("Too few peers. peers=%lu, max_peers=%d."
+      A2_LOG_TRACE(fmt("Too few peers. peers=%lu, max_peers=%d."
                        " Try again(%d)",
                        static_cast<unsigned long>(peerStorage_->countAllPeer()),
                        btRuntime_->getMaxPeers(), numRetry_));

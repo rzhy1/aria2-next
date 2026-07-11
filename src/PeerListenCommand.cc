@@ -43,8 +43,7 @@
 #include "RecoverableException.h"
 #include "message.h"
 #include "ReceiverMSEHandshakeCommand.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "SocketCore.h"
 #include "SimpleRandomizer.h"
 #include "util.h"
@@ -75,7 +74,7 @@ bool PeerListenCommand::bindPort(uint16_t& port, SegList<int>& sgl)
     try {
       socket_->bind(nullptr, port, family_);
       socket_->beginListen();
-      A2_LOG_NOTICE(
+      A2_LOG_INFO(
           fmt(_("IPv%d BitTorrent: listening on TCP port %u"), ipv, port));
       return true;
     }
@@ -113,13 +112,13 @@ bool PeerListenCommand::execute()
       cuid_t cuid = e_->newCUID();
       e_->addCommand(
           make_unique<ReceiverMSEHandshakeCommand>(cuid, peer, e_, peerSocket));
-      A2_LOG_DEBUG(fmt("Accepted the connection from %s:%u.",
+      A2_LOG_TRACE(fmt("Accepted the connection from %s:%u.",
                        peer->getIPAddress().c_str(), peer->getPort()));
-      A2_LOG_DEBUG(fmt(
+      A2_LOG_TRACE(fmt(
           "Added CUID#%" PRId64 " to receive BitTorrent/MSE handshake.", cuid));
     }
     catch (RecoverableException& ex) {
-      A2_LOG_DEBUG_EX(fmt(MSG_ACCEPT_FAILURE, getCuid()), ex);
+      A2_LOG_TRACE_EX(fmt(MSG_ACCEPT_FAILURE, getCuid()), ex);
     }
   }
   e_->addCommand(std::unique_ptr<Command>(this));

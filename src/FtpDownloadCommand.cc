@@ -42,7 +42,7 @@
 #include "Option.h"
 #include "FtpFinishDownloadCommand.h"
 #include "FtpConnection.h"
-#include "Logger.h"
+#include "Log.h"
 #include "FileEntry.h"
 #include "SocketRecvBuffer.h"
 

@@ -42,8 +42,7 @@
 #include "Peer.h"
 #include "RequestGroup.h"
 #include "BtRegistry.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "LpdMessage.h"
 #include "bittorrent_helper.h"
 #include "util.h"
@@ -77,12 +76,12 @@ bool LpdReceiveMessageCommand::execute()
     auto& reg = e_->getBtRegistry();
     auto& dctx = reg->getDownloadContext(m->infoHash);
     if (!dctx) {
-      A2_LOG_DEBUG(fmt("Download Context is null for infohash=%s.",
+      A2_LOG_TRACE(fmt("Download Context is null for infohash=%s.",
                        util::toHex(m->infoHash).c_str()));
       continue;
     }
     if (bittorrent::getTorrentAttrs(dctx)->privateTorrent) {
-      A2_LOG_DEBUG("Ignore LPD message because the torrent is private.");
+      A2_LOG_TRACE("Ignore LPD message because the torrent is private.");
       continue;
     }
     RequestGroup* group = dctx->getOwnerRequestGroup();
@@ -93,12 +92,12 @@ bool LpdReceiveMessageCommand::execute()
     assert(peerStorage);
     auto& peer = m->peer;
     if (peerStorage->addPeer(peer)) {
-      A2_LOG_DEBUG(fmt("LPD peer %s:%u local=%d added.",
+      A2_LOG_TRACE(fmt("LPD peer %s:%u local=%d added.",
                        peer->getIPAddress().c_str(), peer->getPort(),
                        peer->isLocalPeer() ? 1 : 0));
     }
     else {
-      A2_LOG_DEBUG(fmt("LPD peer %s:%u local=%d not added.",
+      A2_LOG_TRACE(fmt("LPD peer %s:%u local=%d not added.",
                        peer->getIPAddress().c_str(), peer->getPort(),
                        peer->isLocalPeer() ? 1 : 0));
     }

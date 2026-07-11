@@ -43,8 +43,7 @@
 #include "DlAbortEx.h"
 #include "SocketCore.h"
 #include "RequestGroup.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "wallclock.h"
 #include "AuthConfigFactory.h"
 #include "AuthConfig.h"
@@ -89,7 +88,7 @@ bool SftpFinishDownloadCommand::execute()
                                       createProxyRequest(), getSocket(), "");
     }
     else if (getCheckPoint().difference(global::wallclock()) >= getTimeout()) {
-      A2_LOG_INFO(fmt("CUID#%" PRId64
+      A2_LOG_DEBUG(fmt("CUID#%" PRId64
                       " - Timeout before receiving transfer complete.",
                       getCuid()));
     }
@@ -99,7 +98,7 @@ bool SftpFinishDownloadCommand::execute()
     }
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX(fmt("CUID#%" PRId64
+    A2_LOG_DEBUG_EX(fmt("CUID#%" PRId64
                        " - Exception was thrown, but download was"
                        " finished, so we can ignore the exception.",
                        getCuid()),

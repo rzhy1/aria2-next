@@ -37,8 +37,7 @@
 #include "DownloadEngine.h"
 #include "HttpServer.h"
 #include "HttpHeader.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "RequestGroup.h"
 #include "RequestGroupMan.h"
 #include "RecoverableException.h"
@@ -231,14 +230,14 @@ bool HttpServerBodyCommand::execute()
           }
           dw->reset();
           if (error < 0) {
-            A2_LOG_INFO(fmt("CUID#%" PRId64
+            A2_LOG_DEBUG(fmt("CUID#%" PRId64
                             " - Failed to parse XML-RPC request",
                             getCuid()));
             httpServer_->feedResponse(400);
             addHttpServerResponseCommand(false);
             return true;
           }
-          A2_LOG_INFO(fmt("Executing RPC method %s", req.methodName.c_str()));
+          A2_LOG_DEBUG(fmt("Executing RPC method %s", req.methodName.c_str()));
           auto method = rpc::getMethod(req.methodName);
           auto res = method->execute(std::move(req), e_);
           bool gzip = httpServer_->supportsGZip();
@@ -273,7 +272,7 @@ bool HttpServerBodyCommand::execute()
             dw->reset();
           }
           if (error < 0) {
-            A2_LOG_INFO(fmt("CUID#%" PRId64
+            A2_LOG_DEBUG(fmt("CUID#%" PRId64
                             " - Failed to parse JSON-RPC request",
                             getCuid()));
             rpc::RpcResponse res(rpc::createJsonRpcErrorResponse(
@@ -324,7 +323,7 @@ bool HttpServerBodyCommand::execute()
     }
     else {
       if (timeoutTimer_.difference(global::wallclock()) >= 30_s) {
-        A2_LOG_INFO("HTTP request body timeout.");
+        A2_LOG_DEBUG("HTTP request body timeout.");
         return true;
       }
       else {
@@ -334,7 +333,7 @@ bool HttpServerBodyCommand::execute()
     }
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX(fmt("CUID#%" PRId64
+    A2_LOG_DEBUG_EX(fmt("CUID#%" PRId64
                        " - Error occurred while reading HTTP request body",
                        getCuid()),
                    e);

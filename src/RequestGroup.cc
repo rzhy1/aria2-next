@@ -48,8 +48,7 @@
 #include "File.h"
 #include "message.h"
 #include "util.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "DiskAdaptor.h"
 #include "DiskWriterFactory.h"
 #include "RecoverableException.h"
@@ -318,13 +317,13 @@ RequestGroup::createCheckIntegrityEntry(FileOpenMode fileOpenMode)
     loadAndOpenFile(infoFile);
     if (downloadFinished()) {
       if (downloadContext_->isChecksumVerificationNeeded()) {
-        A2_LOG_INFO(MSG_HASH_CHECK_NOT_DONE);
+        A2_LOG_DEBUG(MSG_HASH_CHECK_NOT_DONE);
         auto tempEntry = make_unique<ChecksumCheckIntegrityEntry>(this);
         tempEntry->setRedownload(true);
         return std::move(tempEntry);
       }
       downloadContext_->setChecksumVerified(true);
-      A2_LOG_NOTICE(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED, gid_->toHex().c_str(),
+      A2_LOG_INFO(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED, gid_->toHex().c_str(),
                         downloadContext_->getBasePath().c_str()));
       return nullptr;
     }
@@ -370,7 +369,7 @@ void RequestGroup::createInitialCommand(
         option_->getAsBool(PREF_REMOVE_CONTROL_FILE) &&
         progressInfoFile->exists()) {
       progressInfoFile->removeFile();
-      A2_LOG_NOTICE(fmt(_("Removed control file for %s because it is requested by"
+      A2_LOG_INFO(fmt(_("Removed control file for %s because it is requested by"
                           " user."),
                         progressInfoFile->getFilename().c_str()));
     }
@@ -562,7 +561,7 @@ void RequestGroup::createInitialCommand(
       }
     }
     else if (metadataGetMode) {
-      A2_LOG_NOTICE(_("For BitTorrent Magnet URI, enabling DHT is strongly"
+      A2_LOG_INFO(_("For BitTorrent Magnet URI, enabling DHT is strongly"
                       " recommended. See --enable-dht option."));
     }
 
@@ -582,7 +581,7 @@ void RequestGroup::createInitialCommand(
       else {
         // Open file in writable mode to allow the program
         // truncate the file to downloadContext_->getTotalLength()
-        A2_LOG_DEBUG(fmt("File size not match. File is opened in writable"
+        A2_LOG_TRACE(fmt("File size not match. File is opened in writable"
                          " mode. Expected:%" PRId64 " Actual:%" PRId64 "",
                          downloadContext_->getTotalLength(), actualFileSize));
       }
@@ -737,7 +736,7 @@ void RequestGroup::initPieceStorage()
               downloadContext_->getFileEntries().end())) {
         // Use LongestSequencePieceSelector when HTTP/FTP/BitTorrent
         // integrated downloads.
-        A2_LOG_DEBUG("Using LongestSequencePieceSelector");
+        A2_LOG_TRACE("Using LongestSequencePieceSelector");
         ps->setPieceSelector(make_unique<LongestSequencePieceSelector>());
       }
       if (option_->defined(PREF_BT_PRIORITIZE_PIECE)) {
@@ -822,14 +821,14 @@ void RequestGroup::adjustFilename(
     if (requestGroupMan_->isSameFileBeingDownloaded(this)) {
       // The file name must be renamed
       tryAutoFileRenaming();
-      A2_LOG_NOTICE(fmt(MSG_FILE_RENAMED, getFirstFilePath().c_str()));
+      A2_LOG_INFO(fmt(MSG_FILE_RENAMED, getFirstFilePath().c_str()));
       return;
     }
   }
   if (!option_->getAsBool(PREF_DRY_RUN) &&
       option_->getAsBool(PREF_REMOVE_CONTROL_FILE) && infoFile->exists()) {
     infoFile->removeFile();
-    A2_LOG_NOTICE(fmt(_("Removed control file for %s because it is requested by"
+    A2_LOG_INFO(fmt(_("Removed control file for %s because it is requested by"
                         " user."),
                       infoFile->getFilename().c_str()));
   }
@@ -859,7 +858,7 @@ void RequestGroup::removeDefunctControlFile(
   if (progressInfoFile->exists() &&
       !pieceStorage_->getDiskAdaptor()->fileExists()) {
     progressInfoFile->removeFile();
-    A2_LOG_NOTICE(fmt(MSG_REMOVED_DEFUNCT_CONTROL_FILE,
+    A2_LOG_INFO(fmt(MSG_REMOVED_DEFUNCT_CONTROL_FILE,
                       progressInfoFile->getFilename().c_str(),
                       downloadContext_->getBasePath().c_str()));
   }
@@ -915,7 +914,7 @@ void RequestGroup::shouldCancelDownloadForSafety()
   }
 
   tryAutoFileRenaming();
-  A2_LOG_NOTICE(fmt(MSG_FILE_RENAMED, getFirstFilePath().c_str()));
+  A2_LOG_INFO(fmt(MSG_FILE_RENAMED, getFirstFilePath().c_str()));
 }
 
 void RequestGroup::tryAutoFileRenaming()
@@ -1121,7 +1120,7 @@ void RequestGroup::decreaseNumCommand()
 {
   --numCommand_;
   if (!numCommand_ && requestGroupMan_) {
-    A2_LOG_DEBUG(fmt("GID#%s - Request queue check", gid_->toHex().c_str()));
+    A2_LOG_TRACE(fmt("GID#%s - Request queue check", gid_->toHex().c_str()));
     requestGroupMan_->requestQueueCheck();
   }
 }
@@ -1146,7 +1145,7 @@ void RequestGroup::setHaltRequested(bool f, HaltReason haltReason)
     pauseRequested_ = false;
     haltReason_ = haltReason;
     if (!numCommand_ && requestGroupMan_) {
-      A2_LOG_DEBUG(fmt("GID#%s - Request queue check", gid_->toHex().c_str()));
+      A2_LOG_TRACE(fmt("GID#%s - Request queue check", gid_->toHex().c_str()));
       requestGroupMan_->requestQueueCheck();
     }
   }
@@ -1188,7 +1187,7 @@ void RequestGroup::releaseRuntimeResource(DownloadEngine* e)
 
 void RequestGroup::preDownloadProcessing()
 {
-  A2_LOG_DEBUG(fmt("Finding PreDownloadHandler for path %s.",
+  A2_LOG_TRACE(fmt("Finding PreDownloadHandler for path %s.",
                    getFirstFilePath().c_str()));
   try {
     for (const auto& pdh : preDownloadHandlers_) {
@@ -1203,14 +1202,14 @@ void RequestGroup::preDownloadProcessing()
     return;
   }
 
-  A2_LOG_DEBUG("No PreDownloadHandler found.");
+  A2_LOG_TRACE("No PreDownloadHandler found.");
   return;
 }
 
 void RequestGroup::postDownloadProcessing(
     std::vector<std::shared_ptr<RequestGroup>>& groups)
 {
-  A2_LOG_DEBUG(fmt("Finding PostDownloadHandler for path %s.",
+  A2_LOG_TRACE(fmt("Finding PostDownloadHandler for path %s.",
                    getFirstFilePath().c_str()));
   try {
     for (const auto& pdh : postDownloadHandlers_) {
@@ -1224,7 +1223,7 @@ void RequestGroup::postDownloadProcessing(
     A2_LOG_ERROR_EX(EX_EXCEPTION_CAUGHT, ex);
   }
 
-  A2_LOG_DEBUG("No PostDownloadHandler found.");
+  A2_LOG_TRACE("No PostDownloadHandler found.");
 }
 
 void RequestGroup::initializePreDownloadHandler()
@@ -1316,7 +1315,7 @@ bool RequestGroup::needsFileAllocation() const
 
 std::shared_ptr<DownloadResult> RequestGroup::createDownloadResult() const
 {
-  A2_LOG_DEBUG(fmt("GID#%s - Creating DownloadResult.", gid_->toHex().c_str()));
+  A2_LOG_TRACE(fmt("GID#%s - Creating DownloadResult.", gid_->toHex().c_str()));
   TransferStat st = calculateStat();
   auto res = std::make_shared<DownloadResult>();
   res->gid = gid_;
@@ -1357,7 +1356,7 @@ std::shared_ptr<DownloadResult> RequestGroup::createDownloadResult() const
 
 void RequestGroup::reportDownloadFinished()
 {
-  A2_LOG_NOTICE(fmt(MSG_FILE_DOWNLOAD_COMPLETED,
+  A2_LOG_INFO(fmt(MSG_FILE_DOWNLOAD_COMPLETED,
                     inMemoryDownload()
                         ? getFirstFilePath().c_str()
                         : downloadContext_->getBasePath().c_str()));
@@ -1371,7 +1370,7 @@ void RequestGroup::reportDownloadFinished()
                             : 1.0 * stat.allTimeUploadLength / completedLength;
     auto attrs = bittorrent::getTorrentAttrs(downloadContext_);
     if (!attrs->metadata.empty()) {
-      A2_LOG_NOTICE(fmt(MSG_SHARE_RATIO_REPORT, shareRatio,
+      A2_LOG_INFO(fmt(MSG_SHARE_RATIO_REPORT, shareRatio,
                         util::abbrevSize(stat.allTimeUploadLength).c_str(),
                         util::abbrevSize(completedLength).c_str()));
     }
@@ -1389,10 +1388,10 @@ void RequestGroup::applyLastModifiedTimeToLocalFiles()
   if (!pieceStorage_ || !lastModifiedTime_.good()) {
     return;
   }
-  A2_LOG_INFO(fmt("Applying Last-Modified time: %s",
+  A2_LOG_DEBUG(fmt("Applying Last-Modified time: %s",
                   lastModifiedTime_.toHTTPDate().c_str()));
   size_t n = pieceStorage_->getDiskAdaptor()->utime(Time(), lastModifiedTime_);
-  A2_LOG_INFO(fmt("Last-Modified attrs of %lu files were updated.",
+  A2_LOG_DEBUG(fmt("Last-Modified attrs of %lu files were updated.",
                   static_cast<unsigned long>(n)));
 }
 

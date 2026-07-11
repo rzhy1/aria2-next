@@ -36,8 +36,7 @@
 #include "CheckIntegrityEntry.h"
 #include "CheckIntegrityCommand.h"
 #include "message.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "util.h"
 #include "fmt.h"
 
@@ -54,7 +53,7 @@ std::unique_ptr<Command>
 CheckIntegrityDispatcherCommand::createCommand(CheckIntegrityEntry* entry)
 {
   cuid_t newCUID = getDownloadEngine()->newCUID();
-  A2_LOG_INFO(fmt("CUID#%" PRId64 " - Dispatching CheckIntegrityCommand "
+  A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Dispatching CheckIntegrityCommand "
                   "CUID#%" PRId64 ".",
                   getCuid(), newCUID));
   return make_unique<CheckIntegrityCommand>(newCUID, entry->getRequestGroup(),

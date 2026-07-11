@@ -51,8 +51,7 @@
 #include "prefs.h"
 #include "util.h"
 #include "Option.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "Segment.h"
 #include "DownloadContext.h"
 #include "DefaultBtProgressInfoFile.h"
@@ -276,7 +275,7 @@ bool FtpNegotiationCommand::recvPwd()
                        error_code::FTP_PROTOCOL_ERROR);
   }
   ftp_->setBaseWorkingDir(pwd);
-  A2_LOG_INFO(fmt("CUID#%" PRId64 " - base working directory is '%s'",
+  A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - base working directory is '%s'",
                   getCuid(), pwd.c_str()));
   sequence_ = SEQ_SEND_CWD_PREP;
   return true;
@@ -358,16 +357,16 @@ bool FtpNegotiationCommand::recvMdtm()
   if (status == 213) {
     if (lastModifiedTime.good()) {
       getRequestGroup()->updateLastModifiedTime(lastModifiedTime);
-      A2_LOG_DEBUG(fmt("MDTM result was parsed as: %s",
+      A2_LOG_TRACE(fmt("MDTM result was parsed as: %s",
                        lastModifiedTime.toHTTPDate().c_str()));
     }
     else {
-      A2_LOG_DEBUG("MDTM response was returned, but it seems not to be"
+      A2_LOG_TRACE("MDTM response was returned, but it seems not to be"
                    " a time value as in specified in RFC3659.");
     }
   }
   else {
-    A2_LOG_INFO(fmt("CUID#%" PRId64 " - MDTM command failed.", getCuid()));
+    A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - MDTM command failed.", getCuid()));
   }
   sequence_ = SEQ_SEND_SIZE;
   return true;
@@ -421,7 +420,7 @@ bool FtpNegotiationCommand::onFileSizeDetermined(int64_t totalLength)
       // HttpResponseCommand::handleOtherEncoding()
       getRequestGroup()->initPieceStorage();
       if (getDownloadContext()->isChecksumVerificationNeeded()) {
-        A2_LOG_DEBUG("Zero length file exists. Verify checksum.");
+        A2_LOG_TRACE("Zero length file exists. Verify checksum.");
         auto entry =
             make_unique<ChecksumCheckIntegrityEntry>(getRequestGroup());
         entry->initValidator();
@@ -434,7 +433,7 @@ bool FtpNegotiationCommand::onFileSizeDetermined(int64_t totalLength)
         getPieceStorage()->markAllPiecesDone();
         getDownloadContext()->setChecksumVerified(true);
         sequence_ = SEQ_DOWNLOAD_ALREADY_COMPLETED;
-        A2_LOG_NOTICE(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED,
+        A2_LOG_INFO(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED,
                           GroupId::toHex(getRequestGroup()->getGID()).c_str(),
                           getRequestGroup()->getFirstFilePath().c_str()));
       }
@@ -447,13 +446,13 @@ bool FtpNegotiationCommand::onFileSizeDetermined(int64_t totalLength)
     getPieceStorage()->getDiskAdaptor()->initAndOpenFile();
 
     if (getDownloadContext()->knowsTotalLength()) {
-      A2_LOG_DEBUG("File length becomes zero and it means download completed.");
+      A2_LOG_TRACE("File length becomes zero and it means download completed.");
       // TODO Known issue: if .aria2 file exists, it will not be
       // deleted on successful verification, because .aria2 file is
       // not loaded.  See also
       // HttpResponseCommand::handleOtherEncoding()
       if (getDownloadContext()->isChecksumVerificationNeeded()) {
-        A2_LOG_DEBUG("Verify checksum for zero-length file");
+        A2_LOG_TRACE("Verify checksum for zero-length file");
         auto entry =
             make_unique<ChecksumCheckIntegrityEntry>(getRequestGroup());
         entry->initValidator();
@@ -526,7 +525,7 @@ bool FtpNegotiationCommand::recvSize()
     }
   }
   else {
-    A2_LOG_INFO(fmt("CUID#%" PRId64
+    A2_LOG_DEBUG(fmt("CUID#%" PRId64
                     " - The remote FTP Server doesn't recognize SIZE"
                     " command. Continue.",
                     getCuid()));
@@ -711,7 +710,7 @@ bool FtpNegotiationCommand::preparePasvConnect()
   else {
     auto endpoint = getSocket()->getPeerInfo();
     // make a data connection to the server.
-    A2_LOG_INFO(fmt(MSG_CONNECTING_TO_SERVER, getCuid(), endpoint.addr.c_str(),
+    A2_LOG_DEBUG(fmt(MSG_CONNECTING_TO_SERVER, getCuid(), endpoint.addr.c_str(),
                     pasvPort_));
     dataSocket_ = std::make_shared<SocketCore>();
     dataSocket_->establishConnection(endpoint.addr, pasvPort_, false);
@@ -730,7 +729,7 @@ bool FtpNegotiationCommand::resolveProxy()
   if (proxyAddr_.empty()) {
     return false;
   }
-  A2_LOG_INFO(fmt(MSG_CONNECTING_TO_SERVER, getCuid(), proxyAddr_.c_str(),
+  A2_LOG_DEBUG(fmt(MSG_CONNECTING_TO_SERVER, getCuid(), proxyAddr_.c_str(),
                   proxyReq->getPort()));
   dataSocket_ = std::make_shared<SocketCore>();
   dataSocket_->establishConnection(proxyAddr_, proxyReq->getPort());
@@ -761,10 +760,10 @@ bool FtpNegotiationCommand::sendTunnelRequest()
               fmt(MSG_ESTABLISHING_CONNECTION_FAILED, error.c_str()));
         }
         else {
-          A2_LOG_INFO(fmt(MSG_CONNECT_FAILED_AND_RETRY, getCuid(),
+          A2_LOG_DEBUG(fmt(MSG_CONNECT_FAILED_AND_RETRY, getCuid(),
                           proxyAddr_.c_str(), proxyReq->getPort()));
           proxyAddr_ = nextProxyAddr;
-          A2_LOG_INFO(fmt(MSG_CONNECTING_TO_SERVER, getCuid(),
+          A2_LOG_DEBUG(fmt(MSG_CONNECTING_TO_SERVER, getCuid(),
                           proxyAddr_.c_str(), proxyReq->getPort()));
           dataSocket_->establishConnection(proxyAddr_, proxyReq->getPort());
           return false;

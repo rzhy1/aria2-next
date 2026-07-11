@@ -25,8 +25,7 @@
 #include "Ed2kCommand.h"
 #include "Ed2kShareIndex.h"
 #include "Ed2kUploadQueue.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "Option.h"
 #include "RequestGroup.h"
 #include "RequestGroupMan.h"
@@ -217,7 +216,7 @@ void Ed2kKadCommand::init()
   socket_->setNonBlockingMode();
   e_->addSocketForReadCheck(socket_, this);
   initialized_ = true;
-  A2_LOG_INFO(fmt("IPv4 ED2K Kad: listening on UDP port %u",
+  A2_LOG_DEBUG(fmt("IPv4 ED2K Kad: listening on UDP port %u",
                   socket_->getAddrInfo().port));
 
   auto attrs = getEd2kAttrs(requestGroup_->getDownloadContext());
@@ -378,7 +377,7 @@ void Ed2kKadCommand::queueServerSourcePoll()
                        : ed2k::OP_GLOBGETSOURCES,
         ed2k::createGlobGetSourcesPayload(attrs->link.hash, attrs->link.size,
                                           extGetSources2));
-    A2_LOG_DEBUG(fmt("Queued ED2K UDP source request to %s:%u.",
+    A2_LOG_TRACE(fmt("Queued ED2K UDP source request to %s:%u.",
                      server.host.c_str(), server.port + 4));
     markEd2kServerUdpSourceRequestSent(attrs, server, now);
   }
@@ -425,7 +424,7 @@ void Ed2kKadCommand::queueBootstrap()
     ++queued;
   }
   if (queued != 0) {
-    A2_LOG_INFO(fmt("Queued ED2K Kad bootstrap to %lu router node(s).",
+    A2_LOG_DEBUG(fmt("Queued ED2K Kad bootstrap to %lu router node(s).",
                     static_cast<unsigned long>(queued)));
   }
 }
@@ -691,7 +690,7 @@ size_t Ed2kKadCommand::queueDueKadCallbacks(int64_t now)
       state.lastCallbackTime = now;
       state.callbackDeadline = now + CALLBACK_TIMEOUT;
       ++queued;
-      A2_LOG_DEBUG(fmt("Queued ED2K direct UDP callback request to %s:%u "
+      A2_LOG_TRACE(fmt("Queued ED2K direct UDP callback request to %s:%u "
                        "for source TCP port %u.",
                        endpoint.host.c_str(), endpoint.port,
                        state.endpoint.port));
@@ -709,7 +708,7 @@ size_t Ed2kKadCommand::queueDueKadCallbacks(int64_t now)
     state.lastCallbackTime = now;
     state.callbackDeadline = now + CALLBACK_TIMEOUT;
     ++queued;
-    A2_LOG_DEBUG(fmt("Queued ED2K Kad callback request to buddy %s:%u "
+    A2_LOG_TRACE(fmt("Queued ED2K Kad callback request to buddy %s:%u "
                      "for source %s:%u.",
                      state.callbackBuddy.host.c_str(),
                      state.callbackBuddy.port, state.endpoint.host.c_str(),
@@ -726,13 +725,13 @@ void Ed2kKadCommand::sendQueuedPackets()
     if (ed2k::readDatagramHeader(header, item.second.data(),
                                   item.second.size()) &&
         isKnownEd2kUdpProtocol(header.protocol)) {
-      A2_LOG_DEBUG(fmt(
+      A2_LOG_TRACE(fmt(
           "Sending ED2K UDP packet to %s:%u protocol=0x%02x opcode=0x%02x payload=%lu.",
           item.first.host.c_str(), item.first.port, header.protocol,
           header.opcode, static_cast<unsigned long>(header.payloadSize())));
     }
     else {
-      A2_LOG_DEBUG(fmt(
+      A2_LOG_TRACE(fmt(
           "Sending obfuscated ED2K Kad UDP packet to %s:%u payload=%lu.",
           item.first.host.c_str(), item.first.port,
           static_cast<unsigned long>(item.second.size())));
@@ -740,7 +739,7 @@ void Ed2kKadCommand::sendQueuedPackets()
     const auto sent = socket_->writeData(item.second.data(), item.second.size(),
                                         item.first.host, item.first.port);
     if (sent < 0) {
-      A2_LOG_DEBUG(fmt("Failed to send ED2K UDP packet to %s:%u.",
+      A2_LOG_TRACE(fmt("Failed to send ED2K UDP packet to %s:%u.",
                        item.first.host.c_str(), item.first.port));
     }
     outbox_.pop_front();
@@ -757,7 +756,7 @@ void Ed2kKadCommand::receivePackets()
       length = socket_->readDataFrom(data.data(), data.size(), sender);
     }
     catch (DlRetryEx& e) {
-      A2_LOG_INFO_EX("ED2K Kad UDP receive failed.", e);
+      A2_LOG_DEBUG_EX("ED2K Kad UDP receive failed.", e);
       break;
     }
     if (length <= 0) {
@@ -779,7 +778,7 @@ void Ed2kKadCommand::receivePackets()
       length = raw.size();
       data.fill(0);
       std::copy(raw.begin(), raw.end(), data.begin());
-      A2_LOG_DEBUG(
+      A2_LOG_TRACE(
           fmt("Received obfuscated ED2K Kad UDP packet from %s:%u payload=%lu receiverKey=%u senderKey=%u.",
               endpoint.host.c_str(), endpoint.port,
               static_cast<unsigned long>(length),
@@ -797,7 +796,7 @@ void Ed2kKadCommand::receivePackets()
         header.payloadSize() + 2 != static_cast<size_t>(length)) {
       continue;
     }
-    A2_LOG_DEBUG(fmt(
+    A2_LOG_TRACE(fmt(
         "Received ED2K UDP packet from %s:%u protocol=0x%02x opcode=0x%02x payload=%lu.",
         sender.addr.c_str(), sender.port, header.protocol, header.opcode,
         static_cast<unsigned long>(header.payloadSize())));
@@ -883,7 +882,7 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
     addEd2kPeer(attrs, peer, ed2k::PEER_SOURCE_INCOMING);
     e_->addCommand(make_unique<Ed2kCommand>(e_->newCUID(), requestGroup_, e_,
                                             peer, false));
-    A2_LOG_DEBUG(fmt("Accepted ED2K direct UDP callback request from %s:%u "
+    A2_LOG_TRACE(fmt("Accepted ED2K direct UDP callback request from %s:%u "
                      "tcp=%u.",
                      endpoint.host.c_str(), endpoint.port, request.tcpPort));
     return;
@@ -905,7 +904,7 @@ void Ed2kKadCommand::handleEd2kUdpPacket(const ed2k::Endpoint& endpoint,
                                      nowSeconds());
     }
     if (added != 0) {
-      A2_LOG_INFO(fmt("ED2K UDP server %s:%u returned %lu source(s).",
+      A2_LOG_DEBUG(fmt("ED2K UDP server %s:%u returned %lu source(s).",
                       endpoint.host.c_str(), endpoint.port,
                       static_cast<unsigned long>(sources.size())));
       schedulePendingEd2kPeers(requestGroup_, e_);
@@ -1096,7 +1095,7 @@ void Ed2kKadCommand::handlePacket(
         return;
       }
       auto sources = ed2k::extractKadSourceEndpointDetails(result);
-      A2_LOG_DEBUG(fmt("ED2K Kad search response from %s:%u target=%s "
+      A2_LOG_TRACE(fmt("ED2K Kad search response from %s:%u target=%s "
                        "entries=%lu sources=%lu.",
                        endpoint.host.c_str(), endpoint.port,
                        util::toHex(result.targetId).c_str(),
@@ -1105,7 +1104,7 @@ void Ed2kKadCommand::handlePacket(
       for (const auto& source : sources) {
         const bool added =
             addEd2kKadSourcePeer(attrs, source, ed2k::PEER_SOURCE_KAD);
-        A2_LOG_DEBUG(fmt("ED2K Kad source type=%u host=%s tcp=%u udp=%u "
+        A2_LOG_TRACE(fmt("ED2K Kad source type=%u host=%s tcp=%u udp=%u "
                          "crypt=%u route=%s added=%s.",
                          source.sourceType, source.endpoint.host.c_str(),
                          source.endpoint.port, source.udpPort,
@@ -1252,7 +1251,7 @@ bool Ed2kKadCommand::execute()
     }
   }
   catch (DlAbortEx& e) {
-    A2_LOG_INFO_EX("Exception thrown while handling ED2K Kad.", e);
+    A2_LOG_DEBUG_EX("Exception thrown while handling ED2K Kad.", e);
   }
   e_->addRoutineCommand(std::unique_ptr<Command>(this));
   return false;

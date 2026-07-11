@@ -37,8 +37,7 @@
 #include "SocketCore.h"
 #include "A2STR.h"
 #include "util.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "BtConstants.h"
 #include "RecoverableException.h"
 #include "wallclock.h"
@@ -70,13 +69,13 @@ bool LpdMessageDispatcher::init(const std::string& localAddr, unsigned char ttl,
   try {
     socket_ = std::make_shared<SocketCore>(SOCK_DGRAM);
     socket_->create(AF_INET);
-    A2_LOG_DEBUG(
+    A2_LOG_TRACE(
         fmt("Setting multicast outgoing interface=%s", localAddr.c_str()));
     socket_->setMulticastInterface(localAddr);
-    A2_LOG_DEBUG(
+    A2_LOG_TRACE(
         fmt("Setting multicast ttl=%u", static_cast<unsigned int>(ttl)));
     socket_->setMulticastTtl(ttl);
-    A2_LOG_DEBUG(
+    A2_LOG_TRACE(
         fmt("Setting multicast loop=%u", static_cast<unsigned int>(loop)));
     socket_->setMulticastLoop(loop);
     return true;

@@ -39,7 +39,7 @@
 #include "DiskAdaptor.h"
 #include "RecoverableException.h"
 #include "DownloadFailureException.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 
 namespace aria2 {
@@ -91,7 +91,7 @@ void WrDiskCacheEntry::clear() { deleteDataCells(); }
 
 bool WrDiskCacheEntry::cacheData(DataCell* dataCell)
 {
-  A2_LOG_DEBUG(fmt("WrDiskCacheEntry cache goff=%" PRId64 ", len=%lu",
+  A2_LOG_TRACE(fmt("WrDiskCacheEntry cache goff=%" PRId64 ", len=%lu",
                    dataCell->goff, static_cast<unsigned long>(dataCell->len)));
   if (set_.insert(dataCell).second) {
     size_ += dataCell->len;

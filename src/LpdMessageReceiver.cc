@@ -35,8 +35,7 @@
 
 #include "LpdMessageReceiver.h"
 #include "SocketCore.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "HttpHeaderProcessor.h"
 #include "HttpHeader.h"
 #include "util.h"
@@ -65,13 +64,13 @@ bool LpdMessageReceiver::init(const std::string& localAddr)
 #else  // !__MINGW32__
     socket_->bind(multicastAddress_.c_str(), multicastPort_, AF_INET);
 #endif // !__MINGW32__
-    A2_LOG_DEBUG(fmt("Joining multicast group. %s:%u, localAddr=%s",
+    A2_LOG_TRACE(fmt("Joining multicast group. %s:%u, localAddr=%s",
                      multicastAddress_.c_str(), multicastPort_,
                      localAddr.c_str()));
     socket_->joinMulticastGroup(multicastAddress_, multicastPort_, localAddr);
     socket_->setNonBlockingMode();
     localAddress_ = localAddr;
-    A2_LOG_INFO(fmt("Listening multicast group (%s:%u) packet",
+    A2_LOG_DEBUG(fmt("Listening multicast group (%s:%u) packet",
                     multicastAddress_.c_str(), multicastPort_));
     return true;
   }
@@ -94,7 +93,7 @@ std::unique_ptr<LpdMessage> LpdMessageReceiver::receiveMessage()
       }
     }
     catch (RecoverableException& e) {
-      A2_LOG_INFO_EX("Failed to receive LPD message.", e);
+      A2_LOG_DEBUG_EX("Failed to receive LPD message.", e);
       return nullptr;
     }
     HttpHeaderProcessor proc(HttpHeaderProcessor::SERVER_PARSER);
@@ -105,7 +104,7 @@ std::unique_ptr<LpdMessage> LpdMessageReceiver::receiveMessage()
       }
     }
     catch (RecoverableException& e) {
-      A2_LOG_INFO_EX("Failed to parse LPD message.", e);
+      A2_LOG_DEBUG_EX("Failed to parse LPD message.", e);
       continue;
     }
     auto header = proc.getResult();
@@ -113,16 +112,16 @@ std::unique_ptr<LpdMessage> LpdMessageReceiver::receiveMessage()
     uint32_t port = 0;
     if (!util::parseUIntNoThrow(port, header->find(HttpHeader::PORT)) ||
         port > UINT16_MAX || port == 0) {
-      A2_LOG_INFO(fmt("Bad LPD port=%u", port));
+      A2_LOG_DEBUG(fmt("Bad LPD port=%u", port));
       continue;
     }
-    A2_LOG_INFO(fmt("LPD message received infohash=%s, port=%u from %s",
+    A2_LOG_DEBUG(fmt("LPD message received infohash=%s, port=%u from %s",
                     infoHashString.c_str(), port, remoteEndpoint.addr.c_str()));
     std::string infoHash;
     if (infoHashString.size() != 40 ||
         (infoHash = util::fromHex(infoHashString.begin(), infoHashString.end()))
             .empty()) {
-      A2_LOG_INFO(fmt("LPD bad request. infohash=%s", infoHashString.c_str()));
+      A2_LOG_DEBUG(fmt("LPD bad request. infohash=%s", infoHashString.c_str()));
       continue;
     }
     auto peer = std::make_shared<Peer>(remoteEndpoint.addr, port, false);

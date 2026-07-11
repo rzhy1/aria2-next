@@ -36,8 +36,7 @@
 
 #include <algorithm>
 
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "Piece.h"
 #include "Peer.h"
 #include "PieceStorage.h"
@@ -180,7 +179,7 @@ DefaultBtRequestFactory::createRequestMessages(size_t max, bool endGame)
       getnum -= blockIndexes.size();
       for (auto i = std::begin(blockIndexes), eoi2 = std::end(blockIndexes);
            i != eoi2; ++i) {
-        A2_LOG_DEBUG(
+        A2_LOG_TRACE(
             fmt("Creating RequestMessage index=%lu, begin=%u,"
                 " blockIndex=%lu",
                 static_cast<unsigned long>(piece->getIndex()),
@@ -224,7 +223,7 @@ DefaultBtRequestFactory::createRequestMessagesOnEndGame(size_t max)
          bitr != eoi2 && requests.size() < max; ++bitr) {
       size_t blockIndex = *bitr;
       if (!dispatcher_->isOutstandingRequest(piece->getIndex(), blockIndex)) {
-        A2_LOG_DEBUG(
+        A2_LOG_TRACE(
             fmt("Creating RequestMessage index=%lu, begin=%u,"
                 " blockIndex=%lu",
                 static_cast<unsigned long>(piece->getIndex()),

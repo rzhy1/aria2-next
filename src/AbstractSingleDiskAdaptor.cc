@@ -39,7 +39,7 @@
 #include "FileEntry.h"
 #include "TruncFileAllocationIterator.h"
 #include "WrDiskCacheEntry.h"
-#include "LogFactory.h"
+#include "Log.h"
 #ifdef HAVE_SOME_FALLOCATE
 #  include "FallocFileAllocationIterator.h"
 #endif // HAVE_SOME_FALLOCATE
@@ -113,7 +113,7 @@ void AbstractSingleDiskAdaptor::writeCache(const WrDiskCacheEntry* entry)
   };
 
   for (auto& d : entry->getDataSet()) {
-    A2_LOG_DEBUG(fmt("Cache flush goff=%" PRId64 ", len=%lu", d->goff,
+    A2_LOG_TRACE(fmt("Cache flush goff=%" PRId64 ", len=%lu", d->goff,
                      static_cast<unsigned long>(d->len)));
     if (buffer.empty()) {
       offset = d->goff;

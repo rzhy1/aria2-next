@@ -48,7 +48,7 @@
 #include "HttpHeader.h"
 #include "Range.h"
 #include "DownloadContext.h"
-#include "Logger.h"
+#include "Log.h"
 #include "StreamFilter.h"
 #include "SinkStreamFilter.h"
 #include "util.h"

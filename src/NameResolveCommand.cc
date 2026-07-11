@@ -40,8 +40,7 @@
 #include "util.h"
 #include "Option.h"
 #include "RequestGroupMan.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 #include "UDPTrackerRequest.h"
 #include "UDPTrackerClient.h"
@@ -155,7 +154,7 @@ int NameResolveCommand::resolveHostname(std::vector<std::string>& res,
 
   switch (asyncNameResolverMan_->getStatus()) {
   case -1:
-    A2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_FAILED, getCuid(), hostname.c_str(),
+    A2_LOG_DEBUG(fmt(MSG_NAME_RESOLUTION_FAILED, getCuid(), hostname.c_str(),
                     asyncNameResolverMan_->getLastError().c_str()));
     return -1;
   case 0:
@@ -163,12 +162,12 @@ int NameResolveCommand::resolveHostname(std::vector<std::string>& res,
   case 1:
     asyncNameResolverMan_->getResolvedAddress(res);
     if (res.empty()) {
-      A2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_FAILED, getCuid(), hostname.c_str(),
+      A2_LOG_DEBUG(fmt(MSG_NAME_RESOLUTION_FAILED, getCuid(), hostname.c_str(),
                       "No address returned"));
       return -1;
     }
     else {
-      A2_LOG_INFO(fmt(MSG_NAME_RESOLUTION_COMPLETE, getCuid(), hostname.c_str(),
+      A2_LOG_DEBUG(fmt(MSG_NAME_RESOLUTION_COMPLETE, getCuid(), hostname.c_str(),
                       res.front().c_str()));
       return 1;
     }

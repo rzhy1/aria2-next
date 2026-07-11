@@ -36,8 +36,7 @@
 
 #include <algorithm>
 
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "message.h"
 #include "Peer.h"
 #include "BtRuntime.h"
@@ -89,7 +88,7 @@ void DefaultPeerStorage::addUniqPeer(const std::shared_ptr<Peer>& peer)
 bool DefaultPeerStorage::addPeer(const std::shared_ptr<Peer>& peer)
 {
   if (unusedPeers_.size() >= maxPeerListSize_) {
-    A2_LOG_DEBUG(fmt("Adding %s:%u is rejected, since unused peer list is full "
+    A2_LOG_TRACE(fmt("Adding %s:%u is rejected, since unused peer list is full "
                      "(%lu peers > %lu)",
                      peer->getIPAddress().c_str(), peer->getPort(),
                      static_cast<unsigned long>(unusedPeers_.size()),
@@ -97,13 +96,13 @@ bool DefaultPeerStorage::addPeer(const std::shared_ptr<Peer>& peer)
     return false;
   }
   if (isPeerAlreadyAdded(peer)) {
-    A2_LOG_DEBUG(fmt("Adding %s:%u is rejected because it has been already"
+    A2_LOG_TRACE(fmt("Adding %s:%u is rejected because it has been already"
                      " added.",
                      peer->getIPAddress().c_str(), peer->getPort()));
     return false;
   }
   if (isBadPeer(peer->getIPAddress())) {
-    A2_LOG_DEBUG(fmt("Adding %s:%u is rejected because it is marked bad.",
+    A2_LOG_TRACE(fmt("Adding %s:%u is rejected because it is marked bad.",
                      peer->getIPAddress().c_str(), peer->getPort()));
     return false;
   }
@@ -113,7 +112,7 @@ bool DefaultPeerStorage::addPeer(const std::shared_ptr<Peer>& peer)
   }
   unusedPeers_.push_back(peer);
   addUniqPeer(peer);
-  A2_LOG_DEBUG(fmt("Now unused peer list contains %lu peers",
+  A2_LOG_TRACE(fmt("Now unused peer list contains %lu peers",
                    static_cast<unsigned long>(unusedPeers_.size())));
   return true;
 }
@@ -124,18 +123,18 @@ void DefaultPeerStorage::addPeer(
   if (unusedPeers_.size() < maxPeerListSize_) {
     for (auto& peer : peers) {
       if (isPeerAlreadyAdded(peer)) {
-        A2_LOG_DEBUG(fmt("Adding %s:%u is rejected because it has been already"
+        A2_LOG_TRACE(fmt("Adding %s:%u is rejected because it has been already"
                          " added.",
                          peer->getIPAddress().c_str(), peer->getPort()));
         continue;
       }
       else if (isBadPeer(peer->getIPAddress())) {
-        A2_LOG_DEBUG(fmt("Adding %s:%u is rejected because it is marked bad.",
+        A2_LOG_TRACE(fmt("Adding %s:%u is rejected because it is marked bad.",
                          peer->getIPAddress().c_str(), peer->getPort()));
         continue;
       }
       else {
-        A2_LOG_DEBUG(fmt(MSG_ADDING_PEER, peer->getIPAddress().c_str(),
+        A2_LOG_TRACE(fmt(MSG_ADDING_PEER, peer->getIPAddress().c_str(),
                          peer->getPort()));
       }
       unusedPeers_.push_back(peer);
@@ -144,7 +143,7 @@ void DefaultPeerStorage::addPeer(
   }
   else {
     for (auto& peer : peers) {
-      A2_LOG_DEBUG(
+      A2_LOG_TRACE(
           fmt("Adding %s:%u is rejected, since unused peer list is full "
               "(%lu peers > %lu)",
               peer->getIPAddress().c_str(), peer->getPort(),
@@ -156,7 +155,7 @@ void DefaultPeerStorage::addPeer(
   if (peerListSize > maxPeerListSize_) {
     deleteUnusedPeer(peerListSize - maxPeerListSize_);
   }
-  A2_LOG_DEBUG(fmt("Now unused peer list contains %lu peers",
+  A2_LOG_TRACE(fmt("Now unused peer list contains %lu peers",
                    static_cast<unsigned long>(unusedPeers_.size())));
 }
 
@@ -238,7 +237,7 @@ void DefaultPeerStorage::addBadPeer(const std::string& ipaddr)
   if (lastBadPeerCleaned_.difference(global::wallclock()) >= 1_h) {
     for (auto i = std::begin(badPeers_); i != std::end(badPeers_);) {
       if ((*i).second <= global::wallclock()) {
-        A2_LOG_DEBUG(fmt("Purge %s from bad peer", (*i).first.c_str()));
+        A2_LOG_TRACE(fmt("Purge %s from bad peer", (*i).first.c_str()));
         badPeers_.erase(i++);
         // badPeers_.end() will not be invalidated.
       }
@@ -248,7 +247,7 @@ void DefaultPeerStorage::addBadPeer(const std::string& ipaddr)
     }
     lastBadPeerCleaned_ = global::wallclock();
   }
-  A2_LOG_DEBUG(fmt("Added %s as bad peer", ipaddr.c_str()));
+  A2_LOG_TRACE(fmt("Added %s as bad peer", ipaddr.c_str()));
   // We use variable timeout to avoid many bad peers wake up at once.
   auto t = global::wallclock();
   t.advance(std::chrono::seconds(
@@ -262,7 +261,7 @@ void DefaultPeerStorage::deleteUnusedPeer(size_t delSize)
   for (; delSize > 0 && !unusedPeers_.empty(); --delSize) {
     auto& peer = unusedPeers_.back();
     onErasingPeer(peer);
-    A2_LOG_DEBUG(fmt("Remove peer %s:%u", peer->getIPAddress().c_str(),
+    A2_LOG_TRACE(fmt("Remove peer %s:%u", peer->getIPAddress().c_str(),
                      peer->getOrigPort()));
     unusedPeers_.pop_back();
   }
@@ -282,7 +281,7 @@ std::shared_ptr<Peer> DefaultPeerStorage::checkoutPeer(cuid_t cuid)
   }
   peer->usedBy(cuid);
   usedPeers_.insert(peer);
-  A2_LOG_DEBUG(fmt("Checkout peer %s:%u to CUID#%" PRId64,
+  A2_LOG_TRACE(fmt("Checkout peer %s:%u to CUID#%" PRId64,
                    peer->getIPAddress().c_str(), peer->getOrigPort(),
                    peer->usedBy()));
   return peer;
@@ -311,7 +310,7 @@ void DefaultPeerStorage::onReturningPeer(const std::shared_ptr<Peer>& peer)
 
 void DefaultPeerStorage::returnPeer(const std::shared_ptr<Peer>& peer)
 {
-  A2_LOG_DEBUG(fmt("Peer %s:%u returned from CUID#%" PRId64,
+  A2_LOG_TRACE(fmt("Peer %s:%u returned from CUID#%" PRId64,
                    peer->getIPAddress().c_str(), peer->getOrigPort(),
                    peer->usedBy()));
   if (usedPeers_.erase(peer)) {

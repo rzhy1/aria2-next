@@ -41,8 +41,7 @@
 #include <openssl/pkcs12.h>
 #include <openssl/bio.h>
 
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "fmt.h"
 #include "message.h"
 #include "BufferedFile.h"
@@ -176,7 +175,7 @@ bool OpenSSLTLSContext::addCredentialFile(const std::string& certfile,
                      ERR_error_string(ERR_get_error(), nullptr)));
     return false;
   }
-  A2_LOG_INFO(fmt("Credential files(cert=%s, key=%s) were successfully added.",
+  A2_LOG_DEBUG(fmt("Credential files(cert=%s, key=%s) were successfully added.",
                   certfile.c_str(), keyfile.c_str()));
   return true;
 }
@@ -254,19 +253,19 @@ bool OpenSSLTLSContext::addP12CredentialFile(const std::string& p12file)
     return false;
   }
 
-  A2_LOG_INFO("Using certificate and key from PKCS12 file");
+  A2_LOG_DEBUG("Using certificate and key from PKCS12 file");
   return true;
 }
 
 bool OpenSSLTLSContext::addSystemTrustedCACerts()
 {
   if (SSL_CTX_set_default_verify_paths(sslCtx_) != 1) {
-    A2_LOG_INFO(fmt(MSG_LOADING_SYSTEM_TRUSTED_CA_CERTS_FAILED,
+    A2_LOG_DEBUG(fmt(MSG_LOADING_SYSTEM_TRUSTED_CA_CERTS_FAILED,
                     ERR_error_string(ERR_get_error(), nullptr)));
     return false;
   }
   else {
-    A2_LOG_INFO("System trusted CA certificates were successfully added.");
+    A2_LOG_DEBUG("System trusted CA certificates were successfully added.");
     return true;
   }
 }
@@ -279,7 +278,7 @@ bool OpenSSLTLSContext::addTrustedCACertFile(const std::string& certfile)
     return false;
   }
   else {
-    A2_LOG_INFO("Trusted CA certificates were successfully added.");
+    A2_LOG_DEBUG("Trusted CA certificates were successfully added.");
     return true;
   }
 }

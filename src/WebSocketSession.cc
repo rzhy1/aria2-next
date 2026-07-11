@@ -39,7 +39,7 @@
 #include <cassert>
 
 #include "SocketCore.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "RecoverableException.h"
 #include "message.h"
 #include "DownloadEngine.h"
@@ -75,7 +75,7 @@ ssize_t sendCallback(wslay_event_context_ptr wsctx, const uint8_t* data,
     return r;
   }
   catch (RecoverableException& e) {
-    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, e);
+    A2_LOG_TRACE_EX(EX_EXCEPTION_CAUGHT, e);
     wslay_event_set_error(wsctx, WSLAY_ERR_CALLBACK_FAILURE);
     return -1;
   }
@@ -106,7 +106,7 @@ ssize_t recvCallback(wslay_event_context_ptr wsctx, uint8_t* buf, size_t len,
     return r;
   }
   catch (RecoverableException& e) {
-    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, e);
+    A2_LOG_TRACE_EX(EX_EXCEPTION_CAUGHT, e);
     wslay_event_set_error(wsctx, WSLAY_ERR_CALLBACK_FAILURE);
     return -1;
   }
@@ -173,7 +173,7 @@ void onMsgRecvCallback(wslay_event_context_ptr wsctx,
     ssize_t error = 0;
     auto json = wsSession->parseFinal(nullptr, 0, error);
     if (error < 0) {
-      A2_LOG_INFO("Failed to parse JSON-RPC request");
+      A2_LOG_DEBUG("Failed to parse JSON-RPC request");
       RpcResponse res(
           createJsonRpcErrorResponse(-32700, "Parse error.", Null::g()));
       addResponse(wsSession, res);

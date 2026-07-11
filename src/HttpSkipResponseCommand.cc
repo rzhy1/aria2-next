@@ -40,8 +40,7 @@
 #include "DlRetryEx.h"
 #include "Request.h"
 #include "DownloadEngine.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "HttpRequest.h"
 #include "Segment.h"
 #include "util.h"
@@ -144,7 +143,7 @@ bool HttpSkipResponseCommand::executeInternal()
     }
   }
   catch (RecoverableException& e) {
-    A2_LOG_DEBUG_EX(EX_EXCEPTION_CAUGHT, e)
+    A2_LOG_TRACE_EX(EX_EXCEPTION_CAUGHT, e);
     return processResponse();
   }
 

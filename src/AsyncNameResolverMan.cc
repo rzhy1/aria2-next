@@ -41,7 +41,7 @@
 #include "Command.h"
 #include "message.h"
 #include "fmt.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "Option.h"
 #include "SocketCore.h"
 #include "prefs.h"
@@ -79,7 +79,7 @@ void AsyncNameResolverMan::startAsync(const std::string& hostname,
     startAsyncFamily(hostname, AF_INET, e, command);
     ++numResolver_;
   }
-  A2_LOG_INFO(
+  A2_LOG_DEBUG(
       fmt(MSG_RESOLVING_HOSTNAME, command->getCuid(), hostname.c_str()));
 }
 

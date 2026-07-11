@@ -40,8 +40,7 @@
 
 #include "message.h"
 #include "DlAbortEx.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "BtHandshakeMessage.h"
 #include "SocketCore.h"
 #include "a2netcompat.h"
@@ -209,7 +208,7 @@ bool PeerConnection::receiveHandshake(unsigned char* data, size_t& dataLength,
     readData(resbuf_.get() + resbufLength_, remaining, encryptionEnabled_);
     if (remaining == 0 && !socket_->wantRead() && !socket_->wantWrite()) {
       // we got EOF
-      A2_LOG_DEBUG(fmt("CUID#%" PRId64
+      A2_LOG_TRACE(fmt("CUID#%" PRId64
                        " - In PeerConnection::receiveHandshake(), remain=%lu",
                        cuid_, static_cast<unsigned long>(temp)));
       peer_->setDisconnectedGracefully(true);
@@ -267,7 +266,7 @@ size_t PeerConnection::getBufferEntrySize() const
 ssize_t PeerConnection::sendPendingData()
 {
   ssize_t writtenLength = socketBuffer_.send();
-  A2_LOG_DEBUG(fmt("sent %ld byte(s).", static_cast<long int>(writtenLength)));
+  A2_LOG_TRACE(fmt("sent %ld byte(s).", static_cast<long int>(writtenLength)));
   return writtenLength;
 }
 

@@ -40,8 +40,7 @@
 #include "message.h"
 #include "prefs.h"
 #include "SocketCore.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "Peer.h"
 #include "BtRuntime.h"
 #include "PeerStorage.h"
@@ -74,7 +73,7 @@ PeerInitiateConnectionCommand::~PeerInitiateConnectionCommand()
 
 bool PeerInitiateConnectionCommand::executeInternal()
 {
-  A2_LOG_INFO(fmt(MSG_CONNECTING_TO_SERVER, getCuid(),
+  A2_LOG_DEBUG(fmt(MSG_CONNECTING_TO_SERVER, getCuid(),
                   getPeer()->getIPAddress().c_str(), getPeer()->getPort()));
   createSocket();
   getSocket()->establishConnection(getPeer()->getIPAddress(),

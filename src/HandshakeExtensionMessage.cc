@@ -36,8 +36,7 @@
 #include "Peer.h"
 #include "util.h"
 #include "DlAbortEx.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "message.h"
 #include "fmt.h"
 #include "bencode2.h"
@@ -167,7 +166,7 @@ HandshakeExtensionMessage::create(const unsigned char* data, size_t length)
     throw DL_ABORT_EX(fmt(MSG_TOO_SMALL_PAYLOAD_SIZE, EXTENSION_NAME,
                           static_cast<unsigned long>(length)));
   }
-  A2_LOG_DEBUG(fmt("Creating HandshakeExtensionMessage from %s",
+  A2_LOG_TRACE(fmt("Creating HandshakeExtensionMessage from %s",
                    util::percentEncode(data, length).c_str()));
   auto decoded = bencode2::decode(data + 1, length - 1);
   const Dict* dict = downcast<Dict>(decoded);
@@ -190,13 +189,13 @@ HandshakeExtensionMessage::create(const unsigned char* data, size_t length)
       const Integer* extId = downcast<Integer>(elem.second);
       if (extId) {
         if (extId->i() < 0 || extId->i() > 255) {
-          A2_LOG_DEBUG(fmt("Extension ID=%" PRId64 " is invalid", extId->i()));
+          A2_LOG_TRACE(fmt("Extension ID=%" PRId64 " is invalid", extId->i()));
           continue;
         }
 
         int key = keyBtExtension(elem.first.c_str());
         if (key == ExtensionMessageRegistry::MAX_EXTENSION) {
-          A2_LOG_DEBUG(fmt("Unsupported BitTorrent extension %s=%" PRId64,
+          A2_LOG_TRACE(fmt("Unsupported BitTorrent extension %s=%" PRId64,
                            elem.first.c_str(), extId->i()));
         }
         else {

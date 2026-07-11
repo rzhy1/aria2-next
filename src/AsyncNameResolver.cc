@@ -37,7 +37,7 @@
 #include <cstring>
 
 #include "A2STR.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "SocketCore.h"
 #include "util.h"
 #include "EventPoll.h"
@@ -140,7 +140,7 @@ AsyncNameResolver::AsyncNameResolver(int family, const std::string& servers)
       errorCode_ = rv;
       error_ = ares_strerror(rv);
       status_ = STATUS_ERROR;
-      A2_LOG_DEBUG("ares_set_servers_csv failed");
+      A2_LOG_TRACE("ares_set_servers_csv failed");
     }
   }
 }

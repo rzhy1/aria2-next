@@ -36,8 +36,7 @@
 #include "prefs.h"
 #include "RequestGroup.h"
 #include "Option.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "DownloadHandlerConstants.h"
 #include "File.h"
 #include "PieceStorage.h"
@@ -66,7 +65,7 @@ void BtPostDownloadHandler::getNextRequestGroups(
     std::vector<std::shared_ptr<RequestGroup>>& groups,
     RequestGroup* requestGroup) const
 {
-  A2_LOG_INFO(fmt("Generating RequestGroups for Torrent file %s",
+  A2_LOG_DEBUG(fmt("Generating RequestGroups for Torrent file %s",
                   requestGroup->getFirstFilePath().c_str()));
   std::unique_ptr<ValueBase> torrent;
   if (requestGroup->inMemoryDownload()) {

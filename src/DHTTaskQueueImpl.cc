@@ -34,8 +34,7 @@
 /* copyright --> */
 #include "DHTTaskQueueImpl.h"
 #include "DHTTask.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 
 namespace aria2 {
 
@@ -54,11 +53,11 @@ DHTTaskQueueImpl::~DHTTaskQueueImpl() = default;
 
 void DHTTaskQueueImpl::executeTask()
 {
-  A2_LOG_DEBUG("Updating periodicTaskQueue1");
+  A2_LOG_TRACE("Updating periodicTaskQueue1");
   periodicTaskQueue1_.update();
-  A2_LOG_DEBUG("Updating periodicTaskQueue2");
+  A2_LOG_TRACE("Updating periodicTaskQueue2");
   periodicTaskQueue2_.update();
-  A2_LOG_DEBUG("Updating immediateTaskQueue");
+  A2_LOG_TRACE("Updating immediateTaskQueue");
   immediateTaskQueue_.update();
 }
 

@@ -45,8 +45,7 @@
 #include "message.h"
 #include "util.h"
 #include "Option.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "Segment.h"
 #include "DownloadContext.h"
 #include "DefaultBtProgressInfoFile.h"
@@ -100,7 +99,7 @@ bool SftpNegotiationCommand::executeInternal()
       if (!getSocket()->sshHandshake(hashType_, digest_)) {
         goto again;
       }
-      A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - SSH handshake success", getCuid()));
+      A2_LOG_TRACE(fmt("CUID#%" PRId64 " - SSH handshake success", getCuid()));
       sequence_ = SEQ_AUTH_PASSWORD;
       break;
     case SEQ_AUTH_PASSWORD:
@@ -108,7 +107,7 @@ bool SftpNegotiationCommand::executeInternal()
                                         authConfig_->getPassword())) {
         goto again;
       }
-      A2_LOG_DEBUG(
+      A2_LOG_TRACE(
           fmt("CUID#%" PRId64 " - SSH authentication success", getCuid()));
       sequence_ = SEQ_SFTP_OPEN;
       break;
@@ -116,7 +115,7 @@ bool SftpNegotiationCommand::executeInternal()
       if (!getSocket()->sshSFTPOpen(path_)) {
         goto again;
       }
-      A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - SFTP file %s opened", getCuid(),
+      A2_LOG_TRACE(fmt("CUID#%" PRId64 " - SFTP file %s opened", getCuid(),
                        path_.c_str()));
       sequence_ = SEQ_SFTP_STAT;
       break;
@@ -127,7 +126,7 @@ bool SftpNegotiationCommand::executeInternal()
         goto again;
       }
       Time t(mtime);
-      A2_LOG_INFO(
+      A2_LOG_DEBUG(
           fmt("CUID#%" PRId64 " - SFTP File %s, size=%" PRId64 ", mtime=%s",
               getCuid(), path_.c_str(), totalLength, t.toHTTPDate().c_str()));
       if (!getPieceStorage()) {
@@ -149,7 +148,7 @@ bool SftpNegotiationCommand::executeInternal()
 
       auto& segment = getSegments().front();
 
-      A2_LOG_INFO(fmt("CUID#%" PRId64 " - SFTP seek to %" PRId64, getCuid(),
+      A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - SFTP seek to %" PRId64, getCuid(),
                       segment->getPositionToWrite()));
       getSocket()->sshSFTPSeek(segment->getPositionToWrite());
 
@@ -225,7 +224,7 @@ void SftpNegotiationCommand::onFileSizeDetermined(int64_t totalLength)
       // HttpResponseCommand::handleOtherEncoding()
       getRequestGroup()->initPieceStorage();
       if (getDownloadContext()->isChecksumVerificationNeeded()) {
-        A2_LOG_DEBUG("Zero length file exists. Verify checksum.");
+        A2_LOG_TRACE("Zero length file exists. Verify checksum.");
         auto entry =
             make_unique<ChecksumCheckIntegrityEntry>(getRequestGroup());
         entry->initValidator();
@@ -238,7 +237,7 @@ void SftpNegotiationCommand::onFileSizeDetermined(int64_t totalLength)
         getPieceStorage()->markAllPiecesDone();
         getDownloadContext()->setChecksumVerified(true);
         sequence_ = SEQ_DOWNLOAD_ALREADY_COMPLETED;
-        A2_LOG_NOTICE(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED,
+        A2_LOG_INFO(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED,
                           GroupId::toHex(getRequestGroup()->getGID()).c_str(),
                           getRequestGroup()->getFirstFilePath().c_str()));
       }
@@ -251,13 +250,13 @@ void SftpNegotiationCommand::onFileSizeDetermined(int64_t totalLength)
     getPieceStorage()->getDiskAdaptor()->initAndOpenFile();
 
     if (getDownloadContext()->knowsTotalLength()) {
-      A2_LOG_DEBUG("File length becomes zero and it means download completed.");
+      A2_LOG_TRACE("File length becomes zero and it means download completed.");
       // TODO Known issue: if .aria2 file exists, it will not be
       // deleted on successful verification, because .aria2 file is
       // not loaded.  See also
       // HttpResponseCommand::handleOtherEncoding()
       if (getDownloadContext()->isChecksumVerificationNeeded()) {
-        A2_LOG_DEBUG("Verify checksum for zero-length file");
+        A2_LOG_TRACE("Verify checksum for zero-length file");
         auto entry =
             make_unique<ChecksumCheckIntegrityEntry>(getRequestGroup());
         entry->initValidator();

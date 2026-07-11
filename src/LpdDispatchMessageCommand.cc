@@ -36,8 +36,7 @@
 #include "LpdMessageDispatcher.h"
 #include "DownloadEngine.h"
 #include "BtRuntime.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "RecoverableException.h"
 #include "SocketCore.h"
 #include "util.h"
@@ -61,28 +60,28 @@ bool LpdDispatchMessageCommand::execute()
   }
   if (dispatcher_->isAnnounceReady()) {
     try {
-      A2_LOG_INFO(fmt("Dispatching LPD message for infohash=%s",
+      A2_LOG_DEBUG(fmt("Dispatching LPD message for infohash=%s",
                       util::toHex(dispatcher_->getInfoHash()).c_str()));
       if (dispatcher_->sendMessage()) {
-        A2_LOG_INFO("Sending LPD message is complete.");
+        A2_LOG_DEBUG("Sending LPD message is complete.");
         dispatcher_->resetAnnounceTimer();
         tryCount_ = 0;
       }
       else {
         ++tryCount_;
         if (tryCount_ >= 5) {
-          A2_LOG_INFO(
+          A2_LOG_DEBUG(
               fmt("Sending LPD message %u times but all failed.", tryCount_));
           dispatcher_->resetAnnounceTimer();
           tryCount_ = 0;
         }
         else {
-          A2_LOG_INFO("Could not send LPD message, retry shortly.");
+          A2_LOG_DEBUG("Could not send LPD message, retry shortly.");
         }
       }
     }
     catch (RecoverableException& e) {
-      A2_LOG_INFO_EX("Failed to send LPD message.", e);
+      A2_LOG_DEBUG_EX("Failed to send LPD message.", e);
       dispatcher_->resetAnnounceTimer();
       tryCount_ = 0;
     }

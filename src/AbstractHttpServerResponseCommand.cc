@@ -36,8 +36,7 @@
 #include "SocketCore.h"
 #include "DownloadEngine.h"
 #include "HttpServer.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "HttpServerCommand.h"
 #include "RequestGroupMan.h"
 #include "RecoverableException.h"
@@ -107,21 +106,21 @@ bool AbstractHttpServerResponseCommand::execute()
     }
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX(fmt("CUID#%" PRId64
+    A2_LOG_DEBUG_EX(fmt("CUID#%" PRId64
                        " - Error occurred while transmitting response body.",
                        getCuid()),
                    e);
     return true;
   }
   if (httpServer_->sendBufferIsEmpty()) {
-    A2_LOG_INFO(fmt("CUID#%" PRId64 " - HttpServer: all response transmitted.",
+    A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - HttpServer: all response transmitted.",
                     getCuid()));
     afterSend(httpServer_, e_);
     return true;
   }
   else {
     if (timeoutTimer_.difference(global::wallclock()) >= 30_s) {
-      A2_LOG_INFO(fmt("CUID#%" PRId64
+      A2_LOG_DEBUG(fmt("CUID#%" PRId64
                       " - HttpServer: Timeout while transmitting response.",
                       getCuid()));
       return true;

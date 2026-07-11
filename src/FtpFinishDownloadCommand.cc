@@ -46,8 +46,7 @@
 #include "DlAbortEx.h"
 #include "SocketCore.h"
 #include "RequestGroup.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "util.h"
 #include "wallclock.h"
 #include "SocketRecvBuffer.h"
@@ -89,12 +88,12 @@ bool FtpFinishDownloadCommand::execute()
         }
       }
       else {
-        A2_LOG_INFO(fmt("CUID#%" PRId64 " - Bad status for transfer complete.",
+        A2_LOG_DEBUG(fmt("CUID#%" PRId64 " - Bad status for transfer complete.",
                         getCuid()));
       }
     }
     else if (getCheckPoint().difference(global::wallclock()) >= getTimeout()) {
-      A2_LOG_INFO(fmt("CUID#%" PRId64
+      A2_LOG_DEBUG(fmt("CUID#%" PRId64
                       " - Timeout before receiving transfer complete.",
                       getCuid()));
     }
@@ -104,7 +103,7 @@ bool FtpFinishDownloadCommand::execute()
     }
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX(fmt("CUID#%" PRId64
+    A2_LOG_DEBUG_EX(fmt("CUID#%" PRId64
                        " - Exception was thrown, but download was"
                        " finished, so we can ignore the exception.",
                        getCuid()),

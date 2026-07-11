@@ -55,8 +55,7 @@
 #include "DownloadContext.h"
 #include "PieceStorage.h"
 #include "DefaultBtProgressInfoFile.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "fmt.h"
 #include "SocketRecvBuffer.h"
 

@@ -36,8 +36,7 @@
 #include "DownloadEngine.h"
 #include "BtRuntime.h"
 #include "PieceStorage.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "SeedCriteria.h"
 #include "message.h"
 #include "RequestGroup.h"
@@ -82,7 +81,7 @@ bool SeedCheckCommand::execute()
   }
   if (checkStarted_) {
     if (seedCriteria_->evaluate()) {
-      A2_LOG_NOTICE(MSG_SEEDING_END);
+      A2_LOG_INFO(MSG_SEEDING_END);
       if (btRuntime_) {
         btRuntime_->setHalt(true);
       }

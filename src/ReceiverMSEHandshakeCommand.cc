@@ -41,7 +41,7 @@
 #include "Peer.h"
 #include "message.h"
 #include "SocketCore.h"
-#include "Logger.h"
+#include "Log.h"
 #include "prefs.h"
 #include "Option.h"
 #include "MSEHandshake.h"

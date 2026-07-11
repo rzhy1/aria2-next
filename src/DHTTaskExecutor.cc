@@ -37,8 +37,7 @@
 #include <algorithm>
 
 #include "DHTTask.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "a2functional.h"
 #include "fmt.h"
 
@@ -72,7 +71,7 @@ void DHTTaskExecutor::update()
       --r;
     }
   }
-  A2_LOG_DEBUG(fmt("Executing %u Task(s). Queue has %u task(s).",
+  A2_LOG_TRACE(fmt("Executing %u Task(s). Queue has %u task(s).",
                    static_cast<unsigned int>(getExecutingTaskSize()),
                    static_cast<unsigned int>(getQueueSize())));
 }

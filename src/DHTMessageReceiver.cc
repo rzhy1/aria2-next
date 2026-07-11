@@ -47,8 +47,7 @@
 #include "DHTNode.h"
 #include "DHTMessageCallback.h"
 #include "DlAbortEx.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "util.h"
 #include "bencode2.h"
 #include "fmt.h"
@@ -78,13 +77,13 @@ DHTMessageReceiver::receiveMessage(const std::string& remoteAddr,
         }
       }
       else {
-        A2_LOG_INFO(fmt("Malformed DHT message. Missing 'y' key. From:%s:%u",
+        A2_LOG_DEBUG(fmt("Malformed DHT message. Missing 'y' key. From:%s:%u",
                         remoteAddr.c_str(), remotePort));
         return handleUnknownMessage(data, length, remoteAddr, remotePort);
       }
     }
     else {
-      A2_LOG_INFO(fmt("Malformed DHT message. This is not a bencoded directory."
+      A2_LOG_DEBUG(fmt("Malformed DHT message. This is not a bencoded directory."
                       " From:%s:%u",
                       remoteAddr.c_str(), remotePort));
       return handleUnknownMessage(data, length, remoteAddr, remotePort);
@@ -105,7 +104,7 @@ DHTMessageReceiver::receiveMessage(const std::string& remoteAddr,
       auto message = factory_->createQueryMessage(dict, remoteAddr, remotePort);
       if (*message->getLocalNode() == *message->getRemoteNode()) {
         // drop message from localnode
-        A2_LOG_INFO("Received DHT message from localnode.");
+        A2_LOG_DEBUG("Received DHT message from localnode.");
         return handleUnknownMessage(data, length, remoteAddr, remotePort);
       }
       onMessageReceived(message.get());
@@ -113,14 +112,14 @@ DHTMessageReceiver::receiveMessage(const std::string& remoteAddr,
     }
   }
   catch (RecoverableException& e) {
-    A2_LOG_INFO_EX("Exception thrown while receiving DHT message.", e);
+    A2_LOG_DEBUG_EX("Exception thrown while receiving DHT message.", e);
     return handleUnknownMessage(data, length, remoteAddr, remotePort);
   }
 }
 
 void DHTMessageReceiver::onMessageReceived(DHTMessage* message)
 {
-  A2_LOG_INFO(fmt("Message received: %s", message->toString().c_str()));
+  A2_LOG_DEBUG(fmt("Message received: %s", message->toString().c_str()));
   message->validate();
   message->doReceivedAction();
   message->getRemoteNode()->markGood();
@@ -135,7 +134,7 @@ std::unique_ptr<DHTUnknownMessage> DHTMessageReceiver::handleUnknownMessage(
     uint16_t remotePort)
 {
   auto m = factory_->createUnknownMessage(data, length, remoteAddr, remotePort);
-  A2_LOG_INFO(fmt("Message received: %s", m->toString().c_str()));
+  A2_LOG_DEBUG(fmt("Message received: %s", m->toString().c_str()));
   return m;
 }
 

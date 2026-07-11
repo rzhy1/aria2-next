@@ -43,7 +43,8 @@ if(CPPUNIT_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/lib
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}/src/includes)
-  target_link_libraries(aria2_tests PRIVATE aria2_core PkgConfig::CPPUNIT)
+  target_link_libraries(aria2_tests PRIVATE aria2_core PkgConfig::CPPUNIT
+    spdlog::spdlog_header_only)
   add_test(NAME aria2_tests COMMAND aria2_tests)
   set_tests_properties(aria2_tests PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()

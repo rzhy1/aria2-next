@@ -47,8 +47,7 @@
 #include "RequestGroupMan.h"
 #include "DownloadResult.h"
 #include "StatCalc.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "SocketCore.h"
 #include "util.h"
 #include "a2functional.h"
@@ -244,7 +243,7 @@ void DownloadEngine::onEndOfRun()
 void DownloadEngine::afterEachIteration()
 {
   if (global::globalHaltRequested == 1) {
-    A2_LOG_NOTICE(_("Shutdown sequence commencing..."
+    A2_LOG_INFO(_("Shutdown sequence commencing..."
                     " Press Ctrl-C again for emergency shutdown."));
     requestHalt();
     global::globalHaltRequested = 2;
@@ -254,7 +253,7 @@ void DownloadEngine::afterEachIteration()
   }
 
   if (global::globalHaltRequested == 3) {
-    A2_LOG_NOTICE(_("Emergency shutdown sequence commencing..."));
+    A2_LOG_INFO(_("Emergency shutdown sequence commencing..."));
     requestForceHalt();
     global::globalHaltRequested = 4;
     setNoWait(true);
@@ -304,7 +303,7 @@ void DownloadEngine::addRoutineCommand(std::unique_ptr<Command> command)
 void DownloadEngine::poolSocket(const std::string& key,
                                 const SocketPoolEntry& entry)
 {
-  A2_LOG_INFO(fmt("Pool socket for %s", key.c_str()));
+  A2_LOG_DEBUG(fmt("Pool socket for %s", key.c_str()));
   std::multimap<std::string, SocketPoolEntry>::value_type p(key, entry);
   socketPool_.insert(p);
 }
@@ -316,13 +315,13 @@ void DownloadEngine::evictSocketPool()
   }
 
   std::multimap<std::string, SocketPoolEntry> newPool;
-  A2_LOG_DEBUG("Scanning SocketPool and erasing timed out entry.");
+  A2_LOG_TRACE("Scanning SocketPool and erasing timed out entry.");
   for (auto& elem : socketPool_) {
     if (!elem.second.isTimeout()) {
       newPool.insert(elem);
     }
   }
-  A2_LOG_DEBUG(
+  A2_LOG_TRACE(
       fmt("%lu entries removed.",
           static_cast<unsigned long>(socketPool_.size() - newPool.size())));
   socketPool_ = std::move(newPool);
@@ -395,7 +394,7 @@ bool getPeerInfo(Endpoint& res, const std::shared_ptr<SocketCore>& socket)
   catch (RecoverableException& e) {
     // socket->getPeerInfo() can fail if the socket has been
     // disconnected.
-    A2_LOG_INFO_EX("Getting peer info failed. Pooling socket canceled.", e);
+    A2_LOG_DEBUG_EX("Getting peer info failed. Pooling socket canceled.", e);
     return false;
   }
 }
@@ -453,7 +452,7 @@ DownloadEngine::findSocketPoolEntry(const std::string& key)
     // We assume that if socket is readable it means peer shutdowns
     // connection and the socket will receive EOF. So skip it.
     if (!e.isTimeout() && !e.getSocket()->isReadable(0)) {
-      A2_LOG_INFO(fmt("Found socket for %s", key.c_str()));
+      A2_LOG_DEBUG(fmt("Found socket for %s", key.c_str()));
       return i;
     }
   }

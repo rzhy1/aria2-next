@@ -40,8 +40,7 @@
 #include "PieceStorage.h"
 #include "BtRuntime.h"
 #include "Peer.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "prefs.h"
 #include "Option.h"
 #include "BtConstants.h"
@@ -142,7 +141,7 @@ void ActivePeerConnectionCommand::makeNewConnections(int num)
     command->setPeerStorage(peerStorage_);
     command->setPieceStorage(pieceStorage_);
     e_->addCommand(std::move(command));
-    A2_LOG_INFO(
+    A2_LOG_DEBUG(
         fmt(MSG_CONNECTING_TO_PEER, getCuid(), peer->getIPAddress().c_str()));
   }
 }

@@ -43,8 +43,7 @@
 #include "BitfieldMan.h"
 #include "Option.h"
 #include "TransferStat.h"
-#include "LogFactory.h"
-#include "Logger.h"
+#include "Log.h"
 #include "prefs.h"
 #include "DlAbortEx.h"
 #include "message.h"
@@ -204,7 +203,7 @@ void DefaultBtProgressInfoFile::save()
 
   lastDigest_ = std::move(digest);
 
-  A2_LOG_INFO(fmt(MSG_SAVING_SEGMENT_FILE, filename_.c_str()));
+  A2_LOG_DEBUG(fmt(MSG_SAVING_SEGMENT_FILE, filename_.c_str()));
   std::string filenameTemp = filename_;
   filenameTemp += "__temp";
   {
@@ -216,7 +215,7 @@ void DefaultBtProgressInfoFile::save()
     save(fp);
   }
 
-  A2_LOG_INFO(MSG_SAVED_SEGMENT_FILE);
+  A2_LOG_DEBUG(MSG_SAVED_SEGMENT_FILE);
 
   if (!File(filenameTemp).renameTo(filename_)) {
     throw DL_ABORT_EX(fmt(EX_SEGMENT_FILE_WRITE, filename_.c_str()));
@@ -233,7 +232,7 @@ void DefaultBtProgressInfoFile::save()
 // 2) network byte order if version == 0001
 void DefaultBtProgressInfoFile::load()
 {
-  A2_LOG_INFO(fmt(MSG_LOADING_SEGMENT_FILE, filename_.c_str()));
+  A2_LOG_DEBUG(fmt(MSG_LOADING_SEGMENT_FILE, filename_.c_str()));
   BufferedFile fp(filename_.c_str(), BufferedFile::READ);
   if (!fp) {
     throw DL_ABORT_EX(fmt(EX_SEGMENT_FILE_READ, filename_.c_str()));
@@ -257,7 +256,7 @@ void DefaultBtProgressInfoFile::load()
   bool infoHashCheckEnabled = false;
   if (extension[3] & 1 && isTorrentDownload()) {
     infoHashCheckEnabled = true;
-    A2_LOG_DEBUG("InfoHash checking enabled.");
+    A2_LOG_TRACE("InfoHash checking enabled.");
   }
 
   uint32_t infoHashLength;
@@ -399,7 +398,7 @@ void DefaultBtProgressInfoFile::load()
     util::convertBitfield(&dest, &src);
     pieceStorage_->setBitfield(dest.getBitfield(), dest.getBitfieldLength());
   }
-  A2_LOG_INFO(MSG_LOADED_SEGMENT_FILE);
+  A2_LOG_DEBUG(MSG_LOADED_SEGMENT_FILE);
 }
 
 void DefaultBtProgressInfoFile::removeFile()
@@ -414,11 +413,11 @@ bool DefaultBtProgressInfoFile::exists()
 {
   File f(filename_);
   if (f.isFile()) {
-    A2_LOG_INFO(fmt(MSG_SEGMENT_FILE_EXISTS, filename_.c_str()));
+    A2_LOG_DEBUG(fmt(MSG_SEGMENT_FILE_EXISTS, filename_.c_str()));
     return true;
   }
   else {
-    A2_LOG_INFO(fmt(MSG_SEGMENT_FILE_DOES_NOT_EXIST, filename_.c_str()));
+    A2_LOG_DEBUG(fmt(MSG_SEGMENT_FILE_DOES_NOT_EXIST, filename_.c_str()));
     return false;
   }
 }

@@ -38,8 +38,7 @@
 
 #include "RequestGroup.h"
 #include "Metalink2RequestGroup.h"
-#include "Logger.h"
-#include "LogFactory.h"
+#include "Log.h"
 #include "DiskAdaptor.h"
 #include "PieceStorage.h"
 #include "DownloadHandlerConstants.h"
@@ -92,7 +91,7 @@ void MetalinkPostDownloadHandler::getNextRequestGroups(
     std::vector<std::shared_ptr<RequestGroup>>& groups,
     RequestGroup* requestGroup) const
 {
-  A2_LOG_DEBUG(fmt("Generating RequestGroups for Metalink file %s",
+  A2_LOG_TRACE(fmt("Generating RequestGroups for Metalink file %s",
                    requestGroup->getFirstFilePath().c_str()));
   auto diskAdaptor = requestGroup->getPieceStorage()->getDiskAdaptor();
   try {

@@ -43,6 +43,7 @@ jobs:
           binutils \
           curl \
           tar \
+          lld \
           dpkg-dev \
           gcc-mingw-w64-x86-64 \
           g++-mingw-w64-x86-64
@@ -74,7 +75,7 @@ jobs:
         curl -fLLO  https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz
         tar xf zlib-${ZLIB_VERSION}.tar.gz
         cd zlib-${ZLIB_VERSION}
-        ./configure --static --prefix=$PREFIX
+        CC=$CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" ./configure --static --prefix=$PREFIX
         make -j$(nproc)
         make install
 
@@ -126,6 +127,7 @@ jobs:
           -DBUILD_STATIC_LIBS=ON \
           -DBUILD_TESTING=OFF \
           -DCRYPTO_BACKEND=WinCNG \
+          -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
           -DCMAKE_C_FLAGS="$CFLAGS"
         cmake --build libssh2-build --target install -j$(nproc)
 
@@ -155,7 +157,10 @@ jobs:
         -DCMAKE_PREFIX_PATH=$PREFIX \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
+        -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" \
+        -DPKG_CONFIG_EXECUTABLE="" \
+        -DCMAKE_SYSROOT=$PREFIX
     - name: Compile
       run:
         cmake --build build --parallel $(nproc)

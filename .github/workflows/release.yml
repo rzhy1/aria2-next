@@ -146,8 +146,8 @@ jobs:
             no-cast \
             no-camellia \
             $CFLAGS
-          make -j$(nproc)
-          make install_sw
+          make build_libs -j$(nproc)
+          make install_dev
 
     - name: Build libssh2
       run: |

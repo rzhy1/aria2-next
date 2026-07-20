@@ -19,8 +19,8 @@ jobs:
       PREFIX: /usr/local/x86_64-w64-mingw32
       CC: x86_64-w64-mingw32-gcc-posix
       CXX: x86_64-w64-mingw32-g++-posix
-      CFLAGS: "-O3 -pipe -flto"
-      CXXFLAGS: "-O3 -pipe -flto"
+      CFLAGS: "-Os -pipe -flto -ffunction-sections -fdata-sections"
+      CXXFLAGS: "-Os -pipe -flto -ffunction-sections -fdata-sections"
       LDFLAGS: "-static -static-libgcc -static-libstdc++ -flto -Wl,--gc-sections -s"
       PKG_CONFIG_PATH: ""
       PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
@@ -55,8 +55,7 @@ jobs:
     - name: Build expat
       run: |
         EXPAT_VERSION=2.8.2
-        curl -LO \
-        https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-${EXPAT_VERSION}.tar.gz
+        curl -LO https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-${EXPAT_VERSION}.tar.gz
         tar xf expat-${EXPAT_VERSION}.tar.gz
         cd expat-${EXPAT_VERSION}
         ./configure \
@@ -126,7 +125,8 @@ jobs:
           -DBUILD_SHARED_LIBS=OFF \
           -DBUILD_STATIC_LIBS=ON \
           -DBUILD_TESTING=OFF \
-          -DCRYPTO_BACKEND=WinCNG
+          -DCRYPTO_BACKEND=WinCNG \
+          -DCMAKE_C_FLAGS="$CFLAGS"
         cmake --build libssh2-build --target install -j$(nproc)
 
 

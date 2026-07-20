@@ -16,8 +16,8 @@ jobs:
     env:
       HOST: x86_64-w64-mingw32
       PREFIX: /opt/mingw64/$HOST
-      CC: x86_64-w64-mingw32-gcc
-      CXX: x86_64-w64-mingw32-g++
+      CC: x86_64-w64-mingw32-gcc-posix
+      CXX: x86_64-w64-mingw32-g++-posix
       CFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto=auto -g0"
       CXXFLAGS: "$CFLAGS"
       LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections -s -fuse-ld=lld"

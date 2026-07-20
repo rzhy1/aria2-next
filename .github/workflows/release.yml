@@ -164,7 +164,7 @@ jobs:
           -DBUILD_SHARED_LIBS=OFF \
           -DBUILD_STATIC_LIBS=ON \
           -DBUILD_TESTING=OFF \
-          -DCRYPTO_BACKENDOpenSSL \
+          -DCRYPTO_BACKEND=OpenSSL \
           -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
           -DCMAKE_C_FLAGS="$CFLAGS"
         cmake --build libssh2-build --target install -j$(nproc)

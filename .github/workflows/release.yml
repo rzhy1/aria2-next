@@ -43,6 +43,14 @@ jobs:
         sudo mkdir -p $PREFIX
         sudo chown $USER:$USER $PREFIX
 
+    - name: Debug compiler
+      run: |
+        export PATH=/opt/mingw64/bin:$PATH
+        which x86_64-w64-mingw32-gcc
+        x86_64-w64-mingw32-gcc --version
+        echo "Testing simple compile..."
+        echo 'int main(){}' | x86_64-w64-mingw32-gcc -xc - -o /tmp/test.exe
+        ls -l /tmp/test.exe || echo "Compilation failed"
     - name: Build expat
       run: |
         EXPAT_VERSION=2.8.2

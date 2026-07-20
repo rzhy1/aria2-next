@@ -82,18 +82,20 @@ jobs:
     - name: Build zlib
       run: |
         ZLIB_VERSION=1.3.2
-        curl -LO \
+        curl -fLLO \
         https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz
         tar xf zlib-${ZLIB_VERSION}.tar.gz
-        cd zlib-${ZLIB_VERSION}
-        CC=$CC \
-        AR=$HOST-ar \
-        RANLIB=$HOST-ranlib \
-        ./configure \
-          --prefix=$PREFIX \
-          --static
-        make -j$(nproc)
-        make install
+        cmake \
+        -S zlib-${ZLIB_VERSION} \
+        -B zlib-build \
+        -G Ninja \
+        -DCMAKE_SYSTEM_NAME=Windows \
+        -DCMAKE_C_COMPILER=$CC \
+        -DCMAKE_INSTALL_PREFIX=$PREFIX \
+        -DBUILD_SHARED_LIBS=OFF
+        cmake --build zlib-build \
+          --parallel $(nproc)
+        cmake --install zlib-build
 
     - name: Build sqlite3
       run: |

@@ -20,8 +20,8 @@ jobs:
       CC: x86_64-w64-mingw32-gcc-posix
       CXX: x86_64-w64-mingw32-g++-posix
       CFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto=auto -g0"
-      CXXFLAGS: "$CFLAGS"
-      LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections -s -fuse-ld=lld"
+      CXXFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto=auto -g0"
+      LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections -s"
       PKG_CONFIG_PATH: ""
       PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
 
@@ -43,7 +43,6 @@ jobs:
           binutils \
           curl \
           tar \
-          lld \
           dpkg-dev \
           gcc-mingw-w64-x86-64 \
           g++-mingw-w64-x86-64

@@ -87,9 +87,9 @@ jobs:
 
     - name: Build sqlite3
       run: |
-        SQLITE_VERSION=3530300
-        curl -fLLO \
-        https://www.sqlite.org/2026/sqlite-autoconf-${SQLITE_VERSION}.tar.gz
+        SQLITE_VERSION=3490000
+        curl -LO \
+        https://www.sqlite.org/2025/sqlite-autoconf-${SQLITE_VERSION}.tar.gz
         tar xf sqlite-autoconf-${SQLITE_VERSION}.tar.gz
         cd sqlite-autoconf-${SQLITE_VERSION}
         ./configure \
@@ -98,8 +98,6 @@ jobs:
           --disable-shared \
           --enable-static \
           --disable-load-extension \
-          CPPFLAGS="-I$PREFIX/include" \
-          LDFLAGS="-L$PREFIX/lib" \
           CC=$CC
         make -j$(nproc)
         make install

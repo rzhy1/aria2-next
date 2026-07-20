@@ -118,6 +118,7 @@ jobs:
           cd openssl-${OPENSSL_VERSION}
           ./Configure mingw64 \
             --prefix=$PREFIX \
+            --libdir=lib \
             --cross-compile-prefix=x86_64-w64-mingw32- \
             no-shared \
             no-tests \
@@ -140,7 +141,6 @@ jobs:
             no-rc2 \
             no-rc4 \
             no-rc5 \
-            no-ripemd \
             no-seed \
             no-bf \
             no-cast \

@@ -62,6 +62,8 @@ jobs:
           --prefix=$PREFIX \
           --disable-shared \
           --enable-static \
+          --enable-silent-rules \
+          --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
           CC=$CC \
           CFLAGS="$CFLAGS"
         make -j$(nproc)

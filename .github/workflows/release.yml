@@ -110,6 +110,45 @@ jobs:
         make -j$(nproc)
         make install
 
+    - name: Build OpenSSL
+      run: |
+          OPENSSL_VERSION=3.6.3
+          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz
+          tar xf openssl-${OPENSSL_VERSION}.tar.gz
+          cd openssl-${OPENSSL_VERSION}
+          ./Configure mingw64 \
+            --prefix=$PREFIX \
+            --cross-compile-prefix=x86_64-w64-mingw32- \
+            no-shared \
+            no-tests \
+            no-unit-test \
+            no-legacy \
+            no-deprecated \
+            no-engine \
+            no-ui-console \
+            no-ssl3 \
+            no-tls1 \
+            no-tls1_1 \
+            no-weak-ssl-ciphers \
+            no-psk \
+            no-srp \
+            no-dsa \
+            no-idea \
+            no-md2 \
+            no-md4 \
+            no-mdc2 \
+            no-rc2 \
+            no-rc4 \
+            no-rc5 \
+            no-ripemd \
+            no-seed \
+            no-bf \
+            no-cast \
+            no-camellia \
+            $CFLAGS
+          make -j$(nproc)
+          make install_sw
+
     - name: Build libssh2
       run: |
         LIBSSH2_VERSION=1.11.1
@@ -125,11 +164,10 @@ jobs:
           -DBUILD_SHARED_LIBS=OFF \
           -DBUILD_STATIC_LIBS=ON \
           -DBUILD_TESTING=OFF \
-          -DCRYPTO_BACKEND=WinCNG \
+          -DCRYPTO_BACKENDOpenSSL \
           -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
           -DCMAKE_C_FLAGS="$CFLAGS"
         cmake --build libssh2-build --target install -j$(nproc)
-
 
     - name: Configure aria2-next
       run: |
@@ -157,9 +195,7 @@ jobs:
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-        -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" \
-        -DPKG_CONFIG_EXECUTABLE="" \
-        -DCMAKE_SYSROOT=$PREFIX
+        -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
     - name: Compile
       run:
         cmake --build build --parallel $(nproc)

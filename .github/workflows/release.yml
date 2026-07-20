@@ -8,7 +8,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows-x64:
@@ -169,3 +169,12 @@ jobs:
       with:
         name: aria2-next-windows-x64
         path: release/aria2-next-windows-x64.exe
+
+    - name: Create Release
+      if: success()
+      uses: ncipollo/release-action@v1
+      with:
+        tag: aria2-next
+        allowUpdates: true
+        artifacts: release/aria2-next-windows-x64.exe
+        token: ${{ secrets.GITHUB_TOKEN }}

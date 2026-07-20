@@ -104,15 +104,15 @@ jobs:
         https://www.sqlite.org/2025/sqlite-autoconf-${SQLITE_VERSION}.tar.gz
         tar xf sqlite-autoconf-${SQLITE_VERSION}.tar.gz
         cd sqlite-autoconf-${SQLITE_VERSION}
-        ./configure \
-          --host=$HOST \
-          --prefix=$PREFIX \
-          --disable-shared \
-          --enable-static \
-          --disable-load-extension \
-          CC=$CC
-        make -j$(nproc)
-        make install
+        cmake \
+          -S sqlite \
+          -B sqlite-build \
+          -G Ninja \
+          -DCMAKE_SYSTEM_NAME=Windows \
+          -DCMAKE_C_COMPILER=$CC \
+          -DCMAKE_INSTALL_PREFIX=$PREFIX \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DENABLE_LOAD_EXTENSION=OFF
 
     - name: Build c-ares
       run: |

@@ -21,7 +21,9 @@ jobs:
       CXX: x86_64-w64-mingw32-g++-posix
       CFLAGS: "-O3 -pipe -flto"
       CXXFLAGS: "-O3 -pipe -flto"
-      LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections -s"
+      LDFLAGS: "-static -static-libgcc -static-libstdc++ -flto -Wl,--gc-sections -s"
+      PKG_CONFIG_PATH: ""
+      PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
 
     steps:
     - name: Checkout aria2-next
@@ -52,9 +54,9 @@ jobs:
 
     - name: Build expat
       run: |
-        EXPAT_VERSION=2.7.1
+        EXPAT_VERSION=2.8.2
         curl -LO \
-        https://github.com/libexpat/libexpat/releases/download/R_2_7_1/expat-${EXPAT_VERSION}.tar.gz
+        https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-${EXPAT_VERSION}.tar.gz
         tar xf expat-${EXPAT_VERSION}.tar.gz
         cd expat-${EXPAT_VERSION}
         ./configure \
@@ -70,26 +72,17 @@ jobs:
     - name: Build zlib
       run: |
         ZLIB_VERSION=1.3.2
-        curl -fLLO \
-        https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz
+        curl -fLLO  https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz
         tar xf zlib-${ZLIB_VERSION}.tar.gz
-        cmake \
-        -S zlib-${ZLIB_VERSION} \
-        -B zlib-build \
-        -G Ninja \
-        -DCMAKE_SYSTEM_NAME=Windows \
-        -DCMAKE_C_COMPILER=$CC \
-        -DCMAKE_INSTALL_PREFIX=$PREFIX \
-        -DBUILD_SHARED_LIBS=OFF
-        cmake --build zlib-build \
-          --parallel $(nproc)
-        cmake --install zlib-build
+        cd zlib-${ZLIB_VERSION}
+        ./configure --static --prefix=$PREFIX
+        make -j$(nproc)
+        make install
 
     - name: Build sqlite3
       run: |
-        SQLITE_VERSION=3490000
-        curl -LO \
-        https://www.sqlite.org/2025/sqlite-autoconf-${SQLITE_VERSION}.tar.gz
+        SQLITE_VERSION=3530300
+        curl -LO https://www.sqlite.org/2026/sqlite-autoconf-${SQLITE_VERSION}.tar.gz
         tar xf sqlite-autoconf-${SQLITE_VERSION}.tar.gz
         cd sqlite-autoconf-${SQLITE_VERSION}
         ./configure \
@@ -104,9 +97,8 @@ jobs:
 
     - name: Build c-ares
       run: |
-        CARES_VERSION=1.34.2
-        curl -LO \
-        https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz
+        CARES_VERSION=1.34.8
+        curl -LO https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz
         tar xf c-ares-${CARES_VERSION}.tar.gz
         cd c-ares-${CARES_VERSION}
         ./configure \
@@ -122,8 +114,7 @@ jobs:
     - name: Build libssh2
       run: |
         LIBSSH2_VERSION=1.11.1
-        curl -LO \
-        https://www.libssh2.org/download/libssh2-${LIBSSH2_VERSION}.tar.gz
+        curl -LO https://www.libssh2.org/download/libssh2-${LIBSSH2_VERSION}.tar.gz
         tar xf libssh2-${LIBSSH2_VERSION}.tar.gz
         cmake \
           -S libssh2-${LIBSSH2_VERSION} \
@@ -136,10 +127,7 @@ jobs:
           -DBUILD_STATIC_LIBS=ON \
           -DBUILD_TESTING=OFF \
           -DCRYPTO_BACKEND=WinCNG
-        cmake \
-          --build libssh2-build \
-          --target install \
-          -j$(nproc)
+        cmake --build libssh2-build --target install -j$(nproc)
 
 
     - name: Configure aria2-next
@@ -167,20 +155,17 @@ jobs:
         -DCMAKE_PREFIX_PATH=$PREFIX \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \ 
-        -DZLIB_LIBRARY=$PREFIX/lib/libz.a \ 
-        -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" 
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
     - name: Compile
       run:
         cmake --build build --parallel $(nproc)
     - name: Package
       run: |
-        mkdir release
+        mkdir -p release
         x86_64-w64-mingw32-strip build/aria2-next.exe -o release/aria2-next-windows-x64.exe
 
     - name: Upload artifact
       uses: actions/upload-artifact@v7
       with:
         name: aria2-next-windows-x64
-        path:
-          release/aria2-next-windows-x64.exe
+        path: release/aria2-next-windows-x64.exe

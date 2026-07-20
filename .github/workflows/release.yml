@@ -12,19 +12,15 @@ permissions:
 
 jobs:
   build-windows-x64:
-    name: Windows x64
     runs-on: ubuntu-26.04
     env:
       HOST: x86_64-w64-mingw32
-      PREFIX: /usr/local/x86_64-w64-mingw32
-      CC: x86_64-w64-mingw32-gcc-posix
-      CXX: x86_64-w64-mingw32-g++-posix
-      CFLAGS: "-Os -pipe -flto -ffunction-sections -fdata-sections"
-      CXXFLAGS: "-Os -pipe -flto -ffunction-sections -fdata-sections"
-      LDFLAGS: "-static -static-libgcc -static-libstdc++ -flto -Wl,--gc-sections -s"
-      PKG_CONFIG_PATH: ""
-      PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
-
+      PREFIX: /opt/mingw64/$HOST
+      CC: x86_64-w64-mingw32-gcc
+      CXX: x86_64-w64-mingw32-g++
+      CFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto=auto -g0"
+      CXXFLAGS: "$CFLAGS"
+      LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections -s -fuse-ld=lld"
     steps:
     - name: Checkout aria2-next
       uses: actions/checkout@v6
@@ -32,21 +28,16 @@ jobs:
         repository: AnInsomniacy/aria2-next
         ref: main
 
-    - name: Install build tools
+    - name: Install tools and custom toolchain
       run: |
         sudo apt update
-        sudo apt install -y \
-          make \
-          cmake \
-          ninja-build \
-          pkg-config \
-          binutils \
-          curl \
-          tar \
-          dpkg-dev \
-          gcc-mingw-w64-x86-64 \
-          g++-mingw-w64-x86-64
-
+        sudo apt install -y lld make cmake ninja-build pkg-config binutils curl tar dpkg-dev
+        curl -SLf -o /tmp/mingw.tar.xz "https://github.com/rzhy1/musl-cross/releases/download/mingw-w64/x86_64-w64-mingw32-1.tar.xz"
+        sudo mkdir -p /opt/mingw64
+        sudo tar -xf /tmp/mingw.tar.xz --strip-components=1 -C /opt/mingw64
+        echo "/opt/mingw64/bin" >> $GITHUB_PATH
+        sudo ln -sf /usr/bin/ld.lld /opt/mingw64/bin/x86_64-w64-mingw32-ld
+    
     - name: Prepare prefix
       run: |
         sudo mkdir -p $PREFIX
@@ -74,7 +65,7 @@ jobs:
         curl -fLLO  https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz
         tar xf zlib-${ZLIB_VERSION}.tar.gz
         cd zlib-${ZLIB_VERSION}
-        ./configure --static --prefix=$PREFIX
+        CC=$CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" ./configure --static --prefix=$PREFIX
         make -j$(nproc)
         make install
 
@@ -84,13 +75,12 @@ jobs:
         curl -LO https://www.sqlite.org/2026/sqlite-autoconf-${SQLITE_VERSION}.tar.gz
         tar xf sqlite-autoconf-${SQLITE_VERSION}.tar.gz
         cd sqlite-autoconf-${SQLITE_VERSION}
-        ./configure \
+        CC=$CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" ./configure \
           --host=$HOST \
           --prefix=$PREFIX \
           --disable-shared \
           --enable-static \
-          --disable-load-extension \
-          CC=$CC
+          --disable-load-extension
         make -j$(nproc)
         make install
 
@@ -100,13 +90,12 @@ jobs:
         curl -LO https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz
         tar xf c-ares-${CARES_VERSION}.tar.gz
         cd c-ares-${CARES_VERSION}
-        ./configure \
+        CC=$CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" ./configure \
           --host=$HOST \
           --prefix=$PREFIX \
           --disable-shared \
           --enable-static \
-          LIBS="-lws2_32" \
-          CC=$CC
+          LIBS="-lws2_32"
         make -j$(nproc)
         make install
 
@@ -122,10 +111,12 @@ jobs:
           -DCMAKE_SYSTEM_NAME=Windows \
           -DCMAKE_C_COMPILER=$CC \
           -DCMAKE_INSTALL_PREFIX=$PREFIX \
+          -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
           -DBUILD_SHARED_LIBS=OFF \
           -DBUILD_STATIC_LIBS=ON \
           -DBUILD_TESTING=OFF \
           -DCRYPTO_BACKEND=WinCNG \
+          -DCMAKE_LINKER=/usr/bin/ld.lld \
           -DCMAKE_C_FLAGS="$CFLAGS"
         cmake --build libssh2-build --target install -j$(nproc)
 
@@ -147,7 +138,6 @@ jobs:
         -DARIA2_WITH_CARES=ON \
         -DARIA2_WITH_SQLITE3=ON \
         -DARIA2_WITH_EXPAT=ON \
-        -DARIA2_RELEASE_SIZE_OPTIMIZED=ON \
         -DARIA2_WITH_LIBSSH2=ON \
         -DARIA2_WITH_LIBXML2=OFF \
         -DARIA2_WITH_GMP=OFF \
@@ -155,16 +145,19 @@ jobs:
         -DARIA2_WITH_LIBNETTLE=OFF \
         -DCMAKE_PREFIX_PATH=$PREFIX \
         -DCMAKE_C_FLAGS="$CFLAGS" \
+        -DCMAKE_LINKER=/usr/bin/ld.lld \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
+        -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" \
+        -DCMAKE_SYSROOT=$PREFIX \
+        -DPKG_CONFIG_EXECUTABLE=""
     - name: Compile
       run:
         cmake --build build --parallel $(nproc)
     - name: Package
       run: |
         mkdir -p release
-        x86_64-w64-mingw32-strip build/aria2-next.exe -o release/aria2-next-windows-x64.exe
-
+        x86_64-w64-mingw32-strip --strip-all --remove-section=.comment --remove-section=.note build/aria2-next.exe -o release/aria2-next-windows-x64.exe
     - name: Upload artifact
       uses: actions/upload-artifact@v7
       with:

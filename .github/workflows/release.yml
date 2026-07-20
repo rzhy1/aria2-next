@@ -99,11 +99,10 @@ jobs:
 
     - name: Build sqlite3
       run: |
-        SQLITE_VERSION=3490000
         curl -LO \
-        https://www.sqlite.org/2025/sqlite-autoconf-${SQLITE_VERSION}.tar.gz
-        tar xf sqlite-autoconf-${SQLITE_VERSION}.tar.gz
-        cd sqlite-autoconf-${SQLITE_VERSION}
+        https://www.sqlite.org/2026/sqlite-autoconf-3530300.tar.gz
+        tar xf sqlite-autoconf-3530300.tar.gz
+        cd sqlite-autoconf-*
         cmake \
           -S sqlite \
           -B sqlite-build \

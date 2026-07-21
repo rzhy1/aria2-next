@@ -32,6 +32,10 @@ jobs:
         repository: AnInsomniacy/aria2-next
         ref: main
 
+    - name: Patch aria2 options
+      run: |
+        sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc
+    
     - name: Install build tools
       run: |
         sudo apt update
@@ -116,7 +120,7 @@ jobs:
           curl -LO https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz
           tar xf openssl-${OPENSSL_VERSION}.tar.gz
           cd openssl-${OPENSSL_VERSION}
-          CC=$CC  ./Configure mingw64 \
+          CC=gcc-posix ./Configure mingw64 \
             --prefix=$PREFIX \
             --libdir=lib \
             --cross-compile-prefix=x86_64-w64-mingw32- \

@@ -206,12 +206,12 @@ jobs:
     - name: Package
       run: |
         mkdir -p release
-        x86_64-w64-mingw32-strip --strip-all --remove-section=.comment --remove-section=.note build/aria2-next.exe -o release/aria2-next-windows-x64.exe
+        x86_64-w64-mingw32-strip --strip-all --remove-section=.comment --remove-section=.note build/aria2-next.exe -o release/aria2-next.exe
     - name: Upload artifact
       uses: actions/upload-artifact@v7
       with:
         name: aria2-next-windows-x64
-        path: release/aria2-next-windows-x64.exe
+        path: release/aria2-next.exe
 
     - name: Create Release
       if: success()
@@ -219,5 +219,5 @@ jobs:
       with:
         tag: aria2-next
         allowUpdates: true
-        artifacts: release/aria2-next-windows-x64.exe
+        artifacts: release/aria2-next.exe
         token: ${{ secrets.GITHUB_TOKEN }}

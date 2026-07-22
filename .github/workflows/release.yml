@@ -2,7 +2,8 @@ name: Build aria2-next Windows x64
 
 on:
   workflow_dispatch:
-
+  schedule:
+    - cron: '0 0 * * *' 
   push:
     branches:
       - main
@@ -11,8 +12,42 @@ permissions:
   contents: write
 
 jobs:
+  check-upstream:
+    name: Check upstream changes
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      new_sha: ${{ steps.upstream.outputs.sha }}
+    steps:
+      - name: Get upstream latest SHA
+        id: upstream
+        run: |
+          SHA=$(git ls-remote https://github.com/AnInsomniacy/aria2-next.git HEAD | cut -f1)
+          echo "Upstream commit:"
+          echo "$SHA"
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+      - name: Get last build SHA
+        id: last
+        run: |
+          LAST=$(git ls-remote https://github.com/${{ github.repository }}.git refs/tags/aria2-next-build | awk '{print $1}')
+          echo "Last build:"
+          echo "$LAST"
+          echo "sha=$LAST" >> $GITHUB_OUTPUT
+      - name: Compare
+        id: check
+        run: |
+          if [ "${{ steps.upstream.outputs.sha }}" = "${{ steps.last.outputs.sha }}" ]; then
+            echo "No update"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "New commit detected"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+          
   build-windows-x64:
     name: Windows x64
+    needs: check-upstream
+    if: needs.check-upstream.outputs.changed == 'true'
     runs-on: ubuntu-26.04
     env:
       HOST: x86_64-w64-mingw32
@@ -31,6 +66,7 @@ jobs:
       with:
         repository: AnInsomniacy/aria2-next
         ref: main
+        fetch-depth: 0
 
     - name: Patch aria2 options
       run: |
@@ -221,3 +257,16 @@ jobs:
         allowUpdates: true
         artifacts: release/aria2-next.exe
         token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Update build tag
+      if: success()
+      run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git remote add upstream-tag https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          SHA=${{ needs.check-upstream.outputs.new_sha }}
+          echo "Update aria2-next-build tag:"
+          echo "$SHA"
+          git tag -f aria2-next-build $SHA
+          git push upstream-tag \
+          aria2-next-build \
+          --force

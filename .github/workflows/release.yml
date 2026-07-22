@@ -1,4 +1,4 @@
-name: Build aria2-next Windows x64
+name: Build aria2-next
 
 on:
   schedule:

@@ -36,7 +36,7 @@ jobs:
       # ---------- 1. 恢复上次构建的上游 commit SHA（固定 key） ----------
       - name: Restore upstream SHA cache
         id: cache-restore
-        uses: actions/cache/restore@v5
+        uses: actions/cache@v6
         with:
           path: .cache
           key: aria2-upstream-sha 

@@ -67,7 +67,6 @@ jobs:
           if [ "$FORCE_BUILD" = "1" ]; then
             echo "Force build enabled."
             echo "skip=false" >> $GITHUB_OUTPUT
-            # 写入新 SHA 供后续保存缓存
             echo "$NEW_SHA" > .cache/last_sha
           elif [ "$NEW_SHA" = "$OLD_SHA" ]; then
             echo "No upstream changes. Skipping build."
@@ -312,7 +311,7 @@ jobs:
 
       # ---------- 14. 保存最新的 SHA 到缓存（固定 key） ----------
       - name: Save upstream SHA cache
-        if: steps.check.outputs.skip != 'true'     # 只有构建成功才保存（也可根据 success() 调整）
+        if: steps.check.outputs.skip != 'true'
         uses: actions/cache/save@v5
         with:
           path: .cache

@@ -85,10 +85,11 @@ jobs:
           path: own-repo
 
       # ---------- 4. 克隆上游 aria2-next 源码（仅最新 commit） ----------
-      - name: Clone aria2-next upstream
-        if: steps.check.outputs.skip != 'true'
-        run: |
-          git clone --branch main --depth=1 https://github.com/AnInsomniacy/aria2-next.git aria2-next
+      - uses: actions/checkout@v6
+        with:
+          repository: AnInsomniacy/aria2-next
+          ref: main
+          path: aria2-next
 
       # ---------- 5. 安装交叉编译工具 ----------
       - name: Install build tools
@@ -310,7 +311,7 @@ jobs:
 
       # ---------- 14. 保存最新的 SHA 到缓存（固定 key） ----------
       - name: Save upstream SHA cache
-        if: steps.check.outputs.skip == 'false'
+        if: always() && steps.check.outputs.skip == 'false'
         uses: actions/cache@v6
         with:
           path: .cache

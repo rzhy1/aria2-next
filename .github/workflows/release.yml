@@ -86,6 +86,7 @@ jobs:
 
       # ---------- 4. 克隆上游 aria2-next 源码（仅最新 commit） ----------
       - uses: actions/checkout@v6
+        if: steps.check.outputs.skip != 'true'
         with:
           repository: AnInsomniacy/aria2-next
           ref: main

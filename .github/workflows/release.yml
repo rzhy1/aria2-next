@@ -33,7 +33,6 @@ jobs:
       PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
 
     steps:
-      # ---------- 1. 恢复上次构建的上游 commit SHA（固定 key） ----------
       - name: Restore upstream SHA cache
         uses: actions/cache@v6
         with:

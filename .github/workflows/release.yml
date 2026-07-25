@@ -232,7 +232,7 @@ jobs:
             --with-zlib-include="$PREFIX/include" \
             --with-zlib-lib="$PREFIX/lib/libz.a" \
             "${DISABLED_FEATURES[@]}"
-          make --j$(nproc) && make install_sw
+          make -j$(nproc) && make install_sw
           cd ..
 
       - name: Build libssh2

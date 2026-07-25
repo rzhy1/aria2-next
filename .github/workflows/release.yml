@@ -30,8 +30,8 @@ jobs:
       PREFIX: /usr/local/x86_64-w64-mingw32
       CC: x86_64-w64-mingw32-gcc-posix
       CXX: x86_64-w64-mingw32-g++-posix
-      CFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto -g0 -fno-ident"
-      CXXFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto -g0 -fno-ident"
+      CFLAGS: "-O2 -pipe -ffunction-sections -fdata-sections -flto=auto -g0 -fno-ident"
+      CXXFLAGS: "-O2 -pipe -ffunction-sections -fdata-sections -flto=auto -g0 -fno-ident"
       LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections,--strip-all"
       PKG_CONFIG_PATH: ""
       PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
@@ -186,8 +186,8 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DBUILD_STATIC_LIBS=ON \
             -DBUILD_TESTING=OFF \
-            -DENABLE_EXAMPLES=OFF \               # 禁用示例编译
-            -DENABLE_DEVELOPER_WARNINGS=OFF \     # 禁用开发者警告（减少无用编译）
+            -DENABLE_EXAMPLES=OFF \
+            -DENABLE_DEVELOPER_WARNINGS=OFF \
             -DCRYPTO_BACKEND=OpenSSL \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
             -DCMAKE_C_FLAGS="$LIBSSH2_CFLAGS"

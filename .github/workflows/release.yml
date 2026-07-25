@@ -140,7 +140,7 @@ jobs:
       - name: Build zlib
         if: steps.check.outputs.skip != 'true'
         run: |
-          zlib_json=$(retry curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/madler/zlib/releases/latest)
+          zlib_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/madler/zlib/releases/latest)
           zlib_tag=$(
               jq -r '.name' <<<"$zlib_json" |
               cut -d' ' -f2

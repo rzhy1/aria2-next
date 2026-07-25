@@ -32,7 +32,7 @@ jobs:
       CXX: x86_64-w64-mingw32-g++-posix
       CFLAGS: "-march=x86-64-v3-Os -pipe -ffunction-sections -fdata-sections -flto=auto -g0 -fno-ident"
       CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=auto -g0 -fno-ident"
-      LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections -flto=auto"
+      LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections"
       PKG_CONFIG_PATH: ""
       PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
 

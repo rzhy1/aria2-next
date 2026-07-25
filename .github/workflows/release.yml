@@ -146,7 +146,10 @@ jobs:
           curl -LO https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz
           tar xf c-ares-${CARES_VERSION}.tar.gz
           cd c-ares-${CARES_VERSION}
-          ./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static LIBS="-lws2_32" CC=$CC
+          ./configure --host=$HOST --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
+                      --prefix=$PREFIX --disable-shared --enable-static \
+                      --enable-silent-rules --without-random  \
+                       LIBS="-lws2_32" CC=$CC
           make -j$(nproc)
           make install
 
@@ -170,8 +173,9 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           LIBSSH2_VERSION=1.11.1
-          curl -LO https://www.libssh2.org/download/libssh2-${LIBSSH2_VERSION}.tar.gz | tar xz
-          cd libssh2-*
+          curl -LO https://www.libssh2.org/download/libssh2-${LIBSSH2_VERSION}.tar.gz
+          tar xf libssh2-${LIBSSH2_VERSION}.tar.gz
+          cd libssh2-${LIBSSH2_VERSION}
           ./configure \
               --disable-shared \
               --enable-static \

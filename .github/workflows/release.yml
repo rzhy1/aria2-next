@@ -113,9 +113,17 @@ jobs:
           curl -LO https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-${EXPAT_VERSION}.tar.gz
           tar xf expat-${EXPAT_VERSION}.tar.gz
           cd expat-${EXPAT_VERSION}
-          ./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static CC=$CC CFLAGS="$CFLAGS"
-          make -j$(nproc)
-          make install
+          ./configure \
+              --disable-shared \
+              --enable-static \
+              --without-examples \
+              --without-tests \
+              --enable-silent-rules \
+              --prefix=$PREFIX \
+              --host=$HOST \
+              --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+          make -j$(nproc) install
+          cd ..
 
       - name: Build zlib
         if: steps.check.outputs.skip != 'true'
@@ -127,6 +135,7 @@ jobs:
           CC=$CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" ./configure --static --prefix=$PREFIX
           make -j$(nproc)
           make install
+          cd ..
 
       - name: Build sqlite3
         if: steps.check.outputs.skip != 'true'
@@ -135,9 +144,25 @@ jobs:
           curl -LO https://www.sqlite.org/2026/sqlite-autoconf-${SQLITE_VERSION}.tar.gz
           tar xf sqlite-autoconf-${SQLITE_VERSION}.tar.gz
           cd sqlite-autoconf-${SQLITE_VERSION}
-          ./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static --disable-load-extension CC=$CC
-          make -j$(nproc)
-          make install
+          CC=$CC ./configure \
+              --disable-shared \
+              --enable-threadsafe \
+              --enable-static \
+              --disable-debug \
+              --enable-silent-rules \
+              --disable-editline \
+              --disable-fts3 --disable-fts4 --disable-fts5 \
+              --disable-rtree \
+              --disable-session \
+              --disable-load-extension \
+              --prefix=$PREFIX \
+              --host=$HOST \
+              --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
+              LIBS="-lpthread"
+          make -j$(nproc) libsqlite3.a ||  exit 1
+          cp libsqlite3.a $PREFIX/lib ||  exit 1
+          cp sqlite3.h sqlite3ext.h $PREFIX/include ||  exit 1
+          cd ..
 
       - name: Build c-ares
         if: steps.check.outputs.skip != 'true'
@@ -152,6 +177,7 @@ jobs:
                        LIBS="-lws2_32" CC=$CC
           make -j$(nproc)
           make install
+          cd ..
 
       - name: Build OpenSSL
         if: steps.check.outputs.skip != 'true'
@@ -168,6 +194,7 @@ jobs:
             $CFLAGS
           make build_libs -j$(nproc)
           make install_dev
+          cd ..
 
       - name: Build libssh2
         if: steps.check.outputs.skip != 'true'
@@ -189,6 +216,7 @@ jobs:
               --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
               LIBS="-lws2_32"
           make -j$(nproc) install
+          cd ..
 
       # ---------- aria2-next 编译 ----------
       - name: Disable aria2 tests

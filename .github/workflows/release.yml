@@ -114,7 +114,9 @@ jobs:
         run: |
           sudo mkdir -p $PREFIX
           sudo chown $USER:$USER $PREFIX
-
+      - name: Check gcc
+        run: |
+          $CC -v
       # ---------- 7. 编译依赖库 (expat, zlib, sqlite3, c-ares, OpenSSL, libssh2) ----------
       - name: Build expat
         if: steps.check.outputs.skip != 'true'

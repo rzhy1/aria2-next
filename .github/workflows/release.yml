@@ -30,8 +30,8 @@ jobs:
       PREFIX: /usr/local/x86_64-w64-mingw32
       CC: x86_64-w64-mingw32-gcc-posix
       CXX: x86_64-w64-mingw32-g++-posix
-      CFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto -g0 -fno-ident"
-      CXXFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto -g0 -fno-ident"
+      CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto -g0 -fno-ident"
+      CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto -g0 -fno-ident"
       LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections,--strip-all -flto"
       PKG_CONFIG_PATH: ""
       PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
@@ -109,10 +109,21 @@ jobs:
       - name: Build expat
         if: steps.check.outputs.skip != 'true'
         run: |
-          EXPAT_VERSION=2.8.2
-          curl -LO https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-${EXPAT_VERSION}.tar.gz
-          tar xf expat-${EXPAT_VERSION}.tar.gz
-          cd expat-${EXPAT_VERSION}
+          expat_json=$(retry curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/libexpat/libexpat/releases/latest)
+          expat_tag=$(
+              jq -r '.tag_name' <<<"$expat_json" |
+              sed 's/R_//' |
+              tr '_' '.'
+          )
+          expat_latest_url=$(
+              jq -r '.assets[] |
+              select(.name|test("\\.tar\\.bz2$")) |
+              .browser_download_url' <<<"$expat_json" |
+              head -n1
+          )
+          echo "libexpat最新版本是${expat_tag} ，下载地址是${expat_latest_url}"
+          curl -L ${expat_latest_url} | tar xj
+          cd expat-*
           ./configure \
               --disable-shared \
               --enable-static \
@@ -245,7 +256,7 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX \
             -DCMAKE_BUILD_TYPE=Release \
-            -DARIA2_STATIC_DEPENDENCIES=ON -DCMAKE_UNITY_BUILD=ON \
+            -DARIA2_STATIC_DEPENDENCIES=ON \
             -DARIA2_WITH_WINTLS=OFF -DARIA2_WITH_OPENSSL=ON \
             -DARIA2_WITH_GNUTLS=OFF -DARIA2_WITH_CARES=ON \
             -DARIA2_WITH_SQLITE3=ON -DARIA2_WITH_EXPAT=ON \

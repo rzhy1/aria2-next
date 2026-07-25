@@ -200,7 +200,7 @@ jobs:
           cd c-ares-${CARES_VERSION}
           ./configure --host=$HOST --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
                       --prefix=$PREFIX --disable-shared --enable-static \
-                      --enable-silent-rules --without-random  \
+                      --enable-silent-rules --without-random --disable-tests \
                        LIBS="-lws2_32" CC=$CC
           make -j$(nproc)
           make install
@@ -232,7 +232,7 @@ jobs:
             --with-zlib-include="$PREFIX/include" \
             --with-zlib-lib="$PREFIX/lib/libz.a" \
             "${DISABLED_FEATURES[@]}"
-          make -j$NPROC && make install_sw
+          make --j$(nproc) && make install_sw
           cd ..
 
       - name: Build libssh2

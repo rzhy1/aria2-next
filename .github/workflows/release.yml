@@ -176,11 +176,21 @@ jobs:
           LIBSSH2_VERSION=1.11.1
           curl -LO https://www.libssh2.org/download/libssh2-${LIBSSH2_VERSION}.tar.gz
           tar xf libssh2-${LIBSSH2_VERSION}.tar.gz
+          # 为 libssh2 单独设置 CFLAGS：移除 -flto，并改用 -O2（如果希望更快的编译速度）
+          # 您也可以保留 -Os 但必须移除 -flto
+          LIBSSH2_CFLAGS="-O2 -pipe -ffunction-sections -fdata-sections -g0 -fno-ident"
           cmake -S libssh2-${LIBSSH2_VERSION} -B libssh2-build -G Ninja \
-            -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=$CC \
-            -DCMAKE_INSTALL_PREFIX=$PREFIX -DBUILD_SHARED_LIBS=OFF -DBUILD_STATIC_LIBS=ON \
-            -DBUILD_TESTING=OFF -DCRYPTO_BACKEND=OpenSSL \
-            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" -DCMAKE_C_FLAGS="$CFLAGS"
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=$CC \
+            -DCMAKE_INSTALL_PREFIX=$PREFIX \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DBUILD_STATIC_LIBS=ON \
+            -DBUILD_TESTING=OFF \
+            -DENABLE_EXAMPLES=OFF \               # 禁用示例编译
+            -DENABLE_DEVELOPER_WARNINGS=OFF \     # 禁用开发者警告（减少无用编译）
+            -DCRYPTO_BACKEND=OpenSSL \
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
+            -DCMAKE_C_FLAGS="$LIBSSH2_CFLAGS"
           cmake --build libssh2-build --target install -j$(nproc)
 
       # ---------- aria2-next 编译 ----------

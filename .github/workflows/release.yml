@@ -16,7 +16,6 @@ on:
 permissions:
   contents: write
 
-# 防止多个运行同时写入缓存
 concurrency:
   group: build-aria2-next
   cancel-in-progress: true

@@ -239,6 +239,16 @@ jobs:
             -DCMAKE_C_FLAGS="$CFLAGS"
           cmake --build libssh2-build --target install -j$(nproc)
 
+      - name: Disable aria2 tests
+        run: |
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path("aria2-next/cmake/modules/Tests.cmake")
+          s = p.read_text()
+          s = "if(ENABLE_TESTS)\n" + s + "\nendif()\n"
+          p.write_text(s)
+          EOF
+      
       # ---------- 8. 应用 Patch（修改 piece length） ----------
       - name: Patch aria2 options
         if: steps.check.outputs.skip != 'true'
@@ -255,6 +265,7 @@ jobs:
             -S . \
             -B build \
             -G Ninja \
+            -DENABLE_TESTS=OFF \
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER=$CC \
             -DCMAKE_CXX_COMPILER=$CXX \

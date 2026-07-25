@@ -11,10 +11,15 @@ on:
         default: "0"
   push:
     branches:
-      - main 
+      - main
 
 permissions:
   contents: write
+
+# 防止多个运行同时写入缓存
+concurrency:
+  group: build-aria2-next
+  cancel-in-progress: true
 
 jobs:
   build-windows-x64:
@@ -26,20 +31,20 @@ jobs:
       PREFIX: /usr/local/x86_64-w64-mingw32
       CC: x86_64-w64-mingw32-gcc-posix
       CXX: x86_64-w64-mingw32-g++-posix
-      CFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto -g0  -fno-ident"
+      CFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto -g0 -fno-ident"
       CXXFLAGS: "-Os -pipe -ffunction-sections -fdata-sections -flto -g0 -fno-ident"
       LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections,--strip-all"
       PKG_CONFIG_PATH: ""
       PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
 
     steps:
+      # ---------- 1. 恢复缓存（使用固定 key） ----------
       - name: Restore upstream SHA cache
+        id: cache-restore
         uses: actions/cache@v6
         with:
           path: .cache
-          key: aria2-upstream-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            aria2-upstream-${{ runner.os }}-
+          key: aria2-upstream-sha
 
       # ---------- 2. 获取上游最新 SHA 并决定是否跳过 ----------
       - name: Check upstream changes
@@ -48,12 +53,10 @@ jobs:
         run: |
           mkdir -p .cache
 
-          # 获取上游最新 commit SHA
           NEW_SHA=$(git ls-remote https://github.com/AnInsomniacy/aria2-next.git HEAD | cut -f1)
           echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
           echo "NEW_SHA=$NEW_SHA"
 
-          # 读取缓存的旧 SHA
           if [ -f .cache/last_sha ]; then
             OLD_SHA=$(cat .cache/last_sha)
           else
@@ -61,7 +64,6 @@ jobs:
           fi
           echo "OLD_SHA=$OLD_SHA"
 
-          # 决定是否编译
           if [ "$FORCE_BUILD" = "1" ]; then
             echo "Force build enabled."
             echo "skip=false" >> $GITHUB_OUTPUT
@@ -76,48 +78,39 @@ jobs:
           fi
 
       # ---------- 以下所有步骤仅在 skip != true 时执行 ----------
-      # ---------- 3. 检出当前仓库（用于存放编译产物和缓存） ----------
       - name: Checkout own repository (for artifacts)
         if: steps.check.outputs.skip != 'true'
         uses: actions/checkout@v6
         with:
           path: own-repo
 
-      # ---------- 4. 克隆上游 aria2-next 源码（仅最新 commit） ----------
-      - uses: actions/checkout@v6
+      - name: Clone upstream aria2-next
         if: steps.check.outputs.skip != 'true'
+        uses: actions/checkout@v6
         with:
           repository: AnInsomniacy/aria2-next
           ref: main
           path: aria2-next
 
-      # ---------- 5. 安装交叉编译工具 ----------
       - name: Install build tools
         if: steps.check.outputs.skip != 'true'
         run: |
           sudo apt update
           sudo apt install -y \
-            make \
-            cmake \
-            ninja-build \
-            pkg-config \
-            binutils \
-            curl \
-            tar \
-            dpkg-dev \
-            gcc-mingw-w64-x86-64 \
-            g++-mingw-w64-x86-64
+            make cmake ninja-build pkg-config binutils curl tar dpkg-dev \
+            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
 
-      # ---------- 6. 准备安装前缀 ----------
       - name: Prepare prefix
         if: steps.check.outputs.skip != 'true'
         run: |
           sudo mkdir -p $PREFIX
           sudo chown $USER:$USER $PREFIX
-      - name: Check gcc
-        run: |
-          $CC -v
-      # ---------- 7. 编译依赖库 (expat, zlib, sqlite3, c-ares, OpenSSL, libssh2) ----------
+
+      - name: Check gcc version (optional)
+        if: steps.check.outputs.skip != 'true'
+        run: $CC -v
+
+      # ---------- 依赖库编译 ----------
       - name: Build expat
         if: steps.check.outputs.skip != 'true'
         run: |
@@ -125,13 +118,7 @@ jobs:
           curl -LO https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-${EXPAT_VERSION}.tar.gz
           tar xf expat-${EXPAT_VERSION}.tar.gz
           cd expat-${EXPAT_VERSION}
-          ./configure \
-            --host=$HOST \
-            --prefix=$PREFIX \
-            --disable-shared \
-            --enable-static \
-            CC=$CC \
-            CFLAGS="$CFLAGS"
+          ./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static CC=$CC CFLAGS="$CFLAGS"
           make -j$(nproc)
           make install
 
@@ -139,7 +126,7 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           ZLIB_VERSION=1.3.2
-          curl -fLLO  https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz
+          curl -fLLO https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz
           tar xf zlib-${ZLIB_VERSION}.tar.gz
           cd zlib-${ZLIB_VERSION}
           CC=$CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" ./configure --static --prefix=$PREFIX
@@ -153,13 +140,7 @@ jobs:
           curl -LO https://www.sqlite.org/2026/sqlite-autoconf-${SQLITE_VERSION}.tar.gz
           tar xf sqlite-autoconf-${SQLITE_VERSION}.tar.gz
           cd sqlite-autoconf-${SQLITE_VERSION}
-          ./configure \
-            --host=$HOST \
-            --prefix=$PREFIX \
-            --disable-shared \
-            --enable-static \
-            --disable-load-extension \
-            CC=$CC
+          ./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static --disable-load-extension CC=$CC
           make -j$(nproc)
           make install
 
@@ -170,13 +151,7 @@ jobs:
           curl -LO https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz
           tar xf c-ares-${CARES_VERSION}.tar.gz
           cd c-ares-${CARES_VERSION}
-          ./configure \
-            --host=$HOST \
-            --prefix=$PREFIX \
-            --disable-shared \
-            --enable-static \
-            LIBS="-lws2_32" \
-            CC=$CC
+          ./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static LIBS="-lws2_32" CC=$CC
           make -j$(nproc)
           make install
 
@@ -188,34 +163,10 @@ jobs:
           tar xf openssl-${OPENSSL_VERSION}.tar.gz
           cd openssl-${OPENSSL_VERSION}
           CC=gcc-posix ./Configure mingw64 \
-            --prefix=$PREFIX \
-            --libdir=lib \
-            --cross-compile-prefix=x86_64-w64-mingw32- \
-            no-shared \
-            no-tests \
-            no-unit-test \
-            no-legacy \
-            no-deprecated \
-            no-engine \
-            no-ui-console \
-            no-ssl3 \
-            no-tls1 \
-            no-tls1_1 \
-            no-weak-ssl-ciphers \
-            no-psk \
-            no-srp \
-            no-dsa \
-            no-idea \
-            no-md2 \
-            no-md4 \
-            no-mdc2 \
-            no-rc2 \
-            no-rc4 \
-            no-rc5 \
-            no-seed \
-            no-bf \
-            no-cast \
-            no-camellia \
+            --prefix=$PREFIX --libdir=lib --cross-compile-prefix=x86_64-w64-mingw32- \
+            no-shared no-tests no-unit-test no-legacy no-deprecated no-engine no-ui-console \
+            no-ssl3 no-tls1 no-tls1_1 no-weak-ssl-ciphers no-psk no-srp no-dsa \
+            no-idea no-md2 no-md4 no-mdc2 no-rc2 no-rc4 no-rc5 no-seed no-bf no-cast no-camellia \
             $CFLAGS
           make build_libs -j$(nproc)
           make install_dev
@@ -226,22 +177,16 @@ jobs:
           LIBSSH2_VERSION=1.11.1
           curl -LO https://www.libssh2.org/download/libssh2-${LIBSSH2_VERSION}.tar.gz
           tar xf libssh2-${LIBSSH2_VERSION}.tar.gz
-          cmake \
-            -S libssh2-${LIBSSH2_VERSION} \
-            -B libssh2-build \
-            -G Ninja \
-            -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_C_COMPILER=$CC \
-            -DCMAKE_INSTALL_PREFIX=$PREFIX \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DBUILD_STATIC_LIBS=ON \
-            -DBUILD_TESTING=OFF \
-            -DCRYPTO_BACKEND=OpenSSL \
-            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-            -DCMAKE_C_FLAGS="$CFLAGS"
+          cmake -S libssh2-${LIBSSH2_VERSION} -B libssh2-build -G Ninja \
+            -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=$CC \
+            -DCMAKE_INSTALL_PREFIX=$PREFIX -DBUILD_SHARED_LIBS=OFF -DBUILD_STATIC_LIBS=ON \
+            -DBUILD_TESTING=OFF -DCRYPTO_BACKEND=OpenSSL \
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" -DCMAKE_C_FLAGS="$CFLAGS"
           cmake --build libssh2-build --target install -j$(nproc)
 
+      # ---------- aria2-next 编译 ----------
       - name: Disable aria2 tests
+        if: steps.check.outputs.skip != 'true'
         run: |
           python3 - <<'EOF'
           from pathlib import Path
@@ -250,61 +195,45 @@ jobs:
           s = "if(ENABLE_TESTS)\n" + s + "\nendif()\n"
           p.write_text(s)
           EOF
-      
-      # ---------- 8. 应用 Patch（修改 piece length） ----------
-      - name: Patch aria2 options
+
+      - name: Patch aria2 options (piece length)
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc
 
-      # ---------- 9. 配置 aria2-next ----------
       - name: Configure aria2-next
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          cmake \
-            -S . \
-            -B build \
-            -G Ninja \
+          cmake -S . -B build -G Ninja \
             -DENABLE_TESTS=OFF \
             -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_C_COMPILER=$CC \
-            -DCMAKE_CXX_COMPILER=$CXX \
+            -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX \
             -DCMAKE_BUILD_TYPE=Release \
             -DARIA2_STATIC_DEPENDENCIES=ON \
-            -DARIA2_WITH_WINTLS=OFF \
-            -DARIA2_WITH_OPENSSL=ON \
-            -DARIA2_WITH_GNUTLS=OFF \
-            -DARIA2_WITH_CARES=ON \
-            -DARIA2_WITH_SQLITE3=ON \
-            -DARIA2_WITH_EXPAT=ON \
-            -DARIA2_WITH_LIBSSH2=ON \
-            -DARIA2_WITH_LIBXML2=OFF \
-            -DARIA2_WITH_GMP=OFF \
-            -DARIA2_WITH_LIBGCRYPT=OFF \
+            -DARIA2_WITH_WINTLS=OFF -DARIA2_WITH_OPENSSL=ON \
+            -DARIA2_WITH_GNUTLS=OFF -DARIA2_WITH_CARES=ON \
+            -DARIA2_WITH_SQLITE3=ON -DARIA2_WITH_EXPAT=ON \
+            -DARIA2_WITH_LIBSSH2=ON -DARIA2_WITH_LIBXML2=OFF \
+            -DARIA2_WITH_GMP=OFF -DARIA2_WITH_LIBGCRYPT=OFF \
             -DARIA2_WITH_LIBNETTLE=OFF \
             -DCMAKE_PREFIX_PATH=$PREFIX \
-            -DCMAKE_C_FLAGS="$CFLAGS" \
-            -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
+            -DCMAKE_C_FLAGS="$CFLAGS" -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
             -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
 
-      # ---------- 10. 编译 ----------
       - name: Compile
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
-        run: |
-          cmake --build build --parallel $(nproc)
+        run: cmake --build build --parallel $(nproc)
 
-      # ---------- 11. 打包（strip） ----------
-      - name: Package
+      - name: Package (strip)
         if: steps.check.outputs.skip != 'true'
         run: |
           mkdir -p own-repo/release
           x86_64-w64-mingw32-strip --strip-all --remove-section=.comment --remove-section=.note aria2-next/build/aria2-next.exe -o own-repo/release/aria2-next.exe
 
-      # ---------- 12. 上传 artifact ----------
       - name: Upload artifact
         if: steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
@@ -312,7 +241,6 @@ jobs:
           name: aria2-next-windows-x64
           path: own-repo/release/aria2-next.exe
 
-      # ---------- 13. 创建或更新 Release ----------
       - name: Create Release
         if: success() && steps.check.outputs.skip != 'true'
         uses: ncipollo/release-action@v1
@@ -322,10 +250,11 @@ jobs:
           artifacts: own-repo/release/aria2-next.exe
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ---------- 14. 保存最新的 SHA 到缓存（固定 key） ----------
+      # ---------- 保存缓存（固定 key，允许失败） ----------
       - name: Save upstream SHA cache
-        if: always() && steps.check.outputs.skip == 'false'
+        if: success() && steps.check.outputs.skip != 'true'
         uses: actions/cache@v6
         with:
           path: .cache
-          key: aria2-upstream-${{ runner.os }}-${{ steps.check.outputs.new_sha }}
+          key: aria2-upstream-sha
+        continue-on-error: true

@@ -50,17 +50,22 @@ jobs:
           mkdir -p .cache
           NEW_SHA=$(git ls-remote https://github.com/AnInsomniacy/aria2-next.git HEAD | cut -f1)
           echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
+          echo "NEW_SHA=$NEW_SHA"
           if [ -f .cache/last_sha ]; then
             OLD_SHA=$(cat .cache/last_sha)
           else
             OLD_SHA=""
           fi
+          echo "OLD_SHA=$OLD_SHA"
           if [ "$FORCE_BUILD" = "1" ]; then
+            echo "Force build enabled."
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "$NEW_SHA" > .cache/last_sha
           elif [ "$NEW_SHA" = "$OLD_SHA" ]; then
+            echo "No upstream changes. Skipping build."
             echo "skip=true" >> $GITHUB_OUTPUT
           else
+            echo "New commit detected. Starting build."
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "$NEW_SHA" > .cache/last_sha
           fi

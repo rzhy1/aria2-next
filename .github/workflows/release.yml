@@ -39,18 +39,13 @@ jobs:
 
     steps:
       - name: Restore upstream SHA cache
-        id: cache-restore
         uses: actions/cache@v6
         with:
           path: .cache
-          key: upstream-sha-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            upstream-sha-${{ runner.os }}-
-
-      # ---------- 2. 获取上游最新 SHA 并决定是否跳过 ----------
+          key: aria2-upstream-sha
+    
       - name: Check upstream changes
         id: check
-        shell: bash
         run: |
           mkdir -p .cache
           NEW_SHA=$(git ls-remote https://github.com/AnInsomniacy/aria2-next.git HEAD | cut -f1)
@@ -322,11 +317,10 @@ jobs:
           artifacts: own-repo/release/aria2-next.exe
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ---------- 保存缓存（动态键，无论构建是否成功） ----------
       - name: Save upstream SHA cache
-        if: steps.check.outputs.skip != 'true'
+        if: always() && steps.check.outputs.skip != 'true' 
         uses: actions/cache@v6
         with:
           path: .cache
-          key: upstream-sha-${{ runner.os }}-${{ steps.check.outputs.new_sha }}
+          key: aria2-upstream-sha
         continue-on-error: true

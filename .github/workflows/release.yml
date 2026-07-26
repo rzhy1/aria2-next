@@ -38,7 +38,6 @@ jobs:
       PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
 
     steps:
-      # ---------- 恢复缓存（动态键前缀匹配） ----------
       - name: Restore upstream SHA cache
         id: cache-restore
         uses: actions/cache@v6

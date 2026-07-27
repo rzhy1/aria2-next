@@ -38,11 +38,14 @@ jobs:
       PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
 
     steps:
+      # ---------- 1. 恢复缓存（动态键，前缀匹配） ----------
       - name: Restore upstream SHA cache
         uses: actions/cache@v6
         with:
           path: .cache
-          key: aria2-upstream-sha
+          key: upstream-sha-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            upstream-sha-${{ runner.os }}-
     
       - name: Check upstream changes
         id: check
@@ -323,9 +326,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Save upstream SHA cache
-        if: always() && steps.check.outputs.skip != 'true' 
+        if: always() && steps.check_upstream.outputs.skip == 'false'
         uses: actions/cache@v6
         with:
           path: .cache
-          key: aria2-upstream-sha
+          key: upstream-sha-${{ runner.os }}-${{ steps.check.outputs.new_sha }}
         continue-on-error: true

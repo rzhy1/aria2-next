@@ -276,9 +276,14 @@ jobs:
         working-directory: aria2-next
         run: |
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc
-          sed -i 's/const bool color = isTTY_ && global::cout()->supportsColor() && colorOutput_;/const bool color = true;/' src/ConsoleStatCalc.cc
+          sed -i 's/bool WinConsoleFile::supportsColor() { return false; }/bool WinConsoleFile::supportsColor() { return console_; }/' src/WinConsoleFile.cc
+          sed -i '/console_ = handle_ != nullptr/,/GetConsoleMode(handle_, &mode) != 0;/c\  if (handle_ != nullptr && handle_ != INVALID_HANDLE_VALUE &&\n      GetConsoleMode(handle_, &mode) != 0) {\n    console_ = true;\n    SetConsoleMode(handle_, mode | 0x0004);\n  }' src/WinConsoleFile.cc
           echo "检查配置"
-          grep "const bool color" src/ConsoleStatCalc.cc
+          # 验证 supportsColor 是否已修改
+          grep -n -A 2 "supportsColor" src/WinConsoleFile.cc
+          
+          # 验证构造函数是否成功注入了 SetConsoleMode
+          grep -n -B 2 -A 5 "SetConsoleMode" src/WinConsoleFile.cc
           echo "检查配置结束"
       - name: Configure aria2-next
         if: steps.check.outputs.skip != 'true'

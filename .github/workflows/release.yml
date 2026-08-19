@@ -276,7 +276,7 @@ jobs:
         working-directory: aria2-next
         run: |
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc
-
+          sed -i 's/const bool color = isTTY_ && global::cout()->supportsColor() && colorOutput_;/const bool color = true;/' src/ConsoleStatCalc.cc
       - name: Configure aria2-next
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next

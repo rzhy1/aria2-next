@@ -219,7 +219,7 @@ jobs:
             no-scrypt no-seed no-siphash no-siv no-sm2 no-sm3 no-sm4 no-whirlpool
             no-tests no-apps
           )
-          CC=gcc-posix ./Configure -static \
+          CC=x86_64-w64-mingw32-gcc-posix ./Configure -static \
             --prefix=$PREFIX \
             --libdir=lib \
             --cross-compile-prefix=x86_64-w64-mingw32- \
@@ -230,6 +230,25 @@ jobs:
           make -j$(nproc) && make install_sw
           cd ..
 
+      - name: Build libtorrent
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          libtorrent_VERSION=2.1.1
+          curl -LO https://github.com/arvidn/libtorrent/releases/download/v${libtorrent_VERSION}/libtorrent-rasterbar-${libtorrent_VERSION}.tar.gz
+          tar xf libtorrent-rasterbar-${libtorrent_VERSION}.tar.gz
+          cd libtorrent-rasterbar-${libtorrent_VERSION}
+          cmake -B build \
+          -G Ninja \
+          -DCMAKE_SYSTEM_NAME=Windows \
+          -DCMAKE_C_COMPILER=$CC \
+          -DCMAKE_CXX_COMPILER=$CXX \
+          -DCMAKE_INSTALL_PREFIX=$PREFIX \
+          -DBUILD_SHARED_LIBS=OFF \
+          -Ddeprecated-functions=OFF \
+          -Dpython-bindings=OFF \
+          -Dbuild_tests=OFF
+          cmake --build build
+          cmake --install build
       - name: Build libssh2
         if: steps.check.outputs.skip != 'true'
         run: |

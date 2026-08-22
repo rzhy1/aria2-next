@@ -182,9 +182,8 @@ jobs:
               --host=$HOST \
               --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
               LIBS="-lpthread"
-          make -j$(nproc) libsqlite3.a ||  exit 1
-          cp libsqlite3.a $PREFIX/lib ||  exit 1
-          cp sqlite3.h sqlite3ext.h $PREFIX/include ||  exit 1
+          make -j$(nproc)  ||  exit 1
+          make install   ||  exit 1
           cd ..
 
       - name: Build c-ares

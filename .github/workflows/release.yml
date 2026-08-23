@@ -258,6 +258,34 @@ jobs:
           make -j$(nproc) install
           cd ..
 
+      - name: Build Boost
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          curl -LO  https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.gz
+          tar xf boost_1_89_0.tar.gz
+          cd boost_1_89_0
+          ./bootstrap.sh
+          ./b2 \
+            toolset=gcc \
+            target-os=windows \
+            address-model=64 \
+            architecture=x86 \
+            threading=multi \
+            link=static \
+            runtime-link=static \
+            variant=release \
+            --with-system \
+            --with-filesystem \
+            --with-thread \
+            --with-random \
+            --with-chrono \
+            stage 
+          mkdir -p $PREFIX/include
+          mkdir -p $PREFIX/lib
+          cp -r boost $PREFIX/include/ 
+          cp stage/lib/*.a $PREFIX/lib/
+          cd ..
+      
       - name: Build libtorrent
         if: steps.check.outputs.skip != 'true'
         run: |
@@ -274,6 +302,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=$PREFIX \
             -DOPENSSL_ROOT_DIR=$PREFIX \
+            -DBOOST_ROOT=$PREFIX \
+            -DBoost_INCLUDE_DIR=$PREFIX/include \
             -DOPENSSL_USE_STATIC_LIBS=ON \
             -DCMAKE_FIND_ROOT_PATH=$PREFIX \
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
@@ -327,8 +357,10 @@ jobs:
             -DARIA2_WITH_LIBSSH2=ON -DARIA2_WITH_LIBXML2=OFF \
             -DARIA2_WITH_GMP=OFF -DARIA2_WITH_LIBGCRYPT=OFF \
             -DARIA2_WITH_LIBNETTLE=OFF \
-            -DCMAKE_PREFIX_PATH="$PREFIX"
-            -DLibtorrentRasterbar_DIR="$PREFIX/lib/cmake/LibtorrentRasterbar"
+            -DCMAKE_PREFIX_PATH="$PREFIX" \
+            -DBOOST_ROOT="$PREFIX" \
+            -DBoost_INCLUDE_DIR="$PREFIX/include" \
+            -DLibtorrentRasterbar_DIR="$PREFIX/lib/cmake/LibtorrentRasterbar" \
             -DCMAKE_PREFIX_PATH=$PREFIX \
             -DCMAKE_C_FLAGS="$CFLAGS" -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \

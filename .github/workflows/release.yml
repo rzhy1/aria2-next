@@ -259,19 +259,14 @@ jobs:
           cd ..
 
        # ---------- 4. Boost & Libtorrent 编译 ----------
-      - name: Download Boost & Libtorrent
+      - name: Install Boost headers
         if: steps.check.outputs.skip != 'true'
-        working-directory: aria2-next
         run: |
-          . packaging/dependencies.env
-          . packaging/scripts/common.sh
-          curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
-          curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
-          
-          # 解压 Boost 头文件直接存入 PREFIX，供 libtorrent 与 aria2 共享
-          tar -xf "$BOOST_ARCHIVE"
-          BOOST_DIR=$(tar -tf "$BOOST_ARCHIVE" | head -1 | cut -f1 -d"/")
-          cp -r "$BOOST_DIR/boost" "$PREFIX/include/"
+          BOOST_VER="1.92.0"
+          BOOST_DIR="boost_1_92_0"
+          curl -L "https://archives.boost.io/release/${BOOST_VER}/source/${BOOST_DIR}.tar.gz" | tar -xz "${BOOST_DIR}/boost"
+          cp -r "${BOOST_DIR}/boost" "$PREFIX/include/"
+          rm -rf "${BOOST_DIR}"
 
       - name: Build libtorrent
         if: steps.check.outputs.skip != 'true'

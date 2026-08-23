@@ -258,29 +258,48 @@ jobs:
           make -j$(nproc) install
           cd ..
 
-      - name: Download dependencies
+       # ---------- 4. Boost & Libtorrent 编译 ----------
+      - name: Download Boost & Libtorrent
+        if: steps.check.outputs.skip != 'true'
+        working-directory: aria2-next
         run: |
           . packaging/dependencies.env
           . packaging/scripts/common.sh
           curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
           curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
+          
+          # 解压 Boost 头文件直接存入 PREFIX，供 libtorrent 与 aria2 共享
+          tar -xf "$BOOST_ARCHIVE"
+          BOOST_DIR=$(tar -tf "$BOOST_ARCHIVE" | head -1 | cut -f1 -d"/")
+          cp -r "$BOOST_DIR/boost" "$PREFIX/include/"
+
       - name: Build libtorrent
+        if: steps.check.outputs.skip != 'true'
+        working-directory: aria2-next
         run: |
-          . packaging/scripts/release-size-profile windows
-          packaging/scripts/build-libtorrent \
+          . packaging/dependencies.env
+          LIBTORRENT_DIR=$(tar -tf "$LIBTORRENT_ARCHIVE" | head -1 | cut -f1 -d"/")
+          tar -xf "$LIBTORRENT_ARCHIVE"
+          
+          cmake -S "$LIBTORRENT_DIR" -B build-libtorrent -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_CXX_COMPILER="$CXX" \
-            -DCMAKE_RC_COMPILER="$HOST-windres" \
+            -DCMAKE_RC_COMPILER="${HOST}-windres" \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -Dstatic_runtime=ON \
             -DOPENSSL_ROOT_DIR="$PREFIX" \
             -DOPENSSL_USE_STATIC_LIBS=ON \
-            -DCMAKE_FIND_ROOT_PATH="$PREFIX" \
-            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
-            -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
-            -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$RELEASE_LDFLAGS"
+            -DBOOST_ROOT="$PREFIX" \
+            -DBoost_INCLUDE_DIR="$PREFIX/include" \
+            -DCMAKE_C_FLAGS="$CFLAGS" \
+            -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+            
+          cmake --build build-libtorrent --parallel $(nproc)
+          cmake --install build-libtorrent
           
       # ---------- aria2-next 编译 ----------
       - name: Disable aria2 tests

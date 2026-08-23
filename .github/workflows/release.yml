@@ -262,8 +262,8 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           curl -LO  https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.gz
-          tar xf boost_1_89_0.tar.gz
-          cd boost_1_89_0
+          tar xf boost_1_92_0.tar.gz
+          cd boost_1_92_0
           ./bootstrap.sh
           ./b2 \
             toolset=gcc \

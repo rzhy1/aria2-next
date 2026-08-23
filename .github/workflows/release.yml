@@ -258,69 +258,29 @@ jobs:
           make -j$(nproc) install
           cd ..
 
-      - name: Build Boost
-        if: steps.check.outputs.skip != 'true'
+      - name: Download dependencies
         run: |
-          curl -LO  https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.gz
-          tar xf boost_1_92_0.tar.gz
-          cd boost_1_92_0
-          ./bootstrap.sh
-          ./b2 \
-            toolset=gcc \
-            target-os=windows \
-            address-model=64 \
-            architecture=x86 \
-            threading=multi \
-            link=static \
-            runtime-link=static \
-            variant=release \
-            --with-system \
-            --with-filesystem \
-            --with-thread \
-            --with-random \
-            --with-chrono \
-            stage 
-          mkdir -p $PREFIX/include
-          mkdir -p $PREFIX/lib
-          cp -r boost $PREFIX/include/ 
-          cp stage/lib/*.a $PREFIX/lib/
-          cd ..
-      
+          . packaging/dependencies.env
+          . packaging/scripts/common.sh
+          curl_fetch "$BOOST_URL" "$BOOST_ARCHIVE" "$BOOST_SHA256"
+          curl_fetch "$LIBTORRENT_URL" "$LIBTORRENT_ARCHIVE" "$LIBTORRENT_SHA256"
       - name: Build libtorrent
-        if: steps.check.outputs.skip != 'true'
         run: |
-          libtorrent_VERSION=2.1.1
-          curl -LO https://github.com/arvidn/libtorrent/releases/download/v${libtorrent_VERSION}/libtorrent-rasterbar-${libtorrent_VERSION}.tar.gz
-          tar xf libtorrent-rasterbar-${libtorrent_VERSION}.tar.gz
-          cd libtorrent-rasterbar-${libtorrent_VERSION}
-          cmake -S . -B build \
-            -G Ninja \
+          . packaging/scripts/release-size-profile windows
+          packaging/scripts/build-libtorrent \
             -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_C_COMPILER=$CC \
-            -DCMAKE_CXX_COMPILER=$CXX \
-            -DCMAKE_RC_COMPILER=$HOST-windres \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=$PREFIX \
-            -DOPENSSL_ROOT_DIR=$PREFIX \
-            -DBOOST_ROOT=$PREFIX \
-            -DBoost_INCLUDE_DIR=$PREFIX/include \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_RC_COMPILER="$HOST-windres" \
+            -DOPENSSL_ROOT_DIR="$PREFIX" \
             -DOPENSSL_USE_STATIC_LIBS=ON \
-            -DCMAKE_FIND_ROOT_PATH=$PREFIX \
+            -DCMAKE_FIND_ROOT_PATH="$PREFIX" \
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
-            -DBUILD_SHARED_LIBS=OFF \
-            -Ddeprecated-functions=OFF \
-            -Dpython-bindings=OFF \
-            -Dbuild_tests=OFF \
-            -DCMAKE_C_FLAGS="$CFLAGS" \
-            -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
-          cmake --build build --parallel $(nproc)
-          cmake --install build
-          echo "查询"
-          find "$PREFIX" -name "*Rasterbar*Config.cmake"
-          echo “查询结束”
+            -DCMAKE_C_FLAGS="$RELEASE_CFLAGS" \
+            -DCMAKE_CXX_FLAGS="$RELEASE_CXXFLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$RELEASE_LDFLAGS"
           
       # ---------- aria2-next 编译 ----------
       - name: Disable aria2 tests

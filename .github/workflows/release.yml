@@ -284,6 +284,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -Dstatic_runtime=ON \
+            -Dwebrtc=OFF \
             -DOPENSSL_ROOT_DIR="$PREFIX" \
             -DOPENSSL_USE_STATIC_LIBS=ON \
             -DBOOST_ROOT="$PREFIX" \

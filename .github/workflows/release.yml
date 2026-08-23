@@ -272,9 +272,8 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          LIBTORRENT_VERSION=$(grep '^LIBTORRENT_VERSION=' aria2-next/packaging/dependencies.env | cut -d= -f2 | tr -d '\r\n')
-          echo "Building Libtorrent version: ${LIBTORRENT_VERSION}"  
-          curl -L "https://github.com/arvidn/libtorrent/releases/download/v${LIBTORRENT_VERSION}/libtorrent-rasterbar-${LIBTORRENT_VERSION}.tar.gz" | tar xz
+          LIBTORRENT_VERSION=2.1.1
+          curl -L "https://github.com/arvidn/libtorrent/releases/download/v${LIBTORRENT_VERSION}/libtorrent-rasterbar-${LIBTORRENT_VERSION}.tar.gz" | tar xz 
           cd libtorrent-rasterbar-${LIBTORRENT_VERSION}
           cmake -B build -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \

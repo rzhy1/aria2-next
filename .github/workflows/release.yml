@@ -258,6 +258,40 @@ jobs:
           make -j$(nproc) install
           cd ..
 
+      - name: Build libtorrent
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          libtorrent_VERSION=2.1.1
+          curl -LO https://github.com/arvidn/libtorrent/releases/download/v${libtorrent_VERSION}/libtorrent-rasterbar-${libtorrent_VERSION}.tar.gz
+          tar xf libtorrent-rasterbar-${libtorrent_VERSION}.tar.gz
+          cd libtorrent-rasterbar-${libtorrent_VERSION}
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=$CC \
+            -DCMAKE_CXX_COMPILER=$CXX \
+            -DCMAKE_RC_COMPILER=$HOST-windres \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=$PREFIX \
+            -DOPENSSL_ROOT_DIR=$PREFIX \
+            -DOPENSSL_USE_STATIC_LIBS=ON \
+            -DCMAKE_FIND_ROOT_PATH=$PREFIX \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
+            -DBUILD_SHARED_LIBS=OFF \
+            -Ddeprecated-functions=OFF \
+            -Dpython-bindings=OFF \
+            -Dbuild_tests=OFF \
+            -DCMAKE_C_FLAGS="$CFLAGS" \
+            -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+          cmake --build build --parallel $(nproc)
+          cmake --install build
+          echo "查询"
+          find "$PREFIX" -name "*Rasterbar*Config.cmake"
+          echo “查询结束”
+          
       # ---------- aria2-next 编译 ----------
       - name: Disable aria2 tests
         if: steps.check.outputs.skip != 'true'
@@ -293,6 +327,8 @@ jobs:
             -DARIA2_WITH_LIBSSH2=ON -DARIA2_WITH_LIBXML2=OFF \
             -DARIA2_WITH_GMP=OFF -DARIA2_WITH_LIBGCRYPT=OFF \
             -DARIA2_WITH_LIBNETTLE=OFF \
+            -DCMAKE_PREFIX_PATH="$PREFIX"
+            -DLibtorrentRasterbar_DIR="$PREFIX/lib/cmake/LibtorrentRasterbar"
             -DCMAKE_PREFIX_PATH=$PREFIX \
             -DCMAKE_C_FLAGS="$CFLAGS" -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \

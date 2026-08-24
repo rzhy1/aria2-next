@@ -221,18 +221,38 @@ jobs:
       - name: Build c-ares
         if: steps.check.outputs.skip != 'true'
         run: |
-          CARES_VERSION=1.34.8
-          curl -LO https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz
-          tar xf c-ares-${CARES_VERSION}.tar.gz
-          cd c-ares-${CARES_VERSION}
-          ./configure --host=$HOST --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
-                      --prefix=$PREFIX --disable-shared --enable-static \
-                      --enable-silent-rules --without-random --disable-tests \
-                       LIBS="-lws2_32" CC=$CC
-          make -j$(nproc)
-          make install
-          echo "CARES_VERSION=${CARES_VERSION}" >> $GITHUB_ENV
+          cares_tag=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/c-ares/c-ares/releases/latest | jq -r '.tag_name | sub("^v"; "")')
+          cares_latest_url="https://github.com/c-ares/c-ares/releases/download/v${cares_tag}/c-ares-${cares_tag}.tar.gz"
+          echo "c-ares 最新版本是: ${cares_tag}，下载地址是: ${cares_latest_url}"          
+          curl -L "${cares_latest_url}" | tar xz
+          cd c-ares-*
+          cmake -B build -G Ninja \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_RC_COMPILER="${HOST}-windres" \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCARES_STATIC=ON \
+            -DCARES_SHARED=OFF \
+            -DCARES_STATIC_PIC=ON \
+            -DCARES_BUILD_TESTS=OFF \
+            -DCARES_BUILD_TOOLS=OFF \
+            -DCMAKE_C_FLAGS="$CFLAGS -DCARES_STATICLIB" \
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+          cmake --build build --parallel $(nproc)
+          cmake --install build          
+          echo "CARES_VERSION=${cares_tag}" >> $GITHUB_ENV
           cd ..
+          rm -rf c-ares-*
+          # ---------- 校验检测 ----------
+          echo "===== 验证 c-ares 安装状态 ====="
+          test -f "$PREFIX/include/ares.h" || { echo "❌ 缺失 ares.h"; exit 1; }
+          test -f "$PREFIX/lib/libcares.a" || { echo "❌ 缺失 libcares.a"; exit 1; }
+          test -f "$PREFIX/lib/pkgconfig/libcares.pc" || { echo "❌ 缺失 libcares.pc"; exit 1; }
+          export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
+          echo "✅ c-ares 安装成功! 版本: $(pkg-config --modversion libcares)"
+          echo "✅ Cflags: $(pkg-config --cflags libcares)"
+          echo "✅ Libs: $(pkg-config --libs libcares)"
 
       - name: Build OpenSSL
         if: steps.check.outputs.skip != 'true'

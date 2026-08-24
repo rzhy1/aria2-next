@@ -269,9 +269,10 @@ jobs:
         run: |
           BOOST_VER="1.92.0"
           BOOST_DIR="boost_1_92_0"
-          curl -L "https://archives.boost.io/release/${BOOST_VER}/source/${BOOST_DIR}.tar.gz" | tar -xz "${BOOST_DIR}/boost"
+          curl -L  "https://archives.boost.io/release/${BOOST_VER}/source/${BOOST_DIR}.tar.gz" | tar -xz
           cp -r "${BOOST_DIR}/boost" "$PREFIX/include/"
-
+          echo "BOOST_ROOT=$GITHUB_WORKSPACE/${BOOST_DIR}" >> $GITHUB_ENV
+          
       - name: Build libtorrent
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -363,7 +364,7 @@ jobs:
             -DLIBSSH2_LIBRARY="$PREFIX/lib/libssh2.a" \
             -DBOOST_ROOT="$PREFIX" \
             -DARIA2_DEPENDENCY_ROOT="$PREFIX"
-            -DARIA2_BOOST_ROOT="$GITHUB_WORKSPACE/boost_1_92_0"
+            --DARIA2_BOOST_ROOT="$BOOST_ROOT"
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
             -DARIA2_WITH_WINTLS=OFF \
             -DARIA2_WITH_OPENSSL=ON \

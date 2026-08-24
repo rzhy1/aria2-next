@@ -210,8 +210,8 @@ jobs:
           cd openssl-${OPENSSL_VERSION}
           DISABLED_FEATURES=(
             no-quic no-err no-dso no-engine no-async no-autoalginit
-            no-dtls no-sctp no-ssl3 no-tls1 no-tls1_1
-            no-comp no-ts no-ocsp no-ct no-cms no-psk no-srp no-srtp no-rfc3779
+            no-sctp no-ssl3 no-tls1 no-tls1_1
+            no-comp no-ts no-ocsp no-ct no-cms no-psk no-srp no-rfc3779
             no-fips no-acvp-tests no-docs no-stdio no-ui-console
             no-afalgeng no-ssl-trace no-filenames
             no-aria no-bf no-blake2 no-camellia no-cast no-cmac
@@ -284,8 +284,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -Dstatic_runtime=ON \
-            -Dwebrtc=OFF \
-            -Ddatachannel=OFF \
             -DOPENSSL_ROOT_DIR="$PREFIX" \
             -DOPENSSL_USE_STATIC_LIBS=ON \
             -DBOOST_ROOT="$PREFIX" \

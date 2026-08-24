@@ -273,6 +273,18 @@ jobs:
           cp -r "${BOOST_DIR}/boost" "$PREFIX/include/"
           echo "BOOST_ROOT=$GITHUB_WORKSPACE/${BOOST_DIR}" >> $GITHUB_ENV
           
+      - name: Debug Boost
+        run: |
+          echo "===== workspace ====="
+          pwd
+          ls -la
+      
+          echo "===== boost dirs ====="
+          find . -maxdepth 3 -type d -name boost | head -20
+      
+          echo "===== env ====="
+          echo "ARIA2_BOOST_ROOT=$ARIA2_BOOST_ROOT"
+          echo "BOOST_ROOT=$BOOST_ROOT"
       - name: Build libtorrent
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next

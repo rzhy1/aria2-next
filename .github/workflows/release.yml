@@ -271,7 +271,7 @@ jobs:
           BOOST_DIR="boost_1_92_0"
           curl -L  "https://archives.boost.io/release/${BOOST_VER}/source/${BOOST_DIR}.tar.gz" | tar -xz
           cp -r "${BOOST_DIR}/boost" "$PREFIX/include/"
-          echo "BOOST_ROOT=$GITHUB_WORKSPACE/${BOOST_DIR}" >> $GITHUB_ENV
+          echo "ARIA2_BOOST_ROOT=$GITHUB_WORKSPACE/${BOOST_DIR}" >> $GITHUB_ENV
           
       - name: Debug Boost
         run: |
@@ -313,7 +313,7 @@ jobs:
             -Dpython-bindings=OFF \
             -DOPENSSL_ROOT_DIR="$PREFIX" \
             -DOPENSSL_USE_STATIC_LIBS=ON \
-            -DBOOST_ROOT="$PREFIX" \
+            -DBOOST_ROOT="$GITHUB_WORKSPACE/${BOOST_DIR}" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
@@ -374,9 +374,8 @@ jobs:
             -DSQLITE3_LIBRARY="$PREFIX/lib/libsqlite3.a" \
             -DLIBSSH2_INCLUDE_DIR="$PREFIX/include" \
             -DLIBSSH2_LIBRARY="$PREFIX/lib/libssh2.a" \
-            -DBOOST_ROOT="$PREFIX" \
             -DARIA2_DEPENDENCY_ROOT="$PREFIX" \
-            --DARIA2_BOOST_ROOT="$BOOST_ROOT" \
+            -DARIA2_BOOST_ROOT="$ARIA2_BOOST_ROOT" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
             -DARIA2_WITH_WINTLS=OFF \
             -DARIA2_WITH_OPENSSL=ON \

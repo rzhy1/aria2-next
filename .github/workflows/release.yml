@@ -99,9 +99,13 @@ jobs:
       - name: Prepare prefix
         if: steps.check.outputs.skip != 'true'
         run: |
-          sudo mkdir -p $PREFIX
+          sudo rm -rf $PREFIX
+          sudo mkdir -p \
+           $PREFIX/include \
+           $PREFIX/lib \
+           $PREFIX/lib/pkgconfig \
+           $PREFIX/share/pkgconfig     
           sudo chown -R $USER:$USER $PREFIX
-          mkdir -p $PREFIX/include $PREFIX/lib $PREFIX/lib/pkgconfig
 
       # ---------- 依赖库编译 ----------
       - name: Build expat
@@ -338,7 +342,7 @@ jobs:
             -DCMAKE_FIND_ROOT_PATH="$PREFIX" \
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY \
             -DCMAKE_PREFIX_PATH="$PREFIX" \
             -DOPENSSL_ROOT_DIR="$PREFIX" \
             -DOPENSSL_USE_STATIC_LIBS=ON \

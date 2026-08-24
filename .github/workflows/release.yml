@@ -205,6 +205,18 @@ jobs:
           echo "SQLITE_VERSION=${sqlite_tag}" >> $GITHUB_ENV
           cd ..
           rm -rf sqlite-*
+          # ---------- 校验检测 ----------
+          echo "===== 验证 SQLite3 安装状态 ====="
+          test -f "$PREFIX/include/sqlite3.h" || { echo "❌ 缺失 sqlite3.h"; exit 1; }
+          test -f "$PREFIX/lib/libsqlite3.a" || { echo "❌ 缺失 libsqlite3.a"; exit 1; }
+          test -f "$PREFIX/lib/pkgconfig/sqlite3.pc" || { echo "❌ 缺失 sqlite3.pc"; exit 1; }
+
+          # 通过 pkg-config 验证版本与链接参数
+          export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
+          pkg_ver=$(pkg-config --modversion sqlite3)
+          echo "✅ SQLite3 安装成功! 版本: ${pkg_ver}"
+          echo "✅ Cflags: $(pkg-config --cflags sqlite3)"
+          echo "✅ Libs: $(pkg-config --libs sqlite3)"
 
       - name: Build c-ares
         if: steps.check.outputs.skip != 'true'

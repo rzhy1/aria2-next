@@ -337,6 +337,7 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja \
             -DENABLE_TESTS=OFF \
+            -DARIA2_SUPERBUILD=OFF \
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_CXX_COMPILER="$CXX" \
@@ -371,7 +372,6 @@ jobs:
             -DARIA2_WITH_LIBSSH2=ON \
             -DARIA2_WITH_LIBXML2=OFF \
             -DARIA2_WITH_GMP=OFF \
-            -DARIA2_STATIC_DEPENDENCIES=OFF \
             -DARIA2_WITH_LIBGCRYPT=OFF \
             -DARIA2_WITH_LIBNETTLE=OFF \
             -DCMAKE_C_FLAGS="$CFLAGS" \

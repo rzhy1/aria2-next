@@ -188,7 +188,9 @@ jobs:
               --host=$HOST \
               --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
               LIBS="-lpthread"
-          make -j$(nproc) libsqlite3.la || exit 1
+          make -j$(nproc) sqlite3.o || make -j$(nproc) sqlite3.lo
+          ${HOST}-ar rcs libsqlite3.a sqlite3.o 2>/dev/null || ${HOST}-ar rcs libsqlite3.a .libs/sqlite3.o
+          ${HOST}-ranlib libsqlite3.a
           cp .libs/libsqlite3.a "$PREFIX/lib/" || cp libsqlite3.a "$PREFIX/lib/" || exit 1
           cp sqlite3.h sqlite3ext.h "$PREFIX/include/" || exit 1
           [ -f sqlite3.pc ] && cp sqlite3.pc "$PREFIX/lib/pkgconfig/"

@@ -335,6 +335,22 @@ jobs:
           p.write_text(s)
           EOF
 
+      - name: Patch Dependencies.cmake
+        if: steps.check.outputs.skip != 'true'
+        working-directory: aria2-next
+        run: |
+          # 1. 移除 OpenSSL 和 Libtorrent 的版本号强制校验变量
+          sed -i 's/find_package(OpenSSL \${ARIA2_MIN_OPENSSL_VERSION}/find_package(OpenSSL/g' cmake/modules/Dependencies.cmake
+          sed -i 's/find_package(LibtorrentRasterbar \${ARIA2_MIN_LIBTORRENT_VERSION}/find_package(LibtorrentRasterbar/g' cmake/modules/Dependencies.cmake
+
+          # 2. 将 dependencies.env 里的硬编码版本号替换为你编译的实际版本（确保 -v 输出准确）
+          sed -i 's/^EXPAT_VERSION=.*/EXPAT_VERSION=2.8.3/' packaging/dependencies.env || true
+          sed -i 's/^SQLITE_VERSION=.*/SQLITE_VERSION=3.53.4/' packaging/dependencies.env || true
+          sed -i 's/^CARES_VERSION=.*/CARES_VERSION=1.34.8/' packaging/dependencies.env || true
+          sed -i 's/^OPENSSL_VERSION=.*/OPENSSL_VERSION=4.0.1/' packaging/dependencies.env || true
+          sed -i 's/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=2.1.1/' packaging/dependencies.env || true
+          sed -i 's/^BOOST_VERSION=.*/BOOST_VERSION=1.92.0/' packaging/dependencies.env || true
+      
       - name: Patch aria2 options (piece length)
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -342,6 +358,7 @@ jobs:
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc
           sed -i 's/bool WinConsoleFile::supportsColor() { return false; }/bool WinConsoleFile::supportsColor() { return console_; }/' src/WinConsoleFile.cc
           sed -i '/console_ = handle_ != nullptr/,/GetConsoleMode(handle_, &mode) != 0;/c\  if (handle_ != nullptr && handle_ != INVALID_HANDLE_VALUE &&\n      GetConsoleMode(handle_, &mode) != 0) {\n    console_ = true;\n    SetConsoleMode(handle_, mode | 0x0004);\n  }' src/WinConsoleFile.cc
+      
       - name: Configure aria2-next
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next

@@ -308,10 +308,6 @@ jobs:
           cmake --install build
           cd ..
           
-      - name: Debug dependency versions
-        run: |
-          grep -R "OPENSSL_VERSION_TEXT" aria2-next/src aria2-next/include
-          grep -R "OpenSSL" aria2-next/build/compile_commands.json
       # ---------- aria2-next 编译 ----------
       - name: Disable aria2 tests
         if: steps.check.outputs.skip != 'true'
@@ -378,19 +374,6 @@ jobs:
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
             -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
-
-      - name: Debug CMake cache
-        if: steps.check.outputs.skip != 'true'
-        working-directory: aria2-next
-        run: |
-          echo "===== Search old OpenSSL ====="
-          grep -R "3.5.6" build || true
-
-          echo "===== Search old c-ares ====="
-          grep -R "1.34.5" build || true
-
-          echo "===== CMake cache dependency ====="
-          grep -i "openssl\|cares" build/CMakeCache.txt || true
 
       - name: Compile
         if: steps.check.outputs.skip != 'true'

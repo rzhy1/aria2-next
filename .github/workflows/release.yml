@@ -271,7 +271,6 @@ jobs:
           BOOST_DIR="boost_1_92_0"
           curl -L "https://archives.boost.io/release/${BOOST_VER}/source/${BOOST_DIR}.tar.gz" | tar -xz "${BOOST_DIR}/boost"
           cp -r "${BOOST_DIR}/boost" "$PREFIX/include/"
-          rm -rf "${BOOST_DIR}"
 
       - name: Build libtorrent
         if: steps.check.outputs.skip != 'true'
@@ -282,6 +281,9 @@ jobs:
           cd libtorrent-rasterbar-${LIBTORRENT_VERSION}
           cmake -B build -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY \
             -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_CXX_COMPILER="$CXX" \
             -DCMAKE_RC_COMPILER="${HOST}-windres" \
@@ -331,6 +333,7 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
+          rm -rf ./build
           cmake -S . -B build -G Ninja \
             -DENABLE_TESTS=OFF \
             -DARIA2_SUPERBUILD=OFF \
@@ -350,6 +353,7 @@ jobs:
             -DZLIB_ROOT="$PREFIX" \
             -DZLIB_USE_STATIC_LIBS=ON \
             -DCARES_INCLUDE_DIR="$PREFIX/include" \
+            -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" \
             -DCARES_LIBRARY="$PREFIX/lib/libcares.a" \
             -DEXPAT_INCLUDE_DIR="$PREFIX/include" \
             -DEXPAT_LIBRARY="$PREFIX/lib/libexpat.a" \
@@ -358,6 +362,8 @@ jobs:
             -DLIBSSH2_INCLUDE_DIR="$PREFIX/include" \
             -DLIBSSH2_LIBRARY="$PREFIX/lib/libssh2.a" \
             -DBOOST_ROOT="$PREFIX" \
+            -DARIA2_DEPENDENCY_ROOT="$PREFIX"
+            -DARIA2_BOOST_ROOT="$GITHUB_WORKSPACE/boost_1_92_0"
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
             -DARIA2_WITH_WINTLS=OFF \
             -DARIA2_WITH_OPENSSL=ON \
@@ -372,8 +378,7 @@ jobs:
             -DARIA2_WITH_LIBNETTLE=OFF \
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-            -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
 
       - name: Compile
         if: steps.check.outputs.skip != 'true'
@@ -403,7 +408,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Save upstream SHA cache
-        if: always() && steps.check_upstream.outputs.skip == 'false'
+        if: always() && steps.check.outputs.skip == 'false'
         uses: actions/cache@v6
         with:
           path: .cache

@@ -375,8 +375,8 @@ jobs:
             -DLIBSSH2_INCLUDE_DIR="$PREFIX/include" \
             -DLIBSSH2_LIBRARY="$PREFIX/lib/libssh2.a" \
             -DBOOST_ROOT="$PREFIX" \
-            -DARIA2_DEPENDENCY_ROOT="$PREFIX"
-            --DARIA2_BOOST_ROOT="$BOOST_ROOT"
+            -DARIA2_DEPENDENCY_ROOT="$PREFIX" \
+            --DARIA2_BOOST_ROOT="$BOOST_ROOT" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
             -DARIA2_WITH_WINTLS=OFF \
             -DARIA2_WITH_OPENSSL=ON \

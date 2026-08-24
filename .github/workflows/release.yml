@@ -166,15 +166,14 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           sqlite_tag=$(curl -s https://sqlite.org/index.html | awk '/Version [0-9]+\.[0-9]+\.[0-9]+/ {match($0, /Version ([0-9]+\.[0-9]+\.[0-9]+)/, a); print a[1]; exit}')
-          echo "sqlite最新版本是${sqlite_tag}"
           download_page=$(curl -sL "https://www.sqlite.org/download.html")
           csv_data=$(echo "$download_page" | sed -n '/Download product data for scripts to read/,/-->/p')
           tarball_url=$(echo "$csv_data" | grep "autoconf.*\.tar\.gz" | cut -d ',' -f 3 | head -n 1)
           sqlite_latest_url="https://www.sqlite.org/${tarball_url}"
           echo "sqlite最新版本是${sqlite_tag}，下载地址是${sqlite_latest_url}"
-          curl -L ${sqlite_latest_url} | tar xz
+          curl -L "${sqlite_latest_url}" | tar xz
           cd sqlite-*
-          CC=$CC ./configure \
+          CC=$CC CFLAGS="$CFLAGS" ./configure \
               --disable-shared \
               --enable-threadsafe \
               --enable-static \
@@ -189,10 +188,13 @@ jobs:
               --host=$HOST \
               --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
               LIBS="-lpthread"
-          make -j$(nproc)  ||  exit 1
-          make install   ||  exit 1
+          make -j$(nproc) libsqlite3.la || exit 1
+          cp .libs/libsqlite3.a "$PREFIX/lib/" || cp libsqlite3.a "$PREFIX/lib/" || exit 1
+          cp sqlite3.h sqlite3ext.h "$PREFIX/include/" || exit 1
+          [ -f sqlite3.pc ] && cp sqlite3.pc "$PREFIX/lib/pkgconfig/"
           echo "SQLITE_VERSION=${sqlite_tag}" >> $GITHUB_ENV
           cd ..
+          rm -rf sqlite-*
 
       - name: Build c-ares
         if: steps.check.outputs.skip != 'true'
@@ -328,7 +330,7 @@ jobs:
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
-          cmake --build build --parallel $(nproc)
+          cmake --build build --target torrent-rasterbar --parallel $(nproc)
           cmake --install build
           cd ..
           rm -rf libtorrent-rasterbar-${LIBTORRENT_VERSION}

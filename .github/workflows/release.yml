@@ -31,11 +31,11 @@ jobs:
       PREFIX: /usr/local/x86_64-w64-mingw32
       CC: x86_64-w64-mingw32-gcc-posix
       CXX: x86_64-w64-mingw32-g++-posix
-      CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto -g0 -fno-ident"
-      CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto -g0 -fno-ident"
-      LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections,--strip-all -flto"
-      PKG_CONFIG_PATH: ""
-      PKG_CONFIG_LIBDIR: /usr/local/x86_64-w64-mingw32/lib/pkgconfig
+      CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=auto -g0 -fno-ident"
+      CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=auto -g0 -fno-ident"
+      LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections,--strip-all -flto=auto"
+      PKG_CONFIG_PATH: "/usr/local/x86_64-w64-mingw32/lib/pkgconfig"
+      PKG_CONFIG_LIBDIR: "/usr/local/x86_64-w64-mingw32/lib/pkgconfig"
 
     steps:
       # ---------- 1. 恢复缓存（动态键，前缀匹配） ----------
@@ -100,7 +100,8 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           sudo mkdir -p $PREFIX
-          sudo chown $USER:$USER $PREFIX
+          sudo chown -R $USER:$USER $PREFIX
+          mkdir -p $PREFIX/include $PREFIX/lib $PREFIX/lib/pkgconfig
 
       # ---------- 依赖库编译 ----------
       - name: Build expat
@@ -284,6 +285,13 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -Dstatic_runtime=ON \
+            -Dwebtorrent=OFF \
+            -Dlogging=OFF \
+            -Ddeprecated-functions=OFF \
+            -Dbuild_tests=OFF \
+            -Dbuild_examples=OFF \
+            -Dbuild_tools=OFF \
+            -Dpython-bindings=OFF \
             -DOPENSSL_ROOT_DIR="$PREFIX" \
             -DOPENSSL_USE_STATIC_LIBS=ON \
             -DBOOST_ROOT="$PREFIX" \
@@ -322,21 +330,43 @@ jobs:
           cmake -S . -B build -G Ninja \
             -DENABLE_TESTS=OFF \
             -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_RC_COMPILER="${HOST}-windres" \
             -DCMAKE_BUILD_TYPE=Release \
             -DARIA2_STATIC_DEPENDENCIES=ON \
-            -DARIA2_WITH_WINTLS=OFF -DARIA2_WITH_OPENSSL=ON \
-            -DARIA2_WITH_GNUTLS=OFF -DARIA2_WITH_CARES=ON \
-            -DARIA2_WITH_SQLITE3=ON -DARIA2_WITH_EXPAT=ON \
-            -DARIA2_WITH_LIBSSH2=ON -DARIA2_WITH_LIBXML2=OFF \
-            -DARIA2_WITH_GMP=OFF -DARIA2_WITH_LIBGCRYPT=OFF \
-            -DARIA2_WITH_LIBNETTLE=OFF \
+            -DCMAKE_FIND_ROOT_PATH="$PREFIX" \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
             -DCMAKE_PREFIX_PATH="$PREFIX" \
+            -DOPENSSL_ROOT_DIR="$PREFIX" \
+            -DOPENSSL_USE_STATIC_LIBS=ON \
+            -DZLIB_ROOT="$PREFIX" \
+            -DZLIB_USE_STATIC_LIBS=ON \
+            -DCARES_INCLUDE_DIR="$PREFIX/include" \
+            -DCARES_LIBRARY="$PREFIX/lib/libcares.a" \
+            -DEXPAT_INCLUDE_DIR="$PREFIX/include" \
+            -DEXPAT_LIBRARY="$PREFIX/lib/libexpat.a" \
+            -DSQLITE3_INCLUDE_DIR="$PREFIX/include" \
+            -DSQLITE3_LIBRARY="$PREFIX/lib/libsqlite3.a" \
+            -DLIBSSH2_INCLUDE_DIR="$PREFIX/include" \
+            -DLIBSSH2_LIBRARY="$PREFIX/lib/libssh2.a" \
             -DBOOST_ROOT="$PREFIX" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
-            -DLibtorrentRasterbar_DIR="$PREFIX/lib/cmake/LibtorrentRasterbar" \
-            -DCMAKE_PREFIX_PATH=$PREFIX \
-            -DCMAKE_C_FLAGS="$CFLAGS" -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
+            -DARIA2_WITH_WINTLS=OFF \
+            -DARIA2_WITH_OPENSSL=ON \
+            -DARIA2_WITH_GNUTLS=OFF \
+            -DARIA2_WITH_CARES=ON \
+            -DARIA2_WITH_SQLITE3=ON \
+            -DARIA2_WITH_EXPAT=ON \
+            -DARIA2_WITH_LIBSSH2=ON \
+            -DARIA2_WITH_LIBXML2=OFF \
+            -DARIA2_WITH_GMP=OFF \
+            -DARIA2_WITH_LIBGCRYPT=OFF \
+            -DARIA2_WITH_LIBNETTLE=OFF \
+            -DCMAKE_C_FLAGS="$CFLAGS" \
+            -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
             -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
 

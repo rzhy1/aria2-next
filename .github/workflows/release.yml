@@ -136,6 +136,7 @@ jobs:
               --host=$HOST \
               --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)
           make -j$(nproc) install
+          echo "EXPAT_VERSION=${expat_tag}" >> $GITHUB_ENV
           cd ..
 
       - name: Build zlib
@@ -158,6 +159,7 @@ jobs:
           CC=$CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" ./configure --static --prefix=$PREFIX
           make -j$(nproc)
           make install
+          echo "ZLIB_VERSION=${zlib_tag}" >> $GITHUB_ENV
           cd ..
 
       - name: Build sqlite3
@@ -189,6 +191,7 @@ jobs:
               LIBS="-lpthread"
           make -j$(nproc)  ||  exit 1
           make install   ||  exit 1
+          echo "SQLITE_VERSION=${sqlite_tag}" >> $GITHUB_ENV
           cd ..
 
       - name: Build c-ares
@@ -204,6 +207,7 @@ jobs:
                        LIBS="-lws2_32" CC=$CC
           make -j$(nproc)
           make install
+          echo "CARES_VERSION=${CARES_VERSION}" >> $GITHUB_ENV
           cd ..
 
       - name: Build OpenSSL
@@ -233,6 +237,7 @@ jobs:
             --with-zlib-lib="$PREFIX/lib/libz.a" \
             "${DISABLED_FEATURES[@]}"
           make -j$(nproc) && make install_sw
+          echo "OPENSSL_VERSION=${OPENSSL_VERSION}" >> $GITHUB_ENV
           cd ..
           
       - name: Build libssh2
@@ -261,36 +266,41 @@ jobs:
               --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
               LIBS="-lws2_32"
           make -j$(nproc) install
+          echo "LIBSSH2_VERSION=${libssh2_tag}" >> $GITHUB_ENV
           cd ..
 
        # ---------- 4. Boost & Libtorrent 编译 ----------
       - name: Install Boost headers
         if: steps.check.outputs.skip != 'true'
         run: |
-          BOOST_VER="1.92.0"
-          BOOST_DIR="boost_1_92_0"
-          curl -L  "https://archives.boost.io/release/${BOOST_VER}/source/${BOOST_DIR}.tar.gz" | tar -xz
-          cp -r "${BOOST_DIR}/boost" "$PREFIX/include/"
+          # 自动获取 Boost 最新正式发布版本（如 1.87.0）
+          BOOST_VER=$(curl -sL https://www.boost.io/feed/downloads.rss | grep -oP '<title>Version \K[0-9.]+' | head -n1)
+          if [ -z "$BOOST_VER" ]; then
+            BOOST_VER=$(curl -sL https://archives.boost.io/release/ | grep -oP 'href="\K[0-9.]+(?=/")' | sort -V | tail -n1)
+          fi
+          BOOST_UNDERSCORE=$(echo "$BOOST_VER" | tr '.' '_')
+          BOOST_DIR="boost_${BOOST_UNDERSCORE}"
+          echo "Boost 最新版本是: ${BOOST_VER}"
+          echo "BOOST_VERSION=${BOOST_VER}" >> $GITHUB_ENV
+          echo "BOOST_DIR_NAME=${BOOST_DIR}" >> $GITHUB_ENV
           echo "ARIA2_BOOST_ROOT=$GITHUB_WORKSPACE/${BOOST_DIR}" >> $GITHUB_ENV
+          curl -L "https://archives.boost.io/release/${BOOST_VER}/source/${BOOST_DIR}.tar.gz" | tar -xz
+          cp -r "${BOOST_DIR}/boost" "$PREFIX/include/"
           
-      - name: Debug Boost
-        run: |
-          echo "===== workspace ====="
-          pwd
-          ls -la
-      
-          echo "===== boost dirs ====="
-          find . -maxdepth 3 -type d -name boost | head -20
-      
-          echo "===== env ====="
-          echo "ARIA2_BOOST_ROOT=$ARIA2_BOOST_ROOT"
-          echo "BOOST_ROOT=$BOOST_ROOT"
       - name: Build libtorrent
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          LIBTORRENT_VERSION=2.1.1
-          curl -L "https://github.com/arvidn/libtorrent/releases/download/v${LIBTORRENT_VERSION}/libtorrent-rasterbar-${LIBTORRENT_VERSION}.tar.gz" | tar xz 
+          LIBTORRENT_JSON=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/arvidn/libtorrent/releases/latest)
+          LIBTORRENT_VERSION=$(echo "$LIBTORRENT_JSON" | jq -r '.tag_name' | sed 's/^v//')
+          LIBTORRENT_URL=$(echo "$LIBTORRENT_JSON" | jq -r '.assets[] | select(.name | test("libtorrent-rasterbar-.*\\.tar\\.gz$")) | .browser_download_url' | head -n1)
+          if [ -z "$LIBTORRENT_URL" ] || [ "$LIBTORRENT_URL" = "null" ]; then
+            LIBTORRENT_URL="https://github.com/arvidn/libtorrent/releases/download/v${LIBTORRENT_VERSION}/libtorrent-rasterbar-${LIBTORRENT_VERSION}.tar.gz"
+          fi
+          echo "Libtorrent 最新版本是: ${LIBTORRENT_VERSION}"
+          echo "下载地址是: ${LIBTORRENT_URL}"
+          echo "LIBTORRENT_VERSION=${LIBTORRENT_VERSION}" >> $GITHUB_ENV
+          curl -L "${LIBTORRENT_URL}" | tar xz
           cd libtorrent-rasterbar-${LIBTORRENT_VERSION}
           cmake -B build -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
@@ -313,15 +323,15 @@ jobs:
             -Dpython-bindings=OFF \
             -DOPENSSL_ROOT_DIR="$PREFIX" \
             -DOPENSSL_USE_STATIC_LIBS=ON \
-            -DBOOST_ROOT="$GITHUB_WORKSPACE/${BOOST_DIR}" \
+            -DBOOST_ROOT="$GITHUB_WORKSPACE/${BOOST_DIR_NAME}" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
-            
           cmake --build build --parallel $(nproc)
           cmake --install build
           cd ..
+          rm -rf libtorrent-rasterbar-${LIBTORRENT_VERSION}
           
       # ---------- aria2-next 编译 ----------
       - name: Disable aria2 tests
@@ -344,12 +354,14 @@ jobs:
           sed -i 's/find_package(LibtorrentRasterbar \${ARIA2_MIN_LIBTORRENT_VERSION}/find_package(LibtorrentRasterbar/g' cmake/modules/Dependencies.cmake
 
           # 2. 将 dependencies.env 里的硬编码版本号替换为你编译的实际版本（确保 -v 输出准确）
-          sed -i 's/^EXPAT_VERSION=.*/EXPAT_VERSION=2.8.3/' packaging/dependencies.env || true
-          sed -i 's/^SQLITE_VERSION=.*/SQLITE_VERSION=3.53.4/' packaging/dependencies.env || true
-          sed -i 's/^CARES_VERSION=.*/CARES_VERSION=1.34.8/' packaging/dependencies.env || true
-          sed -i 's/^OPENSSL_VERSION=.*/OPENSSL_VERSION=4.0.1/' packaging/dependencies.env || true
-          sed -i 's/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=2.1.1/' packaging/dependencies.env || true
-          sed -i 's/^BOOST_VERSION=.*/BOOST_VERSION=1.92.0/' packaging/dependencies.env || true
+          [ -n "$ZLIB_VERSION" ]       && sed -i "s/^ZLIB_VERSION=.*/ZLIB_VERSION=${ZLIB_VERSION}/" packaging/dependencies.env
+          [ -n "$EXPAT_VERSION" ]      && sed -i "s/^EXPAT_VERSION=.*/EXPAT_VERSION=${EXPAT_VERSION}/" packaging/dependencies.env
+          [ -n "$SQLITE_VERSION" ]     && sed -i "s/^SQLITE_VERSION=.*/SQLITE_VERSION=${SQLITE_VERSION}/" packaging/dependencies.env
+          [ -n "$CARES_VERSION" ]      && sed -i "s/^CARES_VERSION=.*/CARES_VERSION=${CARES_VERSION}/" packaging/dependencies.env
+          [ -n "$OPENSSL_VERSION" ]    && sed -i "s/^OPENSSL_VERSION=.*/OPENSSL_VERSION=${OPENSSL_VERSION}/" packaging/dependencies.env
+          [ -n "$LIBSSH2_VERSION" ]    && sed -i "s/^LIBSSH2_VERSION=.*/LIBSSH2_VERSION=${LIBSSH2_VERSION}/" packaging/dependencies.env
+          [ -n "$LIBTORRENT_VERSION" ] && sed -i "s/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=${LIBTORRENT_VERSION}/" packaging/dependencies.env
+          [ -n "$BOOST_VERSION" ]      && sed -i "s/^BOOST_VERSION=.*/BOOST_VERSION=${BOOST_VERSION}/" packaging/dependencies.env
       
       - name: Patch aria2 options (piece length)
         if: steps.check.outputs.skip != 'true'

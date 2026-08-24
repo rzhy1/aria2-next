@@ -171,29 +171,37 @@ jobs:
           tarball_url=$(echo "$csv_data" | grep "autoconf.*\.tar\.gz" | cut -d ',' -f 3 | head -n 1)
           sqlite_latest_url="https://www.sqlite.org/${tarball_url}"
           echo "sqlite最新版本是${sqlite_tag}，下载地址是${sqlite_latest_url}"
+          
           curl -L "${sqlite_latest_url}" | tar xz
           cd sqlite-*
-          CC=$CC CFLAGS="$CFLAGS" ./configure \
-              --disable-shared \
-              --enable-threadsafe \
-              --enable-static \
-              --disable-debug \
-              --enable-silent-rules \
-              --disable-editline \
-              --disable-fts3 --disable-fts4 --disable-fts5 \
-              --disable-rtree \
-              --disable-session \
-              --disable-load-extension \
-              --prefix=$PREFIX \
-              --host=$HOST \
-              --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
-              LIBS="-lpthread"
-          make -j$(nproc) sqlite3.o || make -j$(nproc) sqlite3.lo
-          ${HOST}-ar rcs libsqlite3.a sqlite3.o 2>/dev/null || ${HOST}-ar rcs libsqlite3.a .libs/sqlite3.o
+          
+          # 直接极速编译单一源文件
+          $CC $CFLAGS -DSQLITE_THREADSAFE=1 -DSQLITE_ENABLE_MATH_FUNCTIONS -DSQLITE_OMIT_LOAD_EXTENSION=1 -c sqlite3.c -o sqlite3.o
+          
+          # 打包为静态库
+          ${HOST}-ar rcs libsqlite3.a sqlite3.o
           ${HOST}-ranlib libsqlite3.a
-          cp .libs/libsqlite3.a "$PREFIX/lib/" || cp libsqlite3.a "$PREFIX/lib/" || exit 1
-          cp sqlite3.h sqlite3ext.h "$PREFIX/include/" || exit 1
-          [ -f sqlite3.pc ] && cp sqlite3.pc "$PREFIX/lib/pkgconfig/"
+          
+          # 安装头文件和静态库到 PREFIX
+          cp libsqlite3.a "$PREFIX/lib/"
+          cp sqlite3.h sqlite3ext.h "$PREFIX/include/"
+          
+          # 使用 echo 生成干净的 sqlite3.pc
+          mkdir -p "$PREFIX/lib/pkgconfig"
+          {
+            echo "prefix=$PREFIX"
+            echo 'exec_prefix=${prefix}'
+            echo 'libdir=${exec_prefix}/lib'
+            echo 'includedir=${prefix}/include'
+            echo ''
+            echo 'Name: SQLite'
+            echo 'Description: SQL database engine'
+            echo "Version: ${sqlite_tag}"
+            echo 'Libs: -L${libdir} -lsqlite3'
+            echo 'Libs.private: -lpthread'
+            echo 'Cflags: -I${includedir}'
+          } > "$PREFIX/lib/pkgconfig/sqlite3.pc"
+          
           echo "SQLITE_VERSION=${sqlite_tag}" >> $GITHUB_ENV
           cd ..
           rm -rf sqlite-*

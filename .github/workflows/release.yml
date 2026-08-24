@@ -308,6 +308,26 @@ jobs:
           cmake --install build
           cd ..
           
+      - name: Debug dependency versions
+        run: |
+          echo "===== PREFIX ====="
+          echo $PREFIX
+      
+          echo "===== OpenSSL header ====="
+          grep OPENSSL_VERSION_TEXT \
+            $PREFIX/include/openssl/opensslv.h || true
+      
+          echo "===== c-ares header ====="
+          grep CARES_VERSION \
+            $PREFIX/include/ares_version.h || true
+      
+          echo "===== pkg-config ====="
+          pkg-config --modversion openssl || true
+          pkg-config --modversion libcares || true
+      
+          echo "===== libraries ====="
+          ls -lh $PREFIX/lib/libssl.a
+          ls -lh $PREFIX/lib/libcares.a
       # ---------- aria2-next 编译 ----------
       - name: Disable aria2 tests
         if: steps.check.outputs.skip != 'true'

@@ -38,7 +38,6 @@ jobs:
       PKG_CONFIG_LIBDIR: "/usr/local/x86_64-w64-mingw32/lib/pkgconfig"
 
     steps:
-      # ---------- 1. 恢复缓存（动态键，前缀匹配） ----------
       - name: Restore upstream SHA cache
         uses: actions/cache@v6
         with:
@@ -319,7 +318,7 @@ jobs:
           echo "LIBSSH2_VERSION=${libssh2_tag}" >> $GITHUB_ENV
           cd ..
 
-       - name: Build libcurl
+      - name: Build libcurl
         if: steps.check.outputs.skip != 'true'
         run: |
           curl_tag=$(curl -s https://curl.se/download/ | grep -oP 'curl-\K[0-9.]+(?=\.tar\.gz)' | head -n1)

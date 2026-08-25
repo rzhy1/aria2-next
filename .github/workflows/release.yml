@@ -450,32 +450,33 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 核心修复：将 Dependencies.cmake 中强制查找 OpenSSL 的代码包裹在 if(ARIA2_WITH_OPENSSL) 中
+          # 1. 移除 OpenSSL 强制检查，并安全移除 Libtorrent / CURL 版本硬编码限制
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/modules/Dependencies.cmake")
           if p.exists():
-              content = p.read_text()
-              # 给 find_package(OpenSSL ...) 加上条件判断，避免 WinTLS 模式下因找不到 OpenSSL 报错
-              target_str = 'find_package(OpenSSL'
-              if target_str in content and 'if(ARIA2_WITH_OPENSSL)' not in content:
-                  content = content.replace('unset(OpenSSL_DIR CACHE)', 'if(ARIA2_WITH_OPENSSL)\n  unset(OpenSSL_DIR CACHE)')
-                  # 找到 find_package(OpenSSL 结束的位置并补上 endif()
-                  idx = content.find('NO_CMAKE_FIND_ROOT_PATH)')
+              s = p.read_text()
+              # 允许任意版本的 Libtorrent 通过
+              s = s.replace('${ARIA2_MIN_LIBTORRENT_VERSION}', '')
+              # 允许任意版本的 CURL 通过
+              s = s.replace('${ARIA2_MIN_CURL_VERSION}', '')
+              
+              # 避免 WinTLS 模式下因找不到 OpenSSL 报错
+              if 'find_package(OpenSSL' in s and 'if(ARIA2_WITH_OPENSSL)' not in s:
+                  s = s.replace('unset(OpenSSL_DIR CACHE)', 'if(ARIA2_WITH_OPENSSL)\n  unset(OpenSSL_DIR CACHE)')
+                  idx = s.find('NO_CMAKE_FIND_ROOT_PATH)')
                   if idx != -1:
-                      content = content[:idx+len('NO_CMAKE_FIND_ROOT_PATH)')] + '\nendif()' + content[idx+len('NO_CMAKE_FIND_ROOT_PATH)'):]
-              p.write_text(content)
+                      s = s[:idx+len('NO_CMAKE_FIND_ROOT_PATH)')] + '\nendif()' + s[idx+len('NO_CMAKE_FIND_ROOT_PATH)'):]
+              p.write_text(s)
           EOF
 
-          # 2. 移除 Libtorrent 的版本硬编码限制
-          sed -i 's/find_package(LibtorrentRasterbar \${ARIA2_MIN_LIBTORRENT_VERSION}/find_package(LibtorrentRasterbar/g' cmake/modules/Dependencies.cmake || true
-
-          # 3. 将实际编译的版本自动写入 dependencies.env (保证 -v 输出准确)
+          # 2. 自动把真实编译版本回写进 dependencies.env (保证 -v 输出准确)
           [ -n "$ZLIB_VERSION" ]       && sed -i "s/^ZLIB_VERSION=.*/ZLIB_VERSION=${ZLIB_VERSION}/" packaging/dependencies.env || true
           [ -n "$EXPAT_VERSION" ]      && sed -i "s/^EXPAT_VERSION=.*/EXPAT_VERSION=${EXPAT_VERSION}/" packaging/dependencies.env || true
           [ -n "$SQLITE_VERSION" ]     && sed -i "s/^SQLITE_VERSION=.*/SQLITE_VERSION=${SQLITE_VERSION}/" packaging/dependencies.env || true
           [ -n "$CARES_VERSION" ]      && sed -i "s/^CARES_VERSION=.*/CARES_VERSION=${CARES_VERSION}/" packaging/dependencies.env || true
           [ -n "$LIBSSH2_VERSION" ]    && sed -i "s/^LIBSSH2_VERSION=.*/LIBSSH2_VERSION=${LIBSSH2_VERSION}/" packaging/dependencies.env || true
+          [ -n "$CURL_VERSION" ]       && sed -i "s/^CURL_VERSION=.*/CURL_VERSION=${CURL_VERSION}/" packaging/dependencies.env || true
           [ -n "$LIBTORRENT_VERSION" ] && sed -i "s/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=${LIBTORRENT_VERSION}/" packaging/dependencies.env || true
           [ -n "$BOOST_VERSION" ]      && sed -i "s/^BOOST_VERSION=.*/BOOST_VERSION=${BOOST_VERSION}/" packaging/dependencies.env || true
 
@@ -518,11 +519,11 @@ jobs:
             -DCMAKE_RC_COMPILER="${HOST}-windres" \
             -DCMAKE_BUILD_TYPE=Release \
             -DARIA2_STATIC_DEPENDENCIES=ON \
+            -DCMAKE_PREFIX_PATH="$PREFIX" \
             -DARIA2_DEPENDENCY_ROOT="$PREFIX" \
             -DARIA2_BOOST_ROOT="$ARIA2_BOOST_ROOT" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
-            -DCURL_INCLUDE_DIR="$PREFIX/include" \
-            -DCURL_LIBRARY="$PREFIX/lib/libcurl.a" \
+            -DCURL_DIR="$PREFIX/lib/cmake/CURL" \
             -DARIA2_WITH_WINTLS=ON \
             -DARIA2_WITH_OPENSSL=OFF \
             -DARIA2_WITH_GNUTLS=OFF \
@@ -536,7 +537,7 @@ jobs:
             -DARIA2_WITH_LIBNETTLE=OFF \
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -lcurl -lcrypt32 -lsecur32 -lws2_32 -liphlpapi -lbcrypt"
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -L$PREFIX/lib -lcrypt32 -lsecur32 -lws2_32 -liphlpapi -lbcrypt"
 
       - name: Compile
         if: steps.check.outputs.skip != 'true'

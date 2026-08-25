@@ -284,6 +284,17 @@ jobs:
           curl -L "${LIBTORRENT_URL}" | tar xz
           cd libtorrent-rasterbar-${LIBTORRENT_VERSION}
           
+          # 核心修复：为 escape_string.cpp 补全缺失的 <iterator> 头文件以适配现代 Clang
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path("src/escape_string.cpp")
+          if p.exists():
+              s = p.read_text()
+              if '#include <iterator>' not in s:
+                  s = '#include <iterator>\n' + s
+                  p.write_text(s)
+          EOF
+
           cmake -B build -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER="$CC" \

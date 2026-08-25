@@ -23,7 +23,7 @@ concurrency:
 jobs:
   build-windows-x64:
     name: Build Windows x64 (LLVM-MinGW)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       FORCE_BUILD: ${{ github.event.inputs.force || '0' }}
@@ -37,14 +37,14 @@ jobs:
       STRIP: x86_64-w64-mingw32-strip
       CFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error -fno-ident -fno-unwind-tables -fno-asynchronous-unwind-tables"
       CXXFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error -fno-ident -fno-unwind-tables -fno-asynchronous-unwind-tables -ftemplate-depth=1024"
-      LDFLAGS: "-static -Wl,--gc-sections, -flto=thin"
+      LDFLAGS: "-static -Wl,--gc-sections -flto=thin -Wl,--thinlto-jobs=auto"
       PKG_CONFIG_PATH: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
       PKG_CONFIG_LIBDIR: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
 
     steps:
       # ---------- 1. 上游更新检测 ----------
       - name: Restore upstream SHA cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache
           key: upstream-sha-${{ runner.os }}-${{ github.run_id }}
@@ -75,13 +75,13 @@ jobs:
       # ---------- 2. 检出与安装 LLVM-MinGW 工具链 ----------
       - name: Checkout own repository
         if: steps.check.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: own-repo
 
       - name: Clone upstream aria2-next
         if: steps.check.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: AnInsomniacy/aria2-next
           ref: main
@@ -461,7 +461,7 @@ jobs:
 
       - name: Upload artifact
         if: steps.check.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aria2-next-windows-x64
           path: own-repo/release/aria2-next.exe
@@ -477,7 +477,7 @@ jobs:
 
       - name: Save upstream SHA cache
         if: always() && steps.check.outputs.skip == 'false'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache
           key: upstream-sha-${{ runner.os }}-${{ steps.check.outputs.new_sha }}

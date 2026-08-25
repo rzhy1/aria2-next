@@ -450,18 +450,28 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 修复 Targets.cmake 中对 OpenSSL::Crypto 的硬编码依赖
+          # 1. 修复 CurlSession.cc 缺失 #include "a2io.h" 导致 a2ftruncate 找不到的 bug
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path("src/CurlSession.cc")
+          if p.exists():
+              s = p.read_text()
+              if '#include "a2io.h"' not in s:
+                  s = '#include "a2io.h"\n' + s
+                  p.write_text(s)
+          EOF
+
+          # 2. 修复 Targets.cmake 中对 OpenSSL::Crypto 的硬编码依赖
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/modules/Targets.cmake")
           if p.exists():
               s = p.read_text()
-              # 将 OpenSSL::Crypto 替换为 Windows 原生加密库
               s = s.replace("OpenSSL::Crypto", "bcrypt;crypt32")
               p.write_text(s)
           EOF
 
-          # 2. 修复 Dependencies.cmake 中的 OpenSSL / Libtorrent / CURL 查找
+          # 3. 修复 Dependencies.cmake 中的 OpenSSL / Libtorrent / CURL 查找
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/modules/Dependencies.cmake")
@@ -477,7 +487,7 @@ jobs:
               p.write_text(s)
           EOF
 
-          # 3. 自动同步依赖版本号
+          # 4. 自动同步依赖版本号
           [ -n "$ZLIB_VERSION" ]       && sed -i "s/^ZLIB_VERSION=.*/ZLIB_VERSION=${ZLIB_VERSION}/" packaging/dependencies.env || true
           [ -n "$EXPAT_VERSION" ]      && sed -i "s/^EXPAT_VERSION=.*/EXPAT_VERSION=${EXPAT_VERSION}/" packaging/dependencies.env || true
           [ -n "$SQLITE_VERSION" ]     && sed -i "s/^SQLITE_VERSION=.*/SQLITE_VERSION=${SQLITE_VERSION}/" packaging/dependencies.env || true
@@ -487,7 +497,7 @@ jobs:
           [ -n "$LIBTORRENT_VERSION" ] && sed -i "s/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=${LIBTORRENT_VERSION}/" packaging/dependencies.env || true
           [ -n "$BOOST_VERSION" ]      && sed -i "s/^BOOST_VERSION=.*/BOOST_VERSION=${BOOST_VERSION}/" packaging/dependencies.env || true
 
-          # 4. 修改分片大小补丁
+          # 5. 修改分片大小补丁
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc || true
 
       - name: Force enable color output by default

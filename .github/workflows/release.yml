@@ -446,22 +446,29 @@ jobs:
               p.write_text(s)
           EOF
 
-      - name: Patch Dependencies.cmake
+      - name: Patch Dependencies and Options
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 移除 OpenSSL 强制检查，并安全移除 Libtorrent / CURL 版本硬编码限制
+          # 1. 修复 Targets.cmake 中对 OpenSSL::Crypto 的硬编码依赖
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path("cmake/modules/Targets.cmake")
+          if p.exists():
+              s = p.read_text()
+              # 将 OpenSSL::Crypto 替换为 Windows 原生加密库
+              s = s.replace("OpenSSL::Crypto", "bcrypt;crypt32")
+              p.write_text(s)
+          EOF
+
+          # 2. 修复 Dependencies.cmake 中的 OpenSSL / Libtorrent / CURL 查找
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/modules/Dependencies.cmake")
           if p.exists():
               s = p.read_text()
-              # 允许任意版本的 Libtorrent 通过
               s = s.replace('${ARIA2_MIN_LIBTORRENT_VERSION}', '')
-              # 允许任意版本的 CURL 通过
               s = s.replace('${ARIA2_MIN_CURL_VERSION}', '')
-              
-              # 避免 WinTLS 模式下因找不到 OpenSSL 报错
               if 'find_package(OpenSSL' in s and 'if(ARIA2_WITH_OPENSSL)' not in s:
                   s = s.replace('unset(OpenSSL_DIR CACHE)', 'if(ARIA2_WITH_OPENSSL)\n  unset(OpenSSL_DIR CACHE)')
                   idx = s.find('NO_CMAKE_FIND_ROOT_PATH)')
@@ -470,7 +477,7 @@ jobs:
               p.write_text(s)
           EOF
 
-          # 2. 自动把真实编译版本回写进 dependencies.env (保证 -v 输出准确)
+          # 3. 自动同步依赖版本号
           [ -n "$ZLIB_VERSION" ]       && sed -i "s/^ZLIB_VERSION=.*/ZLIB_VERSION=${ZLIB_VERSION}/" packaging/dependencies.env || true
           [ -n "$EXPAT_VERSION" ]      && sed -i "s/^EXPAT_VERSION=.*/EXPAT_VERSION=${EXPAT_VERSION}/" packaging/dependencies.env || true
           [ -n "$SQLITE_VERSION" ]     && sed -i "s/^SQLITE_VERSION=.*/SQLITE_VERSION=${SQLITE_VERSION}/" packaging/dependencies.env || true
@@ -480,11 +487,7 @@ jobs:
           [ -n "$LIBTORRENT_VERSION" ] && sed -i "s/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=${LIBTORRENT_VERSION}/" packaging/dependencies.env || true
           [ -n "$BOOST_VERSION" ]      && sed -i "s/^BOOST_VERSION=.*/BOOST_VERSION=${BOOST_VERSION}/" packaging/dependencies.env || true
 
-      - name: Patch aria2 options (piece length)
-        if: steps.check.outputs.skip != 'true'
-        working-directory: aria2-next
-        run: |
-          # 仅保留修改默认分片大小的补丁，去掉破坏 Windows 控制台的 sed
+          # 4. 修改分片大小补丁
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc || true
 
       - name: Force enable color output by default
@@ -518,7 +521,6 @@ jobs:
             -DCMAKE_CXX_COMPILER="$CXX" \
             -DCMAKE_RC_COMPILER="${HOST}-windres" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DARIA2_STATIC_DEPENDENCIES=ON \
             -DCMAKE_PREFIX_PATH="$PREFIX" \
             -DARIA2_DEPENDENCY_ROOT="$PREFIX" \
             -DARIA2_BOOST_ROOT="$ARIA2_BOOST_ROOT" \
@@ -526,15 +528,6 @@ jobs:
             -DCURL_DIR="$PREFIX/lib/cmake/CURL" \
             -DARIA2_WITH_WINTLS=ON \
             -DARIA2_WITH_OPENSSL=OFF \
-            -DARIA2_WITH_GNUTLS=OFF \
-            -DARIA2_WITH_CARES=ON \
-            -DARIA2_WITH_SQLITE3=ON \
-            -DARIA2_WITH_EXPAT=ON \
-            -DARIA2_WITH_LIBSSH2=ON \
-            -DARIA2_WITH_LIBXML2=OFF \
-            -DARIA2_WITH_GMP=OFF \
-            -DARIA2_WITH_LIBGCRYPT=OFF \
-            -DARIA2_WITH_LIBNETTLE=OFF \
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -L$PREFIX/lib -lcrypt32 -lsecur32 -lws2_32 -liphlpapi -lbcrypt"

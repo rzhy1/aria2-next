@@ -221,18 +221,39 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           libssh2_tag=$(curl -s https://libssh2.org/download/ | grep -oP 'libssh2-\K[0-9.]+(?=\.tar\.(gz|xz))' | sort -V | tail -n1)
+          echo "libssh2 最新版本是: ${libssh2_tag}"
           echo "LIBSSH2_VERSION=${libssh2_tag}" >> $GITHUB_ENV
           
           curl -L "https://libssh2.org/download/libssh2-${libssh2_tag}.tar.gz" | tar xz
           cd libssh2-*
-          ./configure --disable-shared --enable-static --enable-silent-rules \
-                      --disable-examples-build --disable-docker-tests --disable-sshd-tests --disable-debug \
-                      --with-crypto=openssl --with-libssl-prefix=$PREFIX \
-                      --prefix=$PREFIX --host=$TARGET_TRIPLE --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
-                      LIBS="-lws2_32 -lbcrypt -lcrypt32" CC=$CC CFLAGS="$CFLAGS" AR=$AR RANLIB=$RANLIB
-          make -j$(nproc) install
+          
+          # 使用 CMake + Ninja 极速编译静态 libssh2
+          cmake -B build -G Ninja \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_RC_COMPILER="$RC" \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_STATIC_LIBS=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DBUILD_EXAMPLES=OFF \
+            -DBUILD_TESTING=OFF \
+            -DCRYPTO_BACKEND=OpenSSL \
+            -DOPENSSL_ROOT_DIR="$PREFIX" \
+            -DOPENSSL_USE_STATIC_LIBS=ON \
+            -DCMAKE_C_FLAGS="$CFLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -lcrypt32 -lws2_32 -lbcrypt"
+            
+          cmake --build build --parallel $(nproc)
+          cmake --install build
+          
           cd ..
           rm -rf libssh2-*
+
+          # ---------- 校验检测 ----------
+          echo "===== 验证 libssh2 安装状态 ====="
+          test -f "$PREFIX/include/libssh2.h" || { echo "❌ 缺失 libssh2.h"; exit 1; }
+          test -f "$PREFIX/lib/libssh2.a" || { echo "❌ 缺失 libssh2.a"; exit 1; }
 
       - name: Build libcurl (OpenSSL + c-ares)
         if: steps.check.outputs.skip != 'true'

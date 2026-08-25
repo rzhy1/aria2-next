@@ -319,6 +319,43 @@ jobs:
           echo "LIBSSH2_VERSION=${libssh2_tag}" >> $GITHUB_ENV
           cd ..
 
+       - name: Build libcurl
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          curl_tag=$(curl -s https://curl.se/download/ | grep -oP 'curl-\K[0-9.]+(?=\.tar\.gz)' | head -n1)
+          echo "libcurl 最新版本是: ${curl_tag}"
+          
+          curl -L "https://curl.se/download/curl-${curl_tag}.tar.gz" | tar xz
+          cd curl-*
+          
+          # 使用 WinSSL (Schannel) 和 c-ares 编译极简静态 libcurl
+          cmake -B build -G Ninja \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_RC_COMPILER="${HOST}-windres" \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_STATIC_LIBS=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DBUILD_CURL_EXE=OFF \
+            -DBUILD_TESTING=OFF \
+            -DENABLE_MANUAL=OFF \
+            -DENABLE_DOCS=OFF \
+            -DCURL_USE_SCHANNEL=ON \
+            -DCURL_USE_OPENSSL=OFF \
+            -DENABLE_ARES=ON \
+            -DCARES_INCLUDE_DIR="$PREFIX/include" \
+            -DCARES_LIBRARY="$PREFIX/lib/libcares.a" \
+            -DCMAKE_C_FLAGS="$CFLAGS -DCARES_STATICLIB" \
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+            
+          cmake --build build --parallel $(nproc)
+          cmake --install build
+          
+          echo "CURL_VERSION=${curl_tag}" >> $GITHUB_ENV
+          cd ..
+          rm -rf curl-*
+          
        # ---------- 4. Boost & Libtorrent 编译 ----------
       - name: Install Boost headers
         if: steps.check.outputs.skip != 'true'
@@ -379,8 +416,7 @@ jobs:
           cmake --install build
           cd ..
           rm -rf libtorrent-rasterbar-${LIBTORRENT_VERSION}
-          
-      # ---------- aria2-next 编译 ----------
+
       # ---------- aria2-next 编译 ----------
       - name: Disable aria2 tests
         if: steps.check.outputs.skip != 'true'
@@ -434,6 +470,23 @@ jobs:
           # 仅保留修改默认分片大小的补丁，去掉破坏 Windows 控制台的 sed
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc || true
 
+      - name: Force enable color output by default
+        if: steps.check.outputs.skip != 'true'
+        working-directory: aria2-next
+        run: |
+          # 1. 强制 WinConsoleFile 无论什么终端都返回支持颜色
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path("src/WinConsoleFile.cc")
+          if p.exists():
+              s = p.read_text()
+              # 替换 supportsColor 函数使其永远返回 true
+              import re
+              s = re.sub(r'bool\s+WinConsoleFile::supportsColor\(\)\s*\{[^}]*\}', 
+                         'bool WinConsoleFile::supportsColor() { return true; }', s)
+              p.write_text(s)
+          EOF
+          
       - name: Configure aria2-next
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -452,6 +505,8 @@ jobs:
             -DARIA2_DEPENDENCY_ROOT="$PREFIX" \
             -DARIA2_BOOST_ROOT="$ARIA2_BOOST_ROOT" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
+            -DCURL_INCLUDE_DIR="$PREFIX/include" \
+            -DCURL_LIBRARY="$PREFIX/lib/libcurl.a" \
             -DARIA2_WITH_WINTLS=ON \
             -DARIA2_WITH_OPENSSL=OFF \
             -DARIA2_WITH_GNUTLS=OFF \
@@ -465,7 +520,7 @@ jobs:
             -DARIA2_WITH_LIBNETTLE=OFF \
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -lcrypt32 -lsecur32 -lws2_32 -liphlpapi -lbcrypt"
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -lcurl -lcrypt32 -lsecur32 -lws2_32 -liphlpapi -lbcrypt"
 
       - name: Compile
         if: steps.check.outputs.skip != 'true'

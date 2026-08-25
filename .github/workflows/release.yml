@@ -381,19 +381,30 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 修复全局缺失的现代 C++ 头文件
+          # 1. 修复全局缺失的现代 C++ 头文件（同时覆盖 tests/ 目录）
           python3 - <<'EOF'
           from pathlib import Path
-          for header_path in ["src/common.h", "src/includes/common.h"]:
+          for header_path in ["src/common.h", "src/includes/common.h", "tests/doctest.h"]:
               p = Path(header_path)
               if p.exists():
                   s = p.read_text()
-                  if '#include <iterator>' not in s:
-                      s = '#include <iterator>\n#include <algorithm>\n#include "a2io.h"\n' + s
+                  if '#include <vector>' not in s:
+                      s = '#include <vector>\n#include <string>\n#include <iterator>\n#include <algorithm>\n#include "a2io.h"\n' + s
                       p.write_text(s)
           EOF
 
-          # 2. 移除 Dependencies.cmake 中的版本限制变量
+          # 2. 修复 FeatureConfig.cc 缺失 nghttp2ver.h
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path("src/FeatureConfig.cc")
+          if p.exists():
+              s = p.read_text()
+              s = s.replace('#include <nghttp2/nghttp2ver.h>', '// #include <nghttp2/nghttp2ver.h>')
+              s = s.replace('NGHTTP2_VERSION', '"1.64.0"')
+              p.write_text(s)
+          EOF
+
+          # 3. 移除 Dependencies.cmake 中的版本限制变量
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/modules/Dependencies.cmake")
@@ -405,18 +416,7 @@ jobs:
               p.write_text(s)
           EOF
 
-          # 修复 FeatureConfig.cc 缺失 nghttp2ver.h 的问题
-          python3 - <<'EOF'
-          from pathlib import Path
-          p = Path("src/FeatureConfig.cc")
-          if p.exists():
-              s = p.read_text()
-              s = s.replace('#include <nghttp2/nghttp2ver.h>', '// #include <nghttp2/nghttp2ver.h>')
-              s = s.replace('NGHTTP2_VERSION', '"1.64.0"')
-              p.write_text(s)
-          EOF
-
-          # 3. 同步版本变量进 dependencies.env (保证 -v 输出准确)
+          # 4. 同步版本变量进 dependencies.env (保证 -v 输出准确)
           [ -n "$ZLIB_VERSION" ]       && sed -i "s/^ZLIB_VERSION=.*/ZLIB_VERSION=${ZLIB_VERSION}/" packaging/dependencies.env || true
           [ -n "$EXPAT_VERSION" ]      && sed -i "s/^EXPAT_VERSION=.*/EXPAT_VERSION=${EXPAT_VERSION}/" packaging/dependencies.env || true
           [ -n "$SQLITE_VERSION" ]     && sed -i "s/^SQLITE_VERSION=.*/SQLITE_VERSION=${SQLITE_VERSION}/" packaging/dependencies.env || true
@@ -427,7 +427,7 @@ jobs:
           [ -n "$LIBTORRENT_VERSION" ] && sed -i "s/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=${LIBTORRENT_VERSION}/" packaging/dependencies.env || true
           [ -n "$BOOST_VERSION" ]      && sed -i "s/^BOOST_VERSION=.*/BOOST_VERSION=${BOOST_VERSION}/" packaging/dependencies.env || true
 
-          # 4. 分片补丁
+          # 5. 分片补丁
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc || true
 
       - name: Force enable color output by default
@@ -451,6 +451,7 @@ jobs:
         run: |
           rm -rf ./build
           cmake -S . -B build -G Ninja \
+            -DBUILD_TESTING=OFF \
             -DENABLE_TESTS=OFF \
             -DARIA2_SUPERBUILD=OFF \
             -DCMAKE_SYSTEM_NAME=Windows \
@@ -473,7 +474,11 @@ jobs:
       - name: Compile (Fast Parallel Build)
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
-        run: cmake --build build --parallel $(nproc)
+        run: |
+          # 精准编译主程序目标，绝不触发测试套件
+          cmake --build build --target aria2-next --parallel $(nproc) || \
+          cmake --build build --target aria2c --parallel $(nproc) || \
+          cmake --build build --target aria2_project --parallel $(nproc)
 
       - name: Package (strip)
         if: steps.check.outputs.skip != 'true'

@@ -342,9 +342,21 @@ jobs:
             -DENABLE_DOCS=OFF \
             -DCURL_USE_SCHANNEL=ON \
             -DCURL_USE_OPENSSL=OFF \
+            -DCURL_USE_LIBPSL=OFF \
+            -DCURL_DISABLE_LDAP=ON \
+            -DCURL_DISABLE_LDAPS=ON \
+            -DCURL_DISABLE_TELNET=ON \
+            -DCURL_DISABLE_DICT=ON \
+            -DCURL_DISABLE_TFTP=ON \
+            -DCURL_DISABLE_GOPHER=ON \
+            -DCURL_DISABLE_MQTT=ON \
+            -DCURL_DISABLE_RTSP=ON \
+            -DCURL_DISABLE_SMB=ON \
             -DENABLE_ARES=ON \
             -DCARES_INCLUDE_DIR="$PREFIX/include" \
             -DCARES_LIBRARY="$PREFIX/lib/libcares.a" \
+            -DZLIB_INCLUDE_DIR="$PREFIX/include" \
+            -DZLIB_LIBRARY="$PREFIX/lib/libz.a" \
             -DCMAKE_C_FLAGS="$CFLAGS -DCARES_STATICLIB" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
             
@@ -354,6 +366,11 @@ jobs:
           echo "CURL_VERSION=${curl_tag}" >> $GITHUB_ENV
           cd ..
           rm -rf curl-*
+
+          # ---------- 校验检测 ----------
+          echo "===== 验证 libcurl 安装状态 ====="
+          test -f "$PREFIX/include/curl/curl.h" || { echo "❌ 缺失 curl.h"; exit 1; }
+          test -f "$PREFIX/lib/libcurl.a" || { echo "❌ 缺失 libcurl.a"; exit 1; }
           
        # ---------- 4. Boost & Libtorrent 编译 ----------
       - name: Install Boost headers

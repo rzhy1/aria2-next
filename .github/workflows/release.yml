@@ -461,12 +461,14 @@ jobs:
                   p.write_text(s)
           EOF
 
-          # 2. 修复 Targets.cmake 中对 OpenSSL::Crypto 的硬编码依赖
+          # 2. 彻底修复 Targets.cmake 中对 OpenSSL::SSL 和 OpenSSL::Crypto 的硬编码链接
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/modules/Targets.cmake")
           if p.exists():
               s = p.read_text()
+              # 将 OpenSSL 的两个 target 替换为 Windows 原生安全套件
+              s = s.replace("OpenSSL::SSL", "secur32;crypt32;bcrypt")
               s = s.replace("OpenSSL::Crypto", "bcrypt;crypt32")
               p.write_text(s)
           EOF
@@ -479,6 +481,7 @@ jobs:
               s = p.read_text()
               s = s.replace('${ARIA2_MIN_LIBTORRENT_VERSION}', '')
               s = s.replace('${ARIA2_MIN_CURL_VERSION}', '')
+              # 阻断 WinTLS 模式下的 OpenSSL 查找
               if 'find_package(OpenSSL' in s and 'if(ARIA2_WITH_OPENSSL)' not in s:
                   s = s.replace('unset(OpenSSL_DIR CACHE)', 'if(ARIA2_WITH_OPENSSL)\n  unset(OpenSSL_DIR CACHE)')
                   idx = s.find('NO_CMAKE_FIND_ROOT_PATH)')

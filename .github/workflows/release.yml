@@ -35,11 +35,9 @@ jobs:
       AR: x86_64-w64-mingw32-ar
       RANLIB: x86_64-w64-mingw32-ranlib
       STRIP: x86_64-w64-mingw32-strip
-      # 终极体积与速度优化 Flags (ThinLTO + 消除无用展开表)
       CFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error -fno-ident -fno-unwind-tables -fno-asynchronous-unwind-tables"
       CXXFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error -fno-ident -fno-unwind-tables -fno-asynchronous-unwind-tables -ftemplate-depth=1024"
-      # LLD 高级链接器优化：GC 死代码剔除 + ICF 等价代码折叠（移除重复的 --strip-all 以免影响 ThinLTO）
-      LDFLAGS: "-static -Wl,--gc-sections,--icf=all -flto=thin"
+      LDFLAGS: "-static -Wl,--gc-sections, -flto=thin"
       PKG_CONFIG_PATH: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
       PKG_CONFIG_LIBDIR: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
 
@@ -182,27 +180,10 @@ jobs:
           cd ..
           rm -rf sqlite-*
 
-      - name: Build c-ares
-        if: steps.check.outputs.skip != 'true'
-        run: |
-          cares_tag=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/c-ares/c-ares/releases/latest | jq -r '.tag_name | sub("^v"; "")')
-          cares_latest_url="https://github.com/c-ares/c-ares/releases/download/v${cares_tag}/c-ares-${cares_tag}.tar.gz"
-          echo "CARES_VERSION=${cares_tag}" >> $GITHUB_ENV
-          
-          curl -L "${cares_latest_url}" | tar xz
-          cd c-ares-*
-          ./configure --host=$TARGET_TRIPLE --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
-                      --prefix=$PREFIX --disable-shared --enable-static \
-                      --enable-silent-rules --without-random --disable-tests \
-                      LIBS="-lws2_32 -liphlpapi" CC=$CC CFLAGS="$CFLAGS -DCARES_STATICLIB" AR=$AR RANLIB=$RANLIB
-          make -j$(nproc) install
-          cd ..
-          rm -rf c-ares-*
-
       - name: Build OpenSSL
         if: steps.check.outputs.skip != 'true'
         run: |
-          OPENSSL_VERSION=3.4.1
+          OPENSSL_VERSION=4.0.2
           echo "OPENSSL_VERSION=${OPENSSL_VERSION}" >> $GITHUB_ENV
           curl -LO https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz || exit 1
           tar xf openssl-${OPENSSL_VERSION}.tar.gz
@@ -251,7 +232,7 @@ jobs:
           cd ..
           rm -rf libssh2-*
 
-      - name: Build libcurl (Fast & Stripped)
+      - name: Build libcurl (Fast & Threaded DNS)
         if: steps.check.outputs.skip != 'true'
         run: |
           curl_tag=$(curl -s https://curl.se/download/ | grep -oP 'curl-\K[0-9.]+(?=\.tar\.gz)' | head -n1)
@@ -260,7 +241,7 @@ jobs:
           curl -L "https://curl.se/download/curl-${curl_tag}.tar.gz" | tar xz
           cd curl-*
           
-          # 显式关闭无关协议和可选库，免去无意义探测
+          # 使用 OpenSSL + 原生 Threaded DNS 编译
           cmake -B build -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER="$CC" \
@@ -276,18 +257,18 @@ jobs:
             -DCURL_USE_OPENSSL=ON \
             -DCURL_USE_SCHANNEL=OFF \
             -DCURL_USE_LIBPSL=OFF \
+            -DENABLE_THREADED_RESOLVER=ON \
+            -DENABLE_ARES=OFF \
+            -DUSE_ARES=OFF \
             -DUSE_LIBIDN2=OFF \
             -DUSE_NGHTTP2=OFF \
             -DUSE_ZSTD=OFF \
             -DUSE_BROTLI=OFF \
             -DOPENSSL_ROOT_DIR="$PREFIX" \
             -DOPENSSL_USE_STATIC_LIBS=ON \
-            -DENABLE_ARES=ON \
-            -DCARES_INCLUDE_DIR="$PREFIX/include" \
-            -DCARES_LIBRARY="$PREFIX/lib/libcares.a" \
             -DZLIB_INCLUDE_DIR="$PREFIX/include" \
             -DZLIB_LIBRARY="$PREFIX/lib/libz.a" \
-            -DCMAKE_C_FLAGS="$CFLAGS -DCARES_STATICLIB" \
+            -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
             
           cmake --build build --parallel $(nproc)
@@ -383,15 +364,24 @@ jobs:
                       p.write_text(s)
           EOF
 
-          # 2. 修复 FeatureConfig.cc 缺失 nghttp2ver.h
+          # 2. 彻底抹除未使用的 nghttp2 显示（保持 -v 输出绝对真实）
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("src/FeatureConfig.cc")
           if p.exists():
               s = p.read_text()
-              s = s.replace('#include <nghttp2/nghttp2ver.h>', '// #include <nghttp2/nghttp2ver.h>')
-              s = s.replace('NGHTTP2_VERSION', '"1.64.0"')
-              p.write_text(s)
+              # 移除包含头文件语句
+              s = s.replace('#include <nghttp2/nghttp2ver.h>', '')
+              
+              # 注释掉将 nghttp2 拼接到版本输出列表中的代码行
+              lines = s.splitlines()
+              new_lines = []
+              for line in lines:
+                  if "nghttp2" in line or "NGHTTP2_VERSION" in line:
+                      new_lines.append("// " + line)
+                  else:
+                      new_lines.append(line)
+              p.write_text("\n".join(new_lines))
           EOF
 
           # 3. 移除 Dependencies.cmake 中的版本限制变量
@@ -407,7 +397,7 @@ jobs:
           EOF
 
           # 4. 紧凑同步版本变量进 dependencies.env
-          for pkg in ZLIB EXPAT SQLITE CARES OPENSSL LIBSSH2 CURL LIBTORRENT BOOST; do
+          for pkg in ZLIB EXPAT SQLITE OPENSSL LIBSSH2 CURL LIBTORRENT BOOST; do
             var="${pkg}_VERSION"
             val="${!var}"
             [ -n "$val" ] && sed -i "s/^${pkg}_VERSION=.*/${pkg}_VERSION=${val}/" packaging/dependencies.env || true

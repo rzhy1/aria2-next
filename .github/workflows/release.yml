@@ -22,24 +22,29 @@ concurrency:
 
 jobs:
   build-windows-x64:
-    name: Build Windows x64
-    runs-on: ubuntu-26.04
+    name: Build Windows x64 (LLVM-MinGW)
+    runs-on: ubuntu-24.04
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       FORCE_BUILD: ${{ github.event.inputs.force || '0' }}
-      HOST: x86_64-w64-mingw32
-      PREFIX: /usr/local/x86_64-w64-mingw32
-      CC: x86_64-w64-mingw32-gcc-posix
-      CXX: x86_64-w64-mingw32-g++-posix
-      CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=auto -g0 -fno-ident"
-      CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=auto -g0 -fno-ident"
-      LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections,--strip-all -flto=auto"
-      PKG_CONFIG_PATH: "/usr/local/x86_64-w64-mingw32/lib/pkgconfig"
-      PKG_CONFIG_LIBDIR: "/usr/local/x86_64-w64-mingw32/lib/pkgconfig"
+      TARGET_TRIPLE: x86_64-w64-mingw32
+      PREFIX: /usr/local/llvm-mingw/x86_64-w64-mingw32
+      CC: x86_64-w64-mingw32-clang
+      CXX: x86_64-w64-mingw32-clang++
+      RC: x86_64-w64-mingw32-windres
+      AR: x86_64-w64-mingw32-ar
+      RANLIB: x86_64-w64-mingw32-ranlib
+      STRIP: x86_64-w64-mingw32-strip
+      CFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0"
+      CXXFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0"
+      LDFLAGS: "-static -Wl,--gc-sections,--strip-all -flto=thin"
+      PKG_CONFIG_PATH: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
+      PKG_CONFIG_LIBDIR: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
 
     steps:
+      # ---------- 1. 恢复缓存与上游更新检测 ----------
       - name: Restore upstream SHA cache
-        uses: actions/cache@v6
+        uses: actions/cache@v4
         with:
           path: .cache
           key: upstream-sha-${{ runner.os }}-${{ github.run_id }}
@@ -52,114 +57,94 @@ jobs:
           mkdir -p .cache
           NEW_SHA=$(git ls-remote https://github.com/AnInsomniacy/aria2-next.git HEAD | cut -f1)
           echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
-          echo "NEW_SHA=$NEW_SHA"
           if [ -f .cache/last_sha ]; then
             OLD_SHA=$(cat .cache/last_sha)
           else
             OLD_SHA=""
           fi
-          echo "OLD_SHA=$OLD_SHA"
           if [ "$FORCE_BUILD" = "1" ]; then
-            echo "Force build enabled."
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "$NEW_SHA" > .cache/last_sha
           elif [ "$NEW_SHA" = "$OLD_SHA" ]; then
-            echo "No upstream changes. Skipping build."
             echo "skip=true" >> $GITHUB_OUTPUT
           else
-            echo "New commit detected. Starting build."
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "$NEW_SHA" > .cache/last_sha
           fi
 
-      # ---------- 以下所有步骤仅在 skip != true 时执行 ----------
-      - name: Checkout own repository (for artifacts)
+      # ---------- 2. 检出与安装 LLVM-MinGW 工具链 ----------
+      - name: Checkout own repository
         if: steps.check.outputs.skip != 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           path: own-repo
 
       - name: Clone upstream aria2-next
         if: steps.check.outputs.skip != 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: AnInsomniacy/aria2-next
           ref: main
           path: aria2-next
 
-      - name: Install build tools
+      - name: Install Base Tools
         if: steps.check.outputs.skip != 'true'
         run: |
           sudo apt update
-          sudo apt install -y \
-            make cmake ninja-build pkg-config binutils curl tar dpkg-dev \
-            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+          sudo apt install -y make cmake ninja-build pkg-config binutils curl tar jq dpkg-dev
 
-      - name: Prepare prefix
+      - name: Install LLVM-MinGW (Clang + LLD)
         if: steps.check.outputs.skip != 'true'
         run: |
-          sudo rm -rf $PREFIX
-          sudo mkdir -p \
-           $PREFIX/include \
-           $PREFIX/lib \
-           $PREFIX/lib/pkgconfig \
-           $PREFIX/share/pkgconfig     
-          sudo chown -R $USER:$USER $PREFIX
+          # 自动从官方 dependencies.env 读取 LLVM_MINGW_VERSION，或使用最新稳定版
+          LLVM_VER="20240917"
+          LLVM_ARCHIVE="llvm-mingw-${LLVM_VER}-ucrt-ubuntu-22.04-x86_64.tar.xz"
+          LLVM_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_VER}/${LLVM_ARCHIVE}"
+          
+          echo "Downloading LLVM-MinGW..."
+          curl -LO "$LLVM_URL"
+          sudo tar -xf "$LLVM_ARCHIVE" -C /usr/local/
+          sudo mv /usr/local/llvm-mingw-${LLVM_VER}-* /usr/local/llvm-mingw
+          echo "/usr/local/llvm-mingw/bin" >> $GITHUB_PATH
 
-      # ---------- 依赖库编译 ----------
+      - name: Prepare Prefix Directory
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          sudo mkdir -p $PREFIX/include $PREFIX/lib $PREFIX/lib/pkgconfig
+          sudo chown -R $USER:$USER /usr/local/llvm-mingw
+
+      # ---------- 3. 极速编译纯 C 依赖项 ----------
       - name: Build expat
         if: steps.check.outputs.skip != 'true'
         run: |
           expat_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/libexpat/libexpat/releases/latest)
-          expat_tag=$(
-              jq -r '.tag_name' <<<"$expat_json" |
-              sed 's/R_//' |
-              tr '_' '.'
-          )
-          expat_latest_url=$(
-              jq -r '.assets[] |
-              select(.name|test("\\.tar\\.bz2$")) |
-              .browser_download_url' <<<"$expat_json" |
-              head -n1
-          )
-          echo "libexpat最新版本是${expat_tag} ，下载地址是${expat_latest_url}"
+          expat_tag=$(jq -r '.tag_name' <<<"$expat_json" | sed 's/R_//' | tr '_' '.')
+          expat_latest_url=$(jq -r '.assets[] | select(.name|test("\\.tar\\.bz2$")) | .browser_download_url' <<<"$expat_json" | head -n1)
+          echo "EXPAT_VERSION=${expat_tag}" >> $GITHUB_ENV
+          
           curl -L ${expat_latest_url} | tar xj
           cd expat-*
-          ./configure \
-              --disable-shared \
-              --enable-static \
-              --without-examples \
-              --without-tests \
-              --enable-silent-rules \
-              --prefix=$PREFIX \
-              --host=$HOST \
-              --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+          ./configure --disable-shared --enable-static --without-examples --without-tests --enable-silent-rules \
+                      --prefix=$PREFIX --host=$TARGET_TRIPLE --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
+                      CC=$CC CFLAGS="$CFLAGS" AR=$AR RANLIB=$RANLIB
           make -j$(nproc) install
-          echo "EXPAT_VERSION=${expat_tag}" >> $GITHUB_ENV
           cd ..
+          rm -rf expat-*
 
       - name: Build zlib
         if: steps.check.outputs.skip != 'true'
         run: |
           zlib_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/madler/zlib/releases/latest)
-          zlib_tag=$(
-              jq -r '.name' <<<"$zlib_json" |
-              cut -d' ' -f2
-          )
-          zlib_latest_url=$(
-              jq -r '.assets[] |
-              select(.name|test("\\.tar\\.gz$")) |
-              .browser_download_url' <<<"$zlib_json" |
-              head -n1
-          )
-          echo "zlib最新版本是${zlib_tag} ，下载地址是${zlib_latest_url}"
+          zlib_tag=$(jq -r '.name' <<<"$zlib_json" | cut -d' ' -f2)
+          echo "ZLIB_VERSION=${zlib_tag}" >> $GITHUB_ENV
+          zlib_latest_url=$(jq -r '.assets[] | select(.name|test("\\.tar\\.gz$")) | .browser_download_url' <<<"$zlib_json" | head -n1)
+          
           curl -L ${zlib_latest_url} | tar xz
           cd zlib-*
-          CC=$CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" ./configure --static --prefix=$PREFIX
-          make -j$(nproc)
-          make install
-          echo "ZLIB_VERSION=${zlib_tag}" >> $GITHUB_ENV
+          CC=$CC CFLAGS="$CFLAGS" AR=$AR RANLIB=$RANLIB ./configure --static --prefix=$PREFIX
+          make -j$(nproc) install
           cd ..
+          rm -rf zlib-*
 
       - name: Build sqlite3
         if: steps.check.outputs.skip != 'true'
@@ -168,24 +153,17 @@ jobs:
           download_page=$(curl -sL "https://www.sqlite.org/download.html")
           csv_data=$(echo "$download_page" | sed -n '/Download product data for scripts to read/,/-->/p')
           tarball_url=$(echo "$csv_data" | grep "autoconf.*\.tar\.gz" | cut -d ',' -f 3 | head -n 1)
-          sqlite_latest_url="https://www.sqlite.org/${tarball_url}"
-          echo "sqlite最新版本是${sqlite_tag}，下载地址是${sqlite_latest_url}"
+          echo "SQLITE_VERSION=${sqlite_tag}" >> $GITHUB_ENV
           
-          curl -L "${sqlite_latest_url}" | tar xz
+          curl -L "https://www.sqlite.org/${tarball_url}" | tar xz
           cd sqlite-*
-          
-          # 直接极速编译单一源文件
           $CC $CFLAGS -DSQLITE_THREADSAFE=1 -DSQLITE_ENABLE_MATH_FUNCTIONS -DSQLITE_OMIT_LOAD_EXTENSION=1 -c sqlite3.c -o sqlite3.o
+          $AR rcs libsqlite3.a sqlite3.o
+          $RANLIB libsqlite3.a
           
-          # 打包为静态库
-          ${HOST}-ar rcs libsqlite3.a sqlite3.o
-          ${HOST}-ranlib libsqlite3.a
-          
-          # 安装头文件和静态库到 PREFIX
           cp libsqlite3.a "$PREFIX/lib/"
           cp sqlite3.h sqlite3ext.h "$PREFIX/include/"
           
-          # 使用 echo 生成干净的 sqlite3.pc
           mkdir -p "$PREFIX/lib/pkgconfig"
           {
             echo "prefix=$PREFIX"
@@ -200,138 +178,56 @@ jobs:
             echo 'Libs.private: -lpthread'
             echo 'Cflags: -I${includedir}'
           } > "$PREFIX/lib/pkgconfig/sqlite3.pc"
-          
-          echo "SQLITE_VERSION=${sqlite_tag}" >> $GITHUB_ENV
           cd ..
           rm -rf sqlite-*
-          # ---------- 校验检测 ----------
-          echo "===== 验证 SQLite3 安装状态 ====="
-          test -f "$PREFIX/include/sqlite3.h" || { echo "❌ 缺失 sqlite3.h"; exit 1; }
-          test -f "$PREFIX/lib/libsqlite3.a" || { echo "❌ 缺失 libsqlite3.a"; exit 1; }
-          test -f "$PREFIX/lib/pkgconfig/sqlite3.pc" || { echo "❌ 缺失 sqlite3.pc"; exit 1; }
-
-          # 通过 pkg-config 验证版本与链接参数
-          export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
-          pkg_ver=$(pkg-config --modversion sqlite3)
-          echo "✅ SQLite3 安装成功! 版本: ${pkg_ver}"
-          echo "✅ Cflags: $(pkg-config --cflags sqlite3)"
-          echo "✅ Libs: $(pkg-config --libs sqlite3)"
 
       - name: Build c-ares
         if: steps.check.outputs.skip != 'true'
         run: |
           cares_tag=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/c-ares/c-ares/releases/latest | jq -r '.tag_name | sub("^v"; "")')
           cares_latest_url="https://github.com/c-ares/c-ares/releases/download/v${cares_tag}/c-ares-${cares_tag}.tar.gz"
-          echo "c-ares 最新版本是: ${cares_tag}"
+          echo "CARES_VERSION=${cares_tag}" >> $GITHUB_ENV
           
           curl -L "${cares_latest_url}" | tar xz
           cd c-ares-*
-          
-          # 1. 准备 Windows 专用的 ares_config.h 和 ares_build.h
-          if [ -f "src/lib/config-win32.h" ]; then
-            cp src/lib/config-win32.h src/lib/ares_config.h
-          elif [ -f "src/lib/ares_config.h.win32" ]; then
-            cp src/lib/ares_config.h.win32 src/lib/ares_config.h
-          else
-            touch src/lib/ares_config.h
-          fi
-
-          if [ -f "include/ares_build.h.dist" ]; then
-            cp include/ares_build.h.dist include/ares_build.h
-          elif [ -f "src/lib/ares_build.h.dist" ]; then
-            cp src/lib/ares_build.h.dist include/ares_build.h
-          fi
-          
-          # 2. 动态收集源码文件与包含路径
-          C_FILES=$(find src/lib -name "*.c" ! -name "ares_getopt.c")
-          INC_FLAGS=$(find src/lib include -type d -exec echo -I{} \;)
-          
-          # 3. 极速编译
-          $CC $CFLAGS -DCARES_STATICLIB -D_WIN32_WINNT=0x0600 -DWIN32_LEAN_AND_MEAN \
-              -DHAVE_CONFIG_H=1 $INC_FLAGS -c $C_FILES
-          
-          # 4. 打包静态库
-          ${HOST}-ar rcs libcares.a *.o
-          ${HOST}-ranlib libcares.a
-          
-          # 5. 安装头文件和静态库到 PREFIX
-          cp libcares.a "$PREFIX/lib/"
-          cp include/ares*.h "$PREFIX/include/" 2>/dev/null || cp src/lib/ares*.h "$PREFIX/include/"
-          
-          # 6. 生成 pkg-config 描述文件
-          mkdir -p "$PREFIX/lib/pkgconfig"
-          {
-            echo "prefix=$PREFIX"
-            echo 'exec_prefix=${prefix}'
-            echo 'libdir=${exec_prefix}/lib'
-            echo 'includedir=${prefix}/include'
-            echo ''
-            echo 'Name: c-ares'
-            echo 'Description: asynchronous DNS lookup library'
-            echo "Version: ${cares_tag}"
-            echo 'Libs: -L${libdir} -lcares'
-            echo 'Libs.private: -lws2_32 -liphlpapi'
-            echo 'Cflags: -I${includedir} -DCARES_STATICLIB'
-          } > "$PREFIX/lib/pkgconfig/libcares.pc"
-          
-          echo "CARES_VERSION=${cares_tag}" >> $GITHUB_ENV
+          ./configure --host=$TARGET_TRIPLE --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
+                      --prefix=$PREFIX --disable-shared --enable-static \
+                      --enable-silent-rules --without-random --disable-tests \
+                      LIBS="-lws2_32 -liphlpapi" CC=$CC CFLAGS="$CFLAGS -DCARES_STATICLIB" AR=$AR RANLIB=$RANLIB
+          make -j$(nproc) install
           cd ..
           rm -rf c-ares-*
 
-          # ---------- 校验检测 ----------
-          echo "===== 验证 c-ares 安装状态 ====="
-          test -f "$PREFIX/include/ares.h" || { echo "❌ 缺失 ares.h"; exit 1; }
-          test -f "$PREFIX/lib/libcares.a" || { echo "❌ 缺失 libcares.a"; exit 1; }
-          test -f "$PREFIX/lib/pkgconfig/libcares.pc" || { echo "❌ 缺失 libcares.pc"; exit 1; }
-
-          export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
-          echo "✅ c-ares 安装成功! 版本: $(pkg-config --modversion libcares)"
-          echo "✅ Cflags: $(pkg-config --cflags libcares)"
-          echo "✅ Libs: $(pkg-config --libs libcares)"
-          
       - name: Build libssh2
         if: steps.check.outputs.skip != 'true'
         run: |
-          libssh2_tag=$(
-              curl -s https://libssh2.org/download/ |
-              grep -oP 'libssh2-\K[0-9.]+(?=\.tar\.(gz|xz))' |
-              sort -V |
-              tail -n1
-          )
-          libssh2_latest_url="https://libssh2.org/download/libssh2-${libssh2_tag}.tar.gz"
-          echo "libssh2最新版本是${libssh2_tag} ，下载地址是${libssh2_latest_url}"
-          curl -L ${libssh2_latest_url} | tar xz
-          cd libssh2-*
-          ./configure \
-              --disable-shared \
-              --enable-static \
-              --enable-silent-rules \
-              --disable-examples-build \
-              --disable-docker-tests \
-              --disable-sshd-tests \
-              --disable-debug \
-              --prefix=$PREFIX \
-              --host=$HOST \
-              --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
-              LIBS="-lws2_32"
-          make -j$(nproc) install
+          libssh2_tag=$(curl -s https://libssh2.org/download/ | grep -oP 'libssh2-\K[0-9.]+(?=\.tar\.(gz|xz))' | sort -V | tail -n1)
           echo "LIBSSH2_VERSION=${libssh2_tag}" >> $GITHUB_ENV
+          
+          curl -L "https://libssh2.org/download/libssh2-${libssh2_tag}.tar.gz" | tar xz
+          cd libssh2-*
+          ./configure --disable-shared --enable-static --enable-silent-rules \
+                      --disable-examples-build --disable-docker-tests --disable-sshd-tests --disable-debug \
+                      --with-crypto=wincng \
+                      --prefix=$PREFIX --host=$TARGET_TRIPLE --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
+                      LIBS="-lws2_32 -lbcrypt -lcrypt32" CC=$CC CFLAGS="$CFLAGS" AR=$AR RANLIB=$RANLIB
+          make -j$(nproc) install
           cd ..
+          rm -rf libssh2-*
 
-      - name: Build libcurl
+      - name: Build libcurl (Schannel WinSSL)
         if: steps.check.outputs.skip != 'true'
         run: |
           curl_tag=$(curl -s https://curl.se/download/ | grep -oP 'curl-\K[0-9.]+(?=\.tar\.gz)' | head -n1)
-          echo "libcurl 最新版本是: ${curl_tag}"
+          echo "CURL_VERSION=${curl_tag}" >> $GITHUB_ENV
           
           curl -L "https://curl.se/download/curl-${curl_tag}.tar.gz" | tar xz
           cd curl-*
           
-          # 使用 WinSSL (Schannel) 和 c-ares 编译极简静态 libcurl
           cmake -B build -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER="$CC" \
-            -DCMAKE_RC_COMPILER="${HOST}-windres" \
+            -DCMAKE_RC_COMPILER="$RC" \
             -DCMAKE_INSTALL_PREFIX="$PREFIX" \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_STATIC_LIBS=ON \
@@ -343,15 +239,6 @@ jobs:
             -DCURL_USE_SCHANNEL=ON \
             -DCURL_USE_OPENSSL=OFF \
             -DCURL_USE_LIBPSL=OFF \
-            -DCURL_DISABLE_LDAP=ON \
-            -DCURL_DISABLE_LDAPS=ON \
-            -DCURL_DISABLE_TELNET=ON \
-            -DCURL_DISABLE_DICT=ON \
-            -DCURL_DISABLE_TFTP=ON \
-            -DCURL_DISABLE_GOPHER=ON \
-            -DCURL_DISABLE_MQTT=ON \
-            -DCURL_DISABLE_RTSP=ON \
-            -DCURL_DISABLE_SMB=ON \
             -DENABLE_ARES=ON \
             -DCARES_INCLUDE_DIR="$PREFIX/include" \
             -DCARES_LIBRARY="$PREFIX/lib/libcares.a" \
@@ -362,34 +249,25 @@ jobs:
             
           cmake --build build --parallel $(nproc)
           cmake --install build
-          
-          echo "CURL_VERSION=${curl_tag}" >> $GITHUB_ENV
           cd ..
           rm -rf curl-*
 
-          # ---------- 校验检测 ----------
-          echo "===== 验证 libcurl 安装状态 ====="
-          test -f "$PREFIX/include/curl/curl.h" || { echo "❌ 缺失 curl.h"; exit 1; }
-          test -f "$PREFIX/lib/libcurl.a" || { echo "❌ 缺失 libcurl.a"; exit 1; }
-          
-       # ---------- 4. Boost & Libtorrent 编译 ----------
+      # ---------- 4. Boost & Libtorrent 极速构建 ----------
       - name: Install Boost headers
         if: steps.check.outputs.skip != 'true'
         run: |
-          # 自动获取 Boost 最新正式发布版本（如 1.87.0）
           BOOST_VER=$(curl -sL https://www.boost.io/feed/downloads.rss | grep -oP '<title>Version \K[0-9.]+' | head -n1)
-          if [ -z "$BOOST_VER" ]; then
-            BOOST_VER=$(curl -sL https://archives.boost.io/release/ | grep -oP 'href="\K[0-9.]+(?=/")' | sort -V | tail -n1)
-          fi
+          [ -z "$BOOST_VER" ] && BOOST_VER="1.87.0"
           BOOST_UNDERSCORE=$(echo "$BOOST_VER" | tr '.' '_')
           BOOST_DIR="boost_${BOOST_UNDERSCORE}"
-          echo "Boost 最新版本是: ${BOOST_VER}"
+          
           echo "BOOST_VERSION=${BOOST_VER}" >> $GITHUB_ENV
           echo "BOOST_DIR_NAME=${BOOST_DIR}" >> $GITHUB_ENV
           echo "ARIA2_BOOST_ROOT=$GITHUB_WORKSPACE/${BOOST_DIR}" >> $GITHUB_ENV
+          
           curl -L "https://archives.boost.io/release/${BOOST_VER}/source/${BOOST_DIR}.tar.gz" | tar -xz
           cp -r "${BOOST_DIR}/boost" "$PREFIX/include/"
-          
+
       - name: Build libtorrent
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -400,7 +278,6 @@ jobs:
           if [ -z "$LIBTORRENT_URL" ] || [ "$LIBTORRENT_URL" = "null" ]; then
             LIBTORRENT_URL="https://github.com/arvidn/libtorrent/releases/download/v${LIBTORRENT_VERSION}/libtorrent-rasterbar-${LIBTORRENT_VERSION}.tar.gz"
           fi
-          echo "Libtorrent 最新版本是: ${LIBTORRENT_VERSION}"
           echo "LIBTORRENT_VERSION=${LIBTORRENT_VERSION}" >> $GITHUB_ENV
           
           curl -L "${LIBTORRENT_URL}" | tar xz
@@ -410,7 +287,7 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_CXX_COMPILER="$CXX" \
-            -DCMAKE_RC_COMPILER="${HOST}-windres" \
+            -DCMAKE_RC_COMPILER="$RC" \
             -DCMAKE_INSTALL_PREFIX="$PREFIX" \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
@@ -428,29 +305,17 @@ jobs:
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
             
-          cmake --build build --parallel $(nproc)
+          cmake --build build --target torrent-rasterbar --parallel $(nproc)
           cmake --install build
           cd ..
           rm -rf libtorrent-rasterbar-${LIBTORRENT_VERSION}
 
-      # ---------- aria2-next 编译 ----------
-      - name: Disable aria2 tests
-        if: steps.check.outputs.skip != 'true'
-        run: |
-          python3 - <<'EOF'
-          from pathlib import Path
-          p = Path("aria2-next/cmake/modules/Tests.cmake")
-          if p.exists():
-              s = p.read_text()
-              s = "if(ENABLE_TESTS)\n" + s + "\nendif()\n"
-              p.write_text(s)
-          EOF
-
+      # ---------- 5. aria2-next 补丁与极速构建 ----------
       - name: Patch Dependencies and Options
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 修复 CurlSession.cc 缺失 #include "a2io.h" 导致 a2ftruncate 找不到的 bug
+          # 1. 修复 CurlSession.cc 缺失 a2io.h
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("src/CurlSession.cc")
@@ -461,19 +326,18 @@ jobs:
                   p.write_text(s)
           EOF
 
-          # 2. 彻底修复 Targets.cmake 中对 OpenSSL::SSL 和 OpenSSL::Crypto 的硬编码链接
+          # 2. 移除 Targets.cmake 中的 OpenSSL 强绑定
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/modules/Targets.cmake")
           if p.exists():
               s = p.read_text()
-              # 将 OpenSSL 的两个 target 替换为 Windows 原生安全套件
               s = s.replace("OpenSSL::SSL", "secur32;crypt32;bcrypt")
               s = s.replace("OpenSSL::Crypto", "bcrypt;crypt32")
               p.write_text(s)
           EOF
 
-          # 3. 修复 Dependencies.cmake 中的 OpenSSL / Libtorrent / CURL 查找
+          # 3. 移除 Dependencies.cmake 中的版本硬编码
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/modules/Dependencies.cmake")
@@ -481,7 +345,6 @@ jobs:
               s = p.read_text()
               s = s.replace('${ARIA2_MIN_LIBTORRENT_VERSION}', '')
               s = s.replace('${ARIA2_MIN_CURL_VERSION}', '')
-              # 阻断 WinTLS 模式下的 OpenSSL 查找
               if 'find_package(OpenSSL' in s and 'if(ARIA2_WITH_OPENSSL)' not in s:
                   s = s.replace('unset(OpenSSL_DIR CACHE)', 'if(ARIA2_WITH_OPENSSL)\n  unset(OpenSSL_DIR CACHE)')
                   idx = s.find('NO_CMAKE_FIND_ROOT_PATH)')
@@ -490,7 +353,7 @@ jobs:
               p.write_text(s)
           EOF
 
-          # 4. 自动同步依赖版本号
+          # 4. 同步版本变量进 dependencies.env (保证 -v 输出准确)
           [ -n "$ZLIB_VERSION" ]       && sed -i "s/^ZLIB_VERSION=.*/ZLIB_VERSION=${ZLIB_VERSION}/" packaging/dependencies.env || true
           [ -n "$EXPAT_VERSION" ]      && sed -i "s/^EXPAT_VERSION=.*/EXPAT_VERSION=${EXPAT_VERSION}/" packaging/dependencies.env || true
           [ -n "$SQLITE_VERSION" ]     && sed -i "s/^SQLITE_VERSION=.*/SQLITE_VERSION=${SQLITE_VERSION}/" packaging/dependencies.env || true
@@ -500,27 +363,25 @@ jobs:
           [ -n "$LIBTORRENT_VERSION" ] && sed -i "s/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=${LIBTORRENT_VERSION}/" packaging/dependencies.env || true
           [ -n "$BOOST_VERSION" ]      && sed -i "s/^BOOST_VERSION=.*/BOOST_VERSION=${BOOST_VERSION}/" packaging/dependencies.env || true
 
-          # 5. 修改分片大小补丁
+          # 5. 分片补丁
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc || true
 
       - name: Force enable color output by default
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 强制 WinConsoleFile 无论什么终端都返回支持颜色
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("src/WinConsoleFile.cc")
           if p.exists():
-              s = p.read_text()
-              # 替换 supportsColor 函数使其永远返回 true
               import re
+              s = p.read_text()
               s = re.sub(r'bool\s+WinConsoleFile::supportsColor\(\)\s*\{[^}]*\}', 
                          'bool WinConsoleFile::supportsColor() { return true; }', s)
               p.write_text(s)
           EOF
-          
-      - name: Configure aria2-next
+
+      - name: Configure aria2-next (Clang + LLD)
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
@@ -532,7 +393,7 @@ jobs:
             -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
             -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_CXX_COMPILER="$CXX" \
-            -DCMAKE_RC_COMPILER="${HOST}-windres" \
+            -DCMAKE_RC_COMPILER="$RC" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$PREFIX" \
             -DARIA2_DEPENDENCY_ROOT="$PREFIX" \
@@ -545,7 +406,7 @@ jobs:
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -L$PREFIX/lib -lcrypt32 -lsecur32 -lws2_32 -liphlpapi -lbcrypt"
 
-      - name: Compile
+      - name: Compile (Fast Parallel Build)
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: cmake --build build --parallel $(nproc)
@@ -555,11 +416,11 @@ jobs:
         run: |
           mkdir -p own-repo/release
           TARGET_EXE=$(find aria2-next/build -name "aria2-next.exe" -o -name "aria2c.exe" | head -n1)
-          ${HOST}-strip --strip-all --remove-section=.comment --remove-section=.note "$TARGET_EXE" -o own-repo/release/aria2-next.exe
+          $STRIP --strip-all "$TARGET_EXE" -o own-repo/release/aria2-next.exe
 
       - name: Upload artifact
         if: steps.check.outputs.skip != 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: aria2-next-windows-x64
           path: own-repo/release/aria2-next.exe
@@ -575,7 +436,7 @@ jobs:
 
       - name: Save upstream SHA cache
         if: always() && steps.check.outputs.skip == 'false'
-        uses: actions/cache@v6
+        uses: actions/cache@v4
         with:
           path: .cache
           key: upstream-sha-${{ runner.os }}-${{ steps.check.outputs.new_sha }}

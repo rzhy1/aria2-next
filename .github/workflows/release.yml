@@ -97,9 +97,9 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           # 自动从官方 dependencies.env 读取 LLVM_MINGW_VERSION，或使用最新稳定版
-          LLVM_VER="20240917"
+          LLVM_VER="20260812"
           LLVM_ARCHIVE="llvm-mingw-${LLVM_VER}-ucrt-ubuntu-22.04-x86_64.tar.xz"
-          LLVM_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_VER}/${LLVM_ARCHIVE}"
+          LLVM_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/20260812/llvm-mingw-20260812-ucrt-ubuntu-22.04-x86_64.tar.xz"
           
           echo "Downloading LLVM-MinGW..."
           curl -LO "$LLVM_URL"

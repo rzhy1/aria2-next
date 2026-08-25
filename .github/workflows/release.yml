@@ -289,36 +289,6 @@ jobs:
           echo "✅ c-ares 安装成功! 版本: $(pkg-config --modversion libcares)"
           echo "✅ Cflags: $(pkg-config --cflags libcares)"
           echo "✅ Libs: $(pkg-config --libs libcares)"
-
-      - name: Build OpenSSL
-        if: steps.check.outputs.skip != 'true'
-        run: |
-          OPENSSL_VERSION=4.0.1
-          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz || exit 1
-          tar xf openssl-${OPENSSL_VERSION}.tar.gz
-          cd openssl-${OPENSSL_VERSION}
-          DISABLED_FEATURES=(
-            no-quic no-err no-dso no-engine no-async no-autoalginit
-            no-sctp no-ssl3 no-tls1 no-tls1_1
-            no-comp no-ts no-ocsp no-ct no-cms no-psk no-srp no-rfc3779
-            no-fips no-acvp-tests no-docs no-stdio no-ui-console
-            no-afalgeng no-ssl-trace no-filenames
-            no-aria no-bf no-blake2 no-camellia no-cast no-cmac
-            no-dh no-dsa no-ec2m no-gost no-idea no-rc2 no-rc4 no-rc5 no-rmd160
-            no-scrypt no-seed no-siphash no-siv no-sm2 no-sm3 no-sm4 no-whirlpool
-            no-tests no-apps
-          )
-          CC=gcc-posix ./Configure -static \
-            --prefix=$PREFIX \
-            --libdir=lib \
-            --cross-compile-prefix=x86_64-w64-mingw32- \
-            mingw64 no-shared \
-            --with-zlib-include="$PREFIX/include" \
-            --with-zlib-lib="$PREFIX/lib/libz.a" \
-            "${DISABLED_FEATURES[@]}"
-          make -j$(nproc) && make install_sw
-          echo "OPENSSL_VERSION=${OPENSSL_VERSION}" >> $GITHUB_ENV
-          cd ..
           
       - name: Build libssh2
         if: steps.check.outputs.skip != 'true'
@@ -378,15 +348,13 @@ jobs:
             LIBTORRENT_URL="https://github.com/arvidn/libtorrent/releases/download/v${LIBTORRENT_VERSION}/libtorrent-rasterbar-${LIBTORRENT_VERSION}.tar.gz"
           fi
           echo "Libtorrent 最新版本是: ${LIBTORRENT_VERSION}"
-          echo "下载地址是: ${LIBTORRENT_URL}"
           echo "LIBTORRENT_VERSION=${LIBTORRENT_VERSION}" >> $GITHUB_ENV
+          
           curl -L "${LIBTORRENT_URL}" | tar xz
           cd libtorrent-rasterbar-${LIBTORRENT_VERSION}
+          
           cmake -B build -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY \
             -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_CXX_COMPILER="$CXX" \
             -DCMAKE_RC_COMPILER="${HOST}-windres" \
@@ -401,14 +369,13 @@ jobs:
             -Dbuild_examples=OFF \
             -Dbuild_tools=OFF \
             -Dpython-bindings=OFF \
-            -DOPENSSL_ROOT_DIR="$PREFIX" \
-            -DOPENSSL_USE_STATIC_LIBS=ON \
             -DBOOST_ROOT="$GITHUB_WORKSPACE/${BOOST_DIR_NAME}" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
-          cmake --build build --target torrent-rasterbar --parallel $(nproc)
+            
+          cmake --build build --parallel $(nproc)
           cmake --install build
           cd ..
           rm -rf libtorrent-rasterbar-${LIBTORRENT_VERSION}
@@ -470,12 +437,9 @@ jobs:
             -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY \
             -DCMAKE_PREFIX_PATH="$PREFIX" \
-            -DOPENSSL_ROOT_DIR="$PREFIX" \
-            -DOPENSSL_USE_STATIC_LIBS=ON \
             -DZLIB_ROOT="$PREFIX" \
             -DZLIB_USE_STATIC_LIBS=ON \
             -DCARES_INCLUDE_DIR="$PREFIX/include" \
-            -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" \
             -DCARES_LIBRARY="$PREFIX/lib/libcares.a" \
             -DEXPAT_INCLUDE_DIR="$PREFIX/include" \
             -DEXPAT_LIBRARY="$PREFIX/lib/libexpat.a" \
@@ -486,8 +450,8 @@ jobs:
             -DARIA2_DEPENDENCY_ROOT="$PREFIX" \
             -DARIA2_BOOST_ROOT="$ARIA2_BOOST_ROOT" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
-            -DARIA2_WITH_WINTLS=OFF \
-            -DARIA2_WITH_OPENSSL=ON \
+            -DARIA2_WITH_WINTLS=ON \
+            -DARIA2_WITH_OPENSSL=OFF \
             -DARIA2_WITH_GNUTLS=OFF \
             -DARIA2_WITH_CARES=ON \
             -DARIA2_WITH_SQLITE3=ON \
@@ -499,7 +463,7 @@ jobs:
             -DARIA2_WITH_LIBNETTLE=OFF \
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -lcrypt32 -lsecur32 -lws2_32 -liphlpapi"
 
       - name: Compile
         if: steps.check.outputs.skip != 'true'

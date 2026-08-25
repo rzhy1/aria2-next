@@ -196,27 +196,38 @@ jobs:
           cd ..
           rm -rf c-ares-*
 
-      - name: Build OpenSSL
+      - name: Build OpenSSL (Official Clean Setup)
         if: steps.check.outputs.skip != 'true'
         run: |
-          OPENSSL_VERSION=4.0.1
+          OPENSSL_VERSION=3.4.1
+          echo "OPENSSL_VERSION=${OPENSSL_VERSION}" >> $GITHUB_ENV
           curl -LO https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz || exit 1
           tar xf openssl-${OPENSSL_VERSION}.tar.gz
           cd openssl-${OPENSSL_VERSION}
-          DISABLED_FEATURES=(
-            no- no-acvp-tests no-docs no-tests no-apps
-          )
-          CC=gcc-posix ./Configure -static \
+          
+          # 正确配置编译器，避免双重前缀冲突
+          ./Configure mingw64 -static \
             --prefix=$PREFIX \
             --libdir=lib \
             --cross-compile-prefix=x86_64-w64-mingw32- \
-            mingw64 no-shared \
+            CC=clang \
+            CXX=clang++ \
+            AR=llvm-ar \
+            RANLIB=llvm-ranlib \
+            RC=x86_64-w64-mingw32-windres \
+            no-shared no-tests no-docs no-apps \
             --with-zlib-include="$PREFIX/include" \
-            --with-zlib-lib="$PREFIX/lib/libz.a" \
-            "${DISABLED_FEATURES[@]}"
+            --with-zlib-lib="$PREFIX/lib/libz.a"
+            
           make -j$(nproc) && make install_sw
-          echo "OPENSSL_VERSION=${OPENSSL_VERSION}" >> $GITHUB_ENV
           cd ..
+          rm -rf openssl-${OPENSSL_VERSION}*
+
+          # ---------- 校验检测 ----------
+          echo "===== 验证 OpenSSL 安装状态 ====="
+          test -f "$PREFIX/include/openssl/ssl.h" || { echo "❌ 缺失 ssl.h"; exit 1; }
+          test -f "$PREFIX/lib/libssl.a" || { echo "❌ 缺失 libssl.a"; exit 1; }
+          test -f "$PREFIX/lib/libcrypto.a" || { echo "❌ 缺失 libcrypto.a"; exit 1; }
 
       - name: Build libssh2
         if: steps.check.outputs.skip != 'true'

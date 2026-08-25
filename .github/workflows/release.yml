@@ -405,6 +405,17 @@ jobs:
               p.write_text(s)
           EOF
 
+          # 修复 FeatureConfig.cc 缺失 nghttp2ver.h 的问题
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path("src/FeatureConfig.cc")
+          if p.exists():
+              s = p.read_text()
+              s = s.replace('#include <nghttp2/nghttp2ver.h>', '// #include <nghttp2/nghttp2ver.h>')
+              s = s.replace('NGHTTP2_VERSION', '"1.64.0"')
+              p.write_text(s)
+          EOF
+
           # 3. 同步版本变量进 dependencies.env (保证 -v 输出准确)
           [ -n "$ZLIB_VERSION" ]       && sed -i "s/^ZLIB_VERSION=.*/ZLIB_VERSION=${ZLIB_VERSION}/" packaging/dependencies.env || true
           [ -n "$EXPAT_VERSION" ]      && sed -i "s/^EXPAT_VERSION=.*/EXPAT_VERSION=${EXPAT_VERSION}/" packaging/dependencies.env || true

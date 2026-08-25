@@ -381,43 +381,59 @@ jobs:
           rm -rf libtorrent-rasterbar-${LIBTORRENT_VERSION}
           
       # ---------- aria2-next 编译 ----------
+      # ---------- aria2-next 编译 ----------
       - name: Disable aria2 tests
         if: steps.check.outputs.skip != 'true'
         run: |
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("aria2-next/cmake/modules/Tests.cmake")
-          s = p.read_text()
-          s = "if(ENABLE_TESTS)\n" + s + "\nendif()\n"
-          p.write_text(s)
+          if p.exists():
+              s = p.read_text()
+              s = "if(ENABLE_TESTS)\n" + s + "\nendif()\n"
+              p.write_text(s)
           EOF
 
       - name: Patch Dependencies.cmake
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 移除 OpenSSL 和 Libtorrent 的版本号强制校验变量
-          sed -i 's/find_package(OpenSSL \${ARIA2_MIN_OPENSSL_VERSION}/find_package(OpenSSL/g' cmake/modules/Dependencies.cmake
-          sed -i 's/find_package(LibtorrentRasterbar \${ARIA2_MIN_LIBTORRENT_VERSION}/find_package(LibtorrentRasterbar/g' cmake/modules/Dependencies.cmake
+          # 1. 核心修复：将 Dependencies.cmake 中强制查找 OpenSSL 的代码包裹在 if(ARIA2_WITH_OPENSSL) 中
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path("cmake/modules/Dependencies.cmake")
+          if p.exists():
+              content = p.read_text()
+              # 给 find_package(OpenSSL ...) 加上条件判断，避免 WinTLS 模式下因找不到 OpenSSL 报错
+              target_str = 'find_package(OpenSSL'
+              if target_str in content and 'if(ARIA2_WITH_OPENSSL)' not in content:
+                  content = content.replace('unset(OpenSSL_DIR CACHE)', 'if(ARIA2_WITH_OPENSSL)\n  unset(OpenSSL_DIR CACHE)')
+                  # 找到 find_package(OpenSSL 结束的位置并补上 endif()
+                  idx = content.find('NO_CMAKE_FIND_ROOT_PATH)')
+                  if idx != -1:
+                      content = content[:idx+len('NO_CMAKE_FIND_ROOT_PATH)')] + '\nendif()' + content[idx+len('NO_CMAKE_FIND_ROOT_PATH)'):]
+              p.write_text(content)
+          EOF
 
-          # 2. 将 dependencies.env 里的硬编码版本号替换为你编译的实际版本（确保 -v 输出准确）
-          [ -n "$ZLIB_VERSION" ]       && sed -i "s/^ZLIB_VERSION=.*/ZLIB_VERSION=${ZLIB_VERSION}/" packaging/dependencies.env
-          [ -n "$EXPAT_VERSION" ]      && sed -i "s/^EXPAT_VERSION=.*/EXPAT_VERSION=${EXPAT_VERSION}/" packaging/dependencies.env
-          [ -n "$SQLITE_VERSION" ]     && sed -i "s/^SQLITE_VERSION=.*/SQLITE_VERSION=${SQLITE_VERSION}/" packaging/dependencies.env
-          [ -n "$CARES_VERSION" ]      && sed -i "s/^CARES_VERSION=.*/CARES_VERSION=${CARES_VERSION}/" packaging/dependencies.env
-          [ -n "$OPENSSL_VERSION" ]    && sed -i "s/^OPENSSL_VERSION=.*/OPENSSL_VERSION=${OPENSSL_VERSION}/" packaging/dependencies.env
-          [ -n "$LIBSSH2_VERSION" ]    && sed -i "s/^LIBSSH2_VERSION=.*/LIBSSH2_VERSION=${LIBSSH2_VERSION}/" packaging/dependencies.env
-          [ -n "$LIBTORRENT_VERSION" ] && sed -i "s/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=${LIBTORRENT_VERSION}/" packaging/dependencies.env
-          [ -n "$BOOST_VERSION" ]      && sed -i "s/^BOOST_VERSION=.*/BOOST_VERSION=${BOOST_VERSION}/" packaging/dependencies.env
-      
+          # 2. 移除 Libtorrent 的版本硬编码限制
+          sed -i 's/find_package(LibtorrentRasterbar \${ARIA2_MIN_LIBTORRENT_VERSION}/find_package(LibtorrentRasterbar/g' cmake/modules/Dependencies.cmake || true
+
+          # 3. 将实际编译的版本自动写入 dependencies.env (保证 -v 输出准确)
+          [ -n "$ZLIB_VERSION" ]       && sed -i "s/^ZLIB_VERSION=.*/ZLIB_VERSION=${ZLIB_VERSION}/" packaging/dependencies.env || true
+          [ -n "$EXPAT_VERSION" ]      && sed -i "s/^EXPAT_VERSION=.*/EXPAT_VERSION=${EXPAT_VERSION}/" packaging/dependencies.env || true
+          [ -n "$SQLITE_VERSION" ]     && sed -i "s/^SQLITE_VERSION=.*/SQLITE_VERSION=${SQLITE_VERSION}/" packaging/dependencies.env || true
+          [ -n "$CARES_VERSION" ]      && sed -i "s/^CARES_VERSION=.*/CARES_VERSION=${CARES_VERSION}/" packaging/dependencies.env || true
+          [ -n "$LIBSSH2_VERSION" ]    && sed -i "s/^LIBSSH2_VERSION=.*/LIBSSH2_VERSION=${LIBSSH2_VERSION}/" packaging/dependencies.env || true
+          [ -n "$LIBTORRENT_VERSION" ] && sed -i "s/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=${LIBTORRENT_VERSION}/" packaging/dependencies.env || true
+          [ -n "$BOOST_VERSION" ]      && sed -i "s/^BOOST_VERSION=.*/BOOST_VERSION=${BOOST_VERSION}/" packaging/dependencies.env || true
+
       - name: Patch aria2 options (piece length)
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc
-          sed -i 's/bool WinConsoleFile::supportsColor() { return false; }/bool WinConsoleFile::supportsColor() { return console_; }/' src/WinConsoleFile.cc
-          sed -i '/console_ = handle_ != nullptr/,/GetConsoleMode(handle_, &mode) != 0;/c\  if (handle_ != nullptr && handle_ != INVALID_HANDLE_VALUE &&\n      GetConsoleMode(handle_, &mode) != 0) {\n    console_ = true;\n    SetConsoleMode(handle_, mode | 0x0004);\n  }' src/WinConsoleFile.cc
-      
+          # 仅保留修改默认分片大小的补丁，去掉破坏 Windows 控制台的 sed
+          sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc || true
+
       - name: Configure aria2-next
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -427,26 +443,12 @@ jobs:
             -DENABLE_TESTS=OFF \
             -DARIA2_SUPERBUILD=OFF \
             -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
             -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_CXX_COMPILER="$CXX" \
             -DCMAKE_RC_COMPILER="${HOST}-windres" \
             -DCMAKE_BUILD_TYPE=Release \
             -DARIA2_STATIC_DEPENDENCIES=ON \
-            -DCMAKE_FIND_ROOT_PATH="$PREFIX" \
-            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY \
-            -DCMAKE_PREFIX_PATH="$PREFIX" \
-            -DZLIB_ROOT="$PREFIX" \
-            -DZLIB_USE_STATIC_LIBS=ON \
-            -DCARES_INCLUDE_DIR="$PREFIX/include" \
-            -DCARES_LIBRARY="$PREFIX/lib/libcares.a" \
-            -DEXPAT_INCLUDE_DIR="$PREFIX/include" \
-            -DEXPAT_LIBRARY="$PREFIX/lib/libexpat.a" \
-            -DSQLITE3_INCLUDE_DIR="$PREFIX/include" \
-            -DSQLITE3_LIBRARY="$PREFIX/lib/libsqlite3.a" \
-            -DLIBSSH2_INCLUDE_DIR="$PREFIX/include" \
-            -DLIBSSH2_LIBRARY="$PREFIX/lib/libssh2.a" \
             -DARIA2_DEPENDENCY_ROOT="$PREFIX" \
             -DARIA2_BOOST_ROOT="$ARIA2_BOOST_ROOT" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
@@ -463,7 +465,7 @@ jobs:
             -DARIA2_WITH_LIBNETTLE=OFF \
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -lcrypt32 -lsecur32 -lws2_32 -liphlpapi"
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -lcrypt32 -lsecur32 -lws2_32 -liphlpapi -lbcrypt"
 
       - name: Compile
         if: steps.check.outputs.skip != 'true'
@@ -474,7 +476,8 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           mkdir -p own-repo/release
-          x86_64-w64-mingw32-strip --strip-all --remove-section=.comment --remove-section=.note aria2-next/build/aria2-next.exe -o own-repo/release/aria2-next.exe
+          TARGET_EXE=$(find aria2-next/build -name "aria2-next.exe" -o -name "aria2c.exe" | head -n1)
+          ${HOST}-strip --strip-all --remove-section=.comment --remove-section=.note "$TARGET_EXE" -o own-repo/release/aria2-next.exe
 
       - name: Upload artifact
         if: steps.check.outputs.skip != 'true'

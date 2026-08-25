@@ -327,18 +327,19 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 修复 CurlSession.cc 缺失 a2io.h
+          # 1. 核心修复：在公共基础头文件中补全现代 C++ 标准库缺失的 <iterator> 和 <algorithm>
           python3 - <<'EOF'
           from pathlib import Path
-          p = Path("src/CurlSession.cc")
-          if p.exists():
-              s = p.read_text()
-              if '#include "a2io.h"' not in s:
-                  s = '#include "a2io.h"\n' + s
-                  p.write_text(s)
+          for header_path in ["src/common.h", "src/includes/common.h"]:
+              p = Path(header_path)
+              if p.exists():
+                  s = p.read_text()
+                  if '#include <iterator>' not in s:
+                      s = '#include <iterator>\n#include <algorithm>\n#include "a2io.h"\n' + s
+                      p.write_text(s)
           EOF
 
-          # 2. 移除 Targets.cmake 中的 OpenSSL 强绑定
+          # 2. 修复 Targets.cmake 中的 OpenSSL 强绑定
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/modules/Targets.cmake")

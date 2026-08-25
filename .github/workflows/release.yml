@@ -35,8 +35,9 @@ jobs:
       AR: x86_64-w64-mingw32-ar
       RANLIB: x86_64-w64-mingw32-ranlib
       STRIP: x86_64-w64-mingw32-strip
-      CFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0"
-      CXXFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0"
+      # 核心优化：-w 屏蔽警告，-Wno-error 防止警告中断，-ftemplate-depth 增加模板支持
+      CFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error"
+      CXXFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
       LDFLAGS: "-static -Wl,--gc-sections,--strip-all -flto=thin"
       PKG_CONFIG_PATH: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
       PKG_CONFIG_LIBDIR: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"

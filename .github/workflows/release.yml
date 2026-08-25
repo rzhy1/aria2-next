@@ -35,7 +35,6 @@ jobs:
       AR: x86_64-w64-mingw32-ar
       RANLIB: x86_64-w64-mingw32-ranlib
       STRIP: x86_64-w64-mingw32-strip
-      # 核心优化：-w 屏蔽警告，-Wno-error 防止警告中断，-ftemplate-depth 增加模板支持
       CFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error"
       CXXFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
       LDFLAGS: "-static -Wl,--gc-sections,--strip-all -flto=thin"
@@ -97,12 +96,10 @@ jobs:
       - name: Install LLVM-MinGW (Clang + LLD)
         if: steps.check.outputs.skip != 'true'
         run: |
-          # 自动从官方 dependencies.env 读取 LLVM_MINGW_VERSION，或使用最新稳定版
           LLVM_VER="20260812"
           LLVM_ARCHIVE="llvm-mingw-${LLVM_VER}-ucrt-ubuntu-22.04-x86_64.tar.xz"
           LLVM_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/20260812/llvm-mingw-20260812-ucrt-ubuntu-22.04-x86_64.tar.xz"
           
-          echo "Downloading LLVM-MinGW..."
           curl -LO "$LLVM_URL"
           sudo tar -xf "$LLVM_ARCHIVE" -C /usr/local/
           sudo mv /usr/local/llvm-mingw-${LLVM_VER}-* /usr/local/llvm-mingw
@@ -114,7 +111,7 @@ jobs:
           sudo mkdir -p $PREFIX/include $PREFIX/lib $PREFIX/lib/pkgconfig
           sudo chown -R $USER:$USER /usr/local/llvm-mingw
 
-      # ---------- 3. 极速编译纯 C 依赖项 ----------
+      # ---------- 3. 依赖库极速编译 ----------
       - name: Build expat
         if: steps.check.outputs.skip != 'true'
         run: |
@@ -199,6 +196,27 @@ jobs:
           cd ..
           rm -rf c-ares-*
 
+      - name: Build OpenSSL (Official Clean Setup)
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          OPENSSL_VERSION=3.4.1
+          echo "OPENSSL_VERSION=${OPENSSL_VERSION}" >> $GITHUB_ENV
+          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz || exit 1
+          tar xf openssl-${OPENSSL_VERSION}.tar.gz
+          cd openssl-${OPENSSL_VERSION}
+          
+          CC=$CC ./Configure -static \
+            --prefix=$PREFIX \
+            --libdir=lib \
+            --cross-compile-prefix=x86_64-w64-mingw32- \
+            mingw64 no-shared no-tests no-docs no-apps \
+            --with-zlib-include="$PREFIX/include" \
+            --with-zlib-lib="$PREFIX/lib/libz.a"
+            
+          make -j$(nproc) && make install_sw
+          cd ..
+          rm -rf openssl-${OPENSSL_VERSION}*
+
       - name: Build libssh2
         if: steps.check.outputs.skip != 'true'
         run: |
@@ -209,14 +227,14 @@ jobs:
           cd libssh2-*
           ./configure --disable-shared --enable-static --enable-silent-rules \
                       --disable-examples-build --disable-docker-tests --disable-sshd-tests --disable-debug \
-                      --with-crypto=wincng \
+                      --with-crypto=openssl --with-libssl-prefix=$PREFIX \
                       --prefix=$PREFIX --host=$TARGET_TRIPLE --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
                       LIBS="-lws2_32 -lbcrypt -lcrypt32" CC=$CC CFLAGS="$CFLAGS" AR=$AR RANLIB=$RANLIB
           make -j$(nproc) install
           cd ..
           rm -rf libssh2-*
 
-      - name: Build libcurl (Schannel WinSSL)
+      - name: Build libcurl (OpenSSL + c-ares)
         if: steps.check.outputs.skip != 'true'
         run: |
           curl_tag=$(curl -s https://curl.se/download/ | grep -oP 'curl-\K[0-9.]+(?=\.tar\.gz)' | head -n1)
@@ -237,9 +255,11 @@ jobs:
             -DBUILD_TESTING=OFF \
             -DENABLE_MANUAL=OFF \
             -DENABLE_DOCS=OFF \
-            -DCURL_USE_SCHANNEL=ON \
-            -DCURL_USE_OPENSSL=OFF \
+            -DCURL_USE_OPENSSL=ON \
+            -DCURL_USE_SCHANNEL=OFF \
             -DCURL_USE_LIBPSL=OFF \
+            -DOPENSSL_ROOT_DIR="$PREFIX" \
+            -DOPENSSL_USE_STATIC_LIBS=ON \
             -DENABLE_ARES=ON \
             -DCARES_INCLUDE_DIR="$PREFIX/include" \
             -DCARES_LIBRARY="$PREFIX/lib/libcares.a" \
@@ -284,7 +304,6 @@ jobs:
           curl -L "${LIBTORRENT_URL}" | tar xz
           cd libtorrent-rasterbar-${LIBTORRENT_VERSION}
           
-          # 核心修复：为 escape_string.cpp 补全缺失的 <iterator> 头文件以适配现代 Clang
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("src/escape_string.cpp")
@@ -311,6 +330,8 @@ jobs:
             -Dbuild_examples=OFF \
             -Dbuild_tools=OFF \
             -Dpython-bindings=OFF \
+            -DOPENSSL_ROOT_DIR="$PREFIX" \
+            -DOPENSSL_USE_STATIC_LIBS=ON \
             -DBOOST_ROOT="$GITHUB_WORKSPACE/${BOOST_DIR_NAME}" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
             -DCMAKE_C_FLAGS="$CFLAGS" \
@@ -327,7 +348,7 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 核心修复：在公共基础头文件中补全现代 C++ 标准库缺失的 <iterator> 和 <algorithm>
+          # 1. 修复全局缺失的现代 C++ 头文件
           python3 - <<'EOF'
           from pathlib import Path
           for header_path in ["src/common.h", "src/includes/common.h"]:
@@ -339,18 +360,7 @@ jobs:
                       p.write_text(s)
           EOF
 
-          # 2. 修复 Targets.cmake 中的 OpenSSL 强绑定
-          python3 - <<'EOF'
-          from pathlib import Path
-          p = Path("cmake/modules/Targets.cmake")
-          if p.exists():
-              s = p.read_text()
-              s = s.replace("OpenSSL::SSL", "secur32;crypt32;bcrypt")
-              s = s.replace("OpenSSL::Crypto", "bcrypt;crypt32")
-              p.write_text(s)
-          EOF
-
-          # 3. 移除 Dependencies.cmake 中的版本硬编码
+          # 2. 移除 Dependencies.cmake 中的版本限制变量
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/modules/Dependencies.cmake")
@@ -358,25 +368,22 @@ jobs:
               s = p.read_text()
               s = s.replace('${ARIA2_MIN_LIBTORRENT_VERSION}', '')
               s = s.replace('${ARIA2_MIN_CURL_VERSION}', '')
-              if 'find_package(OpenSSL' in s and 'if(ARIA2_WITH_OPENSSL)' not in s:
-                  s = s.replace('unset(OpenSSL_DIR CACHE)', 'if(ARIA2_WITH_OPENSSL)\n  unset(OpenSSL_DIR CACHE)')
-                  idx = s.find('NO_CMAKE_FIND_ROOT_PATH)')
-                  if idx != -1:
-                      s = s[:idx+len('NO_CMAKE_FIND_ROOT_PATH)')] + '\nendif()' + s[idx+len('NO_CMAKE_FIND_ROOT_PATH)'):]
+              s = s.replace('${ARIA2_MIN_OPENSSL_VERSION}', '')
               p.write_text(s)
           EOF
 
-          # 4. 同步版本变量进 dependencies.env (保证 -v 输出准确)
+          # 3. 同步版本变量进 dependencies.env (保证 -v 输出准确)
           [ -n "$ZLIB_VERSION" ]       && sed -i "s/^ZLIB_VERSION=.*/ZLIB_VERSION=${ZLIB_VERSION}/" packaging/dependencies.env || true
           [ -n "$EXPAT_VERSION" ]      && sed -i "s/^EXPAT_VERSION=.*/EXPAT_VERSION=${EXPAT_VERSION}/" packaging/dependencies.env || true
           [ -n "$SQLITE_VERSION" ]     && sed -i "s/^SQLITE_VERSION=.*/SQLITE_VERSION=${SQLITE_VERSION}/" packaging/dependencies.env || true
           [ -n "$CARES_VERSION" ]      && sed -i "s/^CARES_VERSION=.*/CARES_VERSION=${CARES_VERSION}/" packaging/dependencies.env || true
+          [ -n "$OPENSSL_VERSION" ]    && sed -i "s/^OPENSSL_VERSION=.*/OPENSSL_VERSION=${OPENSSL_VERSION}/" packaging/dependencies.env || true
           [ -n "$LIBSSH2_VERSION" ]    && sed -i "s/^LIBSSH2_VERSION=.*/LIBSSH2_VERSION=${LIBSSH2_VERSION}/" packaging/dependencies.env || true
           [ -n "$CURL_VERSION" ]       && sed -i "s/^CURL_VERSION=.*/CURL_VERSION=${CURL_VERSION}/" packaging/dependencies.env || true
           [ -n "$LIBTORRENT_VERSION" ] && sed -i "s/^LIBTORRENT_VERSION=.*/LIBTORRENT_VERSION=${LIBTORRENT_VERSION}/" packaging/dependencies.env || true
           [ -n "$BOOST_VERSION" ]      && sed -i "s/^BOOST_VERSION=.*/BOOST_VERSION=${BOOST_VERSION}/" packaging/dependencies.env || true
 
-          # 5. 分片补丁
+          # 4. 分片补丁
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc || true
 
       - name: Force enable color output by default
@@ -412,12 +419,12 @@ jobs:
             -DARIA2_DEPENDENCY_ROOT="$PREFIX" \
             -DARIA2_BOOST_ROOT="$ARIA2_BOOST_ROOT" \
             -DBoost_INCLUDE_DIR="$PREFIX/include" \
+            -DOPENSSL_ROOT_DIR="$PREFIX" \
+            -DOPENSSL_USE_STATIC_LIBS=ON \
             -DCURL_DIR="$PREFIX/lib/cmake/CURL" \
-            -DARIA2_WITH_WINTLS=ON \
-            -DARIA2_WITH_OPENSSL=OFF \
             -DCMAKE_C_FLAGS="$CFLAGS" \
             -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -L$PREFIX/lib -lcrypt32 -lsecur32 -lws2_32 -liphlpapi -lbcrypt"
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -L$PREFIX/lib -lcrypt32 -lws2_32 -liphlpapi -lbcrypt"
 
       - name: Compile (Fast Parallel Build)
         if: steps.check.outputs.skip != 'true'

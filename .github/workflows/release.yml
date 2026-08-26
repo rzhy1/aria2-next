@@ -117,7 +117,7 @@ jobs:
         working-directory: aria2-next
         run: packaging/scripts/verify-runner-tools windows-x86_64
 
-      # ---------- 4. 自动覆盖第三方依赖源码为最新版 & 注入功能补丁 ----------
+      # ---------- 4. 自动升级依赖与功能补丁 ----------
       - name: Upgrade third_party dependencies & patch options
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -137,7 +137,19 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 自动下载最新版本源码直接覆盖 third_party/ 对应目录
+          # C. 核心修复：为 SuperBuild 中的 OpenSSL 加上 no-asm 避免与 Clang ThinLTO 冲突
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path("cmake/superbuild/Dependencies.cmake")
+          if p.exists():
+              s = p.read_text()
+              # 在 OpenSSL Configure 参数中加入 no-asm
+              if "no-autoload-config" in s and "no-asm" not in s:
+                  s = s.replace("no-autoload-config", "no-autoload-config\n      no-asm")
+                  p.write_text(s)
+          EOF
+
+          # D. 自动下载最新版本源码直接覆盖 third_party/ 对应目录
           python3 - <<'EOF'
           import urllib.request, json, os, tarfile, shutil
           from pathlib import Path

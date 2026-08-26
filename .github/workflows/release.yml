@@ -37,7 +37,7 @@ jobs:
       STRIP: x86_64-w64-mingw32-llvm-strip
       CFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error"
       CXXFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
-      LDFLAGS: "-static -Wl,--gc-sections,--strip-all -flto=thin"
+      DFLAGS: "-static -Wl,--gc-sections -flto=thin"
       PKG_CONFIG_PATH: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
       PKG_CONFIG_LIBDIR: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
 

@@ -34,7 +34,7 @@ jobs:
       RC: x86_64-w64-mingw32-windres
       AR: x86_64-w64-mingw32-ar
       RANLIB: x86_64-w64-mingw32-ranlib
-      STRIP: x86_64-w64-mingw32-strip
+      STRIP: x86_64-w64-mingw32-llvm-strip
       CFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error"
       CXXFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
       LDFLAGS: "-static -Wl,--gc-sections,--strip-all -flto=thin"

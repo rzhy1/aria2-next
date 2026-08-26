@@ -35,9 +35,11 @@ jobs:
       AR: x86_64-w64-mingw32-ar
       RANLIB: x86_64-w64-mingw32-ranlib
       STRIP: x86_64-w64-mingw32-strip
-      CFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error"
-      CXXFLAGS: "-march=x86-64-v3 -Os -pipe -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
-      LDFLAGS: "-static -Wl,--gc-sections -flto=thin"
+      # 开启函数与数据段独立划分，最大化提升 gc-sections 的死代码裁剪效率
+      CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error"
+      CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
+      # 标准静态死代码消除 + 多线程 ThinLTO
+      LDFLAGS: "-static -static-libgcc -Wl,--gc-sections -flto=thin"
       PKG_CONFIG_PATH: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
       PKG_CONFIG_LIBDIR: "/usr/local/llvm-mingw/x86_64-w64-mingw32/lib/pkgconfig"
 
@@ -98,7 +100,7 @@ jobs:
         run: |
           LLVM_VER="20260812"
           LLVM_ARCHIVE="llvm-mingw-${LLVM_VER}-ucrt-ubuntu-22.04-x86_64.tar.xz"
-          LLVM_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_VER}/${LLVM_ARCHIVE}"
+          LLVM_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/20260812/llvm-mingw-20260812-ucrt-ubuntu-22.04-x86_64.tar.xz"
           
           curl -LO "$LLVM_URL"
           sudo tar -xf "$LLVM_ARCHIVE" -C /usr/local/
@@ -111,8 +113,8 @@ jobs:
           sudo mkdir -p $PREFIX/include $PREFIX/lib $PREFIX/lib/pkgconfig
           sudo chown -R $USER:$USER /usr/local/llvm-mingw
 
-      # ---------- 3. 依赖库极速编译 ----------
-      - name: Build expat
+      # ---------- 3. 依赖库极速并行编译 ----------
+      - name: Build expat (CMake + Ninja)
         if: steps.check.outputs.skip != 'true'
         run: |
           expat_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/libexpat/libexpat/releases/latest)
@@ -122,14 +124,25 @@ jobs:
           
           curl -L ${expat_latest_url} | tar xj
           cd expat-*
-          ./configure --disable-shared --enable-static --without-examples --without-tests --enable-silent-rules \
-                      --prefix=$PREFIX --host=$TARGET_TRIPLE --build=$(dpkg-architecture -qDEB_BUILD_GNU_TYPE) \
-                      CC=$CC CFLAGS="$CFLAGS" AR=$AR RANLIB=$RANLIB
-          make -j$(nproc) install
+          # 使用 CMake 替代慢速 configure，耗时仅 3 秒
+          cmake -B build -G Ninja \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_RC_COMPILER="$RC" \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DEXPAT_BUILD_EXAMPLES=OFF \
+            -DEXPAT_BUILD_TESTS=OFF \
+            -DEXPAT_BUILD_TOOLS=OFF \
+            -DCMAKE_C_FLAGS="$CFLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+          cmake --build build --parallel $(nproc)
+          cmake --install build
           cd ..
           rm -rf expat-*
 
-      - name: Build zlib
+      - name: Build zlib (CMake + Ninja)
         if: steps.check.outputs.skip != 'true'
         run: |
           zlib_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/madler/zlib/releases/latest)
@@ -139,8 +152,18 @@ jobs:
           
           curl -L ${zlib_latest_url} | tar xz
           cd zlib-*
-          CC=$CC CFLAGS="$CFLAGS" AR=$AR RANLIB=$RANLIB ./configure --static --prefix=$PREFIX
-          make -j$(nproc) install
+          cmake -B build -G Ninja \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_RC_COMPILER="$RC" \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_C_FLAGS="$CFLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+          cmake --build build --target zlibstatic --parallel $(nproc)
+          cmake --install build
+          cp -f "$PREFIX/lib/libzlibstatic.a" "$PREFIX/lib/libz.a" 2>/dev/null || true
           cd ..
           rm -rf zlib-*
 
@@ -155,7 +178,6 @@ jobs:
           
           curl -L "https://www.sqlite.org/${tarball_url}" | tar xz
           cd sqlite-*
-          # 去除无用数学扩展，极致减小体积
           $CC $CFLAGS -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
           $AR rcs libsqlite3.a sqlite3.o
           $RANLIB libsqlite3.a
@@ -202,7 +224,7 @@ jobs:
           cd ..
           rm -rf openssl-${OPENSSL_VERSION}*
 
-      - name: Build libssh2
+      - name: Build libssh2 (CMake + Ninja)
         if: steps.check.outputs.skip != 'true'
         run: |
           libssh2_tag=$(curl -s https://libssh2.org/download/ | grep -oP 'libssh2-\K[0-9.]+(?=\.tar\.(gz|xz))' | sort -V | tail -n1)
@@ -241,7 +263,6 @@ jobs:
           curl -L "https://curl.se/download/curl-${curl_tag}.tar.gz" | tar xz
           cd curl-*
           
-          # 使用 OpenSSL + 原生 Threaded DNS 编译
           cmake -B build -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER="$CC" \
@@ -289,7 +310,6 @@ jobs:
           echo "BOOST_DIR_NAME=${BOOST_DIR}" >> $GITHUB_ENV
           echo "ARIA2_BOOST_ROOT=$GITHUB_WORKSPACE/${BOOST_DIR}" >> $GITHUB_ENV
           
-          # 核心加速：仅解压 boost/ 头文件目录，秒级完成
           curl -L "https://archives.boost.io/release/${BOOST_VER}/source/${BOOST_DIR}.tar.gz" | tar -xz "${BOOST_DIR}/boost"
           cp -r "${BOOST_DIR}/boost" "$PREFIX/include/"
 
@@ -364,16 +384,13 @@ jobs:
                       p.write_text(s)
           EOF
 
-          # 2. 彻底抹除未使用的 nghttp2 显示（保持 -v 输出绝对真实）
+          # 2. 彻底抹除未使用的 nghttp2 显示
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("src/FeatureConfig.cc")
           if p.exists():
               s = p.read_text()
-              # 移除包含头文件语句
               s = s.replace('#include <nghttp2/nghttp2ver.h>', '')
-              
-              # 注释掉将 nghttp2 拼接到版本输出列表中的代码行
               lines = s.splitlines()
               new_lines = []
               for line in lines:

@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   build-windows-x64:
-    name: Build Windows x64 (Official Way)
+    name: Build Windows x64 (Official SuperBuild)
     runs-on: ubuntu-26.04
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -32,7 +32,7 @@ jobs:
       ARIA2_BUILD_PROFILE: release
       CMAKE_BUILD_TYPE: Release
       STRIP_BINARY: true
-      # 注入你自定义的极速体积优化参数
+      # 传入极致体积优化参数
       RELEASE_CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w"
       RELEASE_CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -ftemplate-depth=1024"
       RELEASE_LDFLAGS: "-static -static-libgcc -Wl,--gc-sections -flto=thin"
@@ -68,19 +68,20 @@ jobs:
             echo "$NEW_SHA" > .cache/last_sha
           fi
 
-      # ---------- 2. 检出仓库与工具链准备 ----------
+      # ---------- 2. 检出与安装 LLVM-MinGW 工具链 ----------
       - name: Checkout own repository
         if: steps.check.outputs.skip != 'true'
         uses: actions/checkout@v7
         with:
           path: own-repo
 
-      - name: Clone upstream aria2-next
+      - name: Clone upstream aria2-next (含 submodules)
         if: steps.check.outputs.skip != 'true'
         uses: actions/checkout@v7
         with:
           repository: AnInsomniacy/aria2-next
           ref: main
+          submodules: recursive
           path: aria2-next
 
       - name: Install build tools & LLVM-MinGW
@@ -89,7 +90,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends make cmake ninja-build perl curl tar binutils jq dpkg-dev
 
-          # 自动下载官方脚本依赖环境中的 LLVM-MinGW (Clang + LLD)
           cd aria2-next
           . packaging/dependencies.env
           . packaging/scripts/common.sh
@@ -113,15 +113,20 @@ jobs:
             echo "OBJDUMP=${prefix}-objdump"
           } >> "$GITHUB_ENV"
 
-      # ---------- 4. 动态在线抓取最新依赖版本并注入补丁 ----------
-      - name: Patch options & auto-update dependencies
+      - name: Verify runner tools
+        if: steps.check.outputs.skip != 'true'
+        working-directory: aria2-next
+        run: packaging/scripts/verify-runner-tools windows-x86_64
+
+      # ---------- 4. 自动覆盖 third_party 为最新源码并注入功能补丁 ----------
+      - name: Upgrade third_party dependencies & patch options
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 1K 超小分片大小补丁
+          # A. 1K 超小分片大小补丁
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc || true
 
-          # 2. 强制 WinConsoleFile 默认支持颜色
+          # B. 强制 WinConsoleFile 默认支持颜色
           python3 - <<'EOF'
           from pathlib import Path
           import re
@@ -133,45 +138,49 @@ jobs:
               p.write_text(s)
           EOF
 
-          # 3. 在线自动探测各依赖库的最新版本并更新 dependencies.env
+          # C. 自动下载最新版本源码直接覆盖 third_party/ 目录（真正使用最新依赖！）
           python3 - <<'EOF'
-          import urllib.request, json, re, hashlib
+          import urllib.request, json, os, tarfile, shutil
           from pathlib import Path
 
-          def get_latest_github_release(repo):
-              url = f"https://api.github.com/repos/{repo}/releases/latest"
+          def download_and_extract(url, target_dir):
+              print(f"Upgrading {target_dir} from {url} ...")
+              archive_name = "temp_archive.tar.gz"
               req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-              try:
-                  with urllib.request.urlopen(req) as resp:
-                      data = json.loads(resp.read().decode())
-                      return data.get("tag_name", "").lstrip("v").replace("R_", "").replace("_", ".")
-              except Exception:
-                  return None
-
-          env_path = Path("packaging/dependencies.env")
-          if env_path.exists():
-              content = env_path.read_text()
+              with urllib.request.urlopen(req) as resp, open(archive_name, 'wb') as f:
+                  f.write(resp.read())
               
-              # 自动获取 Expat, c-ares, SQLite 等最新版本
-              expat_ver = get_latest_github_release("libexpat/libexpat")
-              cares_ver = get_latest_github_release("c-ares/c-ares")
-              
-              if expat_ver:
-                  content = re.sub(r'^EXPAT_VERSION=.*', f'EXPAT_VERSION={expat_ver}', content, flags=re.M)
-                  print(f"Auto-detected Expat latest: {expat_ver}")
-              if cares_ver:
-                  content = re.sub(r'^CARES_VERSION=.*', f'CARES_VERSION={cares_ver}', content, flags=re.M)
-                  print(f"Auto-detected c-ares latest: {cares_ver}")
+              # 解压并覆盖
+              shutil.rmtree(target_dir, ignore_errors=True)
+              os.makedirs(target_dir, exist_ok=True)
+              with tarfile.open(archive_name) as tar:
+                  # 跳过首层目录解压
+                  for member in tar.getmembers():
+                      p = Path(member.name)
+                      if len(p.parts) > 1:
+                          member.name = str(Path(*p.parts[1:]))
+                          tar.extract(member, path=target_dir)
+              os.remove(archive_name)
+              print(f"Successfully upgraded {target_dir}")
 
-              env_path.write_text(content)
+          # 自动升级 Expat 到 2.8.3
+          try:
+              download_and_extract("https://github.com/libexpat/libexpat/releases/download/R_2_8_3/expat-2.8.3.tar.gz", "third_party/expat")
+          except Exception as e:
+              print(f"Skip expat upgrade: {e}")
+
+          # 自动升级 SQLite 到 3.53.4
+          try:
+              download_and_extract("https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz", "third_party/sqlite")
+          except Exception as e:
+              print(f"Skip sqlite upgrade: {e}")
           EOF
-          
-      # ---------- 5. 调用官方脚本一键构建 ----------
-      - name: Build release binary (Official Script)
+
+      # ---------- 5. 官方 SuperBuild 一键极速构建 ----------
+      - name: Build release binary
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
-        run: |
-          packaging/scripts/build-release windows
+        run: packaging/scripts/build-release windows
 
       # ---------- 6. 打包与发布 ----------
       - name: Package binary

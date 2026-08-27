@@ -32,8 +32,8 @@ jobs:
       ARIA2_BUILD_PROFILE: release
       CMAKE_BUILD_TYPE: Release
       STRIP_BINARY: true
-      RELEASE_CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w"
-      RELEASE_CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -ftemplate-depth=1024"
+      RELEASE_CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error"
+      RELEASE_CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
       RELEASE_LDFLAGS: "-static -static-libgcc -Wl,--gc-sections -flto=thin"
 
     steps:
@@ -153,7 +153,7 @@ jobs:
           make -j$(nproc) && make install_sw
           cd ../..
 
-          # D. 修复 Dependencies.cmake：直通 openssl_project 并为 nghttp2 关闭 failmalloc
+          # D. 修复 Dependencies.cmake：直通 openssl 并为 nghttp2 关闭严格警告与测试
           python3 - <<'EOF'
           from pathlib import Path
           import re
@@ -163,8 +163,10 @@ jobs:
               # 1. 直通 openssl_project
               s = re.sub(r'ExternalProject_Add\(openssl_project[\s\S]*?TEST_COMMAND ""\)', 
                          'add_custom_target(openssl_project)', s)
-              # 2. 为 nghttp2 关闭测试与 failmalloc 错误
-              s = s.replace('-DENABLE_LIB_ONLY=ON', '-DENABLE_LIB_ONLY=ON\n    -DENABLE_FAILMALLOC=OFF\n    -DENABLE_DOC=OFF')
+              
+              # 2. 为 nghttp2 关闭编译警告与 failmalloc
+              s = s.replace('-DENABLE_LIB_ONLY=ON', 
+                            '-DENABLE_LIB_ONLY=ON\n    -DENABLE_FAILMALLOC=OFF\n    -DENABLE_DOC=OFF\n    -DENABLE_WERROR=OFF\n    -DWARNCFLAGS=""\n    -DWARNCXXFLAGS=""')
               p.write_text(s)
           EOF
 

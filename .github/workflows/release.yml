@@ -141,7 +141,7 @@ jobs:
           mkdir -p build/release/dependencies/lib build/release/dependencies/include
           DEP_PREFIX="$PWD/build/release/dependencies"
 
-          # D. 预编译静态 OpenSSL (已验证成功)
+          # D. 预编译静态 OpenSSL
           cd third_party/openssl
           ./Configure mingw64 -static \
             --prefix="$DEP_PREFIX" \
@@ -154,7 +154,7 @@ jobs:
           make -j$(nproc) && make install_sw
           cd ../..
 
-          # E. 极速 CMake 编译静态 nghttp2 (2秒完成，自动生成 config.h)
+          # E. 极速 CMake 编译静态 nghttp2 (彻底禁用 tests & failmalloc)
           cd third_party/nghttp2
           cmake -B build-nghttp2 -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
@@ -165,10 +165,12 @@ jobs:
             -DENABLE_LIB_ONLY=ON \
             -DBUILD_STATIC_LIBS=ON \
             -DBUILD_SHARED_LIBS=OFF \
+            -DBUILD_TESTING=OFF \
+            -DENABLE_FAILMALLOC=OFF \
+            -DENABLE_DOC=OFF \
             -DCMAKE_C_FLAGS="$RELEASE_CFLAGS -w"
           cmake --build build-nghttp2 --parallel $(nproc)
           cmake --install build-nghttp2
-          # 确保生成标准的 libnghttp2.a 名称
           cp -f "$DEP_PREFIX/lib/libnghttp2_static.a" "$DEP_PREFIX/lib/libnghttp2.a" 2>/dev/null || true
           cd ../..
 

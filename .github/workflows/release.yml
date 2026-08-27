@@ -137,16 +137,17 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 核心修复：为 SuperBuild 中的 OpenSSL 加上 no-asm 避免与 Clang ThinLTO 冲突
+          # C. 彻底修复 SuperBuild 中 OpenSSL 在 Clang 下的交叉编译配置
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/superbuild/Dependencies.cmake")
           if p.exists():
               s = p.read_text()
-              # 在 OpenSSL Configure 参数中加入 no-asm
-              if "no-autoload-config" in s and "no-asm" not in s:
-                  s = s.replace("no-autoload-config", "no-autoload-config\n      no-asm")
-                  p.write_text(s)
+              # 替换 OpenSSL 的 Configure 调用，显式注入 cross 前缀与 no-asm
+              old_conf = "${PERL_EXECUTABLE} <SOURCE_DIR>/Configure\n      ${ARIA2_OPENSSL_TARGET}"
+              new_conf = "${PERL_EXECUTABLE} <SOURCE_DIR>/Configure\n      ${ARIA2_OPENSSL_TARGET}\n      --cross-compile-prefix=x86_64-w64-mingw32-\n      CC=clang\n      CXX=clang++\n      AR=llvm-ar\n      RANLIB=llvm-ranlib\n      RC=x86_64-w64-mingw32-windres\n      no-asm"
+              s = s.replace(old_conf, new_conf)
+              p.write_text(s)
           EOF
 
           # D. 自动下载最新版本源码直接覆盖 third_party/ 对应目录

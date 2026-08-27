@@ -117,8 +117,8 @@ jobs:
         working-directory: aria2-next
         run: packaging/scripts/verify-runner-tools windows-x86_64
 
-      # ---------- 4. 自动升级依赖与打通 SuperBuild 细节 ----------
-      - name: Upgrade third_party dependencies & patch SuperBuild
+      # ---------- 4. 预编译易错依赖 (OpenSSL & nghttp2) 并打通 SuperBuild ----------
+      - name: Pre-build OpenSSL & nghttp2, patch SuperBuild
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
@@ -137,10 +137,11 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 预先编译静态 OpenSSL (30秒完成)，避免内部 Perl 配置问题
-          mkdir -p build/release/dependencies
+          # C. 准备依赖安装目录
+          mkdir -p build/release/dependencies/lib build/release/dependencies/include
           DEP_PREFIX="$PWD/build/release/dependencies"
-          
+
+          # D. 预编译静态 OpenSSL (30秒极速完成)
           cd third_party/openssl
           ./Configure mingw64 -static \
             --prefix="$DEP_PREFIX" \
@@ -153,24 +154,33 @@ jobs:
           make -j$(nproc) && make install_sw
           cd ../..
 
-          # D. 修复 Dependencies.cmake：直通 openssl 并为 nghttp2 关闭严格警告与测试
+          # E. 预编译静态 nghttp2 (2秒极速完成，跳过严格警告)
+          cd third_party/nghttp2
+          $CC $RELEASE_CFLAGS -Ilib/includes -DHAVE_CONFIG_H=0 -c lib/*.c
+          $AR rcs "$DEP_PREFIX/lib/libnghttp2.a" *.o
+          $RANLIB "$DEP_PREFIX/lib/libnghttp2.a"
+          mkdir -p "$DEP_PREFIX/include/nghttp2"
+          cp lib/includes/nghttp2/*.h "$DEP_PREFIX/include/nghttp2/"
+          rm -f *.o
+          cd ../..
+
+          # F. 修复 Dependencies.cmake：直通 openssl_project 与 nghttp2_project
           python3 - <<'EOF'
           from pathlib import Path
           import re
           p = Path("cmake/superbuild/Dependencies.cmake")
           if p.exists():
               s = p.read_text()
-              # 1. 直通 openssl_project
+              # 直通 openssl_project
               s = re.sub(r'ExternalProject_Add\(openssl_project[\s\S]*?TEST_COMMAND ""\)', 
                          'add_custom_target(openssl_project)', s)
-              
-              # 2. 为 nghttp2 关闭编译警告与 failmalloc
-              s = s.replace('-DENABLE_LIB_ONLY=ON', 
-                            '-DENABLE_LIB_ONLY=ON\n    -DENABLE_FAILMALLOC=OFF\n    -DENABLE_DOC=OFF\n    -DENABLE_WERROR=OFF\n    -DWARNCFLAGS=""\n    -DWARNCXXFLAGS=""')
+              # 直通 nghttp2_project
+              s = re.sub(r'ExternalProject_Add\(nghttp2_project[\s\S]*?TEST_COMMAND ""\)', 
+                         'add_custom_target(nghttp2_project)', s)
               p.write_text(s)
           EOF
 
-          # E. 自动升级 Expat 到 2.8.3 与 SQLite 到 3.53.4
+          # G. 自动升级 Expat 到 2.8.3 与 SQLite 到 3.53.4
           python3 - <<'EOF'
           import urllib.request, os, tarfile, shutil
           from pathlib import Path

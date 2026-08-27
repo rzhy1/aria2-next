@@ -117,7 +117,6 @@ jobs:
         working-directory: aria2-next
         run: packaging/scripts/verify-runner-tools windows-x86_64
 
-      # ---------- 4. 预编译易错依赖 (OpenSSL & nghttp2) 并打通 SuperBuild ----------
       # ---------- 4. 预编译依赖并打通 SuperBuild ----------
       - name: Pre-build OpenSSL & nghttp2 & SQLite, patch SuperBuild
         if: steps.check.outputs.skip != 'true'
@@ -142,20 +141,23 @@ jobs:
           mkdir -p build/release/dependencies/lib build/release/dependencies/include
           DEP_PREFIX="$PWD/build/release/dependencies"
 
-          # D. 预编译静态 OpenSSL
+          # D. 预编译静态 OpenSSL (使用无路径泄漏的标准参数)
           cd third_party/openssl
           ./Configure mingw64 -static \
-            --prefix="$DEP_PREFIX" \
+            --prefix=/ \
+            --openssldir=/etc/ssl \
             --libdir=lib \
             --cross-compile-prefix=x86_64-w64-mingw32- \
             CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib RC=x86_64-w64-mingw32-windres \
-            no-shared no-tests no-docs no-apps no-asm \
+            no-shared no-tests no-docs no-apps no-asm no-autoload-config \
+            -ffile-prefix-map="$PWD"=third_party/openssl \
+            -fdebug-prefix-map="$PWD"=third_party/openssl \
             --with-zlib-include="$DEP_PREFIX/include" \
             --with-zlib-lib="$DEP_PREFIX/lib/libz.a"
-          make -j$(nproc) && make install_sw
+          make -j$(nproc) && make DESTDIR="$DEP_PREFIX" install_sw
           cd ../..
 
-          # E. 极速 CMake 编译静态 nghttp2
+          # E. 极速 CMake 编译静态 nghttp2 (带前缀映射，防止路径泄漏)
           cd third_party/nghttp2
           cmake -B build-nghttp2 -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
@@ -169,7 +171,7 @@ jobs:
             -DBUILD_TESTING=OFF \
             -DENABLE_FAILMALLOC=OFF \
             -DENABLE_DOC=OFF \
-            -DCMAKE_C_FLAGS="$RELEASE_CFLAGS -w"
+            -DCMAKE_C_FLAGS="$RELEASE_CFLAGS -w -ffile-prefix-map=$PWD=third_party/nghttp2 -fdebug-prefix-map=$PWD=third_party/nghttp2"
           cmake --build build-nghttp2 --parallel $(nproc)
           cmake --install build-nghttp2
           cp -f "$DEP_PREFIX/lib/libnghttp2_static.a" "$DEP_PREFIX/lib/libnghttp2.a" 2>/dev/null || true
@@ -206,6 +208,27 @@ jobs:
               download_and_extract("https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz", "third_party/sqlite")
           except Exception as e:
               print(f"Skip sqlite upgrade: {e}")
+          EOF
+
+          cd third_party/sqlite
+          $CC $RELEASE_CFLAGS -ffile-prefix-map="$PWD"=third_party/sqlite -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
+          $AR rcs "$DEP_PREFIX/lib/libsqlite3.a" sqlite3.o
+          $RANLIB "$DEP_PREFIX/lib/libsqlite3.a"
+          cp sqlite3.h sqlite3ext.h "$DEP_PREFIX/include/"
+          rm -f sqlite3.o
+          cd ../..
+
+          # G. 修复 Dependencies.cmake：直通 openssl, nghttp2, sqlite
+          python3 - <<'EOF'
+          from pathlib import Path
+          import re
+          p = Path("cmake/superbuild/Dependencies.cmake")
+          if p.exists():
+              s = p.read_text()
+              s = re.sub(r'ExternalProject_Add\(openssl_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(openssl_project)', s)
+              s = re.sub(r'ExternalProject_Add\(nghttp2_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(nghttp2_project)', s)
+              s = re.sub(r'ExternalProject_Add\(sqlite_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(sqlite_project)', s)
+              p.write_text(s)
           EOF
 
           # 直接将覆盖后的最新 SQLite 编译为静态库并安装

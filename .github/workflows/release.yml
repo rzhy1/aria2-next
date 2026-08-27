@@ -141,7 +141,7 @@ jobs:
           mkdir -p build/release/dependencies/lib build/release/dependencies/include
           DEP_PREFIX="$PWD/build/release/dependencies"
 
-          # D. 预编译静态 OpenSSL (去除不支持的参数，使用纯净 CFLAGS 防止路径泄漏)
+          # D. 预编译静态 OpenSSL (纯净参数，0路径泄露)
           cd third_party/openssl
           ./Configure mingw64 -static \
             --prefix=/ \
@@ -156,7 +156,7 @@ jobs:
           make -j$(nproc) && make DESTDIR="$DEP_PREFIX" install_sw
           cd ../..
 
-          # E. 极速 CMake 编译静态 nghttp2
+          # E. 极速 CMake 编译静态 nghttp2 (加入 -DNDEBUG 彻底消除 assert 路径泄露)
           cd third_party/nghttp2
           cmake -B build-nghttp2 -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
@@ -170,7 +170,7 @@ jobs:
             -DBUILD_TESTING=OFF \
             -DENABLE_FAILMALLOC=OFF \
             -DENABLE_DOC=OFF \
-            -DCMAKE_C_FLAGS="$RELEASE_CFLAGS -w -g0"
+            -DCMAKE_C_FLAGS="$RELEASE_CFLAGS -w -g0 -DNDEBUG -ffile-prefix-map=$PWD=third_party/nghttp2"
           cmake --build build-nghttp2 --parallel $(nproc)
           cmake --install build-nghttp2
           cp -f "$DEP_PREFIX/lib/libnghttp2_static.a" "$DEP_PREFIX/lib/libnghttp2.a" 2>/dev/null || true
@@ -210,7 +210,7 @@ jobs:
           EOF
 
           cd third_party/sqlite
-          $CC $RELEASE_CFLAGS -g0 -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
+          $CC $RELEASE_CFLAGS -g0 -DNDEBUG -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
           $AR rcs "$DEP_PREFIX/lib/libsqlite3.a" sqlite3.o
           $RANLIB "$DEP_PREFIX/lib/libsqlite3.a"
           cp sqlite3.h sqlite3ext.h "$DEP_PREFIX/include/"

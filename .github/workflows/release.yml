@@ -137,18 +137,22 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 彻底修复 SuperBuild 中 OpenSSL 在 LLVM-MinGW 下的交叉编译参数
+          # C. 彻底修复 Dependencies.cmake 中 OpenSSL 交叉编译的环境变量与命令
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/superbuild/Dependencies.cmake")
           if p.exists():
               s = p.read_text()
-              # 替换 OpenSSL 的 Configure 调用，注入 Clang 交叉编译参数和 no-asm
-              target_find = "${PERL_EXECUTABLE} <SOURCE_DIR>/Configure\n      ${ARIA2_OPENSSL_TARGET}"
-              target_replace = "${PERL_EXECUTABLE} <SOURCE_DIR>/Configure\n      ${ARIA2_OPENSSL_TARGET}\n      --cross-compile-prefix=x86_64-w64-mingw32-\n      CC=clang\n      CXX=clang++\n      AR=llvm-ar\n      RANLIB=llvm-ranlib\n      RC=x86_64-w64-mingw32-windres\n      no-asm"
-              if target_find in s:
-                  s = s.replace(target_find, target_replace)
-                  p.write_text(s)
+              
+              # 1. 为 Windows x86_64 添加正确的 cross-compile 配置
+              s = s.replace('set(ARIA2_OPENSSL_TARGET mingw64)', 
+                            'set(ARIA2_OPENSSL_TARGET mingw64)\n    list(APPEND ARIA2_OPENSSL_CONFIG_ARGS --cross-compile-prefix=x86_64-w64-mingw32- no-asm no-async)')
+
+              # 2. 清理传递给 OpenSSL 的 LTO 参数，防止 OpenSSL 内部归档失败
+              s = s.replace('list(APPEND ARIA2_OPENSSL_CONFIG_ARGS ${ARIA2_OPENSSL_C_FLAGS})', 
+                            'list(FILTER ARIA2_OPENSSL_C_FLAGS EXCLUDE REGEX "^-flto")\n  list(APPEND ARIA2_OPENSSL_CONFIG_ARGS ${ARIA2_OPENSSL_C_FLAGS})')
+              
+              p.write_text(s)
           EOF
 
           # D. 自动升级 Expat 到 2.8.3

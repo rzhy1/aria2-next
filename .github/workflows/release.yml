@@ -117,8 +117,8 @@ jobs:
         working-directory: aria2-next
         run: packaging/scripts/verify-runner-tools windows-x86_64
 
-      # ---------- 4. 预编译静态 OpenSSL 并打通 SuperBuild ----------
-      - name: Pre-build OpenSSL & patch SuperBuild
+      # ---------- 4. 自动升级依赖与打通 SuperBuild 细节 ----------
+      - name: Upgrade third_party dependencies & patch SuperBuild
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
@@ -137,7 +137,7 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 预先将静态 OpenSSL 编译并安装到 SuperBuild 依赖目录 (避免内部 Perl 错误)
+          # C. 预先编译静态 OpenSSL (30秒完成)，避免内部 Perl 配置问题
           mkdir -p build/release/dependencies
           DEP_PREFIX="$PWD/build/release/dependencies"
           
@@ -153,16 +153,18 @@ jobs:
           make -j$(nproc) && make install_sw
           cd ../..
 
-          # D. 将 SuperBuild 中的 openssl_project 替换为虚拟直通目标
+          # D. 修复 Dependencies.cmake：直通 openssl_project 并为 nghttp2 关闭 failmalloc
           python3 - <<'EOF'
           from pathlib import Path
+          import re
           p = Path("cmake/superbuild/Dependencies.cmake")
           if p.exists():
               s = p.read_text()
-              # 替换 openssl_project 内部命令为直接通过
-              import re
+              # 1. 直通 openssl_project
               s = re.sub(r'ExternalProject_Add\(openssl_project[\s\S]*?TEST_COMMAND ""\)', 
                          'add_custom_target(openssl_project)', s)
+              # 2. 为 nghttp2 关闭测试与 failmalloc 错误
+              s = s.replace('-DENABLE_LIB_ONLY=ON', '-DENABLE_LIB_ONLY=ON\n    -DENABLE_FAILMALLOC=OFF\n    -DENABLE_DOC=OFF')
               p.write_text(s)
           EOF
 

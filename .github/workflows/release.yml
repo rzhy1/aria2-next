@@ -117,8 +117,8 @@ jobs:
         working-directory: aria2-next
         run: packaging/scripts/verify-runner-tools windows-x86_64
 
-      # ---------- 4. 预编译依赖并打通 SuperBuild ----------
-      - name: Pre-build OpenSSL & nghttp2 & SQLite, patch SuperBuild
+      # ---------- 4. 自动升级依赖 (含 Boost & OpenSSL) 并打通 SuperBuild ----------
+      - name: Pre-build dependencies, upgrade versions & patch SuperBuild
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
@@ -137,11 +137,62 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 准备依赖安装目录
+          # C. 自动下载并覆盖升级所有依赖项源码 (Expat, SQLite, OpenSSL, Boost)
+          python3 - <<'EOF'
+          import urllib.request, os, tarfile, shutil
+          from pathlib import Path
+
+          def download_and_extract(url, target_dir, sub_path=None):
+              print(f"Upgrading {target_dir} from {url} ...")
+              archive_name = "temp_archive.tar.gz"
+              req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+              with urllib.request.urlopen(req) as resp, open(archive_name, 'wb') as f:
+                  f.write(resp.read())
+              
+              shutil.rmtree(target_dir, ignore_errors=True)
+              os.makedirs(target_dir, exist_ok=True)
+              with tarfile.open(archive_name) as tar:
+                  for member in tar.getmembers():
+                      p = Path(member.name)
+                      if len(p.parts) > 1:
+                          # 如果指定了子目录（如 Boost 只提取 boost/ 头文件）
+                          if sub_path and sub_path not in p.parts:
+                              continue
+                          member.name = str(Path(*p.parts[1:]))
+                          tar.extract(member, path=target_dir)
+              os.remove(archive_name)
+              print(f"Successfully upgraded {target_dir}")
+
+          # 1. 自动升级 Expat 到 2.8.3
+          try:
+              download_and_extract("https://github.com/libexpat/libexpat/releases/download/R_2_8_3/expat-2.8.3.tar.gz", "third_party/expat")
+          except Exception as e:
+              print(f"Skip expat upgrade: {e}")
+
+          # 2. 自动升级 SQLite 到 3.53.4
+          try:
+              download_and_extract("https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz", "third_party/sqlite")
+          except Exception as e:
+              print(f"Skip sqlite upgrade: {e}")
+
+          # 3. 自动升级 OpenSSL 到 4.0.2 最新稳定版
+          try:
+              download_and_extract("https://github.com/openssl/openssl/releases/download/openssl-4.0.2/openssl-4.0.2.tar.gz", "third_party/openssl")
+          except Exception as e:
+              print(f"Skip openssl upgrade: {e}")
+
+          # 4. 自动升级 Boost 到 1.92.0 (仅解压 boost/ 头文件，秒级完成)
+          try:
+              download_and_extract("https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.gz", "third_party/boost", sub_path="boost")
+          except Exception as e:
+              print(f"Skip boost upgrade: {e}")
+          EOF
+
+          # D. 准备依赖安装目录
           mkdir -p build/release/dependencies/lib build/release/dependencies/include
           DEP_PREFIX="$PWD/build/release/dependencies"
 
-          # D. 预编译静态 OpenSSL (纯净参数，0路径泄露)
+          # E. 预编译静态 OpenSSL (纯净参数，0路径泄露)
           cd third_party/openssl
           ./Configure mingw64 -static \
             --prefix=/ \
@@ -156,7 +207,7 @@ jobs:
           make -j$(nproc) && make DESTDIR="$DEP_PREFIX" install_sw
           cd ../..
 
-          # E. 极速 CMake 编译静态 nghttp2 (加入 -DNDEBUG 彻底消除 assert 路径泄露)
+          # F. 极速 CMake 编译静态 nghttp2
           cd third_party/nghttp2
           cmake -B build-nghttp2 -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
@@ -176,39 +227,7 @@ jobs:
           cp -f "$DEP_PREFIX/lib/libnghttp2_static.a" "$DEP_PREFIX/lib/libnghttp2.a" 2>/dev/null || true
           cd ../..
 
-          # F. 自动升级并极速编译最新 SQLite (3.53.4)
-          python3 - <<'EOF'
-          import urllib.request, os, tarfile, shutil
-          from pathlib import Path
-
-          def download_and_extract(url, target_dir):
-              print(f"Upgrading {target_dir} from {url} ...")
-              archive_name = "temp_archive.tar.gz"
-              req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-              with urllib.request.urlopen(req) as resp, open(archive_name, 'wb') as f:
-                  f.write(resp.read())
-              
-              shutil.rmtree(target_dir, ignore_errors=True)
-              os.makedirs(target_dir, exist_ok=True)
-              with tarfile.open(archive_name) as tar:
-                  for member in tar.getmembers():
-                      p = Path(member.name)
-                      if len(p.parts) > 1:
-                          member.name = str(Path(*p.parts[1:]))
-                          tar.extract(member, path=target_dir)
-              os.remove(archive_name)
-
-          try:
-              download_and_extract("https://github.com/libexpat/libexpat/releases/download/R_2_8_3/expat-2.8.3.tar.gz", "third_party/expat")
-          except Exception as e:
-              print(f"Skip expat upgrade: {e}")
-
-          try:
-              download_and_extract("https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz", "third_party/sqlite")
-          except Exception as e:
-              print(f"Skip sqlite upgrade: {e}")
-          EOF
-
+          # G. 极速编译最新 SQLite (3.53.4)
           cd third_party/sqlite
           $CC $RELEASE_CFLAGS -g0 -DNDEBUG -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
           $AR rcs "$DEP_PREFIX/lib/libsqlite3.a" sqlite3.o
@@ -217,7 +236,7 @@ jobs:
           rm -f sqlite3.o
           cd ../..
 
-          # G. 修复 Dependencies.cmake：直通 openssl, nghttp2, sqlite
+          # H. 修复 Dependencies.cmake：直通 openssl, nghttp2, sqlite
           python3 - <<'EOF'
           from pathlib import Path
           import re
@@ -227,6 +246,20 @@ jobs:
               s = re.sub(r'ExternalProject_Add\(openssl_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(openssl_project)', s)
               s = re.sub(r'ExternalProject_Add\(nghttp2_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(nghttp2_project)', s)
               s = re.sub(r'ExternalProject_Add\(sqlite_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(sqlite_project)', s)
+              p.write_text(s)
+          EOF
+
+          # I. 同步更新 -v 字符串中的版本号
+          python3 - <<'EOF'
+          from pathlib import Path
+          import re
+          p = Path("src/FeatureConfig.cc")
+          if p.exists():
+              s = p.read_text()
+              s = re.sub(r'expat/[0-9.]+', 'expat/2.8.3', s)
+              s = re.sub(r'sqlite3/[0-9.]+', 'sqlite3/3.53.4', s)
+              s = re.sub(r'OpenSSL/[0-9.]+', 'OpenSSL/3.4.1', s)
+              s = re.sub(r'Boost/[0-9.]+', 'Boost/1.87.0', s)
               p.write_text(s)
           EOF
 

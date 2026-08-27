@@ -117,8 +117,8 @@ jobs:
         working-directory: aria2-next
         run: packaging/scripts/verify-runner-tools windows-x86_64
 
-      # ---------- 4. 自动升级依赖与功能补丁 ----------
-      - name: Upgrade third_party dependencies & patch options
+      # ---------- 4. 预编译静态 OpenSSL 并打通 SuperBuild ----------
+      - name: Pre-build OpenSSL & patch SuperBuild
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
@@ -137,32 +137,36 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 核心彻底修复：重构 Dependencies.cmake 中 openssl_project 的构建定义
+          # C. 预先将静态 OpenSSL 编译并安装到 SuperBuild 依赖目录 (避免内部 Perl 错误)
+          mkdir -p build/release/dependencies
+          DEP_PREFIX="$PWD/build/release/dependencies"
+          
+          cd third_party/openssl
+          ./Configure mingw64 -static \
+            --prefix="$DEP_PREFIX" \
+            --libdir=lib \
+            --cross-compile-prefix=x86_64-w64-mingw32- \
+            CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib RC=x86_64-w64-mingw32-windres \
+            no-shared no-tests no-docs no-apps no-asm \
+            --with-zlib-include="$DEP_PREFIX/include" \
+            --with-zlib-lib="$DEP_PREFIX/lib/libz.a"
+          make -j$(nproc) && make install_sw
+          cd ../..
+
+          # D. 将 SuperBuild 中的 openssl_project 替换为虚拟直通目标
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/superbuild/Dependencies.cmake")
           if p.exists():
               s = p.read_text()
-              
-              # 1. 修正 OpenSSL 配置参数 (指定绝对 prefix，避免 DESTDIR 路径错误，加入 no-asm)
-              s = s.replace('--prefix=/', '--prefix=${ARIA2_DEPENDENCY_PREFIX}')
-              s = s.replace('no-autoload-config', 'no-autoload-config\n      no-asm\n      --cross-compile-prefix=x86_64-w64-mingw32-')
-              
-              # 2. 为 BUILD_COMMAND 和 INSTALL_COMMAND 补齐 ARIA2_OPENSSL_ENV 环境变量
-              s = s.replace('BUILD_COMMAND\n    ${ARIA2_MAKE_EXECUTABLE} -j${ARIA2_BUILD_JOBS}', 
-                            'BUILD_COMMAND\n    ${CMAKE_COMMAND} -E env ${ARIA2_OPENSSL_ENV} ${ARIA2_MAKE_EXECUTABLE} -j${ARIA2_BUILD_JOBS}')
-              
-              s = s.replace('INSTALL_COMMAND\n    ${ARIA2_MAKE_EXECUTABLE}\n      DESTDIR=${ARIA2_DEPENDENCY_PREFIX} install_sw', 
-                            'INSTALL_COMMAND\n    ${CMAKE_COMMAND} -E env ${ARIA2_OPENSSL_ENV} ${ARIA2_MAKE_EXECUTABLE} install_sw')
-              
-              # 3. 过滤传递给 OpenSSL 的 ThinLTO 参数
-              s = s.replace('list(APPEND ARIA2_OPENSSL_CONFIG_ARGS ${ARIA2_OPENSSL_C_FLAGS})', 
-                            'list(FILTER ARIA2_OPENSSL_C_FLAGS EXCLUDE REGEX "^-flto")\n  list(APPEND ARIA2_OPENSSL_CONFIG_ARGS ${ARIA2_OPENSSL_C_FLAGS})')
-              
+              # 替换 openssl_project 内部命令为直接通过
+              import re
+              s = re.sub(r'ExternalProject_Add\(openssl_project[\s\S]*?TEST_COMMAND ""\)', 
+                         'add_custom_target(openssl_project)', s)
               p.write_text(s)
           EOF
 
-          # D. 自动升级 Expat 到 2.8.3
+          # E. 自动升级 Expat 到 2.8.3 与 SQLite 到 3.53.4
           python3 - <<'EOF'
           import urllib.request, os, tarfile, shutil
           from pathlib import Path

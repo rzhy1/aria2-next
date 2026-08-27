@@ -137,7 +137,7 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 自动下载并覆盖升级所有依赖项源码 (Expat, SQLite, OpenSSL 4.0.2, Boost 1.87.0)
+          # C. 自动下载并覆盖升级所有依赖项源码 (Expat, SQLite, OpenSSL 4.0.2, Boost 1.92.0)
           python3 - <<'EOF'
           import urllib.request, os, tarfile, shutil
           from pathlib import Path
@@ -235,16 +235,24 @@ jobs:
           rm -f sqlite3.o
           cd ../..
 
-          # H. 修复 Dependencies.cmake：直通 openssl, nghttp2, sqlite
+          # H. 修复 Dependencies.cmake：直通三方库，并将 curl 的 TLS 后端从 Schannel 切换为高并发无锁的 OpenSSL
           python3 - <<'EOF'
           from pathlib import Path
           import re
           p = Path("cmake/superbuild/Dependencies.cmake")
           if p.exists():
               s = p.read_text()
+              
+              # 1. 直通已预编译的静态库
               s = re.sub(r'ExternalProject_Add\(openssl_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(openssl_project)', s)
               s = re.sub(r'ExternalProject_Add\(nghttp2_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(nghttp2_project)', s)
               s = re.sub(r'ExternalProject_Add\(sqlite_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(sqlite_project)', s)
+              
+              # 2. 核心切换：将 Windows 下 curl 的 TLS 后端改为 OpenSSL (解决并发握手报错)
+              old_win32_curl = "if(WIN32)\n  set(ARIA2_CURL_TLS_ARGS\n    -DCURL_USE_OPENSSL=OFF\n    -DCURL_USE_SCHANNEL=ON)\n  set(ARIA2_CURL_TRUST_DEFINE USE_SCHANNEL)\n  list(REMOVE_ITEM ARIA2_CURL_DEPENDENCIES openssl_project)"
+              new_win32_curl = "if(WIN32)\n  set(ARIA2_CURL_TLS_ARGS\n    -DCURL_USE_OPENSSL=ON\n    -DCURL_USE_SCHANNEL=OFF\n    -DCURL_USE_LIBPSL=OFF\n    -DOPENSSL_ROOT_DIR=${ARIA2_DEPENDENCY_PREFIX}\n    -DOPENSSL_USE_STATIC_LIBS=ON\n    -DOPENSSL_INCLUDE_DIR=${ARIA2_DEPENDENCY_PREFIX}/include\n    -DOPENSSL_CRYPTO_LIBRARY=${ARIA2_DEPENDENCY_PREFIX}/lib/libcrypto.a\n    -DOPENSSL_SSL_LIBRARY=${ARIA2_DEPENDENCY_PREFIX}/lib/libssl.a)\n  set(ARIA2_CURL_TRUST_DEFINE USE_OPENSSL)"
+              s = s.replace(old_win32_curl, new_win32_curl)
+
               p.write_text(s)
           EOF
 

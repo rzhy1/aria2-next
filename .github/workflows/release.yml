@@ -137,18 +137,25 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 彻底修复 Dependencies.cmake 中 OpenSSL 交叉编译的环境变量与命令
+          # C. 核心彻底修复：重构 Dependencies.cmake 中 openssl_project 的构建定义
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("cmake/superbuild/Dependencies.cmake")
           if p.exists():
               s = p.read_text()
               
-              # 1. 为 Windows x86_64 添加正确的 cross-compile 配置
-              s = s.replace('set(ARIA2_OPENSSL_TARGET mingw64)', 
-                            'set(ARIA2_OPENSSL_TARGET mingw64)\n    list(APPEND ARIA2_OPENSSL_CONFIG_ARGS --cross-compile-prefix=x86_64-w64-mingw32- no-asm no-async)')
-
-              # 2. 清理传递给 OpenSSL 的 LTO 参数，防止 OpenSSL 内部归档失败
+              # 1. 修正 OpenSSL 配置参数 (指定绝对 prefix，避免 DESTDIR 路径错误，加入 no-asm)
+              s = s.replace('--prefix=/', '--prefix=${ARIA2_DEPENDENCY_PREFIX}')
+              s = s.replace('no-autoload-config', 'no-autoload-config\n      no-asm\n      --cross-compile-prefix=x86_64-w64-mingw32-')
+              
+              # 2. 为 BUILD_COMMAND 和 INSTALL_COMMAND 补齐 ARIA2_OPENSSL_ENV 环境变量
+              s = s.replace('BUILD_COMMAND\n    ${ARIA2_MAKE_EXECUTABLE} -j${ARIA2_BUILD_JOBS}', 
+                            'BUILD_COMMAND\n    ${CMAKE_COMMAND} -E env ${ARIA2_OPENSSL_ENV} ${ARIA2_MAKE_EXECUTABLE} -j${ARIA2_BUILD_JOBS}')
+              
+              s = s.replace('INSTALL_COMMAND\n    ${ARIA2_MAKE_EXECUTABLE}\n      DESTDIR=${ARIA2_DEPENDENCY_PREFIX} install_sw', 
+                            'INSTALL_COMMAND\n    ${CMAKE_COMMAND} -E env ${ARIA2_OPENSSL_ENV} ${ARIA2_MAKE_EXECUTABLE} install_sw')
+              
+              # 3. 过滤传递给 OpenSSL 的 ThinLTO 参数
               s = s.replace('list(APPEND ARIA2_OPENSSL_CONFIG_ARGS ${ARIA2_OPENSSL_C_FLAGS})', 
                             'list(FILTER ARIA2_OPENSSL_C_FLAGS EXCLUDE REGEX "^-flto")\n  list(APPEND ARIA2_OPENSSL_CONFIG_ARGS ${ARIA2_OPENSSL_C_FLAGS})')
               

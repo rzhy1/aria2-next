@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   build-windows-x64:
-    name: Build Windows x64 (Official SuperBuild)
+    name: Build Windows x64 (Official MinGW-GCC)
     runs-on: ubuntu-26.04
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -32,9 +32,10 @@ jobs:
       ARIA2_BUILD_PROFILE: release
       CMAKE_BUILD_TYPE: Release
       STRIP_BINARY: true
-      RELEASE_CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w"
-      RELEASE_CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -ftemplate-depth=1024"
-      RELEASE_LDFLAGS: "-static -static-libgcc -Wl,--gc-sections -flto=thin"
+      # 官方标准体积优化参数
+      RELEASE_CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto -g0"
+      RELEASE_CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto -g0"
+      RELEASE_LDFLAGS: "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections -flto"
 
     steps:
       # ---------- 1. 上游更新检测 ----------
@@ -67,7 +68,7 @@ jobs:
             echo "$NEW_SHA" > .cache/last_sha
           fi
 
-      # ---------- 2. 检出与安装 LLVM-MinGW 工具链 ----------
+      # ---------- 2. 检出仓库与安装官方 MinGW 构建工具 ----------
       - name: Checkout own repository
         if: steps.check.outputs.skip != 'true'
         uses: actions/checkout@v7
@@ -83,28 +84,22 @@ jobs:
           submodules: recursive
           path: aria2-next
 
-      - name: Install build tools & LLVM-MinGW
+      - name: Install build tools (MinGW-GCC)
         if: steps.check.outputs.skip != 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends make cmake ninja-build perl curl tar binutils jq dpkg-dev
+          sudo apt-get install -y --no-install-recommends \
+            make cmake ninja-build perl curl tar binutils jq dpkg-dev \
+            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
 
-          cd aria2-next
-          . packaging/dependencies.env
-          . packaging/scripts/common.sh
-          curl_fetch "$LLVM_MINGW_URL" "$LLVM_MINGW_ARCHIVE" "$LLVM_MINGW_SHA256"
-          tar xf "$LLVM_MINGW_ARCHIVE"
-          echo "$PWD/llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64/bin" >> $GITHUB_PATH
-          cd ..
-
-      # ---------- 3. 配置工具链环境变量 ----------
+      # ---------- 3. 配置 MinGW-GCC 工具链环境变量 ----------
       - name: Configure toolchain
         if: steps.check.outputs.skip != 'true'
         run: |
           prefix=x86_64-w64-mingw32
           {
-            echo "CC=${prefix}-clang"
-            echo "CXX=${prefix}-clang++"
+            echo "CC=${prefix}-gcc-posix"
+            echo "CXX=${prefix}-g++-posix"
             echo "RC=${prefix}-windres"
             echo "AR=${prefix}-ar"
             echo "RANLIB=${prefix}-ranlib"
@@ -117,7 +112,7 @@ jobs:
         working-directory: aria2-next
         run: packaging/scripts/verify-runner-tools windows-x86_64
 
-      # ---------- 4. 自动升级依赖与功能补丁 ----------
+      # ---------- 4. 动态升级依赖与功能补丁 ----------
       - name: Upgrade third_party dependencies & patch options
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -137,20 +132,7 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 彻底修复 SuperBuild 中 OpenSSL 在 Clang 下的交叉编译配置
-          python3 - <<'EOF'
-          from pathlib import Path
-          p = Path("cmake/superbuild/Dependencies.cmake")
-          if p.exists():
-              s = p.read_text()
-              # 替换 OpenSSL 的 Configure 调用，显式注入 cross 前缀与 no-asm
-              old_conf = "${PERL_EXECUTABLE} <SOURCE_DIR>/Configure\n      ${ARIA2_OPENSSL_TARGET}"
-              new_conf = "${PERL_EXECUTABLE} <SOURCE_DIR>/Configure\n      ${ARIA2_OPENSSL_TARGET}\n      --cross-compile-prefix=x86_64-w64-mingw32-\n      CC=clang\n      CXX=clang++\n      AR=llvm-ar\n      RANLIB=llvm-ranlib\n      RC=x86_64-w64-mingw32-windres\n      no-asm"
-              s = s.replace(old_conf, new_conf)
-              p.write_text(s)
-          EOF
-
-          # D. 自动下载最新版本源码直接覆盖 third_party/ 对应目录
+          # C. 自动下载最新版本源码直接覆盖 third_party/ 对应目录
           python3 - <<'EOF'
           import urllib.request, json, os, tarfile, shutil
           from pathlib import Path

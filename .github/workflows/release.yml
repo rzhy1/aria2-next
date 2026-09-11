@@ -284,14 +284,27 @@ jobs:
           EOF
 
       # ---------- 5. 官方 SuperBuild 一键极速构建 ----------
-      - name: Fix GPAC mingw
+      - name: Patch Media.cmake for GPAC cross compile
+        if: steps.check.outputs.skip != 'true'
+        working-directory: aria2-next
         run: |
-          {
-            echo "CC=x86_64-w64-mingw32-clang"
-            echo "CXX=x86_64-w64-mingw32-clang++"
-            echo "CPPFLAGS=--target=x86_64-w64-mingw32"
-            echo "CFLAGS=--target=x86_64-w64-mingw32"
-          } >> $GITHUB_ENV
+          python3 - <<'EOF'
+          from pathlib import Path
+      
+          p = Path("cmake/superbuild/Media.cmake")
+          s = p.read_text()
+      
+          old = '''--enable-threads --enable-network --enable-net-cap --enable-log'''
+      
+          new = '''--enable-threads --enable-network --enable-net-cap --enable-log
+          --cpu=x86_64
+          --target=x86_64-w64-mingw32'''
+      
+          if old in s:
+              s=s.replace(old,new)
+      
+          p.write_text(s)
+          EOF
       - name: Build release binary
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next

@@ -341,6 +341,31 @@ jobs:
           s = s.replace(old, new)
           p.write_text(s)
           EOF
+          # 所有目标添加 __STDC_CONSTANT_MACROS 编译定义
+          python3 - <<'EOF'
+          from pathlib import Path
+          import re
+
+          p = Path("CMakeLists.txt")
+          if not p.exists():
+              raise SystemExit("CMakeLists.txt not found")
+
+          s = p.read_text()
+          if "__STDC_CONSTANT_MACROS" in s:
+              print("CMakeLists.txt already defines __STDC_CONSTANT_MACROS; skip")
+          else:
+              # 在第一个 project(...) 之后插入 add_compile_definitions
+              new_s, n = re.subn(
+                  r'(project\s*\([^)]*\))',
+                  r'\1\nadd_compile_definitions(__STDC_CONSTANT_MACROS)',
+                  s, count=1
+              )
+              if n == 0:
+                  # 没有 project() 就在文件开头加
+                  new_s = "add_compile_definitions(__STDC_CONSTANT_MACROS)\n" + s
+              p.write_text(new_s)
+              print("Patched CMakeLists.txt - added __STDC_CONSTANT_MACROS")
+          EOF
       - name: Build release binary
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next

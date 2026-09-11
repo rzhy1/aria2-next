@@ -32,9 +32,7 @@ jobs:
       ARIA2_BUILD_PROFILE: release
       CMAKE_BUILD_TYPE: Release
       STRIP_BINARY: true
-      RELEASE_CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error"
-      RELEASE_CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
-      RELEASE_LDFLAGS: "-static -static-libgcc -Wl,--gc-sections -flto=thin"
+
 
     steps:
       # ---------- 1. 上游更新检测 ----------

@@ -284,13 +284,16 @@ jobs:
           EOF
 
       # ---------- 5. 官方 SuperBuild 一键极速构建 ----------
+      - name: Force clang warning policy
+        working-directory: aria2-next
+        run: |
+          export CXXFLAGS="$CXXFLAGS -Wno-thread-safety-negative -Wno-undef"
+          echo "CXXFLAGS=$CXXFLAGS" >> $GITHUB_ENV
       - name: Build release binary
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         shell: bash
         run: |
-          export VERBOSE=1
-          export CMAKE_VERBOSE_MAKEFILE=ON
           bash -x packaging/scripts/build-release windows
 
       # ---------- 6. 打包与发布 ----------

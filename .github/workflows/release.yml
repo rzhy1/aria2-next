@@ -288,21 +288,45 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 修复 GPAC 在 Linux 交叉编译时头文件大小写问题
+          # 1. 修复 GPAC 在 Linux 交叉编译时头文件大小写问题
           find third_party/gpac -type f \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) -print0 | \
             xargs -0 -r sed -i \
               -e 's/WinSock2\.h/winsock2.h/g' \
               -e 's/Windows\.h/windows.h/g' \
               -e 's/WS2tcpip\.h/ws2tcpip.h/g'
 
+          # 2. 修复 GPAC setup.h 中禁用的 strcpy/strncpy/strcat/strncat 宏
+          #    这些宏会污染 aria2 的 <cstring> 头文件，导致 using ::strcpy 展开失败
           python3 - <<'EOF'
           from pathlib import Path
-      
+          import re
+
+          p = Path("third_party/gpac/include/gpac/setup.h")
+          if not p.exists():
+              raise SystemExit("gpac/setup.h not found")
+
+          s = p.read_text()
+          s2 = re.sub(
+              r'#ifndef\s+GPAC_ALLOW_UNSAFE_STRFUNC',
+              '#if 0',
+              s
+          )
+          if s2 == s:
+              print("Pattern '#ifndef GPAC_ALLOW_UNSAFE_STRFUNC' not found; skip")
+          else:
+              p.write_text(s2)
+              print("Patched gpac/setup.h - disabled strcpy/strcat #error macros")
+          EOF
+
+          # 3. 原有的 Media.cmake 补丁
+          python3 - <<'EOF'
+          from pathlib import Path
+
           p = Path("cmake/superbuild/Media.cmake")
           s = p.read_text()
-      
+
           old = '''BUILD_COMMAND ${media_environment} ${ARIA2_MAKE_EXECUTABLE} -C src -j${ARIA2_BUILD_JOBS} lib'''
-      
+
           new = '''BUILD_COMMAND ${media_environment}
             CC=${CMAKE_C_COMPILER}
             CXX=${CMAKE_CXX_COMPILER}
@@ -310,12 +334,11 @@ jobs:
             CPPFLAGS="${media_cflags}"
             LDFLAGS="${media_ldflags}"
             ${ARIA2_MAKE_EXECUTABLE} -C src -j${ARIA2_BUILD_JOBS} lib'''
-      
+
           if old not in s:
               raise SystemExit("Media.cmake pattern not found")
-      
-          s=s.replace(old,new)
-      
+
+          s = s.replace(old, new)
           p.write_text(s)
           EOF
       - name: Build release binary

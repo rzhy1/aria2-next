@@ -288,6 +288,13 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
+          # 修复 GPAC 在 Linux 交叉编译时头文件大小写问题
+          find third_party/gpac -type f \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) -print0 | \
+            xargs -0 -r sed -i \
+              -e 's/WinSock2\.h/winsock2.h/g' \
+              -e 's/Windows\.h/windows.h/g' \
+              -e 's/WS2tcpip\.h/ws2tcpip.h/g'
+
           python3 - <<'EOF'
           from pathlib import Path
       

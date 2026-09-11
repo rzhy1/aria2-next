@@ -286,10 +286,12 @@ jobs:
       # ---------- 5. 官方 SuperBuild 一键极速构建 ----------
       - name: Fix GPAC mingw
         run: |
-          export CPPFLAGS="--target=x86_64-w64-mingw32"
-          export CFLAGS="--target=x86_64-w64-mingw32"
-          echo "CPPFLAGS=$CPPFLAGS" >> $GITHUB_ENV
-          echo "CFLAGS=$CFLAGS" >> $GITHUB_ENV
+          {
+            echo "CC=x86_64-w64-mingw32-clang"
+            echo "CXX=x86_64-w64-mingw32-clang++"
+            echo "CPPFLAGS=--target=x86_64-w64-mingw32"
+            echo "CFLAGS=--target=x86_64-w64-mingw32"
+          } >> $GITHUB_ENV
       - name: Build release binary
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next

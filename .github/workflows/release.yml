@@ -316,8 +316,14 @@ jobs:
         working-directory: aria2-next
         shell: bash
         run: |
-          bash -x packaging/scripts/build-release windows
+          bash -x packaging/scripts/build-release windows 2>&1 | tee build.log
 
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log
+          path: aria2-next/build.log
       # ---------- 6. 打包与发布 ----------
       - name: Package binary
         if: steps.check.outputs.skip != 'true'

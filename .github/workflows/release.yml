@@ -284,14 +284,14 @@ jobs:
           EOF
 
       # ---------- 5. 官方 SuperBuild 一键极速构建 ----------
-      - name: Enable verbose build
-        run: |
-          export VERBOSE=1
-          export NINJA_STATUS="[ %f/%t ] "
       - name: Build release binary
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
-        run: packaging/scripts/build-release windows
+        shell: bash
+        run: |
+          export VERBOSE=1
+          export CMAKE_VERBOSE_MAKEFILE=ON
+          bash -x packaging/scripts/build-release windows
 
       # ---------- 6. 打包与发布 ----------
       - name: Package binary

@@ -284,18 +284,10 @@ jobs:
           EOF
 
       # ---------- 5. 官方 SuperBuild 一键极速构建 ----------
-      - name: Debug build environment
-        working-directory: aria2-next
+      - name: Enable verbose build
         run: |
-          echo CC=$CC
-          echo CXX=$CXX
-          echo AR=$AR
-          echo RANLIB=$RANLIB
-      
-          which x86_64-w64-mingw32-ar
-          which x86_64-w64-mingw32-ranlib
-      
-          x86_64-w64-mingw32-ar --version
+          export VERBOSE=1
+          export NINJA_STATUS="[ %f/%t ] "
       - name: Build release binary
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next

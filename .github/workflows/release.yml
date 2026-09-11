@@ -123,7 +123,7 @@ jobs:
         working-directory: aria2-next
         run: |
           # A. 1K 超小分片大小补丁
-          sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/OptionHandlerFactory.cc || true
+          sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src\options\StreamOptions.cc || true
 
           # B. 强制 WinConsoleFile 默认支持颜色
           python3 - <<'EOF'

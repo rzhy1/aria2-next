@@ -309,11 +309,11 @@ jobs:
           EOF
 
       # ---------- 5. 官方 SuperBuild 一键极速构建 ----------
-      - name: Patch Media.cmake for GPAC mingw
+      - name: Patch GPAC for mingw and optimize FFmpeg
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. 修复 GPAC Linux 交叉编译大小写问题
+          # 修复 GPAC Windows 头文件大小写
           find third_party/gpac \
             -type f \
             \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) \
@@ -323,34 +323,57 @@ jobs:
               -e 's/Windows\.h/windows.h/g' \
               -e 's/WS2tcpip\.h/ws2tcpip.h/g'
 
-          # 2. 修改 GPAC configure 参数
-          python3 - <<'EOF'
+
+          # 修复 GPAC setup.h unsafe string 宏污染
+          python3 -c "
           from pathlib import Path
-          p = Path("cmake/superbuild/Media.cmake")
+          import re
+
+          p = Path('third_party/gpac/include/gpac/setup.h')
+
           if not p.exists():
-              raise SystemExit("Media.cmake not found")
+              raise SystemExit('gpac/setup.h not found')
+
           s = p.read_text()
 
-          # 增加 GPAC cross compile 参数
-          old = '''list(APPEND media_tool_args --target-os=${media_os}
-            --cpu=${media_arch})'''
-                  new = '''list(APPEND media_tool_args
-            --target-os=${media_os}
-            --cpu=${media_arch})
-        
-          if(CMAKE_C_COMPILER MATCHES "mingw")
-            list(APPEND media_tool_args
-              --host=x86_64-w64-mingw32
-              --cross-prefix=x86_64-w64-mingw32-)
-          endif()'''
+          s2 = re.sub(
+              r'#ifndef\s+GPAC_ALLOW_UNSAFE_STRFUNC',
+              '#if 0',
+              s
+          )
 
-          if old in s:
-              s = s.replace(old, new, 1)
-              print("Added GPAC cross compile arguments")
+          if s2 != s:
+              p.write_text(s2)
+              print('Patched gpac/setup.h')
           else:
-              print("GPAC target block not found")
-          p.write_text(s)
-          EOF
+              print('No patch required')
+          "
+
+
+          # FFmpeg 开启体积优化
+          python3 -c "
+          from pathlib import Path
+
+          p = Path('cmake/superbuild/Media.cmake')
+
+          if not p.exists():
+              raise SystemExit('Media.cmake not found')
+
+          s = p.read_text()
+
+          if '--enable-small' not in s:
+              old = '--enable-pic --enable-static'
+              new = '--enable-pic --enable-static\n    --enable-small'
+
+              if old in s:
+                  s = s.replace(old, new, 1)
+                  p.write_text(s)
+                  print('Added FFmpeg --enable-small')
+              else:
+                  raise SystemExit('FFmpeg configure anchor not found')
+          else:
+              print('--enable-small already exists')
+          "
   
       - name: Build release binary
         if: steps.check.outputs.skip != 'true'

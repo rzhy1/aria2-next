@@ -312,77 +312,95 @@ jobs:
       - name: Patch Media.cmake for GPAC mingw
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
-        run: |
-          # 1. 修复 GPAC 在 Linux 交叉编译时头文件大小写问题
-          find third_party/gpac -type f \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) -print0 | \
+        run: | 
+          find third_party/gpac \
+            -type f \
+            \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) \
+            -print0 | \
             xargs -0 -r sed -i \
               -e 's/WinSock2\.h/winsock2.h/g' \
               -e 's/Windows\.h/windows.h/g' \
               -e 's/WS2tcpip\.h/ws2tcpip.h/g'
-
-          # 2. 修复 GPAC setup.h 中禁用的 strcpy/strncpy/strcat/strncat 宏
-          #    这些宏会污染 aria2 的 <cstring> 头文件，导致 using ::strcpy 展开失败
+          # 2. 修改 Media.cmake
           python3 - <<'EOF'
           from pathlib import Path
-          import re
 
-          p = Path("third_party/gpac/include/gpac/setup.h")
-          if not p.exists():
-              raise SystemExit("gpac/setup.h not found")
-
-          s = p.read_text()
-          s2 = re.sub(
-              r'#ifndef\s+GPAC_ALLOW_UNSAFE_STRFUNC',
-              '#if 0',
-              s
-          )
-          if s2 == s:
-              print("Pattern '#ifndef GPAC_ALLOW_UNSAFE_STRFUNC' not found; skip")
-          else:
-              p.write_text(s2)
-              print("Patched gpac/setup.h - disabled strcpy/strcat #error macros")
-          EOF
-
-          # 3. Media.cmake 补丁：GPAC 交叉编译参数 + FFmpeg 体积优化
-          python3 - <<'EOF'
-          from pathlib import Path
-          import re
 
           p = Path("cmake/superbuild/Media.cmake")
+
+          if not p.exists():
+              raise SystemExit("Media.cmake not found")
           s = p.read_text()
-
-          # 3a. GPAC 的 BUILD_COMMAND 补丁（保持原样）
+          # ============================================================
+          # GPAC BUILD_COMMAND
+          # ============================================================
           old = '''BUILD_COMMAND ${media_environment} ${ARIA2_MAKE_EXECUTABLE} -C src -j${ARIA2_BUILD_JOBS} lib'''
-
           new = '''BUILD_COMMAND ${media_environment}
             CC=${CMAKE_C_COMPILER}
             CXX=${CMAKE_CXX_COMPILER}
-            CFLAGS="${media_cflags}"
-            CPPFLAGS="${media_cflags}"
+            CFLAGS="${media_cflags} -DGPAC_ALLOW_UNSAFE_STRFUNC"
+            CPPFLAGS="${media_cflags} -DGPAC_ALLOW_UNSAFE_STRFUNC"
             LDFLAGS="${media_ldflags}"
             ${ARIA2_MAKE_EXECUTABLE} -C src -j${ARIA2_BUILD_JOBS} lib'''
-
           if old in s:
-              s = s.replace(old, new)
+              s = s.replace(old, new, 1)
+              print("Patched GPAC BUILD_COMMAND")
           else:
               print("WARN: GPAC BUILD_COMMAND pattern not found")
-
-          # 3b. FFmpeg configure 加 --enable-small（体积优先）
-          #     匹配 --enable-static 或 --disable-shared 之后追加
+          # ============================================================
+          # FFmpeg --enable-small
+          # ============================================================
           if "--enable-small" not in s:
-              # 尝试多种插入点
-              inserted = False
-              for anchor in ["--enable-static", "--disable-shared", "--disable-programs"]:
-                  if anchor in s:
-                      s = s.replace(anchor, anchor + "\n    --enable-small", 1)
-                      inserted = True
-                      print(f"Inserted --enable-small after {anchor}")
-                      break
-              if not inserted:
-                  print("WARN: could not locate FFmpeg configure anchor; check Media.cmake manually")
+              ffmpeg_pos = s.lower().find(
+                  "externalproject_add(ffmpeg"
+              )
+              if ffmpeg_pos == -1:
+                  print(
+                      "WARN: FFmpeg ExternalProject_Add not found"
+                  )
+              else:
+                  next_project = s.find(
+                      "ExternalProject_Add(",
+                      ffmpeg_pos + 10
+                  )
+                  if next_project == -1:
+                      ffmpeg_block = s[ffmpeg_pos:]
+                  else:
+                      ffmpeg_block = s[
+                          ffmpeg_pos:next_project
+                      ]
+                  inserted = False
+                  for anchor in [
+                      "--enable-static",
+                      "--disable-shared",
+                      "--disable-programs"
+                  ]:
+                      if anchor in ffmpeg_block:
+                          patched_block = ffmpeg_block.replace(
+                              anchor,
+                              anchor + "\n    --enable-small",
+                              1
+                          )
+                          s = (
+                              s[:ffmpeg_pos]
+                              + patched_block
+                              + s[
+                                  ffmpeg_pos + len(ffmpeg_block):
+                              ]
+                          )
+                          inserted = True
+                          print(
+                              f"Inserted --enable-small after {anchor}"
+                          )
+                          break
+                  if not inserted:
+                      print(
+                          "WARN: FFmpeg configure anchor not found"
+                      )
           else:
-              print("--enable-small already present")
-
+              print(
+                  "--enable-small already present"
+              )
           p.write_text(s)
           EOF
   

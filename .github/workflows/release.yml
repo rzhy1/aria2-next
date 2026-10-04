@@ -137,7 +137,7 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 自动下载并覆盖升级所有依赖项源码 (Expat, SQLite, OpenSSL, Boost) 并更新 libtorrent 版本
+          # C. 自动下载并覆盖升级所有依赖项源码 (Expat, SQLite, OpenSSL, Boost, libtorrent)
           python3 - <<'EOF'
           import urllib.request, os, tarfile, shutil, re
           from pathlib import Path
@@ -186,7 +186,16 @@ jobs:
           except Exception as e:
               print(f"Skip boost upgrade: {e}")
 
-          # 5. 更新 dependencies.env 中的 libtorrent 版本到 2.1.2
+          # 5. 自动升级 libtorrent 到 2.1.2（覆盖 third_party/libtorrent）
+          try:
+              download_and_extract(
+                  "https://github.com/arvidn/libtorrent/releases/download/v2.1.2/libtorrent-rasterbar-2.1.2.tar.gz",
+                  "third_party/libtorrent"
+              )
+          except Exception as e:
+              print(f"Skip libtorrent upgrade: {e}")
+
+          # 6. 同步更新 dependencies.env 中的 libtorrent 版本号（保持声明一致）
           env_file = Path("packaging/dependencies.env")
           if env_file.exists():
               s = env_file.read_text()

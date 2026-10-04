@@ -36,6 +36,15 @@ jobs:
       RELEASE_CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
       RELEASE_LDFLAGS: "-static -static-libgcc -Wl,--gc-sections -flto=thin"
 
+      # ========== 依赖版本号（统一在此修改）==========
+      EXPAT_VERSION: "2.8.5"
+      SQLITE_VERSION: "3.53.4"
+      SQLITE_VERSION_NUM: "3530400"
+      SQLITE_URL_YEAR: "2026"
+      OPENSSL_VERSION: "4.0.3"
+      BOOST_VERSION: "1.92.0"
+      LIBTORRENT_VERSION: "2.1.2"
+
     steps:
       # ---------- 1. 上游更新检测 ----------
       - name: Restore upstream SHA cache
@@ -45,7 +54,7 @@ jobs:
           key: upstream-sha-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             upstream-sha-${{ runner.os }}-
-    
+
       - name: Check upstream changes
         id: check
         run: |
@@ -142,13 +151,29 @@ jobs:
           import urllib.request, os, tarfile, shutil, re
           from pathlib import Path
 
+          # 从环境变量读取版本号（统一在 workflow env 段修改）
+          EXPAT_VERSION      = os.environ["EXPAT_VERSION"]
+          SQLITE_VERSION     = os.environ["SQLITE_VERSION"]
+          SQLITE_VERSION_NUM = os.environ["SQLITE_VERSION_NUM"]
+          SQLITE_URL_YEAR    = os.environ["SQLITE_URL_YEAR"]
+          OPENSSL_VERSION    = os.environ["OPENSSL_VERSION"]
+          BOOST_VERSION      = os.environ["BOOST_VERSION"]
+          LIBTORRENT_VERSION = os.environ["LIBTORRENT_VERSION"]
+
+          # 自动拼出下载 URL
+          EXPAT_URL      = f"https://github.com/libexpat/libexpat/releases/download/R_{EXPAT_VERSION.replace('.', '_')}/expat-{EXPAT_VERSION}.tar.gz"
+          SQLITE_URL     = f"https://www.sqlite.org/{SQLITE_URL_YEAR}/sqlite-autoconf-{SQLITE_VERSION_NUM}.tar.gz"
+          OPENSSL_URL    = f"https://github.com/openssl/openssl/releases/download/openssl-{OPENSSL_VERSION}/openssl-{OPENSSL_VERSION}.tar.gz"
+          BOOST_URL      = f"https://archives.boost.io/release/{BOOST_VERSION}/source/boost_{BOOST_VERSION.replace('.', '_')}.tar.gz"
+          LIBTORRENT_URL = f"https://github.com/arvidn/libtorrent/releases/download/v{LIBTORRENT_VERSION}/libtorrent-rasterbar-{LIBTORRENT_VERSION}.tar.gz"
+
           def download_and_extract(url, target_dir, sub_path=None):
               print(f"Upgrading {target_dir} from {url} ...")
               archive_name = "temp_archive.tar.gz"
               req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
               with urllib.request.urlopen(req) as resp, open(archive_name, 'wb') as f:
                   f.write(resp.read())
-              
+
               shutil.rmtree(target_dir, ignore_errors=True)
               os.makedirs(target_dir, exist_ok=True)
               with tarfile.open(archive_name) as tar:
@@ -164,44 +189,45 @@ jobs:
 
           # 1. 自动升级 Expat
           try:
-              download_and_extract("https://github.com/libexpat/libexpat/releases/download/R_2_8_5/expat-2.8.5.tar.gz", "third_party/expat")
+              download_and_extract(EXPAT_URL, "third_party/expat")
           except Exception as e:
               print(f"Skip expat upgrade: {e}")
 
           # 2. 自动升级 SQLite
           try:
-              download_and_extract("https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz", "third_party/sqlite")
+              download_and_extract(SQLITE_URL, "third_party/sqlite")
           except Exception as e:
               print(f"Skip sqlite upgrade: {e}")
 
           # 3. 自动升级 OpenSSL
           try:
-              download_and_extract("https://github.com/openssl/openssl/releases/download/openssl-4.0.3/openssl-4.0.3.tar.gz", "third_party/openssl")
+              download_and_extract(OPENSSL_URL, "third_party/openssl")
           except Exception as e:
               print(f"Skip openssl upgrade: {e}")
 
           # 4. 自动升级 Boost
           try:
-              download_and_extract("https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.gz", "third_party/boost", sub_path="boost")
+              download_and_extract(BOOST_URL, "third_party/boost", sub_path="boost")
           except Exception as e:
               print(f"Skip boost upgrade: {e}")
 
-          # 5. 自动升级 libtorrent 到 2.1.2（覆盖 third_party/libtorrent）
+          # 5. 自动升级 libtorrent（覆盖 third_party/libtorrent）
           try:
-              download_and_extract(
-                  "https://github.com/arvidn/libtorrent/releases/download/v2.1.2/libtorrent-rasterbar-2.1.2.tar.gz",
-                  "third_party/libtorrent"
-              )
+              download_and_extract(LIBTORRENT_URL, "third_party/libtorrent")
           except Exception as e:
               print(f"Skip libtorrent upgrade: {e}")
 
-          # 6. 同步更新 dependencies.env 中的 libtorrent 版本号（保持声明一致）
+          # 6. 同步更新 dependencies.env 中的版本号声明（保持一致性）
           env_file = Path("packaging/dependencies.env")
           if env_file.exists():
               s = env_file.read_text()
-              s = re.sub(r'^LIBTORRENT_VERSION=.*$', 'LIBTORRENT_VERSION=2.1.2', s, flags=re.M)
+              s = re.sub(r'^EXPAT_VERSION=.*$',      f'EXPAT_VERSION={EXPAT_VERSION}',           s, flags=re.M)
+              s = re.sub(r'^SQLITE_VERSION=.*$',     f'SQLITE_VERSION={SQLITE_VERSION}',         s, flags=re.M)
+              s = re.sub(r'^OPENSSL_VERSION=.*$',    f'OPENSSL_VERSION={OPENSSL_VERSION}',       s, flags=re.M)
+              s = re.sub(r'^BOOST_VERSION=.*$',      f'BOOST_VERSION={BOOST_VERSION}',           s, flags=re.M)
+              s = re.sub(r'^LIBTORRENT_VERSION=.*$', f'LIBTORRENT_VERSION={LIBTORRENT_VERSION}', s, flags=re.M)
               env_file.write_text(s)
-              print("Updated LIBTORRENT_VERSION to 2.1.2 in packaging/dependencies.env")
+              print("Updated packaging/dependencies.env with new versions")
           else:
               print("WARNING: packaging/dependencies.env not found")
           EOF
@@ -210,7 +236,7 @@ jobs:
           mkdir -p build/release/dependencies/lib build/release/dependencies/include
           DEP_PREFIX="$PWD/build/release/dependencies"
 
-          # E. 预编译静态 OpenSSL 4.0.3
+          # E. 预编译静态 OpenSSL（版本由 OPENSSL_VERSION 决定）
           cd third_party/openssl
           ./Configure mingw64 -static \
             --prefix=/ \
@@ -245,7 +271,7 @@ jobs:
           cp -f "$DEP_PREFIX/lib/libnghttp2_static.a" "$DEP_PREFIX/lib/libnghttp2.a" 2>/dev/null || true
           cd ../..
 
-          # G. 极速编译最新 SQLite (3.53.4)
+          # G. 极速编译 SQLite（版本由 SQLITE_VERSION 决定）
           cd third_party/sqlite
           $CC $RELEASE_CFLAGS -g0 -DNDEBUG -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
           $AR rcs "$DEP_PREFIX/lib/libsqlite3.a" sqlite3.o
@@ -283,25 +309,32 @@ jobs:
               s = p.read_text()
               # 允许 OpenSSL 4.x / 任意版本通过校验
               s = s.replace('find_package(OpenSSL ${ARIA2_MIN_OPENSSL_VERSION}', 'find_package(OpenSSL')
-              s = s.replace('${ARIA2_MIN_LIBTORRENT_VERSION}', '')
               s = s.replace('${ARIA2_MIN_CURL_VERSION}', '')
               p.write_text(s)
           EOF
 
-          # J. 同步更新 -v 字符串中的版本号
+          # J. 同步更新 -v 字符串中的版本号（全部引用环境变量）
           python3 - <<'EOF'
           from pathlib import Path
-          import re
+          import re, os
+
+          EXPAT_VERSION      = os.environ["EXPAT_VERSION"]
+          SQLITE_VERSION     = os.environ["SQLITE_VERSION"]
+          OPENSSL_VERSION    = os.environ["OPENSSL_VERSION"]
+          BOOST_VERSION      = os.environ["BOOST_VERSION"]
+          LIBTORRENT_VERSION = os.environ["LIBTORRENT_VERSION"]
+
           p = Path("src/FeatureConfig.cc")
           if p.exists():
               s = p.read_text()
-              s = re.sub(r'expat/[0-9.]+', 'expat/2.8.5', s)
-              s = re.sub(r'sqlite3/[0-9.]+', 'sqlite3/3.53.4', s)
-              s = re.sub(r'OpenSSL/[0-9.]+', 'OpenSSL/4.0.3', s)
-              s = re.sub(r'Boost/[0-9.]+', 'Boost/1.92.0', s)
-              s = re.sub(r'libtorrent/[0-9.]+', 'libtorrent/2.1.2', s)
-              s = re.sub(r'LibtorrentRasterbar/[0-9.]+', 'libtorrent/2.1.2', s)
+              s = re.sub(r'expat/[0-9.]+',                f'expat/{EXPAT_VERSION}',             s)
+              s = re.sub(r'sqlite3/[0-9.]+',              f'sqlite3/{SQLITE_VERSION}',          s)
+              s = re.sub(r'OpenSSL/[0-9.]+',              f'OpenSSL/{OPENSSL_VERSION}',         s)
+              s = re.sub(r'Boost/[0-9.]+',                f'Boost/{BOOST_VERSION}',             s)
+              s = re.sub(r'libtorrent/[0-9.]+',           f'libtorrent/{LIBTORRENT_VERSION}',   s)
+              s = re.sub(r'LibtorrentRasterbar/[0-9.]+',  f'libtorrent/{LIBTORRENT_VERSION}',   s)
               p.write_text(s)
+              print(f"FeatureConfig.cc updated: expat/{EXPAT_VERSION}, sqlite3/{SQLITE_VERSION}, OpenSSL/{OPENSSL_VERSION}, Boost/{BOOST_VERSION}, libtorrent/{LIBTORRENT_VERSION}")
           EOF
 
           # K. 让所有 CMake 依赖使用 MinSizeRel（-Os -DNDEBUG），而不是 Release（-O3 -DNDEBUG）

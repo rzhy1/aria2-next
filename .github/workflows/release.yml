@@ -265,7 +265,7 @@ jobs:
             --libdir=lib \
             --cross-compile-prefix=x86_64-w64-mingw32- \
             CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib RC=x86_64-w64-mingw32-windres \
-            no-shared no-tests no-docs no-apps no-asm no-autoload-config \
+            no-shared no-tests no-docs no-apps no-autoload-config \
             -Os -pipe -g0 \
             --with-zlib-include="$DEP_PREFIX/include" \
             --with-zlib-lib="$DEP_PREFIX/lib/libz.a"
@@ -383,16 +383,26 @@ jobs:
               p.write_text(s2)
               print("Patched packaging/scripts/build-release - using MinSizeRel")
           EOF
+          
       - name: Verify actual dependency versions (source + installed)
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
           echo "===== [1] Source tree versions ====="
-          echo -n "Expat     : "; grep -m1 -oP 'PACKAGE_VERSION\s+"\K[0-9.]+' third_party/expat/CMakeLists.txt 2>/dev/null || echo "N/A"
-          echo -n "SQLite    : "; grep -m1 -oP '#define\s+SQLITE_VERSION\s+"\K[0-9.]+' third_party/sqlite/sqlite3.h 2>/dev/null || echo "N/A"
-          echo -n "OpenSSL   : "; grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+"[^0-9]*\K[0-9][0-9.a-z]*' third_party/openssl/include/openssl/opensslv.h 2>/dev/null || echo "N/A"
-          echo -n "Boost     : "; grep -m1 -oP '#define\s+BOOST_LIB_VERSION\s+"\K[0-9_]+' third_party/boost/boost/version.hpp 2>/dev/null | tr '_' '.' || echo "N/A"
-          echo -n "libtorrent: "; grep -m1 -oP '#define\s+LIBTORRENT_VERSION\s+"\K[0-9.]+' third_party/libtorrent/include/libtorrent/version.hpp 2>/dev/null || echo "N/A"
+          echo -n "Expat     : "
+          tr '\n' ' ' < third_party/expat/CMakeLists.txt \
+            | grep -m1 -oP 'project\(expat\s+VERSION\s+\K[0-9.]+' \
+            || echo "N/A"
+          echo -n "SQLite    : "
+          grep -m1 -oP '#define\s+SQLITE_VERSION\s+"\K[0-9.]+' third_party/sqlite/sqlite3.h 2>/dev/null || echo "N/A"
+          echo -n "OpenSSL   : "
+          grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+"[^0-9]*\K[0-9][0-9.a-z]*' third_party/openssl/include/openssl/opensslv.h 2>/dev/null || echo "N/A"
+          echo -n "Boost     : "
+          grep -m1 -oP '#define\s+BOOST_VERSION\s+\K[0-9]+' third_party/boost/boost/version.hpp 2>/dev/null \
+            | awk '{printf "%d.%d.%d\n", $1/100000, ($1/100)%1000, $1%100}' \
+            || echo "N/A"
+          echo -n "libtorrent: "
+          grep -m1 -oP '#define\s+LIBTORRENT_VERSION\s+"\K[0-9.]+' third_party/libtorrent/include/libtorrent/version.hpp 2>/dev/null || echo "N/A"
 
           echo
           echo "===== [2] Installed dependency header versions ====="
@@ -404,13 +414,24 @@ jobs:
             build/release/dependencies/include/expat.h ; do
             if [ -f "$f" ]; then
               echo "--- $f ---"
-              grep -m1 -E "SQLITE_VERSION|OPENSSL_VERSION_TEXT|LIBTORRENT_VERSION|BOOST_LIB_VERSION|XML_ExpatVersion" "$f" || true
+              grep -m1 -oP 'SQLITE_VERSION\s+"\K[0-9.]+' "$f" 2>/dev/null \
+                || grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+"[^0-9]*\K[0-9][0-9.a-z]*' "$f" 2>/dev/null \
+                || grep -m1 -oP 'LIBTORRENT_VERSION\s+"\K[0-9.]+' "$f" 2>/dev/null \
+                || grep -m1 -oP 'BOOST_LIB_VERSION\s+"\K[0-9_]+' "$f" 2>/dev/null \
+                || grep -m1 -oP 'XML_ExpatVersion\s+"\K[0-9.]+' "$f" 2>/dev/null \
+                || echo "(no matching version macro)"
             fi
           done
 
           echo
-          echo "===== [3] CMakeCache Libtorrent/Boost/OpenSSL entries ====="
-          grep -iE "LibtorrentRasterbar|Boost_INCLUDE|OPENSSL_ROOT|OPENSSL_INCLUDE" build/release/source/CMakeCache.txt 2>/dev/null | head -20 || true
+          echo "===== [3] CMakeCache entries ====="
+          CACHE_FILE=$(find build/release -name CMakeCache.txt 2>/dev/null | head -1)
+          if [ -n "$CACHE_FILE" ]; then
+            echo "Cache file: $CACHE_FILE"
+            grep -iE "LibtorrentRasterbar|Boost_INCLUDE|OPENSSL_ROOT|OPENSSL_INCLUDE" "$CACHE_FILE" 2>/dev/null | head -20 || true
+          else
+            echo "CMakeCache.txt not found under build/release"
+          fi
           
       # ---------- 5. 官方 SuperBuild 一键极速构建 ----------
       - name: Patch GPAC for mingw and optimize FFmpeg
@@ -478,6 +499,14 @@ jobs:
           else:
               print('--enable-small already exists')
           "
+      
+      - name: Build release binary
+        if: steps.check.outputs.skip != 'true'
+        working-directory: aria2-next
+        shell: bash
+        run: |
+          bash packaging/scripts/build-release windows 2>&1 | tee build.log
+
       - name: Inspect binary for embedded versions
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -488,13 +517,6 @@ jobs:
           strings -n 4 "$BIN" | grep -iE "libtorrent/[0-9]|libtorrent [0-9]|Boost/[0-9]|Boost [0-9]|OpenSSL/[0-9]|OpenSSL [0-9]|sqlite3/[0-9]|sqlite [0-9]|expat/[0-9]" | sort -u | head -40
           echo "=== End ==="
           
-      - name: Build release binary
-        if: steps.check.outputs.skip != 'true'
-        working-directory: aria2-next
-        shell: bash
-        run: |
-          bash packaging/scripts/build-release windows 2>&1 | tee build.log
-
       - name: Upload build log
         if: failure()
         uses: actions/upload-artifact@v7

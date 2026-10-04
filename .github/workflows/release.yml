@@ -30,13 +30,16 @@ jobs:
       TARGET_PROCESSOR: x86_64
       RUNTIME_PLATFORM: windows-x86_64
       ARIA2_BUILD_PROFILE: release
-      CMAKE_BUILD_TYPE: Release
+
+      # 使用 MinSizeRel 优化体积
+      CMAKE_BUILD_TYPE: MinSizeRel
+
       STRIP_BINARY: true
       RELEASE_CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error"
       RELEASE_CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
       RELEASE_LDFLAGS: "-static -static-libgcc -Wl,--gc-sections -flto=thin"
 
-      # ========== 依赖版本号（统一在此修改）==========
+      # 依赖版本号（统一在此修改）
       EXPAT_VERSION: "2.8.5"
       SQLITE_VERSION: "3.53.4"
       SQLITE_VERSION_NUM: "3530400"
@@ -135,20 +138,19 @@ jobs:
           sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/options/StreamOptions.cc || true
 
           # B. 强制 WinConsoleFile 默认支持颜色
-          python3 - <<'EOF'
+          python3 - <<'PYEOF'
           from pathlib import Path
           import re
           p = Path("src/WinConsoleFile.cc")
           if p.exists():
               s = p.read_text()
-              s = re.sub(r'bool\s+WinConsoleFile::supportsColor\(\)\s*\{[^}]*\}', 
+              s = re.sub(r'bool\s+WinConsoleFile::supportsColor\(\)\s*\{[^}]*\}',
                          'bool WinConsoleFile::supportsColor() { return true; }', s)
               p.write_text(s)
-          EOF
+          PYEOF
 
           # B2. 删除 libtorrent 2.1 中已移除的废弃设置项
-          # （in_enc_policy / out_enc_policy 已经覆盖了加密策略语义）
-          python3 - <<'EOF'
+          python3 - <<'PYEOF'
           from pathlib import Path
           import re
 
@@ -165,14 +167,14 @@ jobs:
               else:
                   p.write_text(s2)
                   print("Patched src/BtSettings.cc: removed prefer_encrypted_connections, allowed_enc_level, prefer_rc4")
-          EOF
-          
-          # C. 自动下载并覆盖升级所有依赖项源码 (Expat, SQLite, OpenSSL, Boost, libtorrent)
-          python3 - <<'EOF'
+          PYEOF
+
+          # C. 自动下载并覆盖升级核心依赖
+          #    核心依赖下载失败即停：避免"下载失败 -> 用旧版本构建 -> 假成功"
+          python3 - <<'PYEOF'
           import urllib.request, os, tarfile, shutil, re
           from pathlib import Path
 
-          # 从环境变量读取版本号（统一在 workflow env 段修改）
           EXPAT_VERSION      = os.environ["EXPAT_VERSION"]
           SQLITE_VERSION     = os.environ["SQLITE_VERSION"]
           SQLITE_VERSION_NUM = os.environ["SQLITE_VERSION_NUM"]
@@ -181,7 +183,6 @@ jobs:
           BOOST_VERSION      = os.environ["BOOST_VERSION"]
           LIBTORRENT_VERSION = os.environ["LIBTORRENT_VERSION"]
 
-          # 自动拼出下载 URL
           EXPAT_URL      = f"https://github.com/libexpat/libexpat/releases/download/R_{EXPAT_VERSION.replace('.', '_')}/expat-{EXPAT_VERSION}.tar.gz"
           SQLITE_URL     = f"https://www.sqlite.org/{SQLITE_URL_YEAR}/sqlite-autoconf-{SQLITE_VERSION_NUM}.tar.gz"
           OPENSSL_URL    = f"https://github.com/openssl/openssl/releases/download/openssl-{OPENSSL_VERSION}/openssl-{OPENSSL_VERSION}.tar.gz"
@@ -208,37 +209,14 @@ jobs:
               os.remove(archive_name)
               print(f"Successfully upgraded {target_dir}")
 
-          # 1. 自动升级 Expat
-          try:
-              download_and_extract(EXPAT_URL, "third_party/expat")
-          except Exception as e:
-              print(f"Skip expat upgrade: {e}")
+          # 失败即停，不吞异常
+          download_and_extract(EXPAT_URL,      "third_party/expat")
+          download_and_extract(SQLITE_URL,     "third_party/sqlite")
+          download_and_extract(OPENSSL_URL,    "third_party/openssl")
+          download_and_extract(BOOST_URL,      "third_party/boost", sub_path="boost")
+          download_and_extract(LIBTORRENT_URL, "third_party/libtorrent")
 
-          # 2. 自动升级 SQLite
-          try:
-              download_and_extract(SQLITE_URL, "third_party/sqlite")
-          except Exception as e:
-              print(f"Skip sqlite upgrade: {e}")
-
-          # 3. 自动升级 OpenSSL
-          try:
-              download_and_extract(OPENSSL_URL, "third_party/openssl")
-          except Exception as e:
-              print(f"Skip openssl upgrade: {e}")
-
-          # 4. 自动升级 Boost
-          try:
-              download_and_extract(BOOST_URL, "third_party/boost", sub_path="boost")
-          except Exception as e:
-              print(f"Skip boost upgrade: {e}")
-
-          # 5. 自动升级 libtorrent（覆盖 third_party/libtorrent）
-          try:
-              download_and_extract(LIBTORRENT_URL, "third_party/libtorrent")
-          except Exception as e:
-              print(f"Skip libtorrent upgrade: {e}")
-
-          # 6. 同步更新 dependencies.env 中的版本号声明（保持一致性）
+          # 同步更新 dependencies.env 中的版本号声明
           env_file = Path("packaging/dependencies.env")
           if env_file.exists():
               s = env_file.read_text()
@@ -250,14 +228,14 @@ jobs:
               env_file.write_text(s)
               print("Updated packaging/dependencies.env with new versions")
           else:
-              print("WARNING: packaging/dependencies.env not found")
-          EOF
+              raise SystemExit("ERROR: packaging/dependencies.env not found")
+          PYEOF
 
           # D. 准备依赖安装目录
           mkdir -p build/release/dependencies/lib build/release/dependencies/include
           DEP_PREFIX="$PWD/build/release/dependencies"
 
-          # E. 预编译静态 OpenSSL（版本由 OPENSSL_VERSION 决定）
+          # E. 预编译静态 OpenSSL（保留 ASM，不添加 no-asm）
           cd third_party/openssl
           ./Configure mingw64 -static \
             --prefix=/ \
@@ -272,14 +250,14 @@ jobs:
           make -j$(nproc) && make DESTDIR="$DEP_PREFIX" install_sw
           cd ../..
 
-          # F. 极速 CMake 编译静态 nghttp2
+          # F. CMake 编译静态 nghttp2
           cd third_party/nghttp2
           cmake -B build-nghttp2 -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_RC_COMPILER="$RC" \
             -DCMAKE_INSTALL_PREFIX="$DEP_PREFIX" \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE=MinSizeRel \
             -DENABLE_LIB_ONLY=ON \
             -DBUILD_STATIC_LIBS=ON \
             -DBUILD_SHARED_LIBS=OFF \
@@ -292,7 +270,7 @@ jobs:
           cp -f "$DEP_PREFIX/lib/libnghttp2_static.a" "$DEP_PREFIX/lib/libnghttp2.a" 2>/dev/null || true
           cd ../..
 
-          # G. 极速编译 SQLite（版本由 SQLITE_VERSION 决定）
+          # G. 编译 SQLite
           cd third_party/sqlite
           $CC $RELEASE_CFLAGS -g0 -DNDEBUG -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
           $AR rcs "$DEP_PREFIX/lib/libsqlite3.a" sqlite3.o
@@ -301,41 +279,101 @@ jobs:
           rm -f sqlite3.o
           cd ../..
 
-          # H. 修复 Dependencies.cmake：直通三方库，并将 curl 的 TLS 后端从 Schannel 切换为高并发无锁的 OpenSSL
-          python3 - <<'EOF'
+          # H. SuperBuild 补丁
+          #    H1: 直通三方库 + curl TLS 切换 OpenSSL
+          #    H2: libtorrent 警告抑制（仅减少日志，不改产物）
+          #    H3: 移除 OpenSSL 版本锁
+          python3 - <<'PYEOF'
           from pathlib import Path
           import re
+
+          # ---------- H1. cmake/superbuild/Dependencies.cmake ----------
           p = Path("cmake/superbuild/Dependencies.cmake")
           if p.exists():
               s = p.read_text()
-              
+
               # 1. 直通已预编译的静态库
-              s = re.sub(r'ExternalProject_Add\(openssl_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(openssl_project)', s)
-              s = re.sub(r'ExternalProject_Add\(nghttp2_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(nghttp2_project)', s)
-              s = re.sub(r'ExternalProject_Add\(sqlite_project[\s\S]*?TEST_COMMAND ""\)', 'add_custom_target(sqlite_project)', s)
-              
-              # 2. 核心切换：将 Windows 下 curl 的 TLS 后端改为 OpenSSL (解决并发握手报错)
-              old_win32_curl = "if(WIN32)\n  set(ARIA2_CURL_TLS_ARGS\n    -DCURL_USE_OPENSSL=OFF\n    -DCURL_USE_SCHANNEL=ON)\n  set(ARIA2_CURL_TRUST_DEFINE USE_SCHANNEL)\n  list(REMOVE_ITEM ARIA2_CURL_DEPENDENCIES openssl_project)"
-              new_win32_curl = "if(WIN32)\n  set(ARIA2_CURL_TLS_ARGS\n    -DCURL_USE_OPENSSL=ON\n    -DCURL_USE_SCHANNEL=OFF\n    -DCURL_USE_LIBPSL=OFF\n    -DOPENSSL_ROOT_DIR=${ARIA2_DEPENDENCY_PREFIX}\n    -DOPENSSL_USE_STATIC_LIBS=ON\n    -DOPENSSL_INCLUDE_DIR=${ARIA2_DEPENDENCY_PREFIX}/include\n    -DOPENSSL_CRYPTO_LIBRARY=${ARIA2_DEPENDENCY_PREFIX}/lib/libcrypto.a\n    -DOPENSSL_SSL_LIBRARY=${ARIA2_DEPENDENCY_PREFIX}/lib/libssl.a)\n  set(ARIA2_CURL_TRUST_DEFINE USE_OPENSSL)"
+              s = re.sub(r'ExternalProject_Add\(openssl_project[\s\S]*?TEST_COMMAND ""\)',
+                         'add_custom_target(openssl_project)', s)
+              s = re.sub(r'ExternalProject_Add\(nghttp2_project[\s\S]*?TEST_COMMAND ""\)',
+                         'add_custom_target(nghttp2_project)', s)
+              s = re.sub(r'ExternalProject_Add\(sqlite_project[\s\S]*?TEST_COMMAND ""\)',
+                         'add_custom_target(sqlite_project)', s)
+
+              # 2. curl TLS 后端切换为 OpenSSL
+              old_win32_curl = (
+                  "if(WIN32)\n"
+                  "  set(ARIA2_CURL_TLS_ARGS\n"
+                  "    -DCURL_USE_OPENSSL=OFF\n"
+                  "    -DCURL_USE_SCHANNEL=ON)\n"
+                  "  set(ARIA2_CURL_TRUST_DEFINE USE_SCHANNEL)\n"
+                  "  list(REMOVE_ITEM ARIA2_CURL_DEPENDENCIES openssl_project)"
+              )
+              new_win32_curl = (
+                  "if(WIN32)\n"
+                  "  set(ARIA2_CURL_TLS_ARGS\n"
+                  "    -DCURL_USE_OPENSSL=ON\n"
+                  "    -DCURL_USE_SCHANNEL=OFF\n"
+                  "    -DCURL_USE_LIBPSL=OFF\n"
+                  "    -DOPENSSL_ROOT_DIR=${ARIA2_DEPENDENCY_PREFIX}\n"
+                  "    -DOPENSSL_USE_STATIC_LIBS=ON\n"
+                  "    -DOPENSSL_INCLUDE_DIR=${ARIA2_DEPENDENCY_PREFIX}/include\n"
+                  "    -DOPENSSL_CRYPTO_LIBRARY=${ARIA2_DEPENDENCY_PREFIX}/lib/libcrypto.a\n"
+                  "    -DOPENSSL_SSL_LIBRARY=${ARIA2_DEPENDENCY_PREFIX}/lib/libssl.a)\n"
+                  "  set(ARIA2_CURL_TRUST_DEFINE USE_OPENSSL)"
+              )
               s = s.replace(old_win32_curl, new_win32_curl)
 
               p.write_text(s)
-          EOF
+              print("Patched cmake/superbuild/Dependencies.cmake")
 
-          # I. 核心修复：移除 cmake/modules/Dependencies.cmake 中的 OpenSSL 3.0.0 版本强制锁定
-          python3 - <<'EOF'
-          from pathlib import Path
+          # ---------- H2. libtorrent 警告抑制 ----------
+          p = Path("third_party/libtorrent/CMakeLists.txt")
+          if p.exists():
+              s = p.read_text()
+              marker = "WORKFLOW_WARNING_SUPPRESSION"
+              if marker not in s:
+                  lines_to_add = [
+                      "",
+                      "# ===== WORKFLOW_WARNING_SUPPRESSION =====",
+                      "# 仅抑制 Clang 对 libtorrent 源码产生的无害警告，",
+                      "# 不改变编译产物，也不提升性能",
+                      'if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")',
+                      "  target_compile_options(torrent-rasterbar PRIVATE",
+                      "    -Wno-thread-safety-negative",
+                      "    -Wno-thread-safety-analysis",
+                      "    -Wno-sign-conversion",
+                      "    -Wno-ms-bitfield-padding",
+                      "    -Wno-nrvo",
+                      "    -Wno-extra-semi-stmt",
+                      "    -Wno-weak-vtables",
+                      "    -Wno-old-style-cast",
+                      "    -Wno-reserved-identifier",
+                      "    -Wno-missing-variable-declarations",
+                      "    -Wno-missing-prototypes",
+                      "    -Wno-undef",
+                      "  )",
+                      "endif()",
+                      "# ====================================",
+                  ]
+                  s += "\n".join(lines_to_add) + "\n"
+                  p.write_text(s)
+                  print("Patched third_party/libtorrent/CMakeLists.txt with warning suppressions")
+              else:
+                  print("libtorrent warning suppression already present")
+
+          # ---------- H3. 移除 cmake/modules/Dependencies.cmake 中的 OpenSSL 版本锁 ----------
           p = Path("cmake/modules/Dependencies.cmake")
           if p.exists():
               s = p.read_text()
-              # 允许 OpenSSL 4.x / 任意版本通过校验
               s = s.replace('find_package(OpenSSL ${ARIA2_MIN_OPENSSL_VERSION}', 'find_package(OpenSSL')
               s = s.replace('${ARIA2_MIN_CURL_VERSION}', '')
               p.write_text(s)
-          EOF
+              print("Patched cmake/modules/Dependencies.cmake - removed OpenSSL version pin")
+          PYEOF
 
-          # J. 同步更新 -v 字符串中的版本号（全部引用环境变量）
-          python3 - <<'EOF'
+          # I. 同步更新 -v 字符串中的版本号
+          python3 - <<'PYEOF'
           from pathlib import Path
           import re, os
 
@@ -356,84 +394,34 @@ jobs:
               s = re.sub(r'LibtorrentRasterbar/[0-9.]+',  f'libtorrent/{LIBTORRENT_VERSION}',   s)
               p.write_text(s)
               print(f"FeatureConfig.cc updated: expat/{EXPAT_VERSION}, sqlite3/{SQLITE_VERSION}, OpenSSL/{OPENSSL_VERSION}, Boost/{BOOST_VERSION}, libtorrent/{LIBTORRENT_VERSION}")
-          EOF
+          PYEOF
 
-          # K. 让所有 CMake 依赖使用 MinSizeRel（-Os -DNDEBUG），而不是 Release（-O3 -DNDEBUG）
-          python3 - <<'EOF'
+          # J. build-release 中 Release -> MinSizeRel
+          #    精确替换 -DCMAKE_BUILD_TYPE=Release，失败只警告不阻断
+          python3 - <<'PYEOF'
           from pathlib import Path
-          import re
 
           p = Path("packaging/scripts/build-release")
           if not p.exists():
-              raise SystemExit("packaging/scripts/build-release not found")
+              raise SystemExit("ERROR: packaging/scripts/build-release not found")
 
           s = p.read_text()
-
-          # 1. 顶层 CMake build type
-          s2 = s.replace('-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_BUILD_TYPE=MinSizeRel')
-          # 2. 脚本内部的 build_type 变量
-          s2 = re.sub(r'^build_type=Release$', 'build_type=MinSizeRel', s2, flags=re.M)
-          # 3. 如果脚本里有 CMAKE_BUILD_TYPE 引用
-          s2 = re.sub(r'CMAKE_BUILD_TYPE:\s*Release', 'CMAKE_BUILD_TYPE: MinSizeRel', s2)
-          s2 = re.sub(r'build_type\s*=\s*Release', 'build_type=MinSizeRel', s2)
+          s2 = s.replace(
+              '-DCMAKE_BUILD_TYPE=Release',
+              '-DCMAKE_BUILD_TYPE=MinSizeRel'
+          )
 
           if s2 == s:
-              print("build-release: no Release->MinSizeRel replacement matched; check manually")
+              print("WARNING: no '-DCMAKE_BUILD_TYPE=Release' found in build-release; "
+                    "verify MinSizeRel is applied by checking the CMake config step")
           else:
               p.write_text(s2)
-              print("Patched packaging/scripts/build-release - using MinSizeRel")
-          EOF
-          
-      - name: Verify actual dependency versions (source + installed)
-        if: steps.check.outputs.skip != 'true'
-        working-directory: aria2-next
-        run: |
-          echo "===== [1] Source tree versions ====="
-          echo -n "Expat     : "
-          tr '\n' ' ' < third_party/expat/CMakeLists.txt \
-            | grep -m1 -oP 'project\(expat\s+VERSION\s+\K[0-9.]+' \
-            || echo "N/A"
-          echo -n "SQLite    : "
-          grep -m1 -oP '#define\s+SQLITE_VERSION\s+"\K[0-9.]+' third_party/sqlite/sqlite3.h 2>/dev/null || echo "N/A"
-          echo -n "OpenSSL   : "
-          grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+"[^0-9]*\K[0-9][0-9.a-z]*' third_party/openssl/include/openssl/opensslv.h 2>/dev/null || echo "N/A"
-          echo -n "Boost     : "
-          grep -m1 -oP '#define\s+BOOST_VERSION\s+\K[0-9]+' third_party/boost/boost/version.hpp 2>/dev/null \
-            | awk '{printf "%d.%d.%d\n", $1/100000, ($1/100)%1000, $1%100}' \
-            || echo "N/A"
-          echo -n "libtorrent: "
-          grep -m1 -oP '#define\s+LIBTORRENT_VERSION\s+"\K[0-9.]+' third_party/libtorrent/include/libtorrent/version.hpp 2>/dev/null || echo "N/A"
+              print("Patched packaging/scripts/build-release: Release -> MinSizeRel")
+          PYEOF
 
-          echo
-          echo "===== [2] Installed dependency header versions ====="
-          for f in \
-            build/release/dependencies/include/sqlite3.h \
-            build/release/dependencies/include/openssl/opensslv.h \
-            build/release/dependencies/include/libtorrent/version.hpp \
-            build/release/dependencies/include/boost/version.hpp \
-            build/release/dependencies/include/expat.h ; do
-            if [ -f "$f" ]; then
-              echo "--- $f ---"
-              grep -m1 -oP 'SQLITE_VERSION\s+"\K[0-9.]+' "$f" 2>/dev/null \
-                || grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+"[^0-9]*\K[0-9][0-9.a-z]*' "$f" 2>/dev/null \
-                || grep -m1 -oP 'LIBTORRENT_VERSION\s+"\K[0-9.]+' "$f" 2>/dev/null \
-                || grep -m1 -oP 'BOOST_LIB_VERSION\s+"\K[0-9_]+' "$f" 2>/dev/null \
-                || grep -m1 -oP 'XML_ExpatVersion\s+"\K[0-9.]+' "$f" 2>/dev/null \
-                || echo "(no matching version macro)"
-            fi
-          done
-
-          echo
-          echo "===== [3] CMakeCache entries ====="
-          CACHE_FILE=$(find build/release -name CMakeCache.txt 2>/dev/null | head -1)
-          if [ -n "$CACHE_FILE" ]; then
-            echo "Cache file: $CACHE_FILE"
-            grep -iE "LibtorrentRasterbar|Boost_INCLUDE|OPENSSL_ROOT|OPENSSL_INCLUDE" "$CACHE_FILE" 2>/dev/null | head -20 || true
-          else
-            echo "CMakeCache.txt not found under build/release"
-          fi
-          
-      # ---------- 5. 官方 SuperBuild 一键极速构建 ----------
+      # ---------- 5. GPAC 头文件修复 + FFmpeg 体积优化 ----------
+      #    不再对 GPAC configure 做 cross_compiling / gpac-conf 强制替换，
+      #    GPAC 的 Exec format error 只是 configure 中间探测失败，不影响最终产物
       - name: Patch GPAC for mingw and optimize FFmpeg
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -448,48 +436,36 @@ jobs:
               -e 's/Windows\.h/windows.h/g' \
               -e 's/WS2tcpip\.h/ws2tcpip.h/g'
 
-
           # 修复 GPAC setup.h unsafe string 宏污染
-          python3 -c "
+          python3 - <<'PYEOF'
           from pathlib import Path
           import re
 
           p = Path('third_party/gpac/include/gpac/setup.h')
-
           if not p.exists():
               raise SystemExit('gpac/setup.h not found')
 
           s = p.read_text()
-
-          s2 = re.sub(
-              r'#ifndef\s+GPAC_ALLOW_UNSAFE_STRFUNC',
-              '#if 0',
-              s
-          )
-
+          s2 = re.sub(r'#ifndef\s+GPAC_ALLOW_UNSAFE_STRFUNC', '#if 0', s)
           if s2 != s:
               p.write_text(s2)
               print('Patched gpac/setup.h')
           else:
               print('No patch required')
-          "
-
+          PYEOF
 
           # FFmpeg 开启体积优化
-          python3 -c "
+          python3 - <<'PYEOF'
           from pathlib import Path
 
           p = Path('cmake/superbuild/Media.cmake')
-
           if not p.exists():
               raise SystemExit('Media.cmake not found')
 
           s = p.read_text()
-
           if '--enable-small' not in s:
               old = '--enable-pic --enable-static'
               new = '--enable-pic --enable-static\n    --enable-small'
-
               if old in s:
                   s = s.replace(old, new, 1)
                   p.write_text(s)
@@ -498,14 +474,63 @@ jobs:
                   raise SystemExit('FFmpeg configure anchor not found')
           else:
               print('--enable-small already exists')
-          "
-      
+          PYEOF
+
+      # ---------- 6. 构建 ----------
       - name: Build release binary
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         shell: bash
         run: |
           bash packaging/scripts/build-release windows 2>&1 | tee build.log
+
+      # ---------- 7. 校验 ----------
+      - name: Verify actual dependency versions (source + installed)
+        if: steps.check.outputs.skip != 'true'
+        working-directory: aria2-next
+        run: |
+          echo "===== [1] Source tree versions ====="
+          echo -n "Expat     : "
+          grep -A2 'project(expat' third_party/expat/CMakeLists.txt 2>/dev/null \
+            | grep -m1 -oP '\d+\.\d+\.\d+' || echo "N/A"
+          echo -n "SQLite    : "
+          grep -m1 -oP '#define\s+SQLITE_VERSION\s+"\K[0-9.]+' third_party/sqlite/sqlite3.h 2>/dev/null || echo "N/A"
+          echo -n "OpenSSL   : "
+          grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+"[^0-9]*\K[0-9][0-9.a-z]*' third_party/openssl/include/openssl/opensslv.h 2>/dev/null || echo "N/A"
+          echo -n "Boost     : "
+          grep -m1 -oP '#define\s+BOOST_VERSION\s+\K[0-9]+' third_party/boost/boost/version.hpp 2>/dev/null \
+            | awk '{printf "%d.%d.%d\n", $1/100000, ($1/100)%1000, $1%100}' || echo "N/A"
+          echo -n "libtorrent: "
+          grep -m1 -oP '#define\s+LIBTORRENT_VERSION\s+"\K[0-9.]+' third_party/libtorrent/include/libtorrent/version.hpp 2>/dev/null || echo "N/A"
+
+          echo
+          echo "===== [2] Installed dependency header versions ====="
+          for f in \
+            build/release/dependencies/include/sqlite3.h \
+            build/release/dependencies/include/openssl/opensslv.h \
+            build/release/dependencies/include/libtorrent/version.hpp \
+            build/release/dependencies/include/expat.h ; do
+            if [ -f "$f" ]; then
+              echo "--- $f ---"
+              grep -m1 -oP 'SQLITE_VERSION\s+"\K[0-9.]+' "$f" 2>/dev/null \
+                || grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+"[^0-9]*\K[0-9][0-9.a-z]*' "$f" 2>/dev/null \
+                || grep -m1 -oP 'LIBTORRENT_VERSION\s+"\K[0-9.]+' "$f" 2>/dev/null \
+                || grep -m1 -oP 'XML_ExpatVersion\s+"\K[0-9.]+' "$f" 2>/dev/null \
+                || echo "(no matching version macro)"
+            fi
+          done
+
+          echo
+          echo "===== [3] CMakeCache entries ====="
+          CACHE_FILE="build/release/CMakeCache.txt"
+          if [ -f "$CACHE_FILE" ]; then
+            echo "Cache file: $CACHE_FILE"
+            grep -iE "LibtorrentRasterbar|Boost_INCLUDE|OPENSSL_ROOT|OPENSSL_INCLUDE|CMAKE_BUILD_TYPE|CMAKE_C_FLAGS|CMAKE_CXX_FLAGS" "$CACHE_FILE" 2>/dev/null | head -30 || true
+          else
+            echo "ERROR: $CACHE_FILE not found"
+            echo "---- fallback: 查找所有 CMakeCache.txt ----"
+            find build/release -name CMakeCache.txt 2>/dev/null || true
+          fi
 
       - name: Inspect binary for embedded versions
         if: steps.check.outputs.skip != 'true'
@@ -516,7 +541,7 @@ jobs:
           echo "=== Embedded dependency strings in binary ==="
           strings -n 4 "$BIN" | grep -iE "libtorrent/[0-9]|libtorrent [0-9]|Boost/[0-9]|Boost [0-9]|OpenSSL/[0-9]|OpenSSL [0-9]|sqlite3/[0-9]|sqlite [0-9]|expat/[0-9]" | sort -u | head -40
           echo "=== End ==="
-          
+
       - name: Upload build log
         if: failure()
         uses: actions/upload-artifact@v7
@@ -524,7 +549,7 @@ jobs:
           name: build-log
           path: aria2-next/build.log
 
-      # ---------- 6. 打包与发布 ----------
+      # ---------- 8. 打包与发布 ----------
       - name: Package binary
         if: steps.check.outputs.skip != 'true'
         run: |

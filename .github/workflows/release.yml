@@ -91,7 +91,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: AnInsomniacy/aria2-next
-          ref: f58a2d9463b3b549ca19039b055df1448e1b8c46
+          ref: main
           submodules: recursive
           path: aria2-next
 

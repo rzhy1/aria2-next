@@ -146,6 +146,27 @@ jobs:
               p.write_text(s)
           EOF
 
+          # B2. 删除 libtorrent 2.1 中已移除的废弃设置项
+          # （in_enc_policy / out_enc_policy 已经覆盖了加密策略语义）
+          python3 - <<'EOF'
+          from pathlib import Path
+          import re
+
+          p = Path("src/BtSettings.cc")
+          if not p.exists():
+              print("WARNING: src/BtSettings.cc not found")
+          else:
+              s = p.read_text()
+              s2 = re.sub(
+                  r'\s*settings\.set_(?:bool|int)\(lt::settings_pack::(?:prefer_encrypted_connections|allowed_enc_level|prefer_rc4),\s*[^;]*?\);\n',
+                  '\n', s)
+              if s2 == s:
+                  print("WARNING: BtSettings.cc: no deprecated setting removed; check manually")
+              else:
+                  p.write_text(s2)
+                  print("Patched src/BtSettings.cc: removed prefer_encrypted_connections, allowed_enc_level, prefer_rc4")
+          EOF
+          
           # C. 自动下载并覆盖升级所有依赖项源码 (Expat, SQLite, OpenSSL, Boost, libtorrent)
           python3 - <<'EOF'
           import urllib.request, os, tarfile, shutil, re

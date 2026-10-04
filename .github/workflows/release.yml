@@ -137,9 +137,9 @@ jobs:
               p.write_text(s)
           EOF
 
-          # C. 自动下载并覆盖升级所有依赖项源码 (Expat, SQLite, OpenSSL, Boost)
+          # C. 自动下载并覆盖升级所有依赖项源码 (Expat, SQLite, OpenSSL, Boost) 并更新 libtorrent 版本
           python3 - <<'EOF'
-          import urllib.request, os, tarfile, shutil
+          import urllib.request, os, tarfile, shutil, re
           from pathlib import Path
 
           def download_and_extract(url, target_dir, sub_path=None):
@@ -185,13 +185,23 @@ jobs:
               download_and_extract("https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.gz", "third_party/boost", sub_path="boost")
           except Exception as e:
               print(f"Skip boost upgrade: {e}")
+
+          # 5. 更新 dependencies.env 中的 libtorrent 版本到 2.1.2
+          env_file = Path("packaging/dependencies.env")
+          if env_file.exists():
+              s = env_file.read_text()
+              s = re.sub(r'^LIBTORRENT_VERSION=.*$', 'LIBTORRENT_VERSION=2.1.2', s, flags=re.M)
+              env_file.write_text(s)
+              print("Updated LIBTORRENT_VERSION to 2.1.2 in packaging/dependencies.env")
+          else:
+              print("WARNING: packaging/dependencies.env not found")
           EOF
 
           # D. 准备依赖安装目录
           mkdir -p build/release/dependencies/lib build/release/dependencies/include
           DEP_PREFIX="$PWD/build/release/dependencies"
 
-          # E. 预编译静态 OpenSSL 4.0.2
+          # E. 预编译静态 OpenSSL 4.0.3
           cd third_party/openssl
           ./Configure mingw64 -static \
             --prefix=/ \
@@ -280,8 +290,11 @@ jobs:
               s = re.sub(r'sqlite3/[0-9.]+', 'sqlite3/3.53.4', s)
               s = re.sub(r'OpenSSL/[0-9.]+', 'OpenSSL/4.0.3', s)
               s = re.sub(r'Boost/[0-9.]+', 'Boost/1.92.0', s)
+              s = re.sub(r'libtorrent/[0-9.]+', 'libtorrent/2.1.2', s)
+              s = re.sub(r'LibtorrentRasterbar/[0-9.]+', 'libtorrent/2.1.2', s)
               p.write_text(s)
           EOF
+
           # K. 让所有 CMake 依赖使用 MinSizeRel（-Os -DNDEBUG），而不是 Release（-O3 -DNDEBUG）
           python3 - <<'EOF'
           from pathlib import Path
@@ -388,6 +401,7 @@ jobs:
         with:
           name: build-log
           path: aria2-next/build.log
+
       # ---------- 6. 打包与发布 ----------
       - name: Package binary
         if: steps.check.outputs.skip != 'true'

@@ -522,12 +522,14 @@ jobs:
 
           echo
           echo "===== [3] CMakeCache entries ====="
-          CACHE_FILE=$(find build/release -name CMakeCache.txt 2>/dev/null | head -1)
-          if [ -n "$CACHE_FILE" ]; then
+          CACHE_FILE="build/release/CMakeCache.txt"
+          if [ -f "$CACHE_FILE" ]; then
             echo "Cache file: $CACHE_FILE"
-            grep -iE "LibtorrentRasterbar|Boost_INCLUDE|OPENSSL_ROOT|OPENSSL_INCLUDE|CMAKE_BUILD_TYPE" "$CACHE_FILE" 2>/dev/null | head -20 || true
+            grep -iE "LibtorrentRasterbar|Boost_INCLUDE|OPENSSL_ROOT|OPENSSL_INCLUDE|CMAKE_BUILD_TYPE|CMAKE_C_FLAGS|CMAKE_CXX_FLAGS" "$CACHE_FILE" 2>/dev/null | head -30 || true
           else
-            echo "CMakeCache.txt not found under build/release"
+            echo "ERROR: $CACHE_FILE not found"
+            echo "---- fallback: 查找所有 CMakeCache.txt ----"
+            find build/release -name CMakeCache.txt 2>/dev/null || true
           fi
 
       - name: Inspect binary for embedded versions

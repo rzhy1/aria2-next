@@ -333,29 +333,30 @@ jobs:
               s = p.read_text()
               marker = "WORKFLOW_WARNING_SUPPRESSION"
               if marker not in s:
-                  s += """
-
-# ===== WORKFLOW_WARNING_SUPPRESSION =====
-# 仅抑制 Clang 对 libtorrent 源码产生的无害警告，
-# 不改变编译产物，也不提升性能
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  target_compile_options(torrent-rasterbar PRIVATE
-    -Wno-thread-safety-negative
-    -Wno-thread-safety-analysis
-    -Wno-sign-conversion
-    -Wno-ms-bitfield-padding
-    -Wno-nrvo
-    -Wno-extra-semi-stmt
-    -Wno-weak-vtables
-    -Wno-old-style-cast
-    -Wno-reserved-identifier
-    -Wno-missing-variable-declarations
-    -Wno-missing-prototypes
-    -Wno-undef
-  )
-endif()
-# ====================================
-"""
+                  lines_to_add = [
+                      "",
+                      "# ===== WORKFLOW_WARNING_SUPPRESSION =====",
+                      "# 仅抑制 Clang 对 libtorrent 源码产生的无害警告，",
+                      "# 不改变编译产物，也不提升性能",
+                      'if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")',
+                      "  target_compile_options(torrent-rasterbar PRIVATE",
+                      "    -Wno-thread-safety-negative",
+                      "    -Wno-thread-safety-analysis",
+                      "    -Wno-sign-conversion",
+                      "    -Wno-ms-bitfield-padding",
+                      "    -Wno-nrvo",
+                      "    -Wno-extra-semi-stmt",
+                      "    -Wno-weak-vtables",
+                      "    -Wno-old-style-cast",
+                      "    -Wno-reserved-identifier",
+                      "    -Wno-missing-variable-declarations",
+                      "    -Wno-missing-prototypes",
+                      "    -Wno-undef",
+                      "  )",
+                      "endif()",
+                      "# ====================================",
+                  ]
+                  s += "\n".join(lines_to_add) + "\n"
                   p.write_text(s)
                   print("Patched third_party/libtorrent/CMakeLists.txt with warning suppressions")
               else:

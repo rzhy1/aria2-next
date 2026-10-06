@@ -288,27 +288,33 @@ jobs:
           import re
 
           # ---------- H1. cmake/superbuild/Dependencies.cmake ----------
-          p = Path("cmake/superbuild/Dependencies.cmake")
-          if p.exists():
-              s = p.read_text()
-
-              # 1. 直通已预编译的静态库
-              s = re.sub(r'ExternalProject_Add\(openssl_project[\s\S]*?TEST_COMMAND ""\)',
-                         'add_custom_target(openssl_project)', s)
-              s = re.sub(r'ExternalProject_Add\(nghttp2_project[\s\S]*?TEST_COMMAND ""\)',
-                         'add_custom_target(nghttp2_project)', s)
-              s = re.sub(r'ExternalProject_Add\(sqlite_project[\s\S]*?TEST_COMMAND ""\)',
-                         'add_custom_target(sqlite_project)', s)
-
+              p = Path("cmake/superbuild/Dependencies.cmake")
+              if not p.exists():
+                  raise SystemExit("ERROR: cmake/superbuild/Dependencies.cmake not found!")
+    
+              s = p.read_text(encoding="utf-8")
+    
+              # 1. 直通已预编译的静态库 (使用 re.subn 统计替换次数，并容忍 TEST_COMMAND "" 与括号间的空白/换行)
+              for proj in ["openssl_project", "nghttp2_project", "sqlite_project"]:
+                  pattern = rf'ExternalProject_Add\(\s*{proj}[\s\S]*?TEST_COMMAND\s+""\s*\)'
+                  s, count = re.subn(pattern, f'add_custom_target({proj})', s)
+                  if count > 0:
+                      print(f"Patched: ExternalProject_Add({proj}) -> add_custom_target({proj})")
+                  else:
+                      print(f"WARNING: ExternalProject_Add({proj}) anchor not found, check upstream syntax!")
+    
               # 2. curl TLS 后端切换为 OpenSSL
-              old_win32_curl = (
-                  "if(WIN32)\n"
-                  "  set(ARIA2_CURL_TLS_ARGS\n"
-                  "    -DCURL_USE_OPENSSL=OFF\n"
-                  "    -DCURL_USE_SCHANNEL=ON)\n"
-                  "  set(ARIA2_CURL_TRUST_DEFINE USE_SCHANNEL)\n"
-                  "  list(REMOVE_ITEM ARIA2_CURL_DEPENDENCIES openssl_project)"
+              # 使用正则匹配，自动忽略缩进、多余空格和换行符差异
+              curl_pattern = re.compile(
+                  r'if\s*\(\s*WIN32\s*\)\s*'
+                  r'set\s*\(\s*ARIA2_CURL_TLS_ARGS\s+'
+                  r'-DCURL_USE_OPENSSL=OFF\s+'
+                  r'-DCURL_USE_SCHANNEL=ON\s*\)\s*'
+                  r'set\s*\(\s*ARIA2_CURL_TRUST_DEFINE\s+USE_SCHANNEL\s*\)\s*'
+                  r'list\s*\(\s*REMOVE_ITEM\s+ARIA2_CURL_DEPENDENCIES\s+openssl_project\s*\)',
+                  re.MULTILINE
               )
+    
               new_win32_curl = (
                   "if(WIN32)\n"
                   "  set(ARIA2_CURL_TLS_ARGS\n"
@@ -322,10 +328,28 @@ jobs:
                   "    -DOPENSSL_SSL_LIBRARY=${ARIA2_DEPENDENCY_PREFIX}/lib/libssl.a)\n"
                   "  set(ARIA2_CURL_TRUST_DEFINE USE_OPENSSL)"
               )
-              s = s.replace(old_win32_curl, new_win32_curl)
-
-              p.write_text(s)
-              print("Patched cmake/superbuild/Dependencies.cmake")
+    
+              s, curl_count = curl_pattern.subn(new_win32_curl, s, count=1)
+              if curl_count > 0:
+                  print("Patched: Successfully switched cURL TLS from Schannel to OpenSSL")
+              else:
+                  # 降级备选方案：尝试纯文本包含检测
+                  old_win32_curl_fallback = (
+                      "if(WIN32)\n"
+                      "  set(ARIA2_CURL_TLS_ARGS\n"
+                      "    -DCURL_USE_OPENSSL=OFF\n"
+                      "    -DCURL_USE_SCHANNEL=ON)\n"
+                      "  set(ARIA2_CURL_TRUST_DEFINE USE_SCHANNEL)\n"
+                      "  list(REMOVE_ITEM ARIA2_CURL_DEPENDENCIES openssl_project)"
+                  )
+                  if old_win32_curl_fallback in s:
+                      s = s.replace(old_win32_curl_fallback, new_win32_curl)
+                      print("Patched: cURL TLS patched via fallback text match")
+                  else:
+                      print("WARNING: cURL TLS win32 block not found! Verify upstream Dependencies.cmake")
+    
+              p.write_text(s, encoding="utf-8")
+              print("Saved cmake/superbuild/Dependencies.cmake")
 
           # ---------- H2. libtorrent 警告抑制 ----------
           p = Path("third_party/libtorrent/CMakeLists.txt")
@@ -554,7 +578,10 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           mkdir -p own-repo/release
+          BIN="aria2-next/build/release/aria2-next.exe"
+          x86_64-w64-mingw32-strip -s "$BIN"
           cp aria2-next/build/release/aria2-next.exe own-repo/release/aria2-next.exe
+          
 
       - name: Upload artifact
         if: steps.check.outputs.skip != 'true'
@@ -573,7 +600,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Save upstream SHA cache
-        if: always() && steps.check.outputs.skip == 'false'
+        if: success() && steps.check.outputs.skip == 'false'
         uses: actions/cache@v6
         with:
           path: .cache

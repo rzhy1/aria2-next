@@ -40,7 +40,7 @@ jobs:
       RELEASE_LDFLAGS: "-static -static-libgcc -Wl,--gc-sections -flto=thin"
 
       # 依赖版本号（统一在此修改）
-      EXPAT_VERSION: "2.8.5"
+      EXPAT_VERSION: "2.9.0"
       SQLITE_VERSION: "3.53.4"
       SQLITE_VERSION_NUM: "3530400"
       SQLITE_URL_YEAR: "2026"

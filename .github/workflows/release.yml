@@ -41,8 +41,8 @@ jobs:
 
       # 依赖版本号（统一在此修改）
       EXPAT_VERSION: "2.9.0"
-      SQLITE_VERSION: "3.53.4"
-      SQLITE_VERSION_NUM: "3530400"
+      SQLITE_VERSION: "3.54.0"
+      SQLITE_VERSION_NUM: "3540000"
       SQLITE_URL_YEAR: "2026"
       OPENSSL_VERSION: "4.0.3"
       BOOST_VERSION: "1.92.0"

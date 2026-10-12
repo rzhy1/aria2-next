@@ -149,11 +149,12 @@ jobs:
               p.write_text(s)
           PYEOF
 
-          # B2. 修正 libtorrent 2.x 加密 API
-          #     libtorrent 2.x 移除了 settings_pack::prefer_encrypted_connections，
-          #     改用 out_enc_policy / in_enc_policy + allowed_enc_level 组合
+          # B2. 删除 libtorrent 1.x 遗留的 prefer_encrypted_connections 调用
+          #     上游 Session.cc 已用 out_enc_policy/in_enc_policy 正确实现 libtorrent 2.x 加密策略，
+          #     但残留了一行旧 API，导致 libtorrent 2.1.2 编译失败
           python3 - <<'PYEOF'
           from pathlib import Path
+          import re
 
           p = Path("src/bt/Session.cc")
           if not p.exists():
@@ -161,33 +162,23 @@ jobs:
 
           s = p.read_text(encoding="utf-8")
 
-          old = 'pack.set_bool(lt::settings_pack::prefer_encrypted_connections, encryption == "preferred");'
+          # 删除整行（含行首空白和行尾换行），避免残留空行导致的格式问题
+          pat = re.compile(
+              r'[ \t]*pack\.set_bool\(\s*lt::settings_pack::prefer_encrypted_connections[^\n]*\n'
+          )
+          s2, n = pat.subn('', s)
 
-          new = '''if (encryption == "forced") {
-              pack.set_int(lt::settings_pack::out_enc_policy, lt::settings_pack::pe_forced);
-              pack.set_int(lt::settings_pack::in_enc_policy,  lt::settings_pack::pe_forced);
-            } else if (encryption == "disabled") {
-              pack.set_int(lt::settings_pack::out_enc_policy, lt::settings_pack::pe_disabled);
-              pack.set_int(lt::settings_pack::in_enc_policy,  lt::settings_pack::pe_disabled);
-            } else {
-              pack.set_int(lt::settings_pack::out_enc_policy, lt::settings_pack::pe_enabled);
-              pack.set_int(lt::settings_pack::in_enc_policy,  lt::settings_pack::pe_enabled);
-            }
-            // libtorrent 2.x 默认 allowed_enc_level 仅 pe_plaintext，
-            // 必须显式提升到 pe_both + prefer_rc4 才能真正加密载荷
-            pack.set_int(lt::settings_pack::allowed_enc_level, lt::settings_pack::pe_both);
-            pack.set_bool(lt::settings_pack::prefer_rc4, true);'''
-
-          if old in s:
-              s = s.replace(old, new, 1)
-              p.write_text(s, encoding="utf-8")
-              print("Patched src/bt/Session.cc: prefer_encrypted_connections -> out_enc_policy/in_enc_policy + allowed_enc_level")
+          if n == 0:
+              # 三种可能：上游已删除（好事）、锚点变了、或路径不对
+              if 'prefer_encrypted_connections' in s:
+                  raise SystemExit(
+                      "ERROR: prefer_encrypted_connections found but pattern did not match; "
+                      "please inspect src/bt/Session.cc manually."
+                  )
+              print("Skipped: upstream already removed prefer_encrypted_connections")
           else:
-              # 失败要显式中断，避免“静默打不上补丁但继续编译”造成假成功
-              raise SystemExit(
-                  "ERROR: anchor 'prefer_encrypted_connections' not found in src/bt/Session.cc; "
-                  "upstream may have changed. Please review the file manually."
-              )
+              p.write_text(s2, encoding="utf-8")
+              print(f"Patched src/bt/Session.cc: removed {n} legacy prefer_encrypted_connections line(s)")
           PYEOF
 
           

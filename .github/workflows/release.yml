@@ -149,25 +149,7 @@ jobs:
               p.write_text(s)
           PYEOF
 
-          # B2. 删除 libtorrent 2.1 中已移除的废弃设置项
-          python3 - <<'PYEOF'
-          from pathlib import Path
-          import re
-
-          p = Path("src/BtSettings.cc")
-          if not p.exists():
-              print("WARNING: src/BtSettings.cc not found")
-          else:
-              s = p.read_text()
-              s2 = re.sub(
-                  r'\s*settings\.set_(?:bool|int)\(lt::settings_pack::(?:prefer_encrypted_connections|allowed_enc_level|prefer_rc4),\s*[^;]*?\);\n',
-                  '\n', s)
-              if s2 == s:
-                  print("WARNING: BtSettings.cc: no deprecated setting removed; check manually")
-              else:
-                  p.write_text(s2)
-                  print("Patched src/BtSettings.cc: removed prefer_encrypted_connections, allowed_enc_level, prefer_rc4")
-          PYEOF
+          
 
           # C. 自动下载并覆盖升级核心依赖
           #    核心依赖下载失败即停：避免"下载失败 -> 用旧版本构建 -> 假成功"
@@ -349,41 +331,7 @@ jobs:
           p.write_text(s, encoding="utf-8")
           print("Saved cmake/superbuild/Dependencies.cmake")
 
-          # ---------- H2. libtorrent 警告抑制 ----------
-          p = Path("third_party/libtorrent/CMakeLists.txt")
-          if p.exists():
-              s = p.read_text()
-              marker = "WORKFLOW_WARNING_SUPPRESSION"
-              if marker not in s:
-                  lines_to_add = [
-                      "",
-                      "# ===== WORKFLOW_WARNING_SUPPRESSION =====",
-                      "# 仅抑制 Clang 对 libtorrent 源码产生的无害警告，",
-                      "# 不改变编译产物，也不提升性能",
-                      'if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")',
-                      "  target_compile_options(torrent-rasterbar PRIVATE",
-                      "    -Wno-thread-safety-negative",
-                      "    -Wno-thread-safety-analysis",
-                      "    -Wno-sign-conversion",
-                      "    -Wno-ms-bitfield-padding",
-                      "    -Wno-nrvo",
-                      "    -Wno-extra-semi-stmt",
-                      "    -Wno-weak-vtables",
-                      "    -Wno-old-style-cast",
-                      "    -Wno-reserved-identifier",
-                      "    -Wno-missing-variable-declarations",
-                      "    -Wno-missing-prototypes",
-                      "    -Wno-undef",
-                      "  )",
-                      "endif()",
-                      "# ====================================",
-                  ]
-                  s += "\n".join(lines_to_add) + "\n"
-                  p.write_text(s)
-                  print("Patched third_party/libtorrent/CMakeLists.txt with warning suppressions")
-              else:
-                  print("libtorrent warning suppression already present")
-
+          
           # ---------- H3. 移除 cmake/modules/Dependencies.cmake 中的 OpenSSL 版本锁 ----------
           p = Path("cmake/modules/Dependencies.cmake")
           if p.exists():

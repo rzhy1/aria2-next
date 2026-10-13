@@ -135,18 +135,6 @@ jobs:
         working-directory: aria2-next
         run: |
 
-          # B. 强制 WinConsoleFile 默认支持颜色
-          python3 - <<'PYEOF'
-          from pathlib import Path
-          import re
-          p = Path("src/WinConsoleFile.cc")
-          if p.exists():
-              s = p.read_text()
-              s = re.sub(r'bool\s+WinConsoleFile::supportsColor\(\)\s*\{[^}]*\}',
-                         'bool WinConsoleFile::supportsColor() { return true; }', s)
-              p.write_text(s)
-          PYEOF
-
           # B2. 删除 libtorrent 1.x 遗留的 prefer_encrypted_connections 调用
           python3 - <<'PYEOF'
           from pathlib import Path

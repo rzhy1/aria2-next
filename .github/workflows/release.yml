@@ -134,8 +134,6 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # A. 1K 超小分片大小补丁
-          sed -i 's/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g))/PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g))/g' src/options/StreamOptions.cc || true
 
           # B. 强制 WinConsoleFile 默认支持颜色
           python3 - <<'PYEOF'
@@ -150,38 +148,22 @@ jobs:
           PYEOF
 
           # B2. 删除 libtorrent 1.x 遗留的 prefer_encrypted_connections 调用
-          #     上游 Session.cc 已用 out_enc_policy/in_enc_policy 正确实现 libtorrent 2.x 加密策略，
-          #     但残留了一行旧 API，导致 libtorrent 2.1.2 编译失败
           python3 - <<'PYEOF'
           from pathlib import Path
-          import re
 
           p = Path("src/bt/Session.cc")
           if not p.exists():
               raise SystemExit("ERROR: src/bt/Session.cc not found")
 
-          s = p.read_text(encoding="utf-8")
+          lines = p.read_text(encoding="utf-8").splitlines(True)
+          kept = [l for l in lines if "prefer_encrypted_connections" not in l]
 
-          # 删除整行（含行首空白和行尾换行），避免残留空行导致的格式问题
-          pat = re.compile(
-              r'[ \t]*pack\.set_bool\(\s*lt::settings_pack::prefer_encrypted_connections[^\n]*\n'
-          )
-          s2, n = pat.subn('', s)
-
-          if n == 0:
-              # 三种可能：上游已删除（好事）、锚点变了、或路径不对
-              if 'prefer_encrypted_connections' in s:
-                  raise SystemExit(
-                      "ERROR: prefer_encrypted_connections found but pattern did not match; "
-                      "please inspect src/bt/Session.cc manually."
-                  )
+          if len(kept) == len(lines):
               print("Skipped: upstream already removed prefer_encrypted_connections")
           else:
-              p.write_text(s2, encoding="utf-8")
-              print(f"Patched src/bt/Session.cc: removed {n} legacy prefer_encrypted_connections line(s)")
-          PYEOF
-
-          
+              p.write_text("".join(kept), encoding="utf-8")
+              print(f"Patched: removed {len(lines) - len(kept)} line(s)")
+          PYEOF      
 
           # C. 自动下载并覆盖升级核心依赖
           #    核心依赖下载失败即停：避免"下载失败 -> 用旧版本构建 -> 假成功"
@@ -251,16 +233,14 @@ jobs:
 
           # E. 预编译静态 OpenSSL（保留 ASM，不添加 no-asm）
           cd third_party/openssl
-          ./Configure mingw64 -static \
+          ./Configure mingw64 \
             --prefix=/ \
             --openssldir=/etc/ssl \
             --libdir=lib \
             --cross-compile-prefix=x86_64-w64-mingw32- \
             CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib RC=x86_64-w64-mingw32-windres \
-            no-shared no-tests no-docs no-apps no-autoload-config \
-            -Os -pipe -g0 \
-            --with-zlib-include="$DEP_PREFIX/include" \
-            --with-zlib-lib="$DEP_PREFIX/lib/libz.a"
+            no-shared no-module no-tests no-docs no-apps no-autoload-config \
+            -Os -pipe -g0
           make -j$(nproc) && make DESTDIR="$DEP_PREFIX" install_sw
           cd ../..
 
@@ -294,9 +274,9 @@ jobs:
           cd ../..
 
           # H. SuperBuild 补丁
-          #    H1: 直通三方库 + curl TLS 切换 OpenSSL
-          #    H2: libtorrent 警告抑制（仅减少日志，不改产物）
-          #    H3: 移除 OpenSSL 版本锁
+          #    H1: 直通已预编译的 OpenSSL / nghttp2 / SQLite（用 E/F/G 产物替代 SuperBuild 自编译）
+          #    移除 H2：Windows 平台保留官方 cURL Schannel 后端
+          #    移除 H3 中的 CURL 版本锁替换（该变量在官方源码中不存在）
           python3 - <<'PYEOF'
           from pathlib import Path
           import re
@@ -305,73 +285,55 @@ jobs:
           p = Path("cmake/superbuild/Dependencies.cmake")
           if not p.exists():
               raise SystemExit("ERROR: cmake/superbuild/Dependencies.cmake not found!")
-          
+
           s = p.read_text(encoding="utf-8")
-          
-          # 1. 直通已预编译的静态库
+
+          # 将 openssl / nghttp2 / sqlite 的 ExternalProject_Add 替换为空目标，
+          # 让 SuperBuild 不再自行下载编译，直接用 E/F/G 段安装到 dependencies/ 的产物。
           for proj in ["openssl_project", "nghttp2_project", "sqlite_project"]:
               pattern = rf'ExternalProject_Add\(\s*{proj}[\s\S]*?TEST_COMMAND\s+""\s*\)'
               s, count = re.subn(pattern, f'add_custom_target({proj})', s)
-              if count > 0:
-                  print(f"Patched: ExternalProject_Add({proj}) -> add_custom_target({proj})")
-              else:
-                  print(f"WARNING: ExternalProject_Add({proj}) anchor not found!")
-          
-          # 2. curl TLS 后端切换为 OpenSSL
-          curl_pattern = re.compile(
-              r'if\s*\(\s*WIN32\s*\)\s*'
-              r'set\s*\(\s*ARIA2_CURL_TLS_ARGS\s+'
-              r'-DCURL_USE_OPENSSL=OFF\s+'
-              r'-DCURL_USE_SCHANNEL=ON\s*\)\s*'
-              r'set\s*\(\s*ARIA2_CURL_TRUST_DEFINE\s+USE_SCHANNEL\s*\)\s*'
-              r'list\s*\(\s*REMOVE_ITEM\s+ARIA2_CURL_DEPENDENCIES\s+openssl_project\s*\)',
-              re.MULTILINE
-          )
-          
-          new_win32_curl = (
-              "if(WIN32)\n"
-              "  set(ARIA2_CURL_TLS_ARGS\n"
-              "    -DCURL_USE_OPENSSL=ON\n"
-              "    -DCURL_USE_SCHANNEL=OFF\n"
-              "    -DCURL_USE_LIBPSL=OFF\n"
-              "    -DOPENSSL_ROOT_DIR=${ARIA2_DEPENDENCY_PREFIX}\n"
-              "    -DOPENSSL_USE_STATIC_LIBS=ON\n"
-              "    -DOPENSSL_INCLUDE_DIR=${ARIA2_DEPENDENCY_PREFIX}/include\n"
-              "    -DOPENSSL_CRYPTO_LIBRARY=${ARIA2_DEPENDENCY_PREFIX}/lib/libcrypto.a\n"
-              "    -DOPENSSL_SSL_LIBRARY=${ARIA2_DEPENDENCY_PREFIX}/lib/libssl.a)\n"
-              "  set(ARIA2_CURL_TRUST_DEFINE USE_OPENSSL)"
-          )
-          
-          s, curl_count = curl_pattern.subn(new_win32_curl, s, count=1)
-          if curl_count > 0:
-              print("Patched: Successfully switched cURL TLS from Schannel to OpenSSL")
-          else:
-              old_win32_curl_fallback = (
-                  "if(WIN32)\n"
-                  "  set(ARIA2_CURL_TLS_ARGS\n"
-                  "    -DCURL_USE_OPENSSL=OFF\n"
-                  "    -DCURL_USE_SCHANNEL=ON)\n"
-                  "  set(ARIA2_CURL_TRUST_DEFINE USE_SCHANNEL)\n"
-                  "  list(REMOVE_ITEM ARIA2_CURL_DEPENDENCIES openssl_project)"
-              )
-              if old_win32_curl_fallback in s:
-                  s = s.replace(old_win32_curl_fallback, new_win32_curl)
-                  print("Patched: cURL TLS patched via fallback text match")
-              else:
-                  print("WARNING: cURL TLS win32 block not found!")
-          
-          p.write_text(s, encoding="utf-8")
-          print("Saved cmake/superbuild/Dependencies.cmake")
+              if count == 0:
+                  raise SystemExit(
+                      f"ERROR: H1 anchor not found for {proj}; "
+                      "cmake/superbuild/Dependencies.cmake may have been restructured upstream."
+                  )
+              print(f"Patched: ExternalProject_Add({proj}) -> add_custom_target({proj})")
 
-          
-          # ---------- H3. 移除 cmake/modules/Dependencies.cmake 中的 OpenSSL 版本锁 ----------
-          p = Path("cmake/modules/Dependencies.cmake")
-          if p.exists():
-              s = p.read_text()
-              s = s.replace('find_package(OpenSSL ${ARIA2_MIN_OPENSSL_VERSION}', 'find_package(OpenSSL')
-              s = s.replace('${ARIA2_MIN_CURL_VERSION}', '')
-              p.write_text(s)
-              print("Patched cmake/modules/Dependencies.cmake - removed OpenSSL version pin")
+          # H1 写回
+          p.write_text(s, encoding="utf-8")
+
+          # 复核：三个目标必须都替换成功
+          s2 = p.read_text(encoding="utf-8")
+          for marker in ["add_custom_target(openssl_project)",
+                         "add_custom_target(nghttp2_project)",
+                         "add_custom_target(sqlite_project)"]:
+              if marker not in s2:
+                  raise SystemExit(f"ERROR: H1 self-check failed, missing: {marker}")
+          print("H1 self-check passed")
+
+          # 明确提示 H2 已按设计保留官方 Schannel，不再切换 cURL TLS 后端
+          if "-DCURL_USE_SCHANNEL=ON" in s2 and "-DCURL_USE_OPENSSL=OFF" in s2:
+              print("H2 skipped by design: keeping official Windows Schannel cURL backend")
+
+          # ---------- H3. cmake/modules/Dependencies.cmake ----------
+          # 仅移除 OpenSSL 的严格版本锁；官方的 CURL 查找本来就不带版本变量，
+          # 不需要（也无法）做 replace。
+          dep_mod = Path("cmake/modules/Dependencies.cmake")
+          if dep_mod.exists():
+              t = dep_mod.read_text(encoding="utf-8")
+              before = t
+              t = t.replace(
+                  'find_package(OpenSSL ${ARIA2_MIN_OPENSSL_VERSION}',
+                  'find_package(OpenSSL'
+              )
+              if t != before:
+                  dep_mod.write_text(t, encoding="utf-8")
+                  print("Patched cmake/modules/Dependencies.cmake (removed OpenSSL version pin)")
+              else:
+                  print("Skipped: OpenSSL version pin already removed or anchor not found")
+          else:
+              print("Skipped: cmake/modules/Dependencies.cmake not present")
           PYEOF
 
           # I. 同步更新 -v 字符串中的版本号
@@ -396,29 +358,6 @@ jobs:
               s = re.sub(r'LibtorrentRasterbar/[0-9.]+',  f'libtorrent/{LIBTORRENT_VERSION}',   s)
               p.write_text(s)
               print(f"FeatureConfig.cc updated: expat/{EXPAT_VERSION}, sqlite3/{SQLITE_VERSION}, OpenSSL/{OPENSSL_VERSION}, Boost/{BOOST_VERSION}, libtorrent/{LIBTORRENT_VERSION}")
-          PYEOF
-
-          # J. build-release 中 Release -> MinSizeRel
-          #    精确替换 -DCMAKE_BUILD_TYPE=Release，失败只警告不阻断
-          python3 - <<'PYEOF'
-          from pathlib import Path
-
-          p = Path("packaging/scripts/build-release")
-          if not p.exists():
-              raise SystemExit("ERROR: packaging/scripts/build-release not found")
-
-          s = p.read_text()
-          s2 = s.replace(
-              '-DCMAKE_BUILD_TYPE=Release',
-              '-DCMAKE_BUILD_TYPE=MinSizeRel'
-          )
-
-          if s2 == s:
-              print("WARNING: no '-DCMAKE_BUILD_TYPE=Release' found in build-release; "
-                    "verify MinSizeRel is applied by checking the CMake config step")
-          else:
-              p.write_text(s2)
-              print("Patched packaging/scripts/build-release: Release -> MinSizeRel")
           PYEOF
 
       # ---------- 5. GPAC 头文件修复 + FFmpeg 体积优化 ----------

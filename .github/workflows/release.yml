@@ -151,7 +151,7 @@ jobs:
           else:
               p.write_text("".join(kept), encoding="utf-8")
               print(f"Patched: removed {len(lines) - len(kept)} line(s)")
-          PYEOF      
+          PYEOF
 
           # C. 自动下载并覆盖升级核心依赖
           #    核心依赖下载失败即停：避免"下载失败 -> 用旧版本构建 -> 假成功"
@@ -486,7 +486,6 @@ jobs:
           BIN="aria2-next/build/release/aria2-next.exe"
           x86_64-w64-mingw32-strip -s "$BIN"
           cp aria2-next/build/release/aria2-next.exe own-repo/release/aria2-next.exe
-          
 
       - name: Upload artifact
         if: steps.check.outputs.skip != 'true'

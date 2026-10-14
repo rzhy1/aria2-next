@@ -457,24 +457,6 @@ jobs:
             "grep -m1 -oP '#define\s+LIBTORRENT_VERSION\s+\"\K[0-9.]+' \"$INC/libtorrent/version.hpp\""
 
           echo
-          echo "===== [3] SuperBuild dependency config ====="
-          DEP_CMAKE="cmake/superbuild/Dependencies.cmake"
-          if [ -f "$DEP_CMAKE" ]; then
-            echo "File: $DEP_CMAKE"
-            grep -nE "Boost_INCLUDE_DIR|BOOST_ROOT|ARIA2_BOOST_ROOT|OPENSSL|LibtorrentRasterbar" "$DEP_CMAKE" | head -20 || true
-          else
-            echo "ERROR: $DEP_CMAKE not found"
-          fi
-
-      - name: Inspect binary for embedded versions
-        if: steps.check.outputs.skip != 'true'
-        working-directory: aria2-next
-        run: |
-          BIN="build/release/aria2-next.exe"
-          [ -f "$BIN" ] || { echo "Binary not found"; exit 0; }
-          echo "=== Embedded dependency strings in binary ==="
-          strings -n 4 "$BIN" | grep -iE "libtorrent/[0-9]|libtorrent [0-9]|Boost/[0-9]|Boost [0-9]|OpenSSL/[0-9]|OpenSSL [0-9]|sqlite3/[0-9]|sqlite [0-9]|expat/[0-9]" | sort -u | head -40
-          echo "=== End ==="
 
       - name: Upload build log
         if: failure()

@@ -179,15 +179,15 @@ jobs:
                                text::formatSize(done) + "/" + text::formatSize(total);
             if (total > 0) {
               line += colorize("(" + std::to_string(done * 100 / total) + "%)",
-                               "\\x1b[95m", useColor);
+                               "\\x1b[38;5;213m", useColor);
             }
             line += " CN:" + colorize(std::to_string(task.connections()),
-                                      "\\x1b[93m", useColor);
+                                      "\\x1b[38;5;220m", useColor);
             line += " DL:" + colorize(text::formatSize(speed),
-                                      "\\x1b[94m", useColor);
+                                      "\\x1b[38;5;81m", useColor);
             if (speed > 0 && total > done) {
               line += " ETA:" + colorize(text::formatDuration((total - done) / speed),
-                                         "\\x1b[91m", useColor);
+                                         "\\x1b[38;5;203m", useColor);
             }
             return line;
           }

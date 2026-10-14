@@ -435,19 +435,6 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          echo "=== [1] Boost_INCLUDE in CMakeCache ==="
-          grep -i 'Boost_INCLUDE' build/release/CMakeCache.txt || echo "(not found)"
-          
-          echo "=== [2] Boost libs ==="
-          ls build/release/dependencies/lib | grep -i boost || echo "(no boost lib)"
-          
-          echo "=== [3] Boost in SuperBuild ==="
-          grep -rn -i 'boost_project\|ExternalProject_Add.*boost\|BOOST' cmake/superbuild/ | head -20 || echo "(not found)"
-          
-          echo "=== [4] dependencies/include ==="
-          ls build/release/dependencies/include || echo "(dir missing)"
-          
-          echo "查询结束"
           echo "===== [1] Source tree versions ====="
           echo -n "Expat     : "
           grep -A2 'project(expat' third_party/expat/CMakeLists.txt 2>/dev/null \
@@ -465,27 +452,28 @@ jobs:
           echo
           echo "===== [2] Installed dependency header versions ====="
           INC=build/release/dependencies/include
+          ver() {
+            [ -f "$2" ] || { printf '%-10s: N/A (file not found)\n' "$1"; return; }
+            out="$(eval "$3" 2>/dev/null || true)"
+            printf '%-10s: %s\n' "$1" "${out:-N/A}"
+          }
           ver Expat "$INC/expat.h" \
             "sed -nE 's/^#[[:space:]]*define[[:space:]]+XML_(MAJOR|MINOR|MICRO)_VERSION[[:space:]]+([0-9]+).*/\\2/p' \"$INC/expat.h\" | paste -sd. -"
           ver SQLite "$INC/sqlite3.h" \
             "grep -m1 -oP '#define\s+SQLITE_VERSION\s+\"\K[0-9.]+' \"$INC/sqlite3.h\""         
           ver OpenSSL "$INC/openssl/opensslv.h" \
             "grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+\"[^0-9]*\K[0-9][0-9.a-z]*' \"$INC/openssl/opensslv.h\""
-          ver Boost "$INC/boost/version.hpp" \
-            "grep -m1 -oP '#define\s+BOOST_VERSION\s+\K[0-9]+' \"$INC/boost/version.hpp\" | awk '{printf \"%d.%d.%d\", \$1/100000, (\$1/100)%1000, \$1%100}'"
           ver libtorrent "$INC/libtorrent/version.hpp" \
             "grep -m1 -oP '#define\s+LIBTORRENT_VERSION\s+\"\K[0-9.]+' \"$INC/libtorrent/version.hpp\""
 
           echo
-          echo "===== [3] CMakeCache entries ====="
-          CACHE_FILE="build/release/CMakeCache.txt"
-          if [ -f "$CACHE_FILE" ]; then
-            echo "Cache file: $CACHE_FILE"
-            grep -iE "LibtorrentRasterbar|Boost_INCLUDE|OPENSSL_ROOT|OPENSSL_INCLUDE|CMAKE_BUILD_TYPE|CMAKE_C_FLAGS|CMAKE_CXX_FLAGS" "$CACHE_FILE" 2>/dev/null | head -30 || true
+          echo "===== [3] SuperBuild dependency config ====="
+          DEP_CMAKE="cmake/superbuild/Dependencies.cmake"
+          if [ -f "$DEP_CMAKE" ]; then
+            echo "File: $DEP_CMAKE"
+            grep -nE "Boost_INCLUDE_DIR|BOOST_ROOT|ARIA2_BOOST_ROOT|OPENSSL|LibtorrentRasterbar" "$DEP_CMAKE" | head -20 || true
           else
-            echo "ERROR: $CACHE_FILE not found"
-            echo "---- fallback: 查找所有 CMakeCache.txt ----"
-            find build/release -name CMakeCache.txt 2>/dev/null || true
+            echo "ERROR: $DEP_CMAKE not found"
           fi
 
       - name: Inspect binary for embedded versions

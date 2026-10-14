@@ -139,25 +139,20 @@ jobs:
           from pathlib import Path
           import re
           import textwrap
-
           p = Path("src/app/Console.cc")
           if not p.exists():
               raise SystemExit(f"ERROR: {p} not found")
-
           s = p.read_text(encoding="utf-8")
-
           pattern = re.compile(
               r'namespace \{\nstd::string describe\(const Task& task\)\n\{.*?\n\}\n\} // namespace',
               re.DOTALL
           )
-
           replacement = textwrap.dedent('''\
           namespace {
           std::string colorize(const std::string& s, const char* c, bool useColor)
           {
             return useColor ? std::string(c) + s + "\\x1b[0m" : s;
           }
-
           std::size_t visibleWidth(const std::string& s)
           {
             std::size_t w = 0;
@@ -173,7 +168,6 @@ jobs:
             }
             return w;
           }
-
           std::string describe(const Task& task)
           {
             const bool useColor = isatty(fileno(stdout)) != 0;
@@ -183,34 +177,30 @@ jobs:
 
             std::string line = "#" + gidText(task.gid()).substr(0, 6) + " " +
                                text::formatSize(done) + "/" + text::formatSize(total);
-
             if (total > 0) {
               line += colorize("(" + std::to_string(done * 100 / total) + "%)",
                                "\\x1b[95m", useColor);
             }
             line += " CN:" + colorize(std::to_string(task.connections()),
-                                      "\\x1b[33m", useColor);
+                                      "\\x1b[93m", useColor);
             line += " DL:" + colorize(text::formatSize(speed),
-                                      "\\x1b[34m", useColor);
+                                      "\\x1b[94m", useColor);
             if (speed > 0 && total > done) {
               line += " ETA:" + colorize(text::formatDuration((total - done) / speed),
-                                         "\\x1b[31m", useColor);
+                                         "\\x1b[91m", useColor);
             }
             return line;
           }
           } // namespace''')
-
           s2, n = pattern.subn(lambda m: replacement, s)
           if n != 1:
               raise SystemExit(f"ERROR: describe() matched {n} times (expected 1)")
           s = s2
-
           old_width = "  const auto width = line.size();"
           new_width = "  const auto width = visibleWidth(line);"
           if old_width not in s:
               raise SystemExit("ERROR: readout() width anchor not found")
           s = s.replace(old_width, new_width, 1)
-
           p.write_text(s, encoding="utf-8")
           print("Patched Console.cc: colored readout + visibleWidth")
           PYEOF

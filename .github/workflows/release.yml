@@ -464,20 +464,21 @@ jobs:
 
           echo
           echo "===== [2] Installed dependency header versions ====="
-          for f in \
-            build/release/dependencies/include/sqlite3.h \
-            build/release/dependencies/include/openssl/opensslv.h \
-            build/release/dependencies/include/libtorrent/version.hpp \
-            build/release/dependencies/include/expat.h ; do
-            if [ -f "$f" ]; then
-              echo "--- $f ---"
-              grep -m1 -oP 'SQLITE_VERSION\s+"\K[0-9.]+' "$f" 2>/dev/null \
-                || grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+"[^0-9]*\K[0-9][0-9.a-z]*' "$f" 2>/dev/null \
-                || grep -m1 -oP 'LIBTORRENT_VERSION\s+"\K[0-9.]+' "$f" 2>/dev/null \
-                || grep -m1 -oP 'XML_ExpatVersion\s+"\K[0-9.]+' "$f" 2>/dev/null \
-                || echo "(no matching version macro)"
-            fi
-          done
+          INC=build/release/dependencies/include
+          ver() {
+            [ -f "$2" ] || { printf '%-10s: N/A (file not found)\n' "$1"; return; }
+            printf '%-10s: %s\n' "$1" "$(eval "$3" 2>/dev/null || echo N/A)"
+          }
+          ver Expat "$INC/expat.h" \
+            "awk '/^#define XML_MAJOR_VERSION/{m=\$3}/^#define XML_MINOR_VERSION/{n=\$3}/^#define XML_MICRO_VERSION/{p=\$3}END{if(m&&n&&p)print m\".\"n\".\"p}' \"$INC/expat.h\""    
+          ver SQLite "$INC/sqlite3.h" \
+            "grep -m1 -oP '#define\s+SQLITE_VERSION\s+\"\K[0-9.]+' \"$INC/sqlite3.h\""         
+          ver OpenSSL "$INC/openssl/opensslv.h" \
+            "grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+\"[^0-9]*\K[0-9][0-9.a-z]*' \"$INC/openssl/opensslv.h\""
+          ver Boost "$INC/boost/version.hpp" \
+            "grep -m1 -oP '#define\s+BOOST_VERSION\s+\K[0-9]+' \"$INC/boost/version.hpp\" | awk '{printf \"%d.%d.%d\", \$1/100000, (\$1/100)%1000, \$1%100}'"
+          ver libtorrent "$INC/libtorrent/version.hpp" \
+            "grep -m1 -oP '#define\s+LIBTORRENT_VERSION\s+\"\K[0-9.]+' \"$INC/libtorrent/version.hpp\""
 
           echo
           echo "===== [3] CMakeCache entries ====="

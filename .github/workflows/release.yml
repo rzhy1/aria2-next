@@ -435,18 +435,18 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 1. CMake 实际用哪个 Boost 头文件目录
-          echo "查询"
-          grep -i 'Boost_INCLUDE' build/release/CMakeCache.txt
+          echo "=== [1] Boost_INCLUDE in CMakeCache ==="
+          grep -i 'Boost_INCLUDE' build/release/CMakeCache.txt || echo "(not found)"
           
-          # 2. dependencies/lib 里有没有 Boost 库
-          ls build/release/dependencies/lib | grep -i boost
+          echo "=== [2] Boost libs ==="
+          ls build/release/dependencies/lib | grep -i boost || echo "(no boost lib)"
           
-          # 3. SuperBuild 里 Boost 是怎么处理的
-          grep -rn -i 'boost_project\|ExternalProject_Add.*boost\|BOOST' cmake/superbuild/ | head -20
+          echo "=== [3] Boost in SuperBuild ==="
+          grep -rn -i 'boost_project\|ExternalProject_Add.*boost\|BOOST' cmake/superbuild/ | head -20 || echo "(not found)"
           
-          # 4. dependencies/include 下到底有什么
-          ls build/release/dependencies/include
+          echo "=== [4] dependencies/include ==="
+          ls build/release/dependencies/include || echo "(dir missing)"
+          
           echo "查询结束"
           echo "===== [1] Source tree versions ====="
           echo -n "Expat     : "

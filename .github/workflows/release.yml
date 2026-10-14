@@ -378,21 +378,11 @@ jobs:
               print(f"FeatureConfig.cc updated: expat/{EXPAT_VERSION}, sqlite3/{SQLITE_VERSION}, OpenSSL/{OPENSSL_VERSION}, Boost/{BOOST_VERSION}, libtorrent/{LIBTORRENT_VERSION}")
           PYEOF
 
-      # ---------- 5. GPAC 头文件修复 + FFmpeg 体积优化 ----------
+      # ---------- 5. Media.cmake修复 + FFmpeg 体积优化 ----------
       - name: Patch GPAC for mingw and optimize FFmpeg
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 修复 GPAC Windows 头文件大小写
-          find third_party/gpac \
-            -type f \
-            \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) \
-            -print0 | \
-            xargs -0 -r sed -i \
-              -e 's/WinSock2\.h/winsock2.h/g' \
-              -e 's/Windows\.h/windows.h/g' \
-              -e 's/WS2tcpip\.h/ws2tcpip.h/g'
-
           # 通过 -DGPAC_ALLOW_UNSAFE_STRFUNC 绕过 GPAC 的 unsafe strfunc 禁用
           sed -i 's|^set(media_cflags "\${CMAKE_C_FLAGS}")|set(media_cflags "\${CMAKE_C_FLAGS} -DGPAC_ALLOW_UNSAFE_STRFUNC")|' \
             cmake/superbuild/Media.cmake

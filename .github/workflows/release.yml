@@ -379,8 +379,6 @@ jobs:
           PYEOF
 
       # ---------- 5. GPAC 头文件修复 + FFmpeg 体积优化 ----------
-      #    不再对 GPAC configure 做 cross_compiling / gpac-conf 强制替换，
-      #    GPAC 的 Exec format error 只是 configure 中间探测失败，不影响最终产物
       - name: Patch GPAC for mingw and optimize FFmpeg
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -395,12 +393,13 @@ jobs:
               -e 's/Windows\.h/windows.h/g' \
               -e 's/WS2tcpip\.h/ws2tcpip.h/g'
 
-          # 修复 GPAC setup.h unsafe string 宏污染
+          # 通过 -DGPAC_ALLOW_UNSAFE_STRFUNC 绕过 GPAC 的 unsafe strfunc 禁用
           sed -i 's|^set(media_cflags "\${CMAKE_C_FLAGS}")|set(media_cflags "\${CMAKE_C_FLAGS} -DGPAC_ALLOW_UNSAFE_STRFUNC")|' \
             cmake/superbuild/Media.cmake
           grep -q 'GPAC_ALLOW_UNSAFE_STRFUNC' cmake/superbuild/Media.cmake \
             || { echo "ERROR: Media.cmake patch anchor not found"; exit 1; }
-
+          echo "Patched Media.cmake: added -DGPAC_ALLOW_UNSAFE_STRFUNC"
+          
           # FFmpeg 开启体积优化
           python3 - <<'PYEOF'
           from pathlib import Path
@@ -436,6 +435,19 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
+          # 1. CMake 实际用哪个 Boost 头文件目录
+          echo "查询"
+          grep -i 'Boost_INCLUDE' build/release/CMakeCache.txt
+          
+          # 2. dependencies/lib 里有没有 Boost 库
+          ls build/release/dependencies/lib | grep -i boost
+          
+          # 3. SuperBuild 里 Boost 是怎么处理的
+          grep -rn -i 'boost_project\|ExternalProject_Add.*boost\|BOOST' cmake/superbuild/ | head -20
+          
+          # 4. dependencies/include 下到底有什么
+          ls build/release/dependencies/include
+          echo "查询结束"
           echo "===== [1] Source tree versions ====="
           echo -n "Expat     : "
           grep -A2 'project(expat' third_party/expat/CMakeLists.txt 2>/dev/null \
@@ -453,17 +465,8 @@ jobs:
           echo
           echo "===== [2] Installed dependency header versions ====="
           INC=build/release/dependencies/include
-          ver() {
-            [ -f "$2" ] || { printf '%-10s: N/A (file not found)\n' "$1"; return; }
-            printf '%-10s: %s\n' "$1" "$(eval "$3" 2>/dev/null || echo N/A)"
-          }
-          PC="$DEP_PREFIX/lib/pkgconfig/expat.pc"
-          if [ -f "$PC" ]; then
-            ver Expat "$PC" "awk '/^Version:/{print \$2; exit}' \"$PC\""
-          else
-            ver Expat "$INC/expat.h" \
-              "awk '/^#[[:space:]]*define[[:space:]]+XML_MAJOR_VERSION/{m=\$3}/^#[[:space:]]*define[[:space:]]+XML_MINOR_VERSION/{n=\$3}/^#[[:space:]]*define[[:space:]]+XML_MICRO_VERSION/{p=\$3}END{gsub(/[()]/,\"\",m);gsub(/[()]/,\"\",n);gsub(/[()]/,\"\",p);if(m&&n&&p)print m\".\"n\".\"p;else print \"N/A\"}' \"$INC/expat.h\""
-          fi
+          ver Expat "$INC/expat.h" \
+            "sed -nE 's/^#[[:space:]]*define[[:space:]]+XML_(MAJOR|MINOR|MICRO)_VERSION[[:space:]]+([0-9]+).*/\\2/p' \"$INC/expat.h\" | paste -sd. -"
           ver SQLite "$INC/sqlite3.h" \
             "grep -m1 -oP '#define\s+SQLITE_VERSION\s+\"\K[0-9.]+' \"$INC/sqlite3.h\""         
           ver OpenSSL "$INC/openssl/opensslv.h" \

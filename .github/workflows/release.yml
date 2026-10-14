@@ -396,22 +396,10 @@ jobs:
               -e 's/WS2tcpip\.h/ws2tcpip.h/g'
 
           # 修复 GPAC setup.h unsafe string 宏污染
-          python3 - <<'PYEOF'
-          from pathlib import Path
-          import re
-
-          p = Path('third_party/gpac/include/gpac/setup.h')
-          if not p.exists():
-              raise SystemExit('gpac/setup.h not found')
-
-          s = p.read_text()
-          s2 = re.sub(r'#ifndef\s+GPAC_ALLOW_UNSAFE_STRFUNC', '#if 0', s)
-          if s2 != s:
-              p.write_text(s2)
-              print('Patched gpac/setup.h')
-          else:
-              print('No patch required')
-          PYEOF
+          sed -i 's|^set(media_cflags "\${CMAKE_C_FLAGS}")|set(media_cflags "\${CMAKE_C_FLAGS} -DGPAC_ALLOW_UNSAFE_STRFUNC")|' \
+            cmake/superbuild/Media.cmake
+          grep -q 'GPAC_ALLOW_UNSAFE_STRFUNC' cmake/superbuild/Media.cmake \
+            || { echo "ERROR: Media.cmake patch anchor not found"; exit 1; }
 
           # FFmpeg 开启体积优化
           python3 - <<'PYEOF'
@@ -469,8 +457,13 @@ jobs:
             [ -f "$2" ] || { printf '%-10s: N/A (file not found)\n' "$1"; return; }
             printf '%-10s: %s\n' "$1" "$(eval "$3" 2>/dev/null || echo N/A)"
           }
-          ver Expat "$INC/expat.h" \
-            "awk '/^#define XML_MAJOR_VERSION/{m=\$3}/^#define XML_MINOR_VERSION/{n=\$3}/^#define XML_MICRO_VERSION/{p=\$3}END{if(m&&n&&p)print m\".\"n\".\"p}' \"$INC/expat.h\""    
+          PC="$DEP_PREFIX/lib/pkgconfig/expat.pc"
+          if [ -f "$PC" ]; then
+            ver Expat "$PC" "awk '/^Version:/{print \$2; exit}' \"$PC\""
+          else
+            ver Expat "$INC/expat.h" \
+              "awk '/^#[[:space:]]*define[[:space:]]+XML_MAJOR_VERSION/{m=\$3}/^#[[:space:]]*define[[:space:]]+XML_MINOR_VERSION/{n=\$3}/^#[[:space:]]*define[[:space:]]+XML_MICRO_VERSION/{p=\$3}END{gsub(/[()]/,\"\",m);gsub(/[()]/,\"\",n);gsub(/[()]/,\"\",p);if(m&&n&&p)print m\".\"n\".\"p;else print \"N/A\"}' \"$INC/expat.h\""
+          fi
           ver SQLite "$INC/sqlite3.h" \
             "grep -m1 -oP '#define\s+SQLITE_VERSION\s+\"\K[0-9.]+' \"$INC/sqlite3.h\""         
           ver OpenSSL "$INC/openssl/opensslv.h" \

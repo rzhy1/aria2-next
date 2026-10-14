@@ -186,7 +186,7 @@ jobs:
 
             if (total > 0) {
               line += colorize("(" + std::to_string(done * 100 / total) + "%)",
-                               "\\x1b[35m", useColor);
+                               "\\x1b[95m", useColor);
             }
             line += " CN:" + colorize(std::to_string(task.connections()),
                                       "\\x1b[33m", useColor);

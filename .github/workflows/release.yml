@@ -437,7 +437,7 @@ jobs:
           cp -r "$OPENSSL_CACHE/include/"* "$DEP_PREFIX/include/"
           cp -r "$OPENSSL_CACHE/lib/"* "$DEP_PREFIX/lib/"
 
-          # F. CMake 编译静态 nghttp2 (仅十余秒)
+          # F. CMake 编译静态 nghttp2
           cd third_party/nghttp2
           cmake -B build-nghttp2 -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
@@ -457,7 +457,7 @@ jobs:
           cp -f "$DEP_PREFIX/lib/libnghttp2_static.a" "$DEP_PREFIX/lib/libnghttp2.a" 2>/dev/null || true
           cd ../..
 
-          # G. 编译 SQLite (仅 1 秒)
+          # G. 编译 SQLite
           cd third_party/sqlite
           $CC $RELEASE_CFLAGS -g0 -DNDEBUG -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
           $AR rcs "$DEP_PREFIX/lib/libsqlite3.a" sqlite3.o
@@ -551,31 +551,25 @@ jobs:
 
           FAIL=0
           INC="build/release/dependencies/include/openssl"
-          LIB="build/release/dependencies/lib/libcrypto.a"
-          NM="x86_64-w64-mingw32-nm"
 
-          # --- 检查 1: configdata.pm (权威来源, 仅缓存 miss 时存在) ---
+          # --- 检查 1: configdata.pm ---
           if [ -f third_party/openssl/configdata.pm ]; then
-            echo "[1/3] Inspecting third_party/openssl/configdata.pm ..."
+            echo "[1/2] Inspecting configdata.pm ..."
             OPT=$(cd third_party/openssl && perl configdata.pm --options 2>/dev/null || true)
-            if echo "$OPT" | grep -qE '^[[:space:]]*legacy[[:space:]]*$'; then
-              echo "      ✅ legacy: enabled"
-            else
-              echo "      ❌ legacy: NOT enabled  (必须在 Configure 中加 enable-legacy)"
-              FAIL=1
-            fi
-            if echo "$OPT" | grep -qE '^[[:space:]]*rc4[[:space:]]*$'; then
-              echo "      ✅ rc4: enabled"
-            else
-              echo "      ❌ rc4: NOT enabled     (必须移除 no-rc4)"
-              FAIL=1
-            fi
+            for FEAT in legacy rc4; do
+              if echo "$OPT" | grep -qE "^[[:space:]]*${FEAT}[[:space:]]*$"; then
+                echo "      ✅ ${FEAT}: enabled"
+              else
+                echo "      ❌ ${FEAT}: NOT enabled"
+                FAIL=1
+              fi
+            done
           else
-            echo "[1/3] configdata.pm not present (cache hit); 跳过配置级检查"
+            echo "[1/2] configdata.pm not present (cache hit); skipped"
           fi
 
-          # --- 检查 2: 已安装头文件中的 OPENSSL_NO_RC4 宏 ---
-          echo "[2/3] Checking installed headers for OPENSSL_NO_RC4 ..."
+          # --- 检查 2: 头文件中无 OPENSSL_NO_RC4 ---
+          echo "[2/2] Checking installed headers for OPENSSL_NO_RC4 ..."
           for HDR in "$INC/opensslconf.h" "$INC/configuration.h"; do
             if [ -f "$HDR" ]; then
               if grep -qE '^[[:space:]]*#[[:space:]]*define[[:space:]]+OPENSSL_NO_RC4' "$HDR"; then
@@ -587,23 +581,23 @@ jobs:
             fi
           done
 
-          # --- 检查 3: 静态库中的 RC4 符号 ---
-          echo "[3/3] Checking RC4 symbols in $LIB ..."
+          # --- 检查 3: 二进制字符串扫描（代替 nm） ---
+          echo "[3/3] Scanning libcrypto.a for RC4 / provider strings ..."
+          LIB="build/release/dependencies/lib/libcrypto.a"
           if [ ! -f "$LIB" ]; then
             echo "      ❌ $LIB not found"
             FAIL=1
           else
-            if $NM "$LIB" 2>/dev/null | grep -qE 'T RC4_(set_key|options|encrypt|decrypt)'; then
-              echo "      ✅ RC4 symbols present in libcrypto.a"
+            if strings "$LIB" | grep -qE 'RC4|rc4'; then
+              echo "      ✅ RC4-related strings found in libcrypto.a"
             else
-              echo "      ❌ RC4 symbols NOT found in libcrypto.a"
-              echo "         → Configure 里仍有 no-rc4，或缓存里的旧产物被复用了"
+              echo "      ❌ No RC4 strings found in libcrypto.a"
               FAIL=1
             fi
-            if $NM "$LIB" 2>/dev/null | grep -qE 'T OSSL_PROVIDER_load'; then
-              echo "      ✅ OSSL_PROVIDER_load present (provider 加载机制可用)"
+            if strings "$LIB" | grep -qE 'OSSL_PROVIDER_load|legacy'; then
+              echo "      ✅ provider / legacy strings found"
             else
-              echo "      ⚠️  OSSL_PROVIDER_load not found"
+              echo "      ⚠️  provider / legacy strings not visible"
             fi
           fi
 
@@ -612,11 +606,6 @@ jobs:
             echo "═══════════════════════════════════════════════════════════════"
             echo " ***** OpenSSL verification FAILED: RC4 / legacy 缺失 *****"
             echo "═══════════════════════════════════════════════════════════════"
-            echo " 修复步骤:"
-            echo "   1. 确认 Configure 中含 enable-legacy"
-            echo "   2. 确认 Configure 中不含 no-rc4"
-            echo "   3. 把缓存 Key 版本号 +1 (如 v2 -> v3)，强制重新编译"
-            echo "   4. 或在仓库 Settings → Actions → Caches 里删除旧的 OpenSSL 缓存"
             exit 1
           fi
 

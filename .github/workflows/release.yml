@@ -129,12 +129,21 @@ jobs:
         working-directory: aria2-next
         run: packaging/scripts/verify-runner-tools windows-x86_64
 
+      # ---------- 3.5 单独为 OpenSSL 恢复/保存构建缓存 ----------
+      - name: Restore OpenSSL cache
+        if: steps.check.outputs.skip != 'true'
+        id: openssl-cache
+        uses: actions/cache@v6
+        with:
+          path: aria2-next/prebuilt-openssl
+          key: openssl-${{ runner.os }}-${{ env.OPENSSL_VERSION }}-x86_64-v3-minizerel-v1
+
       # ---------- 4. 预编译依赖并打通 SuperBuild ----------
       - name: Pre-build OpenSSL & nghttp2 & SQLite, patch SuperBuild
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # A. 给 Console.cc 的进度行加 ANSI 颜色（跨平台 TTY/VT 兼容 + 宽度对齐）
+          # A. 给 Console.cc 的进度行加 ANSI 颜色（跨平台 TTY/VT 兼容 + 顶部头文件注入）
           python3 - <<'PYEOF'
           from pathlib import Path
           import re
@@ -145,7 +154,6 @@ jobs:
               raise SystemExit(f"ERROR: {p} not found")
           s = p.read_text(encoding="utf-8")
           
-          # ---- 第一步：在文件顶部插入必要的 #include 和宏定义 ----
           header_block = textwrap.dedent(r'''
           #if defined(_WIN32)
           #  ifndef NOMINMAX
@@ -166,11 +174,13 @@ jobs:
           #include <cstdio>
           #include <string>
           ''').strip()
+
           if '#include' in s:
               first_include_pos = s.index('#include')
               s = s[:first_include_pos] + header_block + "\n\n" + s[first_include_pos:]
           else:
               raise SystemExit("ERROR: no #include found in Console.cc")
+
           pattern = re.compile(
               r'namespace \{\nstd::string describe\(const Task& task\)\n\{.*?\n\}\n\} // namespace',
               re.DOTALL
@@ -182,11 +192,9 @@ jobs:
           {
             static const bool supported = []() -> bool {
           #if defined(_WIN32)
-              // 首先检查是否连接到终端
               if (_isatty(_fileno(stdout)) == 0) {
                 return false;
               }
-              // 遵循 NO_COLOR 约定
               if (std::getenv("NO_COLOR") != nullptr) {
                 return false;
               }
@@ -198,11 +206,9 @@ jobs:
               if (!GetConsoleMode(hOut, &dwMode)) {
                 return false;
               }
-              // 如果已经启用了 VT 处理，无需重复设置
               if (dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) {
                 return true;
               }
-              // 尝试启用 VT 处理；旧版 Windows 可能不支持
               dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
               if (!SetConsoleMode(hOut, dwMode)) {
                 return false;
@@ -212,7 +218,6 @@ jobs:
               if (isatty(fileno(stdout)) == 0) {
                 return false;
               }
-              // 遵循 NO_COLOR 约定
               if (std::getenv("NO_COLOR") != nullptr) {
                 return false;
               }
@@ -225,10 +230,12 @@ jobs:
             }();
             return supported;
           }
+
           std::string colorize(const std::string& s, const char* c, bool useColor)
           {
             return useColor ? std::string(c) + s + "\x1b[0m" : s;
           }
+
           std::size_t visibleWidth(const std::string& s)
           {
             std::size_t w = 0;
@@ -275,7 +282,6 @@ jobs:
               raise SystemExit(f"ERROR: describe() matched {n} times (expected 1)")
           s = s2
           
-          # ---- 第三步：替换宽度计算锚点 ----
           old_width = "  const auto width = line.size();"
           new_width = "  const auto width = visibleWidth(line);"
           if old_width not in s:
@@ -304,8 +310,7 @@ jobs:
               print(f"Patched: removed {len(lines) - len(kept)} line(s)")
           PYEOF
 
-          # C. 自动下载并覆盖升级核心依赖
-          #    优化：并发下载加速、独立临时文件保障线程安全、消除 tarfile PEP 706 警告
+          # C. 自动下载并覆盖升级核心依赖（必须保留，确保源码与 dependencies.env 同步更新）
           python3 - <<'PYEOF'
           import urllib.request, os, tarfile, shutil, re, tempfile
           from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -325,12 +330,10 @@ jobs:
           BOOST_URL      = f"https://archives.boost.io/release/{BOOST_VERSION}/source/boost_{BOOST_VERSION.replace('.', '_')}.tar.gz"
           LIBTORRENT_URL = f"https://github.com/arvidn/libtorrent/releases/download/v{LIBTORRENT_VERSION}/libtorrent-rasterbar-{LIBTORRENT_VERSION}.tar.gz"
 
-          # Python 3.12+ 安全提取支持 (PEP 706)
           HAS_DATA_FILTER = hasattr(tarfile, 'data_filter')
 
           def download_and_extract(url, target_dir, sub_path=None):
               print(f"[START] Upgrading {target_dir} from {url} ...")
-              # 采用独立命名临时文件，避免并发竞争写入
               with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp_file:
                   archive_path = tmp_file.name
 
@@ -348,7 +351,6 @@ jobs:
                           if len(p.parts) > 1:
                               if sub_path and sub_path not in p.parts:
                                   continue
-                              # 去除根目录层级（类似 tar 的 --strip-components=1）
                               member.name = str(Path(*p.parts[1:]))
                               if HAS_DATA_FILTER:
                                   tar.extract(member, path=target_dir, filter='data')
@@ -371,7 +373,6 @@ jobs:
               (LIBTORRENT_URL, "third_party/libtorrent", None),
           ]
 
-          # 并行拉取与提取所有依赖，极大缩减总构建用时
           with ThreadPoolExecutor(max_workers=5) as executor:
               futures = {executor.submit(download_and_extract, *task): task[1] for task in tasks}
               for future in as_completed(futures):
@@ -381,7 +382,6 @@ jobs:
                   except Exception as exc:
                       raise SystemExit(f"Build Aborted: Dependency update failed for {target} -> {exc}")
 
-          # 同步更新 dependencies.env 中的版本号声明
           env_file = Path("packaging/dependencies.env")
           if env_file.exists():
               s = env_file.read_text(encoding="utf-8")
@@ -399,27 +399,44 @@ jobs:
           # D. 准备依赖安装目录
           mkdir -p build/release/dependencies/lib build/release/dependencies/include
           DEP_PREFIX="$PWD/build/release/dependencies"
+          OPENSSL_CACHE="$PWD/prebuilt-openssl"
 
-          # E. 预编译静态 OpenSSL（保留 ASM，不添加 no-asm）
-          cd third_party/openssl
-          ./Configure mingw64 \
-            --prefix=/ \
-            --openssldir=/etc/ssl \
-            --libdir=lib \
-            --cross-compile-prefix=x86_64-w64-mingw32- \
-            CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib RC=x86_64-w64-mingw32-windres \
-            no-shared no-module no-tests no-docs no-apps \
-            no-autoload-config no-legacy \
-            no-cmp no-cms no-ts no-ct \
-            no-srp no-sctp no-srtp no-comp \
-            no-aria no-bf no-camellia no-cast no-idea \
-            no-md4 no-rc2 no-rc4 no-seed \
-            no-sm2 no-sm3 no-sm4 no-whirlpool no-rmd160 \
-            -Os -pipe -g0
-          make -j$(nproc) && make DESTDIR="$DEP_PREFIX" install_sw
-          cd ../..
+          # E. 预编译静态 OpenSSL（纯净对称安装 + 深度裁剪）
+          if [ "${{ steps.openssl-cache.outputs.cache-hit }}" = "true" ] && [ -d "$OPENSSL_CACHE/lib" ]; then
+            echo "=========================================================="
+            echo "[CACHE HIT] Restoring OpenSSL from cache (0 seconds)!"
+            echo "=========================================================="
+          else
+            echo "=========================================================="
+            echo "[CACHE MISS] Building trimmed OpenSSL from source..."
+            echo "=========================================================="
+            rm -rf "$OPENSSL_CACHE"
+            mkdir -p "$OPENSSL_CACHE"
+            cd third_party/openssl
+            ./Configure mingw64 \
+              --prefix=/ \
+              --openssldir=/etc/ssl \
+              --libdir=lib \
+              --cross-compile-prefix=x86_64-w64-mingw32- \
+              CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib RC=x86_64-w64-mingw32-windres \
+              no-shared no-module no-tests no-docs no-apps no-autoload-config \
+              no-legacy no-engine no-dynamic-engine \
+              no-comp no-ssl3 no-ssl3-method no-weak-ssl-ciphers \
+              no-cmp no-cms no-ts no-ct no-srp no-sctp no-srtp \
+              no-aria no-bf no-camellia no-cast no-idea no-md2 no-md4 no-rc2 no-rc4 no-rc5 \
+              no-seed no-sm2 no-sm3 no-sm4 no-whirlpool no-rmd160 \
+              -Os -pipe -g0
 
-          # F. CMake 编译静态 nghttp2
+            # 直接安装到独立的缓存目录，避免从 DEP_PREFIX 逆向提取
+            make -j$(nproc) && make DESTDIR="$OPENSSL_CACHE" install_sw
+            cd ../..
+          fi
+
+          # 对称分发：无论命中与否，都统一步骤同步至依赖目录
+          cp -r "$OPENSSL_CACHE/include/"* "$DEP_PREFIX/include/"
+          cp -r "$OPENSSL_CACHE/lib/"* "$DEP_PREFIX/lib/"
+
+          # F. CMake 编译静态 nghttp2 (仅十余秒)
           cd third_party/nghttp2
           cmake -B build-nghttp2 -G Ninja \
             -DCMAKE_SYSTEM_NAME=Windows \
@@ -439,7 +456,7 @@ jobs:
           cp -f "$DEP_PREFIX/lib/libnghttp2_static.a" "$DEP_PREFIX/lib/libnghttp2.a" 2>/dev/null || true
           cd ../..
 
-          # G. 编译 SQLite
+          # G. 编译 SQLite (仅 1 秒)
           cd third_party/sqlite
           $CC $RELEASE_CFLAGS -g0 -DNDEBUG -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
           $AR rcs "$DEP_PREFIX/lib/libsqlite3.a" sqlite3.o
@@ -449,22 +466,16 @@ jobs:
           cd ../..
 
           # H. SuperBuild 补丁
-          #    H1: 直通已预编译的 OpenSSL / nghttp2 / SQLite（用 E/F/G 产物替代 SuperBuild 自编译）
-          #    移除 H2：Windows 平台保留官方 cURL Schannel 后端
-          #    移除 H3 中的 CURL 版本锁替换（该变量在官方源码中不存在）
           python3 - <<'PYEOF'
           from pathlib import Path
           import re
 
-          # ---------- H1. cmake/superbuild/Dependencies.cmake ----------
           p = Path("cmake/superbuild/Dependencies.cmake")
           if not p.exists():
               raise SystemExit("ERROR: cmake/superbuild/Dependencies.cmake not found!")
 
           s = p.read_text(encoding="utf-8")
 
-          # 将 openssl / nghttp2 / sqlite 的 ExternalProject_Add 替换为空目标，
-          # 让 SuperBuild 不再自行下载编译，直接用 E/F/G 段安装到 dependencies/ 的产物。
           for proj in ["openssl_project", "nghttp2_project", "sqlite_project"]:
               pattern = rf'ExternalProject_Add\(\s*{proj}[\s\S]*?TEST_COMMAND\s+""\s*\)'
               s, count = re.subn(pattern, f'add_custom_target({proj})', s)
@@ -475,10 +486,8 @@ jobs:
                   )
               print(f"Patched: ExternalProject_Add({proj}) -> add_custom_target({proj})")
 
-          # H1 写回
           p.write_text(s, encoding="utf-8")
 
-          # 复核：三个目标必须都替换成功
           s2 = p.read_text(encoding="utf-8")
           for marker in ["add_custom_target(openssl_project)",
                          "add_custom_target(nghttp2_project)",
@@ -487,13 +496,9 @@ jobs:
                   raise SystemExit(f"ERROR: H1 self-check failed, missing: {marker}")
           print("H1 self-check passed")
 
-          # 明确提示 H2 已按设计保留官方 Schannel，不再切换 cURL TLS 后端
           if "-DCURL_USE_SCHANNEL=ON" in s2 and "-DCURL_USE_OPENSSL=OFF" in s2:
               print("H2 skipped by design: keeping official Windows Schannel cURL backend")
 
-          # ---------- H3. cmake/modules/Dependencies.cmake ----------
-          # 仅移除 OpenSSL 的严格版本锁；官方的 CURL 查找本来就不带版本变量，
-          # 不需要（也无法）做 replace。
           dep_mod = Path("cmake/modules/Dependencies.cmake")
           if dep_mod.exists():
               t = dep_mod.read_text(encoding="utf-8")
@@ -540,14 +545,12 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
-          # 通过 -DGPAC_ALLOW_UNSAFE_STRFUNC 绕过 GPAC 的 unsafe strfunc 禁用
           sed -i 's|^set(media_cflags "\${CMAKE_C_FLAGS}")|set(media_cflags "\${CMAKE_C_FLAGS} -DGPAC_ALLOW_UNSAFE_STRFUNC")|' \
             cmake/superbuild/Media.cmake
           grep -q 'GPAC_ALLOW_UNSAFE_STRFUNC' cmake/superbuild/Media.cmake \
             || { echo "ERROR: Media.cmake patch anchor not found"; exit 1; }
           echo "Patched Media.cmake: added -DGPAC_ALLOW_UNSAFE_STRFUNC"
           
-          # FFmpeg 开启体积优化
           python3 - <<'PYEOF'
           from pathlib import Path
 

@@ -136,7 +136,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: aria2-next/prebuilt-openssl
-          key: openssl-${{ runner.os }}-${{ env.OPENSSL_VERSION }}-x86_64-v3-minizerel-v1
+          key: openssl-${{ runner.os }}-${{ env.OPENSSL_VERSION }}-x86_64-v3-minizerel-v2
 
       # ---------- 4. 预编译依赖并打通 SuperBuild ----------
       - name: Pre-build OpenSSL & nghttp2 & SQLite, patch SuperBuild
@@ -423,6 +423,7 @@ jobs:
               no-legacy no-engine no-dynamic-engine \
               no-comp no-ssl3 no-ssl3-method no-weak-ssl-ciphers \
               no-cmp no-cms no-ts no-ct no-srp no-sctp no-srtp \
+              no-dtls no-quic no-dgram no-ocsp no-psk no-nextprotoneg \
               no-aria no-bf no-camellia no-cast no-idea no-md2 no-md4 no-rc2 no-rc4 no-rc5 \
               no-seed no-sm2 no-sm3 no-sm4 no-whirlpool no-rmd160 \
               -Os -pipe -g0

@@ -136,7 +136,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: aria2-next/prebuilt-openssl
-          key: openssl-${{ runner.os }}-${{ env.OPENSSL_VERSION }}-x86_64-v3-minizerel-v2
+          key: openssl-${{ runner.os }}-${{ env.OPENSSL_VERSION }}-x86_64-v3-minizerel-v1
 
       # ---------- 4. 预编译依赖并打通 SuperBuild ----------
       - name: Pre-build OpenSSL & nghttp2 & SQLite, patch SuperBuild
@@ -420,12 +420,16 @@ jobs:
               --cross-compile-prefix=x86_64-w64-mingw32- \
               CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib RC=x86_64-w64-mingw32-windres \
               no-shared no-module no-tests no-docs no-apps no-autoload-config \
-              enable-legacy no-engine no-dynamic-engine \
-              no-comp no-ssl3 no-ssl3-method no-weak-ssl-ciphers \
-              no-cmp no-cms no-ts no-ct no-srp no-sctp no-srtp \
-              no-dtls no-quic no-dgram no-ocsp no-psk no-nextprotoneg \
-              no-aria no-bf no-camellia no-cast no-idea no-md2 no-md4 no-rc2 no-rc4 no-rc5 \
-              no-seed no-sm2 no-sm3 no-sm4 no-whirlpool no-rmd160 \
+              enable-legacy \
+              no-comp no-dgram no-psk no-nextprotoneg \
+              no-cmp no-cms no-ts no-ct no-srp no-srtp \
+              no-ui-console no-ssl-trace no-http \
+              no-aria no-bf no-camellia no-cast no-idea no-md4 no-rc2 \
+              no-seed no-sm3 no-sm4 no-whirlpool no-rmd160 \
+              no-blake2 no-cmac no-siphash \
+              no-kbkdf no-krb5kdf no-pvkkdf no-scrypt no-sshkdf no-sskdf \
+              no-x942kdf no-x963kdf no-snmpkdf no-srtpkdf \
+              no-ocb no-multiblock no-rfc3779 no-pinshared \
               -Os -pipe -g0
 
             # 直接安装到独立的缓存目录，避免从 DEP_PREFIX 逆向提取

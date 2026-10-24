@@ -420,7 +420,7 @@ jobs:
               --cross-compile-prefix=x86_64-w64-mingw32- \
               CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib RC=x86_64-w64-mingw32-windres \
               no-shared no-module no-tests no-docs no-apps no-autoload-config \
-              enable-legacy \
+              no-legacy no-rc4 \
               no-comp no-psk no-nextprotoneg \
               no-cmp no-dgram no-cms no-ts no-ct no-srp no-srtp \
               no-ui-console no-ssl-trace no-http \

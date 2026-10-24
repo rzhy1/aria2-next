@@ -430,6 +430,7 @@ jobs:
               no-kbkdf no-krb5kdf no-pvkkdf no-scrypt no-sshkdf no-sskdf \
               no-x942kdf no-x963kdf no-snmpkdf no-srtpkdf \
               no-ocb no-multiblock no-rfc3779 no-pinshared \
+              no-dtls no-quic no-ml-dsa no-ml-kem no-slh-dsa \
               -Os -pipe -g0
             make -j$(nproc) && make DESTDIR="$OPENSSL_CACHE" install_sw
             cd ../..

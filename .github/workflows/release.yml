@@ -12,6 +12,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - ".github/workflows/**"
 
 permissions:
   contents: write
@@ -31,13 +33,29 @@ jobs:
       RUNTIME_PLATFORM: windows-x86_64
       ARIA2_BUILD_PROFILE: release
 
-      # 使用 MinSizeRel 优化体积
+      # 使用 MinSizeRel 统一优化体积（与 -Os 保持一致）
       CMAKE_BUILD_TYPE: MinSizeRel
 
       STRIP_BINARY: true
-      RELEASE_CFLAGS: "-march=x86-64-v3 -O2 -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error"
-      RELEASE_CXXFLAGS: "-march=x86-64-v3 -O2 -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
-      RELEASE_LDFLAGS: "-static -static-libgcc -Wl,--gc-sections -flto=thin -Wl,--as-needed -Wl,-s"
+      RELEASE_CFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error"
+      RELEASE_CXXFLAGS: "-march=x86-64-v3 -Os -pipe -ffunction-sections -fdata-sections -flto=thin -g0 -w -Wno-error -ftemplate-depth=1024"
+      RELEASE_LDFLAGS: "-static -Wl,--gc-sections -flto=thin"
+
+      # OpenSSL 裁剪及优化参数（同时参与缓存 Key 哈希计算）
+      OPENSSL_BUILD_OPTS: >-
+        no-shared no-module no-tests no-docs no-apps no-autoload-config
+        enable-legacy
+        no-comp no-psk no-nextprotoneg
+        no-cmp no-dgram no-cms no-ts no-ct no-srp no-srtp
+        no-ui-console no-ssl-trace no-http
+        no-aria no-bf no-camellia no-cast no-idea no-md4 no-rc2
+        no-seed no-sm3 no-sm4 no-whirlpool no-rmd160
+        no-blake2 no-cmac no-siphash
+        no-kbkdf no-krb5kdf no-pvkkdf no-scrypt no-sshkdf no-sskdf
+        no-x942kdf no-x963kdf no-snmpkdf no-srtpkdf
+        no-ocb no-multiblock no-rfc3779 no-pinshared
+        no-dtls no-quic no-ml-dsa no-ml-kem no-slh-dsa
+        -march=x86-64-v3 -Os -pipe -g0
 
       # 依赖版本号（统一在此修改）
       EXPAT_VERSION: "2.10.0"
@@ -49,12 +67,12 @@ jobs:
       LIBTORRENT_VERSION: "2.1.2"
 
     steps:
-      # ---------- 1. 上游更新检测 ----------
+      # ---------- 1. 上游更新检测（restore + save 分离，彻底避免双重缓存与 skip 误存） ----------
       - name: Restore upstream SHA cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         with:
           path: .cache
-          key: upstream-sha-${{ runner.os }}-${{ github.run_id }}
+          key: upstream-sha-${{ runner.os }}-latest
           restore-keys: |
             upstream-sha-${{ runner.os }}-
 
@@ -63,29 +81,26 @@ jobs:
         run: |
           mkdir -p .cache
           NEW_SHA=$(git ls-remote https://github.com/AnInsomniacy/aria2-next.git HEAD | cut -f1)
-          echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
+          echo "new_sha=$NEW_SHA" >> "$GITHUB_OUTPUT"
           if [ -f .cache/last_sha ]; then
             OLD_SHA=$(cat .cache/last_sha)
           else
             OLD_SHA=""
           fi
-          if [ "$FORCE_BUILD" = "1" ]; then
-            echo "skip=false" >> $GITHUB_OUTPUT
+
+          if [ "$NEW_SHA" != "$OLD_SHA" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "sha_changed=true" >> "$GITHUB_OUTPUT"
             echo "$NEW_SHA" > .cache/last_sha
-          elif [ "$NEW_SHA" = "$OLD_SHA" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
+          elif [ "$FORCE_BUILD" = "1" ] || [ "${{ github.event_name }}" = "push" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "sha_changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
-            echo "$NEW_SHA" > .cache/last_sha
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "sha_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # ---------- 2. 检出与安装 LLVM-MinGW 工具链 ----------
-      - name: Checkout own repository
-        if: steps.check.outputs.skip != 'true'
-        uses: actions/checkout@v7
-        with:
-          path: own-repo
-
+      # ---------- 2. 检出上游与安装 LLVM-MinGW 工具链 ----------
       - name: Clone upstream aria2-next (含 submodules)
         if: steps.check.outputs.skip != 'true'
         uses: actions/checkout@v7
@@ -98,15 +113,35 @@ jobs:
       - name: Install build tools & LLVM-MinGW
         if: steps.check.outputs.skip != 'true'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends make cmake ninja-build perl curl tar binutils jq dpkg-dev
+          declare -A pkg_map=(
+            [make]=make
+            [cmake]=cmake
+            [ninja]=ninja-build
+            [perl]=perl
+            [curl]=curl
+            [tar]=tar
+            [ld]=binutils
+            [jq]=jq
+            [dpkg-architecture]=dpkg-dev
+          )
+          missing_pkgs=()
+          for cmd in "${!pkg_map[@]}"; do
+            if ! command -v "$cmd" >/dev/null 2>&1; then
+              missing_pkgs+=("${pkg_map[$cmd]}")
+            fi
+          done
+          if [ "${#missing_pkgs[@]}" -gt 0 ]; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends "${missing_pkgs[@]}"
+          fi
 
           cd aria2-next
           . packaging/dependencies.env
           . packaging/scripts/common.sh
+          echo "LLVM_MINGW_VERSION=$LLVM_MINGW_VERSION" >> "$GITHUB_ENV"
           curl_fetch "$LLVM_MINGW_URL" "$LLVM_MINGW_ARCHIVE" "$LLVM_MINGW_SHA256"
           tar xf "$LLVM_MINGW_ARCHIVE"
-          echo "$PWD/llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64/bin" >> $GITHUB_PATH
+          echo "$PWD/llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64/bin" >> "$GITHUB_PATH"
           cd ..
 
       # ---------- 3. 配置工具链环境变量 ----------
@@ -122,6 +157,7 @@ jobs:
             echo "RANLIB=${prefix}-ranlib"
             echo "STRIP=${prefix}-strip"
             echo "OBJDUMP=${prefix}-objdump"
+            echo "OPENSSL_OPTS_HASH=$(printf '%s' "$OPENSSL_BUILD_OPTS" | sha256sum | cut -c1-8)"
           } >> "$GITHUB_ENV"
 
       - name: Verify runner tools
@@ -136,7 +172,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: aria2-next/prebuilt-openssl
-          key: openssl-${{ runner.os }}-${{ env.OPENSSL_VERSION }}-x86_64-v3-minizerel-v1
+          key: openssl-${{ runner.os }}-${{ env.OPENSSL_VERSION }}-llvm-${{ env.LLVM_MINGW_VERSION }}-${{ env.OPENSSL_OPTS_HASH }}
 
       # ---------- 4. 预编译依赖并打通 SuperBuild ----------
       - name: Pre-build OpenSSL & nghttp2 & SQLite, patch SuperBuild
@@ -148,150 +184,152 @@ jobs:
           from pathlib import Path
           import re
           import textwrap
-          
+
           p = Path("src/app/Console.cc")
           if not p.exists():
               raise SystemExit(f"ERROR: {p} not found")
           s = p.read_text(encoding="utf-8")
-          
-          header_block = textwrap.dedent(r'''
-          #if defined(_WIN32)
-          #  ifndef NOMINMAX
-          #    define NOMINMAX
-          #  endif
-          #  ifndef WIN32_LEAN_AND_MEAN
-          #    define WIN32_LEAN_AND_MEAN
-          #  endif
-          #  include <windows.h>
-          #  include <io.h>
-          #  ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
-          #    define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
-          #  endif
-          #else
-          #  include <unistd.h>
-          #endif
-          #include <cstdlib>
-          #include <cstdio>
-          #include <string>
-          ''').strip()
 
-          if '#include' in s:
+          if "terminalSupportsColor" in s:
+              print("Skipped: Console.cc already patched")
+          else:
+              header_block = textwrap.dedent(r'''
+              #if defined(_WIN32)
+              #  ifndef NOMINMAX
+              #    define NOMINMAX
+              #  endif
+              #  ifndef WIN32_LEAN_AND_MEAN
+              #    define WIN32_LEAN_AND_MEAN
+              #  endif
+              #  include <windows.h>
+              #  include <io.h>
+              #  ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+              #    define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+              #  endif
+              #else
+              #  include <unistd.h>
+              #endif
+              #include <cstdlib>
+              #include <cstdio>
+              #include <string>
+              ''').strip()
+
+              if '#include' not in s:
+                  raise SystemExit("ERROR: no #include found in Console.cc")
               first_include_pos = s.index('#include')
               s = s[:first_include_pos] + header_block + "\n\n" + s[first_include_pos:]
-          else:
-              raise SystemExit("ERROR: no #include found in Console.cc")
 
-          pattern = re.compile(
-              r'namespace \{\nstd::string describe\(const Task& task\)\n\{.*?\n\}\n\} // namespace',
-              re.DOTALL
-          )
-          
-          replacement = textwrap.dedent(r'''
-          namespace {
-          bool terminalSupportsColor()
-          {
-            static const bool supported = []() -> bool {
-          #if defined(_WIN32)
-              if (_isatty(_fileno(stdout)) == 0) {
-                return false;
-              }
-              if (std::getenv("NO_COLOR") != nullptr) {
-                return false;
-              }
-              HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-              if (hOut == INVALID_HANDLE_VALUE || hOut == nullptr) {
-                return false;
-              }
-              DWORD dwMode = 0;
-              if (!GetConsoleMode(hOut, &dwMode)) {
-                return false;
-              }
-              if (dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) {
-                return true;
-              }
-              dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-              if (!SetConsoleMode(hOut, dwMode)) {
-                return false;
-              }
-              return true;
-          #else
-              if (isatty(fileno(stdout)) == 0) {
-                return false;
-              }
-              if (std::getenv("NO_COLOR") != nullptr) {
-                return false;
-              }
-              const char* term = std::getenv("TERM");
-              if (term && std::string(term) == "dumb") {
-                return false;
-              }
-              return true;
-          #endif
-            }();
-            return supported;
-          }
+              pattern = re.compile(
+                  r'namespace \{\nstd::string describe\(const Task& task\)\n\{.*?\n\}\n\} // namespace',
+                  re.DOTALL
+              )
 
-          std::string colorize(const std::string& s, const char* c, bool useColor)
-          {
-            return useColor ? std::string(c) + s + "\x1b[0m" : s;
-          }
+              replacement = textwrap.dedent(r'''
+              namespace {
+              bool terminalSupportsColor()
+              {
+                static const bool supported = []() -> bool {
+              #if defined(_WIN32)
+                  if (_isatty(_fileno(stdout)) == 0) {
+                    return false;
+                  }
+                  if (std::getenv("NO_COLOR") != nullptr) {
+                    return false;
+                  }
+                  HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+                  if (hOut == INVALID_HANDLE_VALUE || hOut == nullptr) {
+                    return false;
+                  }
+                  DWORD dwMode = 0;
+                  if (!GetConsoleMode(hOut, &dwMode)) {
+                    return false;
+                  }
+                  if (dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) {
+                    return true;
+                  }
+                  dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                  if (!SetConsoleMode(hOut, dwMode)) {
+                    return false;
+                  }
+                  return true;
+              #else
+                  if (isatty(fileno(stdout)) == 0) {
+                    return false;
+                  }
+                  if (std::getenv("NO_COLOR") != nullptr) {
+                    return false;
+                  }
+                  const char* term = std::getenv("TERM");
+                  if (term && std::string(term) == "dumb") {
+                    return false;
+                  }
+                  return true;
+              #endif
+                }();
+                return supported;
+              }
 
-          std::size_t visibleWidth(const std::string& s)
-          {
-            std::size_t w = 0;
-            for (std::size_t i = 0; i < s.size(); ++i) {
-              if (s[i] == '\x1b' && i + 1 < s.size() && s[i + 1] == '[') {
-                i += 2;
-                while (i < s.size() && s[i] != 'm') {
-                  ++i;
+              std::string colorize(const std::string& s, const char* c, bool useColor)
+              {
+                return useColor ? std::string(c) + s + "\x1b[0m" : s;
+              }
+
+              std::size_t visibleWidth(const std::string& s)
+              {
+                std::size_t w = 0;
+                for (std::size_t i = 0; i < s.size(); ++i) {
+                  if (s[i] == '\x1b' && i + 1 < s.size() && s[i + 1] == '[') {
+                    i += 2;
+                    while (i < s.size() && s[i] != 'm') {
+                      ++i;
+                    }
+                  } else {
+                    ++w;
+                  }
                 }
-              } else {
-                ++w;
+                return w;
               }
-            }
-            return w;
-          }
-          
-          std::string describe(const Task& task)
-          {
-            const bool useColor = terminalSupportsColor();
-            const auto total = task.totalLength();
-            const auto done = task.completedLength();
-            const auto speed = task.downloadSpeed();
-          
-            std::string line = "#" + gidText(task.gid()).substr(0, 6) + " " +
-                               text::formatSize(done) + "/" + text::formatSize(total);
-            if (total > 0) {
-              line += colorize("(" + std::to_string(done * 100 / total) + "%)",
-                               "\x1b[93m", useColor);
-            }
-            line += " CN:" + colorize(std::to_string(task.connections()),
-                                      "\x1b[92m", useColor);
-            line += " DL:" + colorize(text::formatSize(speed),
-                                      "\x1b[94m", useColor);
-            if (speed > 0 && total > done) {
-              line += " ETA:" + colorize(text::formatDuration((total - done) / speed),
-                                         "\x1b[38;5;203m", useColor);
-            }
-            return line;
-          }
-          } // namespace''').strip()
-          
-          s2, n = pattern.subn(lambda m: replacement, s)
-          if n != 1:
-              raise SystemExit(f"ERROR: describe() matched {n} times (expected 1)")
-          s = s2
-          
-          old_width = "  const auto width = line.size();"
-          new_width = "  const auto width = visibleWidth(line);"
-          if old_width not in s:
-              raise SystemExit("ERROR: readout() width anchor not found")
-          s = s.replace(old_width, new_width, 1)
-          
-          p.write_text(s, encoding="utf-8")
-          print("Patched Console.cc: colored readout + VT mode support (final)")
+
+              std::string describe(const Task& task)
+              {
+                const bool useColor = terminalSupportsColor();
+                const auto total = task.totalLength();
+                const auto done = task.completedLength();
+                const auto speed = task.downloadSpeed();
+
+                std::string line = "#" + gidText(task.gid()).substr(0, 6) + " " +
+                                   text::formatSize(done) + "/" + text::formatSize(total);
+                if (total > 0) {
+                  line += colorize("(" + std::to_string(done * 100 / total) + "%)",
+                                   "\x1b[93m", useColor);
+                }
+                line += " CN:" + colorize(std::to_string(task.connections()),
+                                          "\x1b[92m", useColor);
+                line += " DL:" + colorize(text::formatSize(speed),
+                                          "\x1b[94m", useColor);
+                if (speed > 0 && total > done) {
+                  line += " ETA:" + colorize(text::formatDuration((total - done) / speed),
+                                             "\x1b[38;5;203m", useColor);
+                }
+                return line;
+              }
+              } // namespace''').strip()
+
+              s2, n = pattern.subn(lambda m: replacement, s)
+              if n != 1:
+                  raise SystemExit(f"ERROR: describe() matched {n} times (expected 1)")
+              s = s2
+
+              old_width = "  const auto width = line.size();"
+              new_width = "  const auto width = visibleWidth(line);"
+              if old_width not in s:
+                  raise SystemExit("ERROR: readout() width anchor not found")
+              s = s.replace(old_width, new_width, 1)
+
+              p.write_text(s, encoding="utf-8")
+              print("Patched Console.cc: colored readout + VT mode support (final)")
           PYEOF
-          
+
           # B. 删除 libtorrent 1.x 遗留的 prefer_encrypted_connections 调用
           python3 - <<'PYEOF'
           from pathlib import Path
@@ -310,9 +348,9 @@ jobs:
               print(f"Patched: removed {len(lines) - len(kept)} line(s)")
           PYEOF
 
-          # C. 自动下载并覆盖升级核心依赖（必须保留，确保源码与 dependencies.env 同步更新）
+          # C. 并行下载并覆盖升级核心依赖（curl 重试 + 原生 tar 精确解压）
           python3 - <<'PYEOF'
-          import urllib.request, os, tarfile, shutil, re, tempfile
+          import os, re, shutil, subprocess, tarfile, tempfile
           from concurrent.futures import ThreadPoolExecutor, as_completed
           from pathlib import Path
 
@@ -330,37 +368,47 @@ jobs:
           BOOST_URL      = f"https://archives.boost.io/release/{BOOST_VERSION}/source/boost_{BOOST_VERSION.replace('.', '_')}.tar.gz"
           LIBTORRENT_URL = f"https://github.com/arvidn/libtorrent/releases/download/v{LIBTORRENT_VERSION}/libtorrent-rasterbar-{LIBTORRENT_VERSION}.tar.gz"
 
-          HAS_DATA_FILTER = hasattr(tarfile, 'data_filter')
-
           def download_and_extract(url, target_dir, sub_path=None):
               print(f"[START] Upgrading {target_dir} from {url} ...")
               with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp_file:
                   archive_path = tmp_file.name
 
               try:
-                  req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (CI-Build)"})
-                  with urllib.request.urlopen(req, timeout=60) as resp, open(archive_path, 'wb') as f:
-                      shutil.copyfileobj(resp, f, length=64 * 1024)
+                  subprocess.run(
+                      ["curl", "-fSL", "--retry", "3", "--retry-delay", "2", "-A", "Mozilla/5.0 (CI-Build)", "-o", archive_path, url],
+                      check=True
+                  )
 
                   shutil.rmtree(target_dir, ignore_errors=True)
                   os.makedirs(target_dir, exist_ok=True)
 
-                  with tarfile.open(archive_path, mode="r:*") as tar:
-                      for member in tar.getmembers():
-                          p = Path(member.name)
-                          if len(p.parts) > 1:
-                              if sub_path and sub_path not in p.parts:
-                                  continue
-                              member.name = str(Path(*p.parts[1:]))
-                              if HAS_DATA_FILTER:
-                                  tar.extract(member, path=target_dir, filter='data')
-                              else:
-                                  tar.extract(member, path=target_dir)
+                  cmd = ["tar", "-xzf", archive_path, "-C", target_dir, "--strip-components=1"]
+                  if sub_path:
+                      # 读取首个有效归档条目定位顶层目录（跳过 pax_global_header），避免深层路径误匹配
+                      with tarfile.open(archive_path, "r:gz") as tf:
+                          first = None
+                          while True:
+                              m = tf.next()
+                              if m is None:
+                                  break
+                              if m.type not in (tarfile.XGLTYPE, tarfile.XHDTYPE) and m.name != "pax_global_header":
+                                  first = m
+                                  break
+                          if first is None:
+                              raise RuntimeError(f"Empty archive: {url}")
+                          parts = [pt for pt in Path(first.name).parts if pt != "."]
+                          if not parts:
+                              raise RuntimeError(f"Invalid archive structure: {url}")
+                          prefix = "./" if first.name.startswith("./") else ""
+                          if prefix:
+                              cmd = ["tar", "-xzf", archive_path, "-C", target_dir, "--strip-components=2"]
+                          cmd.append(f"{prefix}{parts[0]}/{sub_path}")
 
+                  subprocess.run(cmd, check=True)
                   print(f"[SUCCESS] Upgraded {target_dir}")
               except Exception as e:
                   print(f"[FAILED] Error upgrading {target_dir}: {e}")
-                  raise e
+                  raise
               finally:
                   if os.path.exists(archive_path):
                       os.remove(archive_path)
@@ -401,7 +449,7 @@ jobs:
           DEP_PREFIX="$PWD/build/release/dependencies"
           OPENSSL_CACHE="$PWD/prebuilt-openssl"
 
-          # E. 预编译静态 OpenSSL（纯净对称安装 + 深度裁剪）
+          # E. 预编译静态 OpenSSL（纯净对称安装 + 深度裁剪 + x86-64-v3 优化）
           if [ "${{ steps.openssl-cache.outputs.cache-hit }}" = "true" ] && [ -d "$OPENSSL_CACHE/lib" ]; then
             echo "=========================================================="
             echo "[CACHE HIT] Restoring OpenSSL from cache (0 seconds)!"
@@ -419,24 +467,13 @@ jobs:
               --libdir=lib \
               --cross-compile-prefix=x86_64-w64-mingw32- \
               CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib RC=x86_64-w64-mingw32-windres \
-              no-shared no-module no-tests no-docs no-apps no-autoload-config \
-              enable-legacy \
-              no-comp no-psk no-nextprotoneg \
-              no-cmp no-dgram no-cms no-ts no-ct no-srp no-srtp \
-              no-ui-console no-ssl-trace no-http \
-              no-aria no-bf no-camellia no-cast no-idea no-md4 no-rc2 \
-              no-seed no-sm3 no-sm4 no-whirlpool no-rmd160 \
-              no-blake2 no-cmac no-siphash \
-              no-kbkdf no-krb5kdf no-pvkkdf no-scrypt no-sshkdf no-sskdf \
-              no-x942kdf no-x963kdf no-snmpkdf no-srtpkdf \
-              no-ocb no-multiblock no-rfc3779 no-pinshared \
-              no-dtls no-quic no-ml-dsa no-ml-kem no-slh-dsa \
-              -Os -pipe -g0
+              $OPENSSL_BUILD_OPTS
             make -j$(nproc) && make DESTDIR="$OPENSSL_CACHE" install_sw
+            rm -rf "$OPENSSL_CACHE/share" "$OPENSSL_CACHE/lib/engines-"* "$OPENSSL_CACHE/lib/ossl-modules"
             cd ../..
           fi
-          cp -r "$OPENSSL_CACHE/include/"* "$DEP_PREFIX/include/"
-          cp -r "$OPENSSL_CACHE/lib/"* "$DEP_PREFIX/lib/"
+          cp -a "$OPENSSL_CACHE/include/"* "$DEP_PREFIX/include/"
+          cp -a "$OPENSSL_CACHE/lib/"* "$DEP_PREFIX/lib/"
 
           # F. CMake 编译静态 nghttp2
           cd third_party/nghttp2
@@ -452,7 +489,7 @@ jobs:
             -DBUILD_TESTING=OFF \
             -DENABLE_FAILMALLOC=OFF \
             -DENABLE_DOC=OFF \
-            -DCMAKE_C_FLAGS="$RELEASE_CFLAGS -w -g0 -DNDEBUG -ffile-prefix-map=$PWD=third_party/nghttp2"
+            -DCMAKE_C_FLAGS="$RELEASE_CFLAGS -DNDEBUG -ffile-prefix-map=$PWD=third_party/nghttp2"
           cmake --build build-nghttp2 --parallel $(nproc)
           cmake --install build-nghttp2
           cp -f "$DEP_PREFIX/lib/libnghttp2_static.a" "$DEP_PREFIX/lib/libnghttp2.a" 2>/dev/null || true
@@ -460,17 +497,61 @@ jobs:
 
           # G. 编译 SQLite
           cd third_party/sqlite
-          $CC $RELEASE_CFLAGS -g0 -DNDEBUG -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
+          $CC $RELEASE_CFLAGS -DNDEBUG -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -c sqlite3.c -o sqlite3.o
           $AR rcs "$DEP_PREFIX/lib/libsqlite3.a" sqlite3.o
           $RANLIB "$DEP_PREFIX/lib/libsqlite3.a"
           cp sqlite3.h sqlite3ext.h "$DEP_PREFIX/include/"
           rm -f sqlite3.o
           cd ../..
 
-          # H. SuperBuild 补丁
+          # H. SuperBuild 补丁（括号深度匹配 + 跳过 CMake 注释与引号）
           python3 - <<'PYEOF'
           from pathlib import Path
           import re
+
+          def replace_external_project(content: str, proj: str) -> str:
+              m = re.search(rf'(?m)^[ \t]*ExternalProject_Add\(\s*{re.escape(proj)}\b', content)
+              if not m:
+                  raise SystemExit(
+                      f"ERROR: H1 anchor not found for {proj}; "
+                      "cmake/superbuild/Dependencies.cmake may have been restructured upstream."
+                  )
+              start = content.find("ExternalProject_Add(", m.start())
+              idx = content.find("(", start)
+              depth = 0
+              in_quote = False
+              in_comment = False
+              escape = False
+              end = -1
+              for i in range(idx, len(content)):
+                  ch = content[i]
+                  if in_comment:
+                      if ch == "\n":
+                          in_comment = False
+                      continue
+                  if escape:
+                      escape = False
+                      continue
+                  if ch == "\\" and in_quote:
+                      escape = True
+                      continue
+                  if ch == '"':
+                      in_quote = not in_quote
+                      continue
+                  if not in_quote:
+                      if ch == "#":
+                          in_comment = True
+                          continue
+                      if ch == "(":
+                          depth += 1
+                      elif ch == ")":
+                          depth -= 1
+                          if depth == 0:
+                              end = i + 1
+                              break
+              if end == -1:
+                  raise SystemExit(f"ERROR: Unbalanced parentheses for {proj}")
+              return content[:start] + f"add_custom_target({proj})" + content[end:]
 
           p = Path("cmake/superbuild/Dependencies.cmake")
           if not p.exists():
@@ -479,13 +560,7 @@ jobs:
           s = p.read_text(encoding="utf-8")
 
           for proj in ["openssl_project", "nghttp2_project", "sqlite_project"]:
-              pattern = rf'ExternalProject_Add\(\s*{proj}[\s\S]*?TEST_COMMAND\s+""\s*\)'
-              s, count = re.subn(pattern, f'add_custom_target({proj})', s)
-              if count == 0:
-                  raise SystemExit(
-                      f"ERROR: H1 anchor not found for {proj}; "
-                      "cmake/superbuild/Dependencies.cmake may have been restructured upstream."
-                  )
+              s = replace_external_project(s, proj)
               print(f"Patched: ExternalProject_Add({proj}) -> add_custom_target({proj})")
 
           p.write_text(s, encoding="utf-8")
@@ -531,18 +606,18 @@ jobs:
 
           p = Path("src/FeatureConfig.cc")
           if p.exists():
-              s = p.read_text()
+              s = p.read_text(encoding="utf-8")
               s = re.sub(r'expat/[0-9.]+',                f'expat/{EXPAT_VERSION}',             s)
               s = re.sub(r'sqlite3/[0-9.]+',              f'sqlite3/{SQLITE_VERSION}',          s)
               s = re.sub(r'OpenSSL/[0-9.]+',              f'OpenSSL/{OPENSSL_VERSION}',         s)
               s = re.sub(r'Boost/[0-9.]+',                f'Boost/{BOOST_VERSION}',             s)
               s = re.sub(r'libtorrent/[0-9.]+',           f'libtorrent/{LIBTORRENT_VERSION}',   s)
               s = re.sub(r'LibtorrentRasterbar/[0-9.]+',  f'libtorrent/{LIBTORRENT_VERSION}',   s)
-              p.write_text(s)
+              p.write_text(s, encoding="utf-8")
               print(f"FeatureConfig.cc updated: expat/{EXPAT_VERSION}, sqlite3/{SQLITE_VERSION}, OpenSSL/{OPENSSL_VERSION}, Boost/{BOOST_VERSION}, libtorrent/{LIBTORRENT_VERSION}")
           PYEOF
-          
-      # ---------- 5. Media.cmake修复 + FFmpeg 体积优化 ----------
+
+      # ---------- 5. Media.cmake 修复 + FFmpeg 体积优化 ----------
       - name: Patch Media.cmake and optimize FFmpeg
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
@@ -552,7 +627,7 @@ jobs:
           grep -q 'GPAC_ALLOW_UNSAFE_STRFUNC' cmake/superbuild/Media.cmake \
             || { echo "ERROR: Media.cmake patch anchor not found"; exit 1; }
           echo "Patched Media.cmake: added -DGPAC_ALLOW_UNSAFE_STRFUNC"
-          
+
           python3 - <<'PYEOF'
           from pathlib import Path
 
@@ -560,13 +635,13 @@ jobs:
           if not p.exists():
               raise SystemExit('Media.cmake not found')
 
-          s = p.read_text()
+          s = p.read_text(encoding='utf-8')
           if '--enable-small' not in s:
               old = '--enable-pic --enable-static'
               new = '--enable-pic --enable-static\n    --enable-small'
               if old in s:
                   s = s.replace(old, new, 1)
-                  p.write_text(s)
+                  p.write_text(s, encoding='utf-8')
                   print('Added FFmpeg --enable-small')
               else:
                   raise SystemExit('FFmpeg configure anchor not found')
@@ -580,10 +655,11 @@ jobs:
         working-directory: aria2-next
         shell: bash
         run: |
+          set -eo pipefail
           bash packaging/scripts/build-release windows 2>&1 | tee build.log
 
-      # ---------- 7. 校验 ----------
-      - name: Verify actual dependency versions (source + installed)
+      # ---------- 7. 校验依赖版本与静态链接完整性 ----------
+      - name: Verify dependency versions & static linkage
         if: steps.check.outputs.skip != 'true'
         working-directory: aria2-next
         run: |
@@ -612,13 +688,20 @@ jobs:
           ver Expat "$INC/expat.h" \
             "sed -nE 's/^#[[:space:]]*define[[:space:]]+XML_(MAJOR|MINOR|MICRO)_VERSION[[:space:]]+([0-9]+).*/\\2/p' \"$INC/expat.h\" | paste -sd. -"
           ver SQLite "$INC/sqlite3.h" \
-            "grep -m1 -oP '#define\s+SQLITE_VERSION\s+\"\K[0-9.]+' \"$INC/sqlite3.h\""         
+            "grep -m1 -oP '#define\s+SQLITE_VERSION\s+\"\K[0-9.]+' \"$INC/sqlite3.h\""
           ver OpenSSL "$INC/openssl/opensslv.h" \
             "grep -m1 -oP 'OPENSSL_VERSION_TEXT\s+\"[^0-9]*\K[0-9][0-9.a-z]*' \"$INC/openssl/opensslv.h\""
           ver libtorrent "$INC/libtorrent/version.hpp" \
             "grep -m1 -oP '#define\s+LIBTORRENT_VERSION\s+\"\K[0-9.]+' \"$INC/libtorrent/version.hpp\""
 
           echo
+          echo "===== [3] Binary DLL imports ====="
+          DLL_IMPORTS=$("$OBJDUMP" -p build/release/aria2-next.exe | grep "DLL Name" || true)
+          echo "$DLL_IMPORTS"
+          if echo "$DLL_IMPORTS" | grep -iqE 'libwinpthread|libc\+\+|libstdc\+\+|libgcc_s|libssl|libcrypto|libnghttp2|libexpat|libsqlite|libtorrent|libcurl|zlib|avcodec|avformat|avutil|swscale|swresample'; then
+            echo "ERROR: Unexpected non-system DLL dependency detected!"
+            exit 1
+          fi
 
       - name: Upload build log
         if: failure()
@@ -631,17 +714,16 @@ jobs:
       - name: Package binary
         if: steps.check.outputs.skip != 'true'
         run: |
-          mkdir -p own-repo/release
-          BIN="aria2-next/build/release/aria2-next.exe"
-          x86_64-w64-mingw32-strip -s "$BIN"
-          cp aria2-next/build/release/aria2-next.exe own-repo/release/aria2-next.exe
+          mkdir -p release
+          cp aria2-next/build/release/aria2-next.exe release/aria2-next.exe
+          "$STRIP" --strip-all --remove-section=.comment --remove-section=.note release/aria2-next.exe
 
       - name: Upload artifact
         if: steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: aria2-next-windows-x64
-          path: own-repo/release/aria2-next.exe
+          path: release/aria2-next.exe
 
       - name: Create Release
         if: success() && steps.check.outputs.skip != 'true'
@@ -649,12 +731,12 @@ jobs:
         with:
           tag: aria2-next
           allowUpdates: true
-          artifacts: own-repo/release/aria2-next.exe
+          artifacts: release/aria2-next.exe
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Save upstream SHA cache
-        if: success() && steps.check.outputs.skip == 'false'
-        uses: actions/cache@v6
+        if: success() && steps.check.outputs.sha_changed == 'true'
+        uses: actions/cache/save@v6
         with:
           path: .cache
           key: upstream-sha-${{ runner.os }}-${{ steps.check.outputs.new_sha }}
